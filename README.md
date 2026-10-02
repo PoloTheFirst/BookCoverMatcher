@@ -15,6 +15,7 @@ No accounts. No server. No internet required after the first load.
 - [Project layout](#project-layout)
 - [Requirements](#requirements)
 - [Android integration](#android-integration)
+- [Manifest](#manifest)
 - [How to use](#how-to-use)
 - [Configuration](#configuration)
 - [Reading a match](#reading-a-match)
