@@ -18,15 +18,9 @@ No accounts. No server. No internet required after the first load.
 - [How to use](#how-to-use)
 - [Configuration](#configuration)
 - [Reading a match](#reading-a-match)
-- [How pHash works](#how-phash-works)
-- [How the workbook is read](#how-the-workbook-is-read)
-- [Wishlist](#wishlist)
 - [Limitations](#limitations)
 - [Troubleshooting](#troubleshooting)
 - [Security and privacy](#security-and-privacy)
-- [Building from source](#building-from-source)
-- [Release notes](#release-notes)
-- [License](#license)
 
 ---
 
@@ -112,6 +106,7 @@ Flow:
 4. Save to the wishlist if desired.
 
 ---
+## Project layout
 - `app/src/main/assets/`
   - `index.html`
   - `css/`
@@ -188,9 +183,9 @@ Request the CAMERA permission at runtime before the first scan.
 3. Tap 📸 Scan Book Cover again to capture. The scan preview and its 64-bit pHash appear in the sheet panel.
 4. Under 1 · Spreadsheet & range:
 
-        Pick an .xlsx or .xlsm file.
+   - Pick an .xlsx or .xlsm file.
 
-        Type a range such as A1:B20.
+   - Type a range such as A1:B20.
 5. Tap 🔗 Link & Find Top 5.
 6. The top 5 matching cells appear with thumbnails, distances, and percentages.
 7. Tap ⭐ Add to Wishlist to save the scan and its matches.
@@ -198,6 +193,7 @@ Request the CAMERA permission at runtime before the first scan.
 
 Alternatively, import an image from your device to load a cover
 from the gallery instead of the camera.
+
 ## Configuration
 | Constant | Default | Purpose |
 | :--- | :--- | :--- |
@@ -232,8 +228,8 @@ from the gallery instead of the camera.
 - Image formats supported are those the WebView can decode via <img> (PNG, JPEG, GIF, BMP, WebP in most builds).
 - The wishlist is stored in the WebView's localStorage. Clearing app data clears the wishlist.
 - No cloud sync, no accounts, no external uploads.
+  
 ## Troubleshooting
-
 | Symptom | Likely cause |
 | :--- | :--- |
 | Camera does not start | `CAMERA` permission missing, or another app is using the camera. |
