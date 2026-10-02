@@ -1,0 +1,17 @@
+BookCoverMatcher
+Copyright (C) 2026 PoloTheFirst
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+License for more details.
+
+The complete licence text is in `LICENSE`. The licence applies to the code written for this project; the
+SPDX identifier used in the sources is `GPL-3.0-or-later`.
+
+Third-party components and assets keep their own terms and are listed in `THIRD_PARTY_NOTICES.md`. In
+particular, the bundled PaddleOCR model files are Apache-2.0, ONNX Runtime is MIT, and the OpenCLIP
+weights that ship inside the APK are **not** covered by this notice (their terms are unresolved).
