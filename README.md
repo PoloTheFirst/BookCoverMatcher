@@ -222,6 +222,7 @@ from the gallery instead of the camera.
     - **Mid (accent)** — N ≤ 12. Same cover, different capture.
     - **Low (warn)** — Otherwise. Treat as a weak suggestion.
 - **Source** — floating for anchored images, comment-fill for images stored inside cell comments.
+  
 ## Limitations
 - Only the first worksheet is scanned for floating images.
 - Comment-fill images are read from every vmlDrawing*.vml part in the workbook, but cells are labelled by their A1 address only — there is no sheet qualifier, and duplicate addresses across sheets are silently collapsed.
