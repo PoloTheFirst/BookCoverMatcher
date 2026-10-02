@@ -176,6 +176,7 @@ webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-feature android:name="android.hardware.camera" android:required="false" />
+<uses-permission android:name="android.permission.INTERNET" />
 ```
 Request the CAMERA permission at runtime before the first scan.
 ## How to use
