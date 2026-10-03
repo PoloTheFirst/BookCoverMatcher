@@ -9,6 +9,7 @@ import { makeThumb, fileToCanvas } from './image.js';
 import { parseRange, extractAllImages } from './excel.js';
 import { rankMatches } from './matcher.js';
 import { updateScanPreview, renderResults } from './ui.js';
+import { performOnlineSearch, renderOnlineResults } from './online.js';
 import { initWishlist } from './wishlist.js';
 import {
   initAutoScan, setAutoScanEnabled, isAutoScanEnabled
@@ -27,33 +28,48 @@ import {
 
 /* ---------- capture handlers ---------- */
 
-function applyCapture(canvas, hash, origin) {
-  state.scanHash = hash;
-  state.scanThumbUrl = makeThumb(canvas, THUMB_SCAN_W, THUMB_SCAN_H);
-  state.lastRanked = [];
-  renderResults([]);
-  updateScanPreview();
-  if (origin === 'auto') {
-    // Badge is already managed by auto-scan
-  } else {
-    toast('Cover captured — pHash computed.', 'ok');
+  function applyCapture(canvas, hash, origin) {
+    state.scanHash = hash;
+    state.scanThumbUrl = makeThumb(canvas, THUMB_SCAN_W, THUMB_SCAN_H);
+    state.lastRanked = [];
+    renderResults([]);
+    updateScanPreview();
+    if (origin === 'auto') {
+      // Badge is already managed by auto-scan
+    } else {
+      toast('Cover captured — pHash computed.', 'ok');
+    }
   }
-}
 
-btnScan.addEventListener('click', async () => {
-  if (state.busy) return;
-  if (!state.stream) {
-    if (await startCamera()) toast('Camera ready — tap Scan again to capture.', 'ok');
-    return;
+  /**
+   * Handles a new capture (manual, auto, or from file) and then performs the online search.
+   */
+  async function handleCapture(canvas, hash, origin) {
+    applyCapture(canvas, hash, origin);
+    try {
+      // Use the generated thumbnail URL as image data for the stubbed online search.
+      const results = await performOnlineSearch(state.scanThumbUrl);
+      renderOnlineResults(results);
+    } catch (e) {
+      console.error('Online search failed:', e);
+    }
   }
-  try {
-    const canvas = grabVideoFrame();
-    const hash = computePHashFromCanvas(canvas);
-    applyCapture(canvas, hash, 'manual');
-  } catch (err) {
-    toast(err.message || 'Could not capture the frame.', 'err');
-  }
-});
+
+  btnScan.addEventListener('click', async () => {
+    if (state.busy) return;
+    if (!state.stream) {
+      if (await startCamera()) toast('Camera ready — tap Scan again to capture.', 'ok');
+      return;
+    }
+    try {
+      const canvas = grabVideoFrame();
+      const hash = computePHashFromCanvas(canvas);
+      // Use handleCapture to also trigger online search
+      await handleCapture(canvas, hash, 'manual');
+    } catch (err) {
+      toast(err.message || 'Could not capture the frame.', 'err');
+    }
+  });
 
 btnRestart.addEventListener('click', () => { startCamera(); });
 
@@ -63,7 +79,8 @@ fileImage.addEventListener('change', async () => {
   try {
     const canvas = await fileToCanvas(f);
     const hash = computePHashFromCanvas(canvas);
-    applyCapture(canvas, hash, 'manual');
+    // Use handleCapture to also trigger online search
+    await handleCapture(canvas, hash, 'manual');
   } catch (err) {
     toast('Could not read image: ' + (err.message || err), 'err');
   }
@@ -163,8 +180,9 @@ btnMatch.addEventListener('click', async () => {
   initWishlist();
 
   // Wire auto-scan with a capture callback
-  initAutoScan((canvas, hash) => {
-    applyCapture(canvas, hash, 'auto');
+  initAutoScan(async (canvas, hash) => {
+    // Use handleCapture to also trigger online search for auto captures
+    await handleCapture(canvas, hash, 'auto');
   });
   syncAutoToggleUI();
 })();
