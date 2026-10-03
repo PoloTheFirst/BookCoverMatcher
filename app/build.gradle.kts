@@ -2,6 +2,8 @@
 
 plugins {
     alias(libs.plugins.android.application)
+    // Compose compiler plugin for Kotlin 2.0+
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -9,6 +11,9 @@ android {
     compileSdk {
         version = release(37)
     }
+
+    // Enable Jetpack Compose
+    buildFeatures { compose = true }
 
     defaultConfig {
         applicationId = "com.polo.bookcovermatcher"
@@ -42,5 +47,16 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
-    implementation("androidx.webkit:webkit:1.17.1")   // or the newest version Studio suggests
+    implementation("androidx.webkit:webkit:1.17.1")   // WebView fallback (kept for reference)
+
+    // Compose BOM – pulls matching versions of compose libraries
+    implementation(platform(libs.compose.bom))
+    implementation(libs.androidx.activity.ktx) // already present, but keep ordering
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.navigation.compose)
 }
