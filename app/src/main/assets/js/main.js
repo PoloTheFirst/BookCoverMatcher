@@ -9,7 +9,6 @@ import { makeThumb, fileToCanvas } from './image.js';
 import { parseRange, extractAllImages } from './excel.js';
 import { rankMatches } from './matcher.js';
 import { updateScanPreview, renderResults } from './ui.js';
-import { performOnlineSearch, renderOnlineResults } from './online.js';
 import { initWishlist } from './wishlist.js';
 import {
   initAutoScan, setAutoScanEnabled, isAutoScanEnabled
@@ -45,14 +44,9 @@ import {
    * Handles a new capture (manual, auto, or from file) and then performs the online search.
    */
   async function handleCapture(canvas, hash, origin) {
+    // Capture handling without online search (Phase -1 removal)
     applyCapture(canvas, hash, origin);
-    try {
-      // Use the generated thumbnail URL as image data for the stubbed online search.
-      const results = await performOnlineSearch(state.scanThumbUrl);
-      renderOnlineResults(results);
-    } catch (e) {
-      console.error('Online search failed:', e);
-    }
+    // No further online processing.
   }
 
   btnScan.addEventListener('click', async () => {
