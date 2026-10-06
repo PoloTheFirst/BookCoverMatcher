@@ -1,15 +1,20 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+# Gradle / Android Studio
+.gradle/
+build/
 local.properties
+.idea/
+*.iml
+captures/
+.cxx/
+
+# The OpenCLIP model is large: generate it with tools/export_openclip_onnx.py
+*.onnx
+*.onnx.json
+*.onnx.sha256
+
+# Python tooling
+__pycache__/
+*.pyc
+.venv/
+sample_catalog.xlsx
+sample_covers/

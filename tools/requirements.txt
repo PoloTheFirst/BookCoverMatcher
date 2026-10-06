@@ -1,0 +1,11 @@
+# Desktop tooling only - the Android app itself needs none of this.
+# Tested with: torch 2.14, open_clip_torch 3.3, onnx 1.23, onnxruntime 1.29, faiss-cpu 1.15
+torch
+open_clip_torch
+onnx
+onnxscript        # only used if your torch version has dropped the legacy ONNX exporter
+onnxruntime
+numpy
+pillow
+opencv-python-headless
+faiss-cpu
