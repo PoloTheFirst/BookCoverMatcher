@@ -1,60 +1,71 @@
 plugins {
     alias(libs.plugins.android.application)
-    // Compose compiler plugin for Kotlin 2.0+
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "com.polo.bookcovermatcher"
-    compileSdk {
-        version = release(37)
-    }
-
-    // Enable Jetpack Compose
-    buildFeatures { compose = true }
+    namespace = "com.bookcovermatcher"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.polo.bookcovermatcher"
-        minSdk = 24
-        targetSdk = 37
-        versionCode = 2
-        versionName = "1.1.0-dev.1"
+        applicationId = "com.bookcovermatcher"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 200
+        versionName = "2.0.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // ONNX Runtime ships four ABIs (~15 MB each). Real phones are arm64-v8a;
+        // x86_64 keeps the emulator working. Add "armeabi-v7a" for old 32-bit phones.
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            // Shrinking is left off on purpose: ONNX Runtime uses JNI and the app is dominated by the model.
+            isMinifyEnabled = false
+            // So `assembleRelease` gives an installable APK out of the box. Replace with your own keystore to publish.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+    kotlinOptions { jvmTarget = "17" }
+
+    buildFeatures { compose = true }
+
+    // The model is a big, already-compact binary: store it uncompressed so it can be read straight from the APK.
+    androidResources { noCompress += "onnx" }
+
+    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+
+    lint { abortOnError = false }
 }
 
 dependencies {
-    implementation(libs.androidx.activity.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.material)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.junit)
-    implementation("androidx.webkit:webkit:1.17.1")   // WebView fallback (kept for reference)
+    val composeBom = platform(libs.androidx.compose.bom)
+    implementation(composeBom)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.core)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // Compose BOM – pulls matching versions of compose libraries
-    implementation(platform(libs.compose.bom))
-    implementation(libs.androidx.activity.ktx) // already present, but keep ordering
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.onnxruntime.android)
+
+    testImplementation(libs.junit)
 }
