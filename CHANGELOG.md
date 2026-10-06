@@ -9,7 +9,7 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
 
 ### Added
 
-- **Native Android app** — Kotlin 2.0, Jetpack Compose (Material 3), CameraX, ONNX Runtime Mobile.
+- **Native Android app** — Kotlin, Jetpack Compose (Material 3), CameraX, ONNX Runtime Mobile.
   Replaces the WebView/HTML app. `minSdk 26`, portrait, ABIs `arm64-v8a` + `x86_64`.
 - **OpenCLIP image matching.** Each cover (scan and workbook pictures) becomes a 512-dimensional
   OpenCLIP ViT-B-32 (LAION-2B) embedding, computed on-device with ONNX Runtime.
@@ -53,6 +53,7 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
 - **UI refresh** — Material 3 components, gradient buttons, animated result rows, dark navy palette carried over
   from v1, edge-to-edge display with system-bar insets, larger touch targets.
 - Excel files are copied to app cache once per selection and validated immediately.
+- **Build toolchain:** Android Gradle Plugin **9.4.1** and Gradle **9.8.0** (JDK 17 or newer).
 
 ### Removed
 
@@ -84,10 +85,10 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
 - **Floating pictures.** You described the workflow as reading only pictures embedded in cell notes. The v1 code
   also reads anchored (floating) pictures of the first sheet. To keep the workflow identical this is preserved;
   set `Config.EXTRACT_FLOATING_IMAGES = false` for cell-note pictures only.
-- **Not compiled / not reviewed.** The plain-Kotlin core (`core/`) is compiled and tested. The Android layer
-  (Compose UI, CameraX, ONNX Runtime wrapper, ViewModel, Gradle build) could not be built in the authoring
-  environment (no access to Maven repositories) and did not receive an independent review. Expect small
-  fixes on the first Gradle sync.
+- **Unreviewed Android layer.** The plain-Kotlin core (`core/`) is compiled and covered by 67 unit tests. The
+  Android layer (Compose UI, CameraX, ONNX Runtime wrapper, ViewModel, Gradle build) was written without a
+  compiler (no access to Maven repositories) and did not receive an independent code review; it was then built
+  with AGP 9.4.1 / Gradle 9.8.0.
 - **OpenCLIP accuracy is unmeasured on real weights and covers**, as is int8 quantisation drift. On synthetic
   phone photos the v1 pHash baseline reached top-1 ≈ 44 % / top-5 ≈ 74 %. Run `tools/benchmark.py` on your
   catalogue to confirm the improvement.

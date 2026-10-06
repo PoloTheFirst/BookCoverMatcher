@@ -56,7 +56,7 @@ Read this before you build.
 | Area | Status |
 | :--- | :--- |
 | Excel extraction, Auto Scan engine, search index, wishlist storage, preprocessing (`core/` package, plain Kotlin) | **Compiled and unit-tested** — 67 tests pass. The Excel port was differential-tested against the original `excel.js` on 102 generated workbooks with identical results. |
-| Android layer: CameraX, ONNX Runtime wrapper, ViewModel, Jetpack Compose UI, Gradle build | **Written but never compiled.** The build environment had no access to Google Maven / Maven Central, and no independent code review could be completed. Expect to fix a few small compile or API errors on the first Gradle sync. |
+| Android layer: CameraX, ONNX Runtime wrapper, ViewModel, Jetpack Compose UI, Gradle build | **Written without a compiler in the authoring environment** (no access to Google Maven / Maven Central) and without an independent code review. The project was then moved to AGP 9.4.1 / Gradle 9.8.0 and built by the maintainer; any fixes needed for that are part of the repository. |
 | OpenCLIP accuracy | **Not measured on real weights or real covers.** The model hub was unreachable from the build environment. The case for OpenCLIP below is reasoned plus a synthetic baseline; use `tools/benchmark.py` on your own catalogue to confirm it. |
 | int8 quantisation drift | **Unmeasured.** The export script measures it for you and refuses to write a model that drifted too far (see below). |
 | Match thresholds (High ≥ 70 %, Mid ≥ 45 %) | **Heuristic starting points**, not validated. |
@@ -67,7 +67,7 @@ Read this before you build.
 
 ### 1. Requirements
 
-- Android Studio Ladybug (2024.2) or newer, **JDK 17**
+- Android Studio recent enough to support **Android Gradle Plugin 9.4.1** (the project builds with **Gradle 9.8.0**), and **JDK 17 or newer** (the minimum required by AGP 9 / Gradle 9)
 - A phone with Android 8.0+ (API 26+); 64-bit ARM recommended (the emulator uses x86_64)
 - Python 3.10+ for the one-off model export
 
@@ -95,7 +95,7 @@ python tools/export_openclip_onnx.py --out ~/openclip_image.onnx   # don't bundl
 ### 3. Build and install
 
 ```bash
-./gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleDebug          # Gradle 9.8.0 via the wrapper; app/build/outputs/apk/debug/app-debug.apk
 ./gradlew installDebug           # with a phone/emulator attached
 ./gradlew testDebugUnitTest      # unit tests
 ```
@@ -275,7 +275,7 @@ BookCoverMatcher/
 │  └─ (res/ manifest, launcher icon, theme)
 ├─ app/src/test/              67 JVM unit tests
 ├─ tools/                     export_openclip_onnx.py, benchmark.py, make_sample_workbook.py, synthetic.py
-├─ gradle/libs.versions.toml  dependency versions
+├─ gradle/libs.versions.toml  dependency versions (AGP 9.4.1)
 ├─ README.md   CHANGELOG.md
 ```
 
@@ -364,8 +364,9 @@ an emulator.
 | Matches look random | Check that the workbook pictures are real covers, not placeholders; run `tools/benchmark.py` to see how the model separates your catalogue. |
 | Everything is "Low" | The thresholds are workbook-relative heuristics; tune `ScoreScale` using the benchmark's distributions. |
 | Two sheets have a picture in `B4` and one is missing | Duplicate-address collapsing (v1 behaviour). |
-| Gradle sync fails resolving dependencies | Needs access to `google()` and `mavenCentral()`. Versions are in `gradle/libs.versions.toml`. |
-| Compile error in `ui/`, `camera/` or `MainViewModel.kt` | See [Honest status](#honest-status-of-this-release): this layer was not compiled in the build environment. |
+| Gradle sync fails resolving dependencies | Needs access to `google()` and `mavenCentral()`. Versions are in `gradle/libs.versions.toml` (AGP 9.4.1, Gradle 9.8.0 via `gradle/wrapper/gradle-wrapper.properties`). |
+| Build error about the JDK | AGP 9 / Gradle 9 need JDK 17 or newer. In Android Studio: Settings → Build Tools → Gradle → Gradle JDK. |
+| Compile error in `ui/`, `camera/` or `MainViewModel.kt` | See [Honest status](#honest-status-of-this-release): this layer was first written without a compiler. |
 
 ---
 
