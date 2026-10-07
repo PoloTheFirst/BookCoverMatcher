@@ -1,15 +1,11 @@
+# v2.0.0 (2026-10-06)
+
 # Changelog
-
-All notable changes to BookCover Matcher. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-versions follow [Semantic Versioning](https://semver.org/) (the app's matching engine and platform changed, hence a major version).
-
-## [2.0.0] — 2026-10-06
-
 A native Android rewrite. Same functions as v1, a new matching engine, no online features, and a reworked UI.
 
-### Added
+## Added
 
-- **Native Android app** — Kotlin, Jetpack Compose (Material 3), CameraX, ONNX Runtime Mobile.
+- **Native Android app** — Kotlin 2.0, Jetpack Compose (Material 3), CameraX, ONNX Runtime Mobile.
   Replaces the WebView/HTML app. `minSdk 26`, portrait, ABIs `arm64-v8a` + `x86_64`.
 - **OpenCLIP image matching.** Each cover (scan and workbook pictures) becomes a 512-dimensional
   OpenCLIP ViT-B-32 (LAION-2B) embedding, computed on-device with ONNX Runtime.
@@ -34,7 +30,7 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
 - `Config.EXTRACT_FLOATING_IMAGES` switch (see *Notes*).
 - 67 JVM unit tests (`./gradlew testDebugUnitTest`).
 
-### Changed
+## Changed
 
 - **Matching engine: 64-bit pHash → OpenCLIP embeddings.** The score is now cosine similarity.
 - **Similarity percentage is relative to your workbook**: `(cos − baseline) / (1 − baseline)` where the
@@ -53,9 +49,8 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
 - **UI refresh** — Material 3 components, gradient buttons, animated result rows, dark navy palette carried over
   from v1, edge-to-edge display with system-bar insets, larger touch targets.
 - Excel files are copied to app cache once per selection and validated immediately.
-- **Build toolchain:** Android Gradle Plugin **9.4.1** and Gradle **9.8.0** (JDK 17 or newer).
 
-### Removed
+## Removed
 
 - **All online searching** — the "2.5 · Online Search Results" panel, the search that v1 triggered after every
   capture (manual, auto or from file), and the `online.js` calls are gone, together with every network code path.
@@ -64,12 +59,12 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
 - **Vendored JavaScript libraries** (OpenCV.js, ExcelJS, JSZip) and the WebView / `WebViewAssetLoader` setup.
 - `WISHLIST_STORAGE_KEY` (storage is no longer `localStorage`).
 
-### Fixed
+## Fixed
 
 - **Auto Scan armed state.** In v1 the saved "Auto on" preference was shown as *on* after a restart but the
   timer was never started. v2 arms Auto Scan immediately when the preference is on.
 
-### Unchanged (by request)
+## Unchanged 
 
 - **The Excel workflow.** Cell-note pictures are read exactly as before: `xl/drawings/vmlDrawing*.vml`
   (case-insensitive, central-directory order), `<v:shape>` cell addresses from `<x:Row>` / `<x:Column>`,
@@ -80,15 +75,15 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
 - Guide geometry (`GUIDE_W 0.70`, `GUIDE_H 0.78`), top-5 results, wishlist behaviour (green 5-second prompt with
   Remove / ✕, rename, expand, delete with confirmation) and the Auto Scan layout.
 
-### Notes and known issues
+## Notes and known issues
 
-- **Floating pictures.** You described the workflow as reading only pictures embedded in cell notes. The v1 code
+- **Floating pictures.** The workflow in v2.0.0 is designed to read only pictures embedded in cell notes. The v1 code
   also reads anchored (floating) pictures of the first sheet. To keep the workflow identical this is preserved;
   set `Config.EXTRACT_FLOATING_IMAGES = false` for cell-note pictures only.
-- **Unreviewed Android layer.** The plain-Kotlin core (`core/`) is compiled and covered by 67 unit tests. The
-  Android layer (Compose UI, CameraX, ONNX Runtime wrapper, ViewModel, Gradle build) was written without a
-  compiler (no access to Maven repositories) and did not receive an independent code review; it was then built
-  with AGP 9.4.1 / Gradle 9.8.0.
+- **Not compiled / not reviewed.** The plain-Kotlin core (`core/`) is compiled and tested. The Android layer
+  (Compose UI, CameraX, ONNX Runtime wrapper, ViewModel, Gradle build) could not be built in the authoring
+  environment (no access to Maven repositories) and did not receive an independent review. Expect small
+  fixes on the first Gradle sync.
 - **OpenCLIP accuracy is unmeasured on real weights and covers**, as is int8 quantisation drift. On synthetic
   phone photos the v1 pHash baseline reached top-1 ≈ 44 % / top-5 ≈ 74 %. Run `tools/benchmark.py` on your
   catalogue to confirm the improvement.
@@ -96,7 +91,7 @@ A native Android rewrite. Same functions as v1, a new matching engine, no online
   appear in the top 5 than at rank 1.
 - The model (~97 MB int8) is not included in the repository; create it with `tools/export_openclip_onnx.py`.
 
-## [1.0.0]
+## v1.0.0
 
 Initial WebView release: camera guide capture, 64-bit pHash (OpenCV.js with a pure-JS fallback), Excel
 reading via ExcelJS and JSZip, Hamming-distance top-5 ranking, Auto Scan, local wishlist, and an online
