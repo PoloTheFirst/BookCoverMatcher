@@ -30,6 +30,34 @@ dialogs                      │            CatalogIndex
 * `WishlistRepository` is single-threaded via a dedicated executor and writes `records.json` with a
   temp file + rename.
 
+## Online providers
+
+```
+ProviderCatalog (core/online)      five ProviderSpec rows: id, host, access, note, search URL
+        │
+        ├── AUTOMATED ── OnlineSearchController.catalogues
+        │       ├── OpenLibraryBooksSource ── OpenLibraryResponseParser      (JSON)
+        │       ├── GoogleBooksSource      ── GoogleBooksResponseParser      (JSON)
+        │       └── DlsiteSource           ── DlsiteResponseParser + HtmlText (HTML)
+        └── BROWSER_ONLY ── no source at all; the panel draws the row and opens `searchUrl`
+```
+
+* `ProductSearchDataSource` is the seam: synchronous, returning `Found` / `Empty` /
+  `Failed(OnlineFailure)`. Network code lives in `online/`; parsing lives in `core/online` and is
+  pure Kotlin, so every provider's markup handling is unit-tested without a socket.
+* Adapters run **concurrently** (`async` + `awaitAll`) with a 20-second `withTimeout` each, so a slow
+  shop cannot delay a fast catalogue and a hung provider cannot cancel the others.
+* `OnlineFailure.BLOCKED` is the honest answer to HTTP 401/403/451. The app never retries with a
+  different identity, never solves a challenge and never paginates a disallowed URL.
+* `ProviderStatusUi` (in `OnlineSearchUi.kt`) is built from the measured outcomes, so the panel shows
+  results / no-match / failure / manual per provider and cannot claim that a provider answered when it
+  did not. Browser-only providers are always `MANUAL` and are never counted.
+* Identity: `OnlineAggregator.itemKey` → `ItemIdentity` with `providerId:id` keys (`ol:…`, `gb:…`,
+  `dl:rj…`). Different providers never merge into one card; `rankOf` prefers `RANK_MARKETPLACE` for a
+  shop listing and `RANK_CATALOGUE` for a bibliographic record.
+* Fixtures under `app/src/test/resources/fixtures` are **captured provider pages** (DLsite search and
+  empty results), so the parser tests assert against the real markup rather than a hand-written mock.
+
 ## Saved-data invariants
 
 * One reserved `Bookmarks` folder; idempotent creation.

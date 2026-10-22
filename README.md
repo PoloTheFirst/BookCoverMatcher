@@ -25,7 +25,7 @@ a connection; every online feature is opt-in.
 |---|---|---|
 | **Offline matching** | CameraX capture (or a picked photo) → OpenCLIP embedding → cosine comparison against the pictures in the chosen workbook range → top 5 matches with cell, cosine and percent | No |
 | **OCR** | The captured cover is sent to Google Lens through the embedded `chrome-lens-py` package; text, language and glyph heights come back | Yes |
-| **Online catalogue search** | The OCR text (or text you type) is searched in **Open Library** and **Google Books**; results are normalised, de-duplicated and ranked | Yes |
+| **Online catalogue search** | The OCR text (or text you type) is searched in **Open Library**, **Google Books** and **DLsite**; results are normalised, de-duplicated, ranked and labelled with their provider. **Melonbooks** and **Suruga-ya** refuse automated clients, so the panel offers their own search page in your browser instead of pretending to query them | Yes |
 | **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
 
@@ -175,17 +175,34 @@ the other. Undo on the green bar removes exactly the session/memberships that th
 ```
 capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_bridge.py → chrome-lens-py
         → OCR text + block heights → OcrQueryExtractor → query
-        → OpenLibraryBooksSource + GoogleBooksSource (HttpURLConnection, HTTPS only)
-        → parsers → ProductSearchResult → OnlineAggregator (key, dedupe, promote, limit)
-        → CatalogueUi.Found → cards → Bookmark / + Wishlist / Open website
+        → OpenLibraryBooksSource + GoogleBooksSource + DlsiteSource (concurrent, own deadline each)
+        → per-provider parsers → ProductSearchResult → OnlineAggregator (key, dedupe, promote, limit)
+        → CatalogueUi.Found + per-provider status rows → cards → Bookmark / + Wishlist / Open website
 ```
 
 ### Providers actually implemented
-* **Open Library Books API** — free, no key, library catalogue. Detail links are built from the
-  validated work/edition key; covers from `covers.openlibrary.org`.
-* **Google Books Volumes API** — free for search, no key, catalogue. `https` detail page and cover
-  (an `http` thumbnail is upgraded to the same host over `https`). No price or stock is invented.
-* No marketplace, shopping or visual-similarity provider is implemented or claimed.
+
+| Provider | Access method | Queried by the app | Live-verified |
+|---|---|---|---|
+| **Open Library** | Public Books API (JSON), no key | Yes | Yes — real records returned |
+| **Google Books** | Public Volumes API (JSON), no key | Yes | Yes, or correctly reported `RATE_LIMITED` |
+| **DLsite** | Public books search page (HTML), read by `DlsiteResponseParser` | Yes | Yes — real works, prices and covers for `東方` |
+| **Melonbooks** | Public search page only | **No** — HTTP 403 to automated clients, `robots.txt` included | Blocked; opens in your browser |
+| **Suruga-ya** | Public search page only | **No** — HTTP 403 to automated clients, `robots.txt` included | Blocked; opens in your browser |
+
+* **Open Library** — detail links are built from the validated work/edition key; covers come from
+  `covers.openlibrary.org`.
+* **Google Books** — `https` detail page and cover (an `http` thumbnail is upgraded to the same host
+  over `https`).
+* **DLsite** — one request per search to `/books/fsr/=/keyword/<query>`. The adapter reads the work id
+  (`RJ…`), the title, the circle, the **current** price and the 240×240 cover. The listing carries no
+  stock status, description or rating, so those stay `—`. `robots.txt` asks for a 10-second crawl
+  delay and disallows the paged result URLs, so the app never paginates and never retries on its own.
+* **Melonbooks / Suruga-ya** — measured on 2026-10-22: `robots.txt` *and* the search URL answer
+  **HTTP 403** to a browser user agent and to the app's own user agent. The app does not disguise
+  itself, solve a challenge or retry: `ProviderCatalog` marks both `BROWSER_ONLY`, the panel shows a
+  working search link for the user's browser, and neither is ever counted as searched.
+* No visual-similarity provider is implemented or claimed.
 
 ### Toggle and request lifecycle
 * The switch is persisted in `bookcover_online`; the controller's state is mirrored into `UiState`
@@ -204,8 +221,13 @@ capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_br
   as `RATE_LIMITED`; it does not retry behind your back or fabricate results. Open Library remains
   usable. An API key/billing configuration is not shipped.
 * Catalogue results can contain editions/works with similar titles; they are not merged by title.
-* Prices and availability are absent because these catalogues do not provide them; the card shows
-  `—`, never a guess.
+* Prices: a catalogue record (Open Library, Google Books) has none, so the field shows `—`. A DLsite
+  listing shows the shop's own **current** price; the struck-through old price is not used.
+  Availability/stock is never shown, because no provider in this build sends it.
+* DLsite results come from its **books** section, first page only: one request per search, no
+  pagination, no retry (its `robots.txt` asks for a 10-second crawl delay).
+* Melonbooks and Suruga-ya are **not** searched by the app. Their links open in your browser, and the
+  panel labels them manual so their absence from a result list can never be mistaken for "no match".
 
 ---
 
@@ -224,7 +246,7 @@ chaquopy.buildPython=C:\\path\\to\\Python\\3.12\\python.exe
 ```powershell
 .\gradlew.bat assembleDebug
 .\gradlew.bat testDebugUnitTest                 # JVM suite, live checks skipped
-.\gradlew.bat testDebugUnitTest -DonlineCheck=1 # adds the two live catalogue checks
+.\gradlew.bat testDebugUnitTest -DonlineCheck=1 # adds the three live provider checks
 .\gradlew.bat connectedDebugAndroidTest         # 3 on-device OCR/catalogue/controller tests
 ```
 
@@ -239,6 +261,8 @@ publishable.
 * **"no connection"** — catalogue requests never leave the device without `INTERNET`; offline
   matching still works.
 * **Google Books 429** — expected on some networks without a key; use Open Library results.
+* **"Melonbooks / Suruga-ya" show no results** — by design. Both refuse automated clients (HTTP 403),
+  so the panel gives their own search link; tap **Open ↗** in the provider list.
 * **Workbook empty** — verify the range and that pictures are anchored or stored as cell notes in
   the first sheet.
 
@@ -257,19 +281,20 @@ app/src/main/java/com/bookcovermatcher/
 │   ├── wishlist/                 LibraryModels (folders/sessions/items), repository,
 │   │                             MiniJson, identity and bookmark rules
 │   └── online/                   OcrQueryExtractor, GoogleBooksResponseParser,
-│                                 OpenLibraryResponseParser, OnlineAggregator, SessionCache
+│                                 OpenLibraryResponseParser, DlsiteResponseParser, HtmlText,
+│                                 ProviderCatalog, OnlineAggregator, SessionCache
 ├── data/                         Prefs, OnlineSearchPrefs, ModelStore, WorkbookFiles
 ├── vision/                       AndroidImageCodec, OrtClipEmbedder
 ├── camera/                       CameraController (CameraX)
 ├── online/                       OnlineSearchController, ChromeLensPyBridge, PythonRuntime,
 │                                 OcrTextSource/Parser, OpenLibraryBooksSource,
-│                                 GoogleBooksSource, HttpJsonClient, CoverImageLoader
+│                                 GoogleBooksSource, DlsiteSource, HttpJsonClient, CoverImageLoader
 └── ui/                           AppScreen (bottom nav), MainScreen (Home/Search),
                                   WishlistScreen, MoreScreen, OnlineSearchPanel,
                                   ProductResultCard, BookmarkDialogs, Overlays, CameraCard,
                                   components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        165 JVM tests (2 opt-in live checks)
+app/src/test/                        184 JVM tests (3 opt-in live provider checks)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
 
@@ -315,6 +340,10 @@ No step of this pipeline is online, and the online feature is never consulted by
    every OCR call with `RUNTIME_MISSING`.
 7. **UI rebuilt** around Home/Search/Wishlist/More, with real empty/loading/error states and
    separate offline/online result areas.
+8. **Only two providers, neither Japanese.** Added **DLsite** as a real, queried provider (books
+   section, HTML) and declared **Melonbooks** and **Suruga-ya** honestly as browser-only, because
+   both answer HTTP 403 to automated clients. Providers now run concurrently and each result names
+   its provider.
 
 ---
 
@@ -322,8 +351,10 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 | Check | Command | Result |
 |---|---|---|
-| JVM unit tests | `.\gradlew.bat testDebugUnitTest` | **165 tests**, 0 failures (2 live checks skipped by design) |
-| JVM + live catalogues | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | **165 tests**, 0 failures; Open Library live query returned real records; Google Books was either found or correctly reported `RATE_LIMITED` |
+| JVM unit tests | `.\gradlew.bat testDebugUnitTest` | **184 tests**, 0 failures (3 live checks skipped by design) |
+| JVM + live providers | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | **184 tests**, 0 failures; live checks ran: Open Library and **DLsite** returned real records, Google Books was found or correctly `RATE_LIMITED` |
+| DLsite live query | `DlsiteSource().search("東方", 3)` inside the live suite | **real works returned**: `RJ…` ids, Japanese titles, circle names, prices (`924円`-style), `img.dlsite.jp` covers, `dlsite.com` product URLs |
+| Melonbooks / Suruga-ya access probe | `GET robots.txt` and `GET <search url>` with a browser UA and the app UA (2026-10-22) | **HTTP 403 from all four requests** — recorded in `ProviderCatalog`; both providers are browser-handoff only |
 | Debug build | `.\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
 | Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
 | Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |
@@ -338,8 +369,11 @@ No step of this pipeline is online, and the online feature is never consulted by
 * Online result card expansion/bookmark actions via the UI (the catalogue/controller path is covered
   by device tests; the card itself was not driven end-to-end).
 * Google Books with an API key (none is configured).
-* The supplied workflow image (not present). If it specifies different labels/arrangement, this
-  implementation may need visual adjustment.
+* **Melonbooks and Suruga-ya end-to-end** — they answered HTTP 403 to every automated request from
+  this environment, so their rows are verified as *links*, not as live searches.
+* **DLsite on a physical phone** — the live check ran on the desktop JVM, not on a device.
+* The supplied workflow image guided the Search screen (result tabs, bookmark tab, bulk actions).
+  Pixel-level parity is not claimed; the information structure is what was matched.
 
 ---
 
@@ -347,7 +381,8 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 * Offline matching sends nothing anywhere.
 * With online search on, the captured JPEG is sent to Google Lens via `chrome-lens-py`; the OCR text
-  is sent to `openlibrary.org` and `www.googleapis.com/books`. No account, analytics or ads.
+  is sent to `openlibrary.org`, `www.googleapis.com/books` and `www.dlsite.com`. No account, analytics or ads.
+Melonbooks and Suruga-ya are never contacted by the app: their links are opened by your browser, not by us.
 * Bookmarks store only the URL/title/optional fields you provide; the app never fetches the page to
   enrich them.
 * The app refuses non-HTTPS links and never renders third-party pages in a WebView.
