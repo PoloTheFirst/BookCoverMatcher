@@ -18,7 +18,7 @@ import kotlin.math.min
  *
  * Model contract (what `tools/export_openclip_onnx.py` writes):
  *  * one input, float32 `[1, 3, S, S]`, already CLIP-normalised by [ClipPreprocessor];
- *  * one output, float32 `[1, D]` (un-normalised image embedding) - this class L2-normalises it.
+ *  * one output, float32 `[1, D]` (un-normalized image embedding) - this class L2-normalizes it.
  */
 class OrtClipEmbedder private constructor(
     private val env: OrtEnvironment,
@@ -29,7 +29,7 @@ class OrtClipEmbedder private constructor(
     override val fingerprint: String,
 ) : ImageEmbedder, AutoCloseable {
 
-    /** One inference at a time (ONNX Runtime parallelises inside a single run). */
+    /** One inference at a time (ONNX Runtime parallelizes inside a single run). */
     @Synchronized
     override fun embed(image: PixelImage): FloatArray {
         val chw = ClipPreprocessor.toChw(image.argb, image.width, image.height, inputSize)
@@ -68,7 +68,7 @@ class OrtClipEmbedder private constructor(
                 val size = if (shape[2] > 0) shape[2].toInt() else ClipPreprocessor.DEFAULT_SIZE
                 require(shape[3] <= 0 || shape[3].toInt() == size) { "Only square model inputs are supported." }
 
-                // warm-up on a mid-grey picture; the length of the output is the embedding size
+                // warm-up on a mid-gray picture; the length of the output is the embedding size
                 val dim = infer(env, session, inputName, size, FloatArray(3 * size * size)).size
                 require(dim in 8..8192) { "Unexpected embedding size $dim." }
                 return OrtClipEmbedder(env, session, inputName, size, dim, "$modelFingerprint:d$dim:s$size")

@@ -1,5 +1,6 @@
 [versions]
 agp = "9.4.1"
+chaquopy = "17.1.0"
 kotlin = "2.2.10"
 composeBom = "2024.10.01"
 activityCompose = "1.9.3"
@@ -31,5 +32,6 @@ junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+chaquo-python = { id = "com.chaquo.python", version.ref = "chaquopy" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

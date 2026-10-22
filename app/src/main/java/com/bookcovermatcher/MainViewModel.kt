@@ -23,13 +23,23 @@ import com.bookcovermatcher.core.search.IndexCache
 import com.bookcovermatcher.core.search.RankedMatch
 import com.bookcovermatcher.core.vision.ImageOps
 import com.bookcovermatcher.core.vision.PixelImage
-import com.bookcovermatcher.core.wishlist.NewWishlistMatch
-import com.bookcovermatcher.core.wishlist.WishlistRecord
+import com.bookcovermatcher.core.wishlist.BookmarkRules
+import com.bookcovermatcher.core.wishlist.InvalidItemException
+import com.bookcovermatcher.core.wishlist.ItemDraft
+import com.bookcovermatcher.core.wishlist.ItemKind
+import com.bookcovermatcher.core.wishlist.Library
+import com.bookcovermatcher.core.wishlist.MatchType
+import com.bookcovermatcher.core.wishlist.SavedItem
+import com.bookcovermatcher.core.wishlist.SearchSession
+import com.bookcovermatcher.core.wishlist.SessionDraft
+import com.bookcovermatcher.core.wishlist.SessionKind
+import com.bookcovermatcher.core.wishlist.WishlistFolder
 import com.bookcovermatcher.core.wishlist.WishlistRepository
 import com.bookcovermatcher.data.ModelStore
 import com.bookcovermatcher.data.Prefs
 import com.bookcovermatcher.data.StagedWorkbook
 import com.bookcovermatcher.data.WorkbookFiles
+import com.bookcovermatcher.online.OnlineSearchController
 import com.bookcovermatcher.vision.AndroidImageCodec
 import com.bookcovermatcher.vision.OrtClipEmbedder
 import java.io.File
@@ -49,6 +59,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,6 +86,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _ui = MutableStateFlow(UiState(autoScan = prefs.autoScan, rangeText = prefs.range))
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
+    /**
+     * The optional online feature (the Search destination's Online tab). Owned here so it sees every
+     * captured cover and shares the toast channel, but it keeps its own state flow ([online]) and
+     * never touches the offline matcher. Everything in it is inert until the user switches it on.
+     */
+    val online = OnlineSearchController(app, viewModelScope, onMessage = ::showToast)
+
     /** Fires once per accepted cover (flash + haptic in the UI). */
     private val _captureEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
     val captureEvents: SharedFlow<Unit> = _captureEvents.asSharedFlow()
@@ -82,7 +100,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     @Volatile private var embedder: OrtClipEmbedder? = null
     @Volatile private var capturing = false
     @Volatile private var targetEmbedding: FloatArray? = null
-    @Volatile private var targetThumb: ByteArray? = null
     @Volatile private var lastRanked: List<RankedMatch> = emptyList()
     private var staged: StagedWorkbook? = null
     private var memo: Pair<String, CatalogIndex>? = null
@@ -94,11 +111,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var promptSeq = 0L
     private var announceCameraReady = false
 
+    /** The picker's pending work: nothing is written until the user confirms a folder. */
+    private var pickerMode: PickerMode = PickerMode.ADD_ITEMS
+    private var pickerDrafts: List<ItemDraft> = emptyList()
+    private var pickerExistingIds: List<String> = emptyList()
+    private var pickerScanThumb: ByteArray? = null
+    private var pickerQuery: String? = null
+
+    /** What the green bar's "Remove" undoes: exactly the add that produced it. */
+    private var lastAdd: LastAdd? = null
+
+
     init {
         camera.autoIntervalMs = AutoScanConfig().intervalMs
         if (_ui.value.autoScan) camera.autoSink = AutoScanSink { now, frame -> onAutoTick(now, frame) }
         prepareModel()
-        refreshWishlist()
+        refreshLibrary()
+        // The online controller owns its own StateFlow; mirror it into UiState. Without this the
+        // panel keeps drawing the default (off) state and never shows the switch the user flipped
+        // - the actual reason online search appeared nonfunctional.
+        viewModelScope.launch {
+            online.ui.collect { onlineState ->
+                _ui.update { state -> state.copy(online = onlineState) }
+            }
+        }
     }
 
     // =====================================================================================
@@ -110,7 +146,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 var installed = modelStore.installed()
                 if (installed == null && modelStore.hasBundledAsset()) {
-                    setModel(ModelUi.Installing("Preparing the image model…", null))
+                    setModel(ModelUi.Installing("Preparing the image model", null))
                     installed = modelStore.installBundled()
                 }
                 if (installed == null) setModel(ModelUi.Missing) else openEmbedder(installed)
@@ -126,9 +162,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun importModel(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                setModel(ModelUi.Installing("Copying the model…", null))
+                setModel(ModelUi.Installing("Copying the model", null))
                 val installed = modelStore.importFrom(uri) { bytes ->
-                    setModel(ModelUi.Installing("Copying the model… ${Formatting.fileSize(bytes)}", null))
+                    setModel(ModelUi.Installing("Copying the model ${Formatting.fileSize(bytes)}", null))
                 }
                 openEmbedder(installed)
             } catch (e: CancellationException) {
@@ -140,7 +176,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun openEmbedder(installed: ModelStore.Installed) {
-        setModel(ModelUi.Installing("Loading the image model…", null))
+        setModel(ModelUi.Installing("Loading the image model", null))
         try {
             val e = OrtClipEmbedder.open(installed.file, installed.fingerprint)
             embedder?.close()
@@ -164,7 +200,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onCameraPermission(granted: Boolean) {
         if (granted) {
-            _ui.update { it.copy(cameraWanted = true, cameraLive = false, cameraRestart = it.cameraRestart + 1, cameraBadge = "Starting…") }
+            _ui.update { it.copy(cameraWanted = true, cameraLive = false, cameraRestart = it.cameraRestart + 1, cameraBadge = "Starting") }
         } else {
             announceCameraReady = false
             _ui.update { it.copy(cameraWanted = false, cameraLive = false, cameraBadge = "Camera off") }
@@ -179,7 +215,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (announceCameraReady) {
             announceCameraReady = false
-            showToast("Camera ready — tap Scan again to capture.", ToastKind.OK)
+            showToast("Camera ready \u2014 tap Scan again to capture.", ToastKind.OK)
         }
     }
 
@@ -233,12 +269,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     Config.THUMB_SCAN_H * Config.THUMB_PIXEL_SCALE,
                 )
                 val emb = embedder?.embed(image)
-                targetThumb = thumb
                 targetEmbedding = emb
                 lastRanked = emptyList()
                 _ui.update { it.copy(target = TargetUi(thumb, describeEmbedding(emb)), results = ResultsUi.Empty) }
                 _captureEvents.tryEmit(Unit)
-                if (!auto) showToast("Cover captured — embedding computed.", ToastKind.OK)
+                if (!auto) showToast("Cover captured \u2014 embedding computed.", ToastKind.OK)
+
+                // Online tab. Returns immediately when the feature is off, and a failure here can
+                // never affect the offline result above. Encoding is the app's own job, so an
+                // encoding failure is reported as such rather than reaching Python and coming
+                // back looking like an OCR problem.
+                if (online.ui.value.enabled) {
+                    try {
+                        online.onCapture(codec.encodeJpeg(image, AndroidImageCodec.OCR_MAX_EDGE))
+                    } catch (e: Exception) {
+                        online.onCaptureFailed(
+                            e.message ?: "The cover could not be encoded.",
+                            e.toString(),
+                        )
+                    }
+                } else {
+                    // The feature is off, but the previous cover's results are still in memory:
+                    // selecting a new cover drops them so they can never be shown against it.
+                    online.onCoverChanged()
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -252,7 +306,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun describeEmbedding(e: FloatArray?): String {
         if (e == null) return "Model not loaded"
         val head = e.take(6).joinToString(" ") { String.format(java.util.Locale.US, "%+.3f", it) }
-        return "${e.size}-d · $head …"
+        return "${e.size}-d \u00B7 $head "
     }
 
     // =====================================================================================
@@ -369,7 +423,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         matchJob = viewModelScope.launch {
-            setBusy("Reading spreadsheet…", null)
+            setBusy("Reading spreadsheet", null)
             try {
                 val catalog = withContext(Dispatchers.Default) { loadOrBuildCatalog(workbook, range, model) }
                 if (catalog.size == 0) {
@@ -381,10 +435,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     return@launch
                 }
-                setBusy("Ranking…", null)
+                setBusy("Ranking", null)
                 val ranked = withContext(Dispatchers.Default) { catalog.rank(query, Config.TOP_MATCHES) }
                 lastRanked = ranked
-                _ui.update { it.copy(results = ResultsUi.Ranked(ranked.mapIndexed { i, m -> toResultUi(i, m) }, catalog.size)) }
+                _ui.update {
+                    it.copy(
+                        results = ResultsUi.Ranked(ranked.mapIndexed { i, m -> toResultUi(i, m) }, catalog.size),
+                        // A finished comparison is shown on the Workbook tab: the user just ran it, so
+                        // its output must not land behind another tab. Switching later stays the user's
+                        // choice and never triggers a new run.
+                        searchTab = SearchResultsTab.WORKBOOK,
+                    )
+                }
                 showToast("Compared against ${catalog.size} image(s).", ToastKind.OK)
             } catch (e: CancellationException) {
                 showToast("Search cancelled.", ToastKind.INFO)
@@ -409,7 +471,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun setBusy(label: String, progress: Float?) = _ui.update { it.copy(busy = BusyUi(label, progress)) }
 
-    /** Runs on a background dispatcher; honours cancellation between pictures. */
+    /** Runs on a background dispatcher; honors cancellation between pictures. */
     private suspend fun loadOrBuildCatalog(workbook: StagedWorkbook, range: CellRange, model: OrtClipEmbedder): CatalogIndex {
         val key = CatalogIndexStore.cacheKey(
             workbookSha256 = workbook.sha256,
@@ -429,7 +491,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 zip = zip,
                 range = range,
                 onProgress = { done, total ->
-                    val label = if (total == 0) "Extracting images…" else "Embedding images… $done/$total"
+                    val label = if (total == 0) "Extracting images" else "Embedding images $done/$total"
                     setBusy(label, if (total == 0) null else done.toFloat() / total)
                 },
                 checkCancelled = { ctx.ensureActive() },
@@ -459,52 +521,337 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // =====================================================================================
-    // Wishlist
+    // Phase 2 navigation
     // =====================================================================================
 
-    fun openWishlist() {
-        refreshWishlist()
-        _ui.update { it.copy(wishlistOpen = true) }
+    /** Bottom navigation. Selecting a tab never writes, clears or resets saved data. */
+    fun selectTab(tab: AppTab) {
+        _ui.update { it.copy(tab = tab) }
+        if (tab == AppTab.WISHLIST) refreshLibrary()
     }
 
-    fun closeWishlist() = _ui.update { it.copy(wishlistOpen = false) }
+    fun selectWishlistSection(section: WishlistSection) {
+        _ui.update { it.copy(wishlistSection = section, folderDetail = null, sessionDetail = null) }
+        refreshLibrary()
+    }
 
-    fun addToWishlist() {
+    /**
+     * Which Search list is open (workbook comparison / online results / this search's bookmarks).
+     * Pure navigation: switching lists never cancels a request, clears a cache or touches saved data.
+     */
+    fun selectSearchTab(tab: SearchResultsTab) {
+        _ui.update { it.copy(searchTab = tab) }
+    }
+
+    // =====================================================================================
+    // Wishlist: folders  sessions  results, plus direct items
+    // =====================================================================================
+
+    /** Opens one folder and shows its sessions and the items saved directly into it. */
+    fun openFolder(id: String) {
+        viewModelScope.launch {
+            val library = withContext(wishlistDispatcher) { wishlist.library() }
+            val detail = buildFolderDetail(library, id) ?: return@launch
+            _ui.update { it.copy(wishlistSection = WishlistSection.FOLDERS, sessionDetail = null, folderDetail = detail) }
+        }
+    }
+
+    fun closeFolder() = _ui.update { it.copy(folderDetail = null, sessionDetail = null) }
+
+    /** Opens one session: its results, bookmarked ones first. */
+    fun openSession(id: String) {
+        viewModelScope.launch {
+            val library = withContext(wishlistDispatcher) { wishlist.library() }
+            val detail = buildSessionDetail(library, id) ?: return@launch
+            _ui.update { it.copy(sessionDetail = detail) }
+        }
+    }
+
+    fun closeSession() = _ui.update { it.copy(sessionDetail = null) }
+
+    /** `+ New folder`: a real, user-named folder; the rename dialog gives it a name immediately. */
+    fun createFolder() {
+        viewModelScope.launch {
+            try {
+                val folder = withContext(wishlistDispatcher) { wishlist.createFolder("") }
+                refreshLibrary()
+                _ui.update { it.copy(renaming = RenameUi(folder.id, folder.name, "Name this folder")) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showToast("Wishlist storage error \u2014 could not create the folder.", ToastKind.ERR)
+            }
+        }
+    }
+
+    fun requestRenameFolder(id: String) {
+        val folder = _ui.value.folders.firstOrNull { it.id == id } ?: return
+        if (folder.reserved) return
+        _ui.update { it.copy(renaming = RenameUi(folder.id, folder.name, "Rename folder")) }
+    }
+
+    fun cancelRename() = _ui.update { it.copy(renaming = null) }
+
+    fun commitRename(id: String, name: String) {
+        _ui.update { it.copy(renaming = null) }
+        viewModelScope.launch {
+            try {
+                withContext(wishlistDispatcher) { wishlist.renameFolder(id, name) }
+                refreshLibrary()
+                _ui.value.folderDetail?.let { detail ->
+                    if (detail.id == id) {
+                        _ui.update { it.copy(folderDetail = detail.copy(name = name.trim().ifEmpty { detail.name })) }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showToast("Wishlist storage error \u2014 could not rename the folder.", ToastKind.ERR)
+            }
+        }
+    }
+
+    // =====================================================================================
+    // Saving: one offline session, one result profile, one item
+    // =====================================================================================
+
+    /**
+     * v2.1.0's "Add to wishlist", restored correctly: the **whole matching operation** is saved as
+     * one session inside a folder the user picks. It never creates a folder on its own, and the five
+     * matches are not turned into five independently removable items.
+     */
+    fun saveOfflineSession() {
         if (targetEmbedding == null) {
             showToast("Scan a cover first.", ToastKind.ERR)
             return
         }
         val matches = lastRanked
         if (matches.isEmpty()) {
-            showToast("Run “Link & Find Top 5” before saving to wishlist.", ToastKind.ERR)
+            showToast("Run Link & Find Top 5 before saving a session.", ToastKind.ERR)
             return
         }
-        val scanThumb = targetThumb
+        openPicker(
+            mode = PickerMode.SAVE_SESSION,
+            headline = "Save this scan as a session",
+            drafts = matches.map { it.toDraft() },
+            existingIds = emptyList(),
+        )
+    }
+
+    /**
+     * "Add result profile to wishlist": the whole result profile (offline top-5 + online results)
+     * becomes **one session** in the chosen folder. The user still chooses the destination and
+     * nothing is written until Confirm.
+     */
+    fun addResultProfileToWishlist() {
+        val drafts = buildList {
+            lastRanked.forEach { add(it.toDraft()) }
+            (online.ui.value.catalogue as? CatalogueUi.Found)?.items?.forEach { add(it.toDraft()) }
+        }
+        if (drafts.isEmpty()) {
+            showToast("Nothing to add yet \u2014 run \u201CLink & Find Top 5\u201D or an online search first.", ToastKind.ERR)
+            return
+        }
+        openPicker(
+            mode = PickerMode.SAVE_RESULT_PROFILE,
+            headline = "Add entire result profile to wishlist",
+            drafts = drafts,
+            existingIds = emptyList(),
+        )
+    }
+
+    /** `Add to wishlist` on one result card: exactly that one item, into a folder the user picks. */
+    fun addResultToWishlist(item: ProductResultUi) {
+        openPicker(
+            mode = PickerMode.ADD_ITEMS,
+            headline = "Add ${item.title} to wishlist",
+            drafts = listOf(item.toDraft()),
+            existingIds = emptyList(),
+        )
+    }
+
+    /** `Add to wishlist` on a saved bookmark  works with no scan, workbook or live search. */
+    fun addSavedItemToWishlist(itemId: String) {
+        val item = _ui.value.bookmarks.firstOrNull { it.id == itemId }
+            ?: _ui.value.folderDetail?.directItems?.firstOrNull { it.id == itemId }
+            ?: _ui.value.sessionDetail?.items?.firstOrNull { it.id == itemId }
+        openPicker(
+            mode = PickerMode.ADD_ITEMS,
+            headline = "Add ${item?.title ?: "this bookmark"} to wishlist",
+            drafts = emptyList(),
+            existingIds = listOf(itemId),
+        )
+    }
+
+    /** Opens the shared folder picker. Nothing is written until [confirmPicker]. */
+    private fun openPicker(
+        mode: PickerMode,
+        headline: String,
+        drafts: List<ItemDraft>,
+        existingIds: List<String>,
+    ) {
         viewModelScope.launch {
-            try {
-                val record = withContext(wishlistDispatcher) {
-                    wishlist.add(
-                        scanThumb,
-                        matches.map { NewWishlistMatch(it.image.cell, it.cosine, it.percent, it.image.source.label, it.image.thumbJpeg) },
-                    )
-                }
-                publishWishlist(withContext(wishlistDispatcher) { wishlist.load() })
-                showPrompt(record.id, "Record added to wishlist")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                showToast("Wishlist storage error — could not save.", ToastKind.ERR)
+            val library = withContext(wishlistDispatcher) { wishlist.library() }
+            val draftsByFingerprint = drafts.mapNotNull { draft -> library.itemByFingerprint(draft.fingerprint)?.id }
+            val wantedIds = existingIds + draftsByFingerprint
+            pickerMode = mode
+            pickerDrafts = drafts
+            pickerExistingIds = existingIds
+            pickerScanThumb = if (mode == PickerMode.SAVE_SESSION) _ui.value.target?.thumbJpeg else null
+            pickerQuery = if (mode == PickerMode.SAVE_RESULT_PROFILE) {
+                (online.ui.value.catalogue as? CatalogueUi.Found)?.query
+                    ?: online.ui.value.query.trim().takeIf { it.isNotEmpty() }
+            } else {
+                null
+            }
+            val folders = library.profileFolders.map { folder ->
+                PickerFolderUi(
+                    id = folder.id,
+                    name = folder.name,
+                    itemCount = library.itemCount(folder.id),
+                    alreadyContains = wantedIds.any { id ->
+                        library.memberships.any { it.itemId == id && it.collectionId == folder.id }
+                    },
+                )
+            }
+            _ui.update {
+                it.copy(picker = PickerUi(mode, headline, drafts.size + existingIds.size, folders, folders.firstOrNull()?.id))
             }
         }
     }
 
-    /** "Remove" on the green bar. */
-    fun removePromptRecord() {
-        val id = _ui.value.prompt?.recordId
+    fun closePicker() {
+        pickerDrafts = emptyList()
+        pickerExistingIds = emptyList()
+        pickerScanThumb = null
+        pickerQuery = null
+        _ui.update { it.copy(picker = null) }
+    }
+
+    /**
+     * Applies the picker's pending work in one store write:
+     *  * [PickerMode.SAVE_SESSION]/[PickerMode.SAVE_RESULT_PROFILE]  one new session;
+     *  * [PickerMode.ADD_ITEMS]  direct folder memberships (one item, or a saved bookmark).
+     *
+     * A folder typed into the dialog is a genuine, explicit folder creation. Undo removes the
+     * session/memberships it just created, never the folder.
+     */
+    fun confirmPicker(profileId: String?, newProfileName: String) {
+        _ui.value.picker ?: return
+        _ui.update { it.copy(picker = null) }
+        val mode = pickerMode
+        val drafts = pickerDrafts
+        val existing = pickerExistingIds
+        val scanThumb = pickerScanThumb
+        val query = pickerQuery
+        pickerDrafts = emptyList()
+        pickerExistingIds = emptyList()
+        pickerScanThumb = null
+        pickerQuery = null
+
         viewModelScope.launch {
-            if (id != null) {
-                withContext(wishlistDispatcher) { wishlist.delete(id) }
-                publishWishlist(withContext(wishlistDispatcher) { wishlist.load() })
+            try {
+                val outcome = withContext(wishlistDispatcher) {
+                    val typedName = newProfileName.trim()
+                    val folder: WishlistFolder = if (typedName.isNotEmpty()) {
+                        wishlist.createFolder(typedName)
+                    } else {
+                        val picked = profileId ?: return@withContext null
+                        wishlist.library().folder(picked)?.takeIf { !it.isReserved } ?: return@withContext null
+                    }
+                    when (mode) {
+                        PickerMode.ADD_ITEMS -> {
+                            var added = 0
+                            var already = 0
+                            val itemIds = ArrayList<String>()
+                            if (drafts.isNotEmpty()) {
+                                val report = wishlist.addDrafts(drafts, folder.id)
+                                added += report.added
+                                already += report.alreadyThere
+                                itemIds.addAll(report.itemIds)
+                            }
+                            existing.forEach { id ->
+                                if (wishlist.addExistingItemToFolder(id, folder.id)) {
+                                    added++
+                                    itemIds.add(id)
+                                } else {
+                                    already++
+                                }
+                            }
+                            AddOutcome(folder.id, null, added, already, itemIds)
+                        }
+                        PickerMode.SAVE_SESSION, PickerMode.SAVE_RESULT_PROFILE -> {
+                            if (drafts.isEmpty()) return@withContext null
+                            val kind = when {
+                                mode == PickerMode.SAVE_SESSION -> SessionKind.OFFLINE_MATCH
+                                drafts.any { it.kind == ItemKind.WORKBOOK_MATCH } -> SessionKind.RESULT_PROFILE
+                                else -> SessionKind.ONLINE_SEARCH
+                            }
+                            val report = wishlist.saveSession(
+                                SessionDraft(
+                                    folderId = folder.id,
+                                    kind = kind,
+                                    title = "",
+                                    query = query,
+                                    scanThumbJpeg = scanThumb,
+                                    results = drafts,
+                                ),
+                            )
+                            AddOutcome(folder.id, report.sessionId, report.added, report.alreadyThere, report.itemIds)
+                        }
+                    }
+                }
+                if (outcome == null) {
+                    showToast("Pick a folder first.", ToastKind.ERR)
+                    return@launch
+                }
+                val library = withContext(wishlistDispatcher) { wishlist.library() }
+                publish(library)
+                val folderName = library.folder(outcome.folderId)?.name ?: "wishlist"
+                showToast(
+                    when {
+                        outcome.added == 0 -> "Already in " + folderName + " (" + outcome.already + " item(s))."
+                        outcome.already > 0 -> "Added " + outcome.added + " item(s) to " + folderName + " - " + outcome.already + " already there."
+                        else -> "Added " + outcome.added + " item(s) to " + folderName + "."
+                    },
+                    if (outcome.added == 0) ToastKind.INFO else ToastKind.OK,
+                )
+                if (outcome.added > 0) {
+                    lastAdd = LastAdd(outcome.folderId, outcome.sessionId, outcome.itemIds)
+                    val what = if (outcome.sessionId != null) "Session added to " + folderName else "Added to " + folderName
+                    showPrompt(outcome.sessionId ?: outcome.folderId, what)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: InvalidItemException) {
+                showToast(e.message ?: "That item cannot be saved.", ToastKind.ERR)
+            } catch (e: Exception) {
+                showToast("Wishlist storage error - could not save.", ToastKind.ERR)
+            }
+        }
+    }
+
+
+    /** "Undo" on the green bar: removes exactly the session/memberships the add produced. */
+    fun removePromptRecord() {
+        val last = lastAdd
+        lastAdd = null
+        viewModelScope.launch {
+            if (last != null) {
+                try {
+                    withContext(wishlistDispatcher) {
+                        if (last.sessionId != null) {
+                            wishlist.deleteSession(last.sessionId)
+                        } else {
+                            last.itemIds.forEach { wishlist.removeMembership(it, last.folderId) }
+                        }
+                    }
+                    refreshLibrary()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    showToast("Wishlist storage error - could not undo.", ToastKind.ERR)
+                }
             }
             showPrompt(null, "Removed from wishlist")
             hidePromptSoon(600)
@@ -513,61 +860,407 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissPrompt() = hidePromptSoon(0)
 
-    fun requestDelete(id: String) = _ui.update { it.copy(pendingDeleteId = id) }
+    // -------------------------------------------------------------------------------------
+    // Bookmarks (independent of folders and sessions)
+    // -------------------------------------------------------------------------------------
 
-    fun cancelDelete() = _ui.update { it.copy(pendingDeleteId = null) }
-
-    fun confirmDelete() {
-        val id = _ui.value.pendingDeleteId
-        _ui.update { it.copy(pendingDeleteId = null) }
-        if (id == null) return
-        viewModelScope.launch {
-            withContext(wishlistDispatcher) { wishlist.delete(id) }
-            publishWishlist(withContext(wishlistDispatcher) { wishlist.load() })
-        }
-    }
-
-    fun requestRename(id: String) {
-        val rec = _ui.value.wishlist.firstOrNull { it.id == id } ?: return
-        _ui.update { it.copy(renaming = RenameUi(rec.id, rec.name)) }
-    }
-
-    fun cancelRename() = _ui.update { it.copy(renaming = null) }
-
-    fun commitRename(id: String, name: String) {
-        _ui.update { it.copy(renaming = null) }
-        viewModelScope.launch {
-            withContext(wishlistDispatcher) { wishlist.rename(id, name) }
-            publishWishlist(withContext(wishlistDispatcher) { wishlist.load() })
-        }
-    }
-
-    private fun refreshWishlist() {
+    /** `Bookmark` on a result card: toggles membership in `Bookmarks` only, idempotently. */
+    fun toggleBookmark(item: ProductResultUi) {
         viewModelScope.launch {
             try {
-                publishWishlist(withContext(wishlistDispatcher) { wishlist.load() })
+                val nowBookmarked = withContext(wishlistDispatcher) {
+                    val library = wishlist.library()
+                    val existing = library.itemByFingerprint(item.key)
+                        ?: library.items.firstOrNull { it.url != null && it.url == item.detailUrl }
+                    if (existing != null && library.isBookmarked(existing.id)) {
+                        wishlist.removeBookmark(existing.id)
+                        false
+                    } else {
+                        wishlist.bookmark(item.toDraft())
+                        true
+                    }
+                }
+                refreshLibrary()
+                showToast(
+                    if (nowBookmarked) "Bookmark added - saved in Bookmarks." else "Bookmark removed. Wishlist entries are untouched.",
+                    if (nowBookmarked) ToastKind.OK else ToastKind.INFO,
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // an unreadable wishlist simply shows as empty
+                showToast("Wishlist storage error - could not change the bookmark.", ToastKind.ERR)
             }
         }
     }
 
-    private fun publishWishlist(records: List<WishlistRecord>) {
-        val ui = records.map { r ->
-            WishlistRecordUi(
-                id = r.id,
-                name = r.name,
-                timeText = Formatting.timestamp(r.createdAtMillis),
-                scanThumb = r.scanThumbName?.let { wishlist.thumbFile(it) }?.takeIf { it.isFile },
-                matches = r.matches.map { m ->
-                    WishlistMatchUi(m.cell, m.source, Formatting.percent(m.percent) + "%", m.thumbName?.let { wishlist.thumbFile(it) }?.takeIf { it.isFile })
-                },
+    /**
+     * `Bookmark all results`: every online result currently on screen into `Bookmarks`, one write.
+     * A bookmark is not a wishlist entry, so this never opens the picker and never creates a folder.
+     */
+    fun bookmarkAllResults() {
+        val items = (online.ui.value.catalogue as? CatalogueUi.Found)?.items.orEmpty()
+        if (items.isEmpty()) {
+            showToast("No online results to bookmark yet.", ToastKind.ERR)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val report = withContext(wishlistDispatcher) {
+                    wishlist.bookmarkAll(items.map { it.toDraft() })
+                }
+                refreshLibrary()
+                showToast(
+                    when {
+                        report.added == 0 -> "All ${report.alreadyThere} result(s) were already bookmarked."
+                        report.alreadyThere > 0 -> "Bookmarked ${report.added} result(s) - ${report.alreadyThere} already there."
+                        else -> "Bookmarked ${report.added} result(s) in Bookmarks."
+                    },
+                    if (report.added == 0) ToastKind.INFO else ToastKind.OK,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showToast("Wishlist storage error - could not bookmark the results.", ToastKind.ERR)
+            }
+        }
+    }
+
+
+
+
+    // -------------------------------------------------------------------------------------
+    // Custom bookmark form
+    // -------------------------------------------------------------------------------------
+
+    fun openCustomBookmark() = _ui.update { it.copy(customBookmark = CustomBookmarkUi()) }
+
+    fun closeCustomBookmark() = _ui.update { it.copy(customBookmark = null) }
+
+    /**
+     * `+ Create bookmark`: stores exactly what was typed. No metadata, thumbnail or price is fetched,
+     * and the values that were typed are not marked as verified. The bookmark is independent of any
+     * scan, session or folder.
+     */
+    fun createCustomBookmark(
+        title: String,
+        url: String,
+        authors: String,
+        description: String,
+        identifier: String,
+        price: String,
+    ) {
+        val problem = BookmarkRules.validate(title, url)
+        if (problem != null) {
+            _ui.update { it.copy(customBookmark = CustomBookmarkUi(problem)) }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                withContext(wishlistDispatcher) {
+                    wishlist.bookmark(
+                        ItemDraft(
+                            kind = ItemKind.MANUAL_BOOKMARK,
+                            title = title,
+                            url = url.trim(),
+                            authors = authors.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                            description = description,
+                            identifier = identifier,
+                            price = price,
+                            matchType = MatchType.MANUAL,
+                            matchTypeVerified = false,
+                        ),
+                    )
+                }
+                _ui.update {
+                    it.copy(customBookmark = null, tab = AppTab.WISHLIST, wishlistSection = WishlistSection.BOOKMARKS)
+                }
+                refreshLibrary()
+                showToast("Bookmark created.", ToastKind.OK)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: InvalidItemException) {
+                _ui.update { it.copy(customBookmark = CustomBookmarkUi(e.message)) }
+            } catch (e: Exception) {
+                showToast("Wishlist storage error - could not save.", ToastKind.ERR)
+            }
+        }
+    }
+
+
+    // -------------------------------------------------------------------------------------
+    // Removal
+    // -------------------------------------------------------------------------------------
+
+    fun requestDeleteFolder(id: String) {
+        val folder = _ui.value.folders.firstOrNull { it.id == id } ?: return
+        if (folder.reserved) return
+        _ui.update { it.copy(pendingDelete = PendingDeleteUi(DeleteKind.FOLDER, id, folder.name)) }
+    }
+
+    fun requestDeleteSession(id: String) {
+        val fromFolder = _ui.value.folderDetail?.sessions?.firstOrNull { it.id == id }
+        val fromDetail = _ui.value.sessionDetail?.takeIf { it.id == id }
+        val title = fromFolder?.title ?: fromDetail?.title ?: return
+        _ui.update { it.copy(pendingDelete = PendingDeleteUi(DeleteKind.SESSION, id, title)) }
+    }
+
+    fun requestDeleteBookmark(itemId: String) {
+        val item = _ui.value.bookmarks.firstOrNull { it.id == itemId } ?: return
+        _ui.update { it.copy(pendingDelete = PendingDeleteUi(DeleteKind.BOOKMARK, itemId, item.title)) }
+    }
+
+    /** An item leaves one folder; `Bookmarks` and every other folder keep their memberships. */
+    fun requestRemoveFromFolder(itemId: String, folderId: String) {
+        val item = _ui.value.folderDetail?.directItems?.firstOrNull { it.id == itemId } ?: return
+        _ui.update { it.copy(pendingDelete = PendingDeleteUi(DeleteKind.MEMBERSHIP, itemId, item.title, folderId)) }
+    }
+
+    fun cancelDelete() = _ui.update { it.copy(pendingDelete = null) }
+
+    fun confirmDelete() {
+        val target = _ui.value.pendingDelete ?: return
+        _ui.update { it.copy(pendingDelete = null) }
+        viewModelScope.launch {
+            try {
+                withContext(wishlistDispatcher) {
+                    when (target.kind) {
+                        DeleteKind.FOLDER -> wishlist.deleteFolder(target.id)
+                        DeleteKind.SESSION -> wishlist.deleteSession(target.id)
+                        DeleteKind.BOOKMARK -> wishlist.removeBookmark(target.id)
+                        DeleteKind.MEMBERSHIP -> target.collectionId?.let { wishlist.removeMembership(target.id, it) }
+                    }
+                }
+                if (target.kind == DeleteKind.FOLDER && _ui.value.folderDetail?.id == target.id) {
+                    _ui.update { it.copy(folderDetail = null, sessionDetail = null) }
+                }
+                if (target.kind == DeleteKind.SESSION) {
+                    _ui.update {
+                        it.copy(
+                            sessionDetail = null,
+                            folderDetail = it.folderDetail?.copy(
+                                sessions = it.folderDetail.sessions.filterNot { s -> s.id == target.id },
+                            ),
+                        )
+                    }
+                }
+                if (target.kind == DeleteKind.MEMBERSHIP) {
+                    _ui.update {
+                        it.copy(
+                            folderDetail = it.folderDetail?.copy(
+                                directItems = it.folderDetail.directItems.filterNot { item -> item.id == target.id },
+                            ),
+                        )
+                    }
+                }
+                refreshLibrary()
+                showToast(
+                    when (target.kind) {
+                        DeleteKind.FOLDER -> "Folder deleted. Shared items stay in their other folders."
+                        DeleteKind.SESSION -> "Session deleted. Bookmarks and other sessions are untouched."
+                        DeleteKind.BOOKMARK -> "Bookmark removed. Wishlist entries are untouched."
+                        DeleteKind.MEMBERSHIP -> "Removed from this folder."
+                    },
+                    ToastKind.INFO,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showToast("Wishlist storage error - could not delete.", ToastKind.ERR)
+            }
+        }
+    }
+
+    /** "Clear session cache": temporary online results only - never a bookmark or wishlist item. */
+    fun clearSessionCache() {
+        online.clearSession()
+        refreshLibrary()
+    }
+
+    private class AddOutcome(
+        val folderId: String,
+        val sessionId: String?,
+        val added: Int,
+        val already: Int,
+        val itemIds: List<String>,
+    )
+
+    private class LastAdd(val folderId: String, val sessionId: String?, val itemIds: List<String>)
+
+
+
+    // -------------------------------------------------------------------------------------
+    // Reading and publishing the store
+    // -------------------------------------------------------------------------------------
+
+    private fun refreshLibrary() {
+        viewModelScope.launch {
+            try {
+                publish(withContext(wishlistDispatcher) { wishlist.library() })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // an unreadable store simply shows as empty; the file is kept for recovery
+            }
+        }
+    }
+
+    /**
+     * Publishes the store. Profiles, the `Bookmarks` collection and the per-result indicators all
+     * come from this one read, so the counts, the lists and the badges cannot disagree.
+     */
+    /**
+     * Publishes the store. Folders, their sessions, the `Bookmarks` folder and the per-result
+     * indicators all come from this one read, so the counts, the lists and the badges cannot
+     * disagree. The currently open folder/session is rebuilt too, so a delete cannot leave a stale
+     * screen behind.
+     */
+    private fun publish(library: Library) {
+        val folderCards = library.profileFolders.map { folder ->
+            FolderUi(
+                id = folder.id,
+                name = folder.name,
+                sessionCount = library.sessionCount(folder.id),
+                itemCount = library.itemCount(folder.id),
+                cover = library.itemsInFolder(folder.id).firstNotNullOfOrNull { thumbFile(it) },
+                reserved = false,
             )
         }
-        _ui.update { it.copy(wishlist = ui) }
+        val detail = _ui.value.folderDetail?.let { open -> buildFolderDetail(library, open.id) }
+        val sessionDetail = _ui.value.sessionDetail?.let { open -> buildSessionDetail(library, open.id) }
+        _ui.update {
+            it.copy(
+                folders = folderCards,
+                unfiledSessions = library.unfiledSessions().map { session -> session.toUi(library) },
+                bookmarks = library.bookmarkedItems().map { item -> item.toUi(library) },
+                folderDetail = detail,
+                sessionDetail = sessionDetail,
+                bookmarkedKeys = library.items.filter { item -> library.isBookmarked(item.id) }
+                    .map { item -> item.fingerprint }.toSet(),
+                wishlistedKeys = library.items.filter { item -> library.isWishlisted(item.id) }
+                    .map { item -> item.fingerprint }.toSet(),
+            )
+        }
     }
+
+    private fun buildFolderDetail(library: Library, id: String): FolderDetailUi? {
+        val folder = library.folder(id) ?: return null
+        if (folder.isReserved) return null
+        return FolderDetailUi(
+            id = folder.id,
+            name = folder.name,
+            sessions = library.sessionsIn(folder.id).map { session -> session.toUi(library) },
+            directItems = library.directItems(folder.id).map { item -> item.toUi(library) },
+        )
+    }
+
+    private fun buildSessionDetail(library: Library, id: String): SessionDetailUi? {
+        val session = library.session(id) ?: return null
+        val items = library.sessionItems(id)
+        val bookmarked = items.count { library.isBookmarked(it.id) }
+        val meta = buildString {
+            append(Formatting.timestamp(session.createdAtMillis))
+            append(" \u00B7 ").append(items.size).append(" result(s)")
+            if (bookmarked > 0) append(" \u00B7 ").append(bookmarked).append(" bookmarked first")
+        }
+        return SessionDetailUi(
+            id = session.id,
+            folderId = session.folderId,
+            title = session.title,
+            kindLabel = session.kind.label(),
+            meta = meta,
+            query = session.query,
+            items = items.map { item -> item.toUi(library) },
+            comparisonOnly = session.kind == SessionKind.OFFLINE_MATCH,
+        )
+    }
+
+    private fun SearchSession.toUi(library: Library): SessionUi {
+        val items = library.sessionItems(id)
+        val bookmarked = items.count { library.isBookmarked(it.id) }
+        val meta = buildString {
+            append(Formatting.timestamp(createdAtMillis))
+            append(" \u00B7 ").append(items.size).append(" result(s)")
+            if (bookmarked > 0) append(" \u00B7 ").append(bookmarked).append(" bookmarked")
+        }
+        return SessionUi(
+            id = id,
+            title = title,
+            kind = kind,
+            kindLabel = kind.label(),
+            meta = meta,
+            query = query,
+            scanThumb = scanThumbName?.let { wishlist.thumbFile(it) }?.takeIf { it.isFile }
+                ?: items.firstNotNullOfOrNull { thumbFile(it) },
+            resultCount = items.size,
+            bookmarkedCount = bookmarked,
+        )
+    }
+
+    private fun SessionKind.label(): String = when (this) {
+        SessionKind.OFFLINE_MATCH -> "Offline comparison"
+        SessionKind.ONLINE_SEARCH -> "Online search"
+        SessionKind.RESULT_PROFILE -> "Offline + online"
+    }
+
+    private fun thumbFile(item: SavedItem): File? = item.thumbName?.let { wishlist.thumbFile(it) }?.takeIf { it.isFile }
+
+    private fun SavedItem.toUi(library: Library) = SavedItemUi(
+        id = id,
+        title = title,
+        url = url,
+        domain = sourceDomain,
+        provider = provider,
+        meta = listOfNotNull(
+            authors.joinToString(", ").ifEmpty { null },
+            identifier?.let { "id $it" },
+            cell?.let { "cell $it" },
+            percent?.let { Formatting.percent(it) + "%" },
+            price,
+            availability,
+        ).joinToString(" \u00B7 "),
+        kind = kind,
+        kindLabel = when (kind) {
+            ItemKind.WORKBOOK_MATCH -> "Workbook match"
+            ItemKind.ONLINE_RESULT -> "Online result"
+            ItemKind.MANUAL_BOOKMARK -> "Custom bookmark"
+        },
+        bookmarked = library.isBookmarked(id),
+        thumb = thumbFile(this),
+        addedText = Formatting.timestamp(createdAtMillis),
+        cell = cell,
+        percentText = percent?.let { Formatting.percent(it) + "%" },
+    )
+
+    /** An online result as the store sees it. Workbook-only fields stay null. */
+    private fun ProductResultUi.toDraft() = ItemDraft(
+        kind = ItemKind.ONLINE_RESULT,
+        title = title,
+        url = detailUrl,
+        provider = provider,
+        providerKey = key,
+        identifier = identifier,
+        description = description,
+        authors = authors.split(',').map { it.trim() }.filter { it.isNotEmpty() && it != "Unknown author" },
+        price = price,
+        availability = availability,
+        matchType = MatchType.TEXT_QUERY,
+        matchTypeVerified = true,
+        thumbJpeg = coverJpeg,
+    )
+
+    /** One workbook match as the store sees it: cell, cosine and percent are real, the rest is not invented. */
+    private fun RankedMatch.toDraft() = ItemDraft(
+        kind = ItemKind.WORKBOOK_MATCH,
+        title = image.cell,
+        description = image.source.label,
+        matchType = MatchType.WORKBOOK,
+        matchTypeVerified = true,
+        cell = image.cell,
+        cosine = cosine,
+        percent = percent,
+        thumbJpeg = image.thumbJpeg,
+    )
+
 
     // =====================================================================================
     // Toast + prompt (always touched on the main thread)
@@ -601,6 +1294,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         camera.shutdown()
+        online.shutdown()
         embedder?.close()
         embedder = null
         wishlistExecutor.shutdown()

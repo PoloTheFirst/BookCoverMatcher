@@ -4,6 +4,8 @@ import com.bookcovermatcher.core.Config
 import com.bookcovermatcher.core.autoscan.ScanBadge
 import com.bookcovermatcher.core.autoscan.ScanTick
 import com.bookcovermatcher.core.search.MatchLevel
+import com.bookcovermatcher.core.wishlist.ItemKind
+import com.bookcovermatcher.core.wishlist.SessionKind
 import java.io.File
 
 /** State of the OpenCLIP model file. */
@@ -47,20 +49,139 @@ enum class ToastKind { INFO, OK, ERR }
 
 class ToastUi(val id: Long, val text: String, val kind: ToastKind)
 
-/** The green "Record added to wishlist" bar. [recordId] is null once the record was removed. */
+/** The green "Session added to …" bar. [recordId] is the session id, or null once undone. */
 class PromptUi(val id: Long, val recordId: String?, val text: String)
 
-class WishlistMatchUi(val cell: String, val source: String, val percentText: String, val thumb: File?)
+// ---------------------------------------------------------------------------------------------
+// Phase 2 navigation
+// ---------------------------------------------------------------------------------------------
 
-class WishlistRecordUi(
+/** Bottom-navigation destinations. Persistent data never depends on which tab is selected. */
+enum class AppTab { HOME, SEARCH, WISHLIST, MORE }
+
+/** The two lists of the Wishlist destination. Bookmarks is a folder, not a separate screen stack. */
+enum class WishlistSection { FOLDERS, BOOKMARKS }
+
+/**
+ * The three lists of the Search destination, kept apart on purpose:
+ * `WORKBOOK` is the offline comparison with the spreadsheet (comparison output, no per-row
+ * bookmark/remove controls), `ONLINE` is the catalogue search, `BOOKMARKS` shows the results of the
+ * current search that are already in the Bookmarks collection. One mixed list would let an online
+ * record look like a workbook match.
+ */
+enum class SearchResultsTab { WORKBOOK, ONLINE, BOOKMARKS }
+
+/** What a confirmation dialog is about to remove. One dialog, four honest labels. */
+enum class DeleteKind { FOLDER, SESSION, BOOKMARK, MEMBERSHIP }
+
+/** What the shared folder picker is about to do; the copy and the write differ accordingly. */
+enum class PickerMode {
+    /** Individual results/bookmarks join a folder as direct items. */
+    ADD_ITEMS,
+
+    /** One offline matching operation is saved as a session inside the chosen folder. */
+    SAVE_SESSION,
+
+    /** The whole result profile (offline top-5 + online results) becomes one session. */
+    SAVE_RESULT_PROFILE,
+}
+
+/**
+ * One saved item, ready to draw. Cell/percent are workbook-only and stay null for online and
+ * manual items. [kind] lets a row know whether it is comparison output (no per-item actions).
+ */
+class SavedItemUi(
+    val id: String,
+    val title: String,
+    val url: String?,
+    val domain: String?,
+    val provider: String?,
+    val meta: String,
+    val kind: ItemKind,
+    val kindLabel: String,
+    val bookmarked: Boolean,
+    val thumb: File?,
+    val addedText: String,
+    val cell: String?,
+    val percentText: String?,
+) {
+    val comparisonOnly: Boolean get() = kind == ItemKind.WORKBOOK_MATCH
+}
+
+/** A folder card: a user folder or the reserved `Bookmarks` card. Counts come from the same read. */
+class FolderUi(
     val id: String,
     val name: String,
-    val timeText: String,
-    val scanThumb: File?,
-    val matches: List<WishlistMatchUi>,
+    val sessionCount: Int,
+    val itemCount: Int,
+    val cover: File?,
+    val reserved: Boolean,
 )
 
-class RenameUi(val recordId: String, val currentName: String)
+/** One session row inside a folder. */
+class SessionUi(
+    val id: String,
+    val title: String,
+    val kind: SessionKind,
+    val kindLabel: String,
+    val meta: String,
+    val query: String?,
+    val scanThumb: File?,
+    val resultCount: Int,
+    val bookmarkedCount: Int,
+)
+
+/** A folder opened: its sessions plus the items saved directly into it (bookmarks, adds). */
+data class FolderDetailUi(
+    val id: String,
+    val name: String,
+    val sessions: List<SessionUi>,
+    val directItems: List<SavedItemUi>,
+)
+
+/**
+ * One session opened. [comparisonOnly] is true for offline matching sessions: their rows are the
+ * comparison result and deliberately have no bookmark/add/remove controls.
+ */
+data class SessionDetailUi(
+    val id: String,
+    val folderId: String?,
+    val title: String,
+    val kindLabel: String,
+    val meta: String,
+    val query: String?,
+    val items: List<SavedItemUi>,
+    val comparisonOnly: Boolean,
+)
+
+/** One folder in the picker. [alreadyContains] is shown instead of silently skipping. */
+class PickerFolderUi(val id: String, val name: String, val itemCount: Int, val alreadyContains: Boolean)
+
+/** The shared folder picker used by per-item adds, bulk adds and saving an offline session. */
+class PickerUi(
+    val mode: PickerMode,
+    val headline: String,
+    val itemCount: Int,
+    val folders: List<PickerFolderUi>,
+    val defaultFolderId: String?,
+) {
+    val needsFolder: Boolean get() = folders.isEmpty()
+}
+
+/** [collectionId] is set for a membership removal (an item leaving one folder). */
+class PendingDeleteUi(
+    val kind: DeleteKind,
+    val id: String,
+    val title: String,
+    val collectionId: String? = null,
+)
+
+/** Renaming a folder or a session. [title] keeps the dialog honest about what is being renamed. */
+class RenameUi(val recordId: String, val currentName: String, val title: String = "Rename folder")
+
+/** State of the hand-typed bookmark form. [error] is a message the form shows verbatim. */
+class CustomBookmarkUi(val error: String? = null)
+
 
 data class UiState(
     val model: ModelUi = ModelUi.Checking,
@@ -73,25 +194,47 @@ data class UiState(
     val autoScan: Boolean = false,
     val scanTick: ScanTick? = null,
 
-    // panel 1
+    // offline controls: workbook, range, captured cover, matching
     val workbook: WorkbookUi? = null,
     val workbookLoading: Boolean = false,
     val rangeText: String = Config.DEFAULT_RANGE,
     val target: TargetUi? = null,
     val busy: BusyUi? = null,
 
-    // panel 2
+    // offline comparison results (Search > Workbook tab)
     val results: ResultsUi = ResultsUi.Initial,
 
-    // wishlist
-    val wishlistOpen: Boolean = false,
-    val wishlist: List<WishlistRecordUi> = emptyList(),
-    val pendingDeleteId: String? = null,
+    // online results (Search > Online tab); the offline workflow above never reads it
+    val online: OnlineSearchUi = OnlineSearchUi(),
+
+    // Phase 2 navigation
+    val tab: AppTab = AppTab.HOME,
+    val wishlistSection: WishlistSection = WishlistSection.FOLDERS,
+
+    /** Which Search list is open. Navigation state only — it never decides what is persisted. */
+    val searchTab: SearchResultsTab = SearchResultsTab.WORKBOOK,
+
+    // wishlist: folders, their sessions and the reserved Bookmarks folder, from one store read
+    val folders: List<FolderUi> = emptyList(),
+    val unfiledSessions: List<SessionUi> = emptyList(),
+    val bookmarks: List<SavedItemUi> = emptyList(),
+    val folderDetail: FolderDetailUi? = null,
+    val sessionDetail: SessionDetailUi? = null,
+    val pendingDelete: PendingDeleteUi? = null,
+    val picker: PickerUi? = null,
+    val customBookmark: CustomBookmarkUi? = null,
     val renaming: RenameUi? = null,
+
+    /** Fingerprints of saved items, so a result card can show its bookmark/wishlist state. */
+    val bookmarkedKeys: Set<String> = emptySet(),
+    val wishlistedKeys: Set<String> = emptySet(),
 
     // transient
     val prompt: PromptUi? = null,
     val toast: ToastUi? = null,
 ) {
     val isBusy: Boolean get() = busy != null
+
+    val offlineMatches: List<ResultUi>
+        get() = (results as? ResultsUi.Ranked)?.items.orEmpty()
 }

@@ -10,6 +10,7 @@ import androidx.exifinterface.media.ExifInterface
 import com.bookcovermatcher.core.vision.ImageCodec
 import com.bookcovermatcher.core.vision.ImageOps
 import com.bookcovermatcher.core.vision.PixelImage
+import com.bookcovermatcher.core.vision.EncodedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import kotlin.math.max
@@ -23,7 +24,7 @@ class AndroidImageCodec : ImageCodec {
     override fun decode(bytes: ByteArray, mime: String, maxEdge: Int): PixelImage? =
         decodeBytes(bytes, maxEdge, applyExifOrientation = false)
 
-    /** For a photo chosen by the user: honours the EXIF rotation, as a browser `<img>` does. */
+    /** For a photo chosen by the user: honors the EXIF rotation, as a browser `<img>` does. */
     fun decodePhoto(bytes: ByteArray, maxEdge: Int): PixelImage? =
         decodeBytes(bytes, maxEdge, applyExifOrientation = true)
 
@@ -95,10 +96,69 @@ class AndroidImageCodec : ImageCodec {
             out.recycle()
         }
     }
+    /**
+     * Encodes a full-size picture as JPEG for something that needs to read it — currently the OCR
+     * bridge, which cannot work from the 224-pixel thumbnail. Down-scaled to [maxEdge] first so a
+     * 12-megapixel photo does not become a 5 MB upload.
+     *
+     * Unlike [makeThumbJpeg], which only has to look right on screen, this output is sent to a
+     * service, so every failure mode is checked rather than assumed:
+     *  * `Bitmap.compress()` reports failure by returning `false` — it neither throws nor returns
+     *    null — so the result is checked, not trusted;
+     *  * alpha is flattened onto white first, because JPEG has no transparency and Android's
+     *    encoder would otherwise blend onto an implementation-defined colour. The offline thumbnail
+     *    path already composites explicitly, and this matches it;
+     *  * the byte array is validated by [EncodedImage.requireValid] before a caller can hand an
+     *    empty file to Python and have it come back as a generic OCR error.
+     *
+     * @throws EncodedImage.EncodingFailed if there is no usable picture.
+     */
+    fun encodeJpeg(image: PixelImage, maxEdge: Int, quality: Int = OCR_QUALITY): ByteArray {
+        if (image.width <= 0 || image.height <= 0) {
+            throw EncodedImage.EncodingFailed("The captured picture has no size (${image.width}×${image.height}).")
+        }
+        val scale = min(1f, maxEdge.toFloat() / max(image.width, image.height))
+        val w = max(1, (image.width * scale).roundToInt())
+        val h = max(1, (image.height * scale).roundToInt())
+        if (w * h <= 0) {
+            throw EncodedImage.EncodingFailed("Resizing to ${w}×$h would produce an invalid picture.")
+        }
+
+        // Flatten first so the JPEG has no alpha channel left to guess about.
+        val argb = if (w < image.width || h < image.height) {
+            ImageOps.areaResizeArgb(image.argb, image.width, image.height, w, h)
+        } else {
+            image.argb.copyOf()
+        }
+        for (i in argb.indices) argb[i] = ImageOps.flattenOnWhite(argb[i])
+
+        val src = Bitmap.createBitmap(argb, w, h, Bitmap.Config.ARGB_8888)
+        try {
+            val out = ByteArrayOutputStream(64 * 1024)
+            if (!src.compress(Bitmap.CompressFormat.JPEG, quality, out)) {
+                throw EncodedImage.EncodingFailed(
+                    "Android could not encode the ${w}×$h cover as JPEG.",
+                )
+            }
+            return EncodedImage.requireValid(out.toByteArray(), OCR_MAX_BYTES)
+        } finally {
+            src.recycle()
+        }
+    }
+
 
     companion object {
         private const val THUMB_BACKGROUND = 0xFF001428.toInt()
         private const val THUMB_QUALITY = 72
+
+        /** OCR wants legible text, not a small file; Lens downscales anything over 1600 px anyway. */
+        const val OCR_QUALITY = 84
+
+        /** Long edge handed to the OCR bridge. */
+        const val OCR_MAX_EDGE = 1280
+
+        /** Keep in step with MAX_IMAGE_BYTES in `lens_bridge.py`; Python rejects anything larger. */
+        const val OCR_MAX_BYTES = 12 * 1024 * 1024
 
         fun toPixelImage(bmp: Bitmap): PixelImage {
             val w = bmp.width

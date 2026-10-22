@@ -71,12 +71,17 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.LifecycleOwner
+import com.bookcovermatcher.AppTab
 import com.bookcovermatcher.BusyUi
+import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.MainViewModel
+import com.bookcovermatcher.ProductResultUi
 import com.bookcovermatcher.ResultUi
 import com.bookcovermatcher.ResultsUi
+import com.bookcovermatcher.SearchResultsTab
 import com.bookcovermatcher.TargetUi
 import com.bookcovermatcher.UiState
+import com.bookcovermatcher.WishlistSection
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.search.MatchLevel
 import com.bookcovermatcher.ui.components.ButtonLabel
@@ -85,23 +90,27 @@ import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.JpegImage
 import com.bookcovermatcher.ui.components.Panel
+import com.bookcovermatcher.ui.components.SegmentedTab
+import com.bookcovermatcher.ui.components.SegmentedTabRow
 import com.bookcovermatcher.ui.components.TargetGlyph
 import com.bookcovermatcher.ui.components.dashedBorder
 import com.bookcovermatcher.ui.theme.Palette
 
-/** What the buttons do that needs Android (permission prompts, document pickers). */
+/** What the buttons do that needs Android (permission prompts, document pickers, browser links). */
 class ScreenActions(
     val onScan: () -> Unit,
     val onToggleAuto: () -> Unit,
     val onRestart: () -> Unit,
     val onPickWorkbook: () -> Unit,
     val onPickImage: () -> Unit,
+    val onOpenUrl: (String) -> Unit,
 )
 
+/** Home: the existing capture + workbook workflow. Results are presented on the Search tab. */
 @Composable
-fun MainContent(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, actions: ScreenActions) {
+fun HomeScreen(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, actions: ScreenActions) {
     Column(Modifier.fillMaxWidth()) {
-        AppHeader(onOpenWishlist = vm::openWishlist)
+        AppHeader()
         Spacer(Modifier.height(14.dp))
 
         CameraCard(
@@ -119,30 +128,244 @@ fun MainContent(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, 
         SpreadsheetPanel(ui, vm, actions)
 
         Spacer(Modifier.height(14.dp))
-        ResultsPanel(ui.results)
-
-        Spacer(Modifier.height(14.dp))
-        Panel("3 · Wishlist") {
+        Panel("Results") {
+            val ranked = ui.offlineMatches
+            Text(
+                when {
+                    ranked.isNotEmpty() -> "${ranked.size} workbook match(es) are ready on the Search tab."
+                    ui.results === ResultsUi.Empty -> "No match yet. Run \u201CLink & Find Top 5\u201D, then open Search."
+                    else -> "Scan a cover and run \u201CLink & Find Top 5\u201D; the comparison appears on Search."
+                },
+                color = Palette.Muted,
+                fontSize = 11.sp,
+            )
             GradientButton(
-                onClick = vm::addToWishlist,
-                colors = Palette.YellowGradient,
-                contentColor = Color(0xFF3A2A00),
-                modifier = Modifier.fillMaxWidth(),
-                glow = Color(0xFFF0B400).copy(alpha = 0.5f),
-            ) {
-                Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFF3A2A00), modifier = Modifier.size(20.dp))
-                ButtonLabel("Add to Wishlist", Color(0xFF3A2A00))
-            }
+                onClick = { vm.selectTab(com.bookcovermatcher.AppTab.SEARCH) },
+                colors = Palette.NavyGradient,
+                contentColor = Palette.Text,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                minHeight = 42.dp,
+            ) { ButtonLabel("Open Search", Palette.Text, 12.5f) }
         }
     }
 }
+
+/**
+ * Search destination — the "Search Results" screen of the workflow image.
+ *
+ * The picture puts `Workbook (n) / Online (n)` tabs above one result area and adds a `Bookmarks` tab
+ * on the bookmark step. Implemented as three tabs whose labels carry live counts:
+ *
+ *  * **Workbook** — the offline comparison: spreadsheet controls, the top-5 rows, "Save this scan as
+ *    a session". Rows stay comparison-only; they have no bookmark or remove controls.
+ *  * **Online** — the whole online panel: OCR, the editable query, catalogue results and their
+ *    per-card actions.
+ *  * **Bookmarks** — the results of this search that are in the Bookmarks collection, plus
+ *    `Bookmark all results`. Bookmarks are their own collection, so this tab never writes to a folder
+ *    and never creates one.
+ *
+ * A mixed list is deliberately avoided: a workbook row is comparison output, an online record is a
+ * catalogue entry, and they must not look alike. Tabs are navigation state only — switching never
+ * cancels a request, clears the session cache or touches saved data.
+ */
+@Composable
+fun SearchScreen(ui: UiState, vm: MainViewModel, actions: ScreenActions) {
+    val found = (ui.online.catalogue as? CatalogueUi.Found)?.items.orEmpty()
+    val bookmarkedHere = found.filter { it.key in ui.bookmarkedKeys }
+
+    Column(Modifier.fillMaxWidth()) {
+        Text("Search Results", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Text(
+            "Workbook matches come from the spreadsheet comparison; online results come from catalogues searched with the cover text.",
+            color = Palette.Muted,
+            fontSize = 10.5.sp,
+        )
+        Spacer(Modifier.height(10.dp))
+
+        SegmentedTabRow {
+            SegmentedTab(
+                "Workbook (${ui.offlineMatches.size})",
+                ui.searchTab == SearchResultsTab.WORKBOOK,
+                Modifier.weight(1f),
+            ) { vm.selectSearchTab(SearchResultsTab.WORKBOOK) }
+            SegmentedTab(
+                "Online (${found.size})",
+                ui.searchTab == SearchResultsTab.ONLINE,
+                Modifier.weight(1f),
+            ) { vm.selectSearchTab(SearchResultsTab.ONLINE) }
+            SegmentedTab(
+                "Bookmarks (${bookmarkedHere.size})",
+                ui.searchTab == SearchResultsTab.BOOKMARKS,
+                Modifier.weight(1f),
+            ) { vm.selectSearchTab(SearchResultsTab.BOOKMARKS) }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        when (ui.searchTab) {
+            SearchResultsTab.WORKBOOK -> WorkbookResultsTab(ui, vm, actions, hasOnline = found.isNotEmpty())
+            SearchResultsTab.ONLINE -> OnlineResultsTab(ui, vm, actions)
+            SearchResultsTab.BOOKMARKS -> BookmarksResultsTab(ui, vm, actions, found, bookmarkedHere)
+        }
+    }
+}
+
+/** Offline half of Search: the existing workbook controls, the comparison, and the two explicit saves. */
+@Composable
+private fun WorkbookResultsTab(ui: UiState, vm: MainViewModel, actions: ScreenActions, hasOnline: Boolean) {
+    SpreadsheetPanel(ui, vm, actions)
+
+    Spacer(Modifier.height(14.dp))
+    Text(
+        when {
+            ui.offlineMatches.isNotEmpty() -> "Found ${ui.offlineMatches.size} workbook match(es)"
+            ui.results === ResultsUi.Empty -> "No workbook match for this cover"
+            else -> "No comparison yet"
+        },
+        color = Palette.Text,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
+    ResultsPanel(ui.results)
+
+    if (ui.offlineMatches.isNotEmpty()) {
+        GradientButton(
+            onClick = vm::saveOfflineSession,
+            colors = Palette.YellowGradient,
+            contentColor = Color(0xFF3A2A00),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            glow = Color(0xFFF0B400).copy(alpha = 0.5f),
+        ) {
+            Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFF3A2A00), modifier = Modifier.size(20.dp))
+            ButtonLabel("Save this scan as a session", Color(0xFF3A2A00))
+        }
+        Text(
+            "Saves one session (the five comparison results) into a folder you choose. It never creates a folder by itself.",
+            modifier = Modifier.padding(top = 6.dp),
+            color = Palette.Muted,
+            fontSize = 10.sp,
+        )
+    }
+
+    // Bulk add and per-item add stay different actions: this one keeps the comparison rows inside one
+    // session, while a card's `Add to wishlist` adds exactly that one item.
+    if (ui.offlineMatches.isNotEmpty() || hasOnline) {
+        Spacer(Modifier.height(12.dp))
+        GradientButton(
+            onClick = vm::addResultProfileToWishlist,
+            colors = Palette.GreenGradient,
+            contentColor = Color.White,
+            modifier = Modifier.fillMaxWidth(),
+            minHeight = 46.dp,
+        ) { ButtonLabel("Add entire result profile to wishlist", Color.White, 13.5f) }
+        Text(
+            "One session in the folder you choose: the workbook top-5 plus every online result currently found.",
+            modifier = Modifier.padding(top = 6.dp),
+            color = Palette.Muted,
+            fontSize = 10.sp,
+        )
+    }
+}
+
+/** Online half of Search: the existing online panel, now the only content of its own tab. */
+@Composable
+private fun OnlineResultsTab(ui: UiState, vm: MainViewModel, actions: ScreenActions) {
+    OnlineSearchPanel(
+        ui = ui.online,
+        controller = vm.online,
+        onOpenUrl = actions.onOpenUrl,
+        bookmarkedKeys = ui.bookmarkedKeys,
+        wishlistedKeys = ui.wishlistedKeys,
+        onToggleBookmark = vm::toggleBookmark,
+        onAddToWishlist = vm::addResultToWishlist,
+        onBulkAdd = vm::addResultProfileToWishlist,
+        onBookmarkAll = vm::bookmarkAllResults,
+    )
+}
+
+/** The workflow image's fourth step: the `Bookmarks` tab of the results screen. */
+@Composable
+private fun BookmarksResultsTab(
+    ui: UiState,
+    vm: MainViewModel,
+    actions: ScreenActions,
+    found: List<ProductResultUi>,
+    bookmarked: List<ProductResultUi>,
+) {
+    Panel("Bookmarks") {
+        Text(
+            "Results are saved to the Bookmarks collection (also linked to your wishlist profile if selected).",
+            color = Palette.Muted,
+            fontSize = 10.5.sp,
+        )
+        GradientButton(
+            onClick = vm::bookmarkAllResults,
+            colors = Palette.NavyGradient,
+            contentColor = Palette.Text,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            minHeight = 44.dp,
+        ) { ButtonLabel("Bookmark all results", Palette.Text, 13f) }
+        Text(
+            if (found.isEmpty()) {
+                "Nothing to bookmark yet \u2014 run a catalogue search on the Online tab."
+            } else {
+                "Saves all ${found.size} online result(s) of this search to Bookmarks. No folder is created."
+            },
+            modifier = Modifier.padding(top = 6.dp),
+            color = Palette.Muted,
+            fontSize = 10.sp,
+        )
+        Text(
+            "The collection holds ${ui.bookmarks.size} bookmark(s); the list below is only this search.",
+            modifier = Modifier.padding(top = 6.dp),
+            color = Palette.Accent,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+
+    Spacer(Modifier.height(8.dp))
+    if (bookmarked.isEmpty()) {
+        EmptyNote(
+            if (found.isEmpty()) {
+                "No online results in this search yet."
+            } else {
+                "None of these ${found.size} result(s) is bookmarked yet. Use the bookmark action on a card, or Bookmark all results."
+            },
+        )
+    } else {
+        bookmarked.forEachIndexed { index, item ->
+            ProductResultCard(
+                item = item.copy(bookmarked = true, wishlisted = item.key in ui.wishlistedKeys),
+                index = index,
+                onOpen = actions.onOpenUrl,
+                onToggleBookmark = vm::toggleBookmark,
+                onAddToWishlist = vm::addResultToWishlist,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+
+    // The collection outlives this search, so the full list lives on the Wishlist tab.
+    GradientButton(
+        onClick = {
+            vm.selectWishlistSection(WishlistSection.BOOKMARKS)
+            vm.selectTab(AppTab.WISHLIST)
+        },
+        colors = Palette.NavyGradient,
+        contentColor = Palette.Text,
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        minHeight = 44.dp,
+    ) { ButtonLabel("Open the full Bookmarks collection", Palette.Text, 13f) }
+}
+
 
 // ---------------------------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun AppHeader(onOpenWishlist: () -> Unit) {
+private fun AppHeader() {
     Box(Modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 48.dp),
@@ -160,25 +383,13 @@ private fun AppHeader(onOpenWishlist: () -> Unit) {
                 letterSpacing = 0.3.sp,
             )
             Text(
-                "Scan a cover · embed it · find it inside your spreadsheet",
+                "Scan a cover \u00B7 embed it \u00B7 find it inside your spreadsheet",
                 modifier = Modifier.padding(top = 4.dp),
                 color = Palette.Muted,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 letterSpacing = 0.2.sp,
             )
-        }
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .size(42.dp)
-                .clip(CircleShape)
-                .border(1.dp, Palette.Line, CircleShape)
-                .semantics { contentDescription = "Open Wishlist" }
-                .clickable(role = Role.Button, onClick = onOpenWishlist),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.Star, contentDescription = null, tint = Palette.Warn, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -246,16 +457,16 @@ private fun PulseDot(modifier: Modifier) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Panel 1 - spreadsheet, range, image, match
+// Offline controls - spreadsheet, range, image, match
 // ---------------------------------------------------------------------------------------------
 
 @Composable
 private fun SpreadsheetPanel(ui: UiState, vm: MainViewModel, actions: ScreenActions) {
-    Panel("1 · Spreadsheet & range") {
+    Panel("Spreadsheet & range") {
         PickerField(
             label = "Excel file (.xlsx, .xlsm)",
             buttonText = "Choose file",
-            value = ui.workbook?.let { it.name + "  ·  " + it.sizeText },
+            value = ui.workbook?.let { it.name + "  \u00B7  " + it.sizeText },
             placeholder = "No file chosen",
             loading = ui.workbookLoading,
             onClick = actions.onPickWorkbook,
@@ -267,7 +478,7 @@ private fun SpreadsheetPanel(ui: UiState, vm: MainViewModel, actions: ScreenActi
         Spacer(Modifier.height(12.dp))
 
         PickerField(
-            label = "…or use an image from your device",
+            label = "or use an image from your device",
             buttonText = "Choose image",
             value = null,
             placeholder = "No image chosen",
@@ -474,15 +685,15 @@ private fun BusyCard(busy: BusyUi, onCancel: () -> Unit) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Panel 2 - results
+// Comparison results - comparison output only, no per-row actions
 // ---------------------------------------------------------------------------------------------
 
 @Composable
 private fun ResultsPanel(results: ResultsUi) {
-    Panel("2 · Top 5 matches") {
+    Panel("Top 5 matches") {
         Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when (results) {
-                ResultsUi.Initial -> EmptyNote("No results yet — scan a cover, then press “Link & Find Top 5”.")
+                ResultsUi.Initial -> EmptyNote("No results yet \u2014 scan a cover, then press Link & Find Top 5.")
                 ResultsUi.Empty -> EmptyNote("No matches to show.")
                 is ResultsUi.Ranked -> {
                     results.items.forEachIndexed { i, item -> ResultRow(item, delayMs = i * 45) }
@@ -575,7 +786,7 @@ private fun ResultRow(item: ResultUi, delayMs: Int) {
                 Text(item.cell, color = Palette.Accent, fontSize = 16.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
             Text(
-                "cos ${Formatting.cosine(item.cosine)} · ${item.source}",
+                "cos ${Formatting.cosine(item.cosine)} \u00B7 ${item.source}",
                 modifier = Modifier.padding(top = 2.dp),
                 color = Palette.Muted,
                 fontSize = 10.5.sp,

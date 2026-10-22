@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- The camera is the only permission. There is deliberately no INTERNET permission: everything runs on the device. -->
+    <!--
+      The camera is the only permission the offline matcher needs. INTERNET exists solely for the
+      opt-in "2.5 · Online search" panel, which is switched off by default; with it off the app
+      makes no request at all. Two hosts are ever contacted: lens.google.com (via the embedded
+      chrome-lens-py package) and openlibrary.org / covers.openlibrary.org.
+    -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 

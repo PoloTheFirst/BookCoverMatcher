@@ -112,7 +112,8 @@ fun WishlistPrompt(prompt: PromptUi?, onRemove: () -> Unit, onClose: () -> Unit)
 fun ToastHost(toast: ToastUi?) {
     val shown = rememberLastNonNull(toast)
     Box(
-        Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 18.dp, start = 16.dp, end = 16.dp),
+        // Keep the toast above the 62 dp bottom navigation bar; it must never cover the tabs.
+        Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 86.dp, start = 16.dp, end = 16.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
         AnimatedVisibility(
@@ -144,15 +145,24 @@ fun ToastHost(toast: ToastUi?) {
     }
 }
 
-/** Blocking "Do you really want to delete this record?" dialog: it can only be answered, not dismissed. */
+/**
+ * Blocking confirmation dialog for a destructive action. It can only be answered, not dismissed.
+ * [message] names exactly what goes away, so "delete a profile" and "remove a bookmark" never share
+ * a misleading sentence.
+ */
 @Composable
-fun ConfirmDeleteDialog(visible: Boolean, onCancel: () -> Unit, onConfirm: () -> Unit) {
+fun ConfirmDeleteDialog(
+    visible: Boolean,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+    message: String = "Do you really want to delete this record?",
+) {
     if (!visible) return
     BackHandler(enabled = true) { }
     Scrim {
         DialogCard {
             Text(
-                "Do you really want to delete this record?",
+                message,
                 modifier = Modifier.fillMaxWidth(),
                 color = Palette.Text,
                 fontSize = 15.sp,
@@ -186,7 +196,7 @@ fun RenameDialog(renaming: RenameUi?, onCancel: () -> Unit, onSave: (id: String,
 
     Scrim(Modifier.imePadding()) {
         DialogCard {
-            Text("Rename record", color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+            Text(target.title, color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))
             val shape = RoundedCornerShape(12.dp)
             BasicTextField(
@@ -227,7 +237,7 @@ fun RenameDialog(renaming: RenameUi?, onCancel: () -> Unit, onSave: (id: String,
 }
 
 @Composable
-private fun Scrim(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+internal fun Scrim(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
         modifier
             .fillMaxSize()
@@ -238,7 +248,7 @@ private fun Scrim(modifier: Modifier = Modifier, content: @Composable () -> Unit
 }
 
 @Composable
-private fun DialogCard(content: @Composable () -> Unit) {
+internal fun DialogCard(content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
     Column(
         Modifier
