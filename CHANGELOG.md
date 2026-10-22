@@ -2,6 +2,58 @@
 
 All notable changes are recorded here. Versions follow the project's user-visible feature notes.
 
+## 2.2.1 — 2026-10-22
+
+Design correction for the online provider layer. 2.2.0 shipped two providers, both bibliographic
+catalogues, which is not the workflow this app exists for (Japanese doujinshi, commercial doujinshi,
+secondhand listings, digital works) and which gave the panel no way to say which provider had
+actually been asked. The saved-data model, the offline matcher and the bookmark rules are unchanged.
+
+### Added
+
+* **Provider expansion — five providers declared, three actually queried.** `ProviderCatalog` lists
+  **Open Library**, **Google Books**, **Melonbooks**, **Suruga-ya** and **DLsite**; the controller
+  searches the first two plus DLsite concurrently, each with its own 20-second deadline.
+  * **DLsite adapter** (`DlsiteSource` + `DlsiteResponseParser` + `HtmlText`): public books search
+    page, Japanese query percent-encoded as UTF-8, reading the work id (`RJ…`), title, circle, the
+    shop's *current* price and the 240×240 cover. No HTML dependency; the parser is fixture-tested
+    against captured pages in `app/src/test/resources/fixtures`.
+  * **Melonbooks and Suruga-ya are browser-only.** Both answered HTTP 403 to `robots.txt` *and* to
+    their search URL, with a browser user agent and with the app's own (measured 2026-10-22). The app
+    sends them no request at all; their provider row opens the shop's own search page instead.
+  * **Per-provider status rows** (`ProviderStatusUi`): results / no match / failure / manual, so a
+    partial search can never read as a complete one and a browser-only provider is never counted.
+  * Result cards name their provider; a shop listing shows the price the shop printed, while
+    availability stays `—` because no provider sends it.
+
+### Changed
+
+* `OnlineFailure.BLOCKED` classifies HTTP 401/403/451 instead of calling them a bad response.
+* A shop listing ranks `RANK_MARKETPLACE` above a catalogue record (`RANK_CATALOGUE`); provider
+  identity (`dl:rj…`) keeps a DLsite work and a library record of a similar title as two results.
+* Result cards show the provider chip where they used to show only the domain chip.
+* Version code/name: **203 / 2.2.1**.
+
+### Verified
+
+* JVM: **184 tests**, 0 failures (`testDebugUnitTest`; 3 live checks skipped by design).
+* Live providers (`-DonlineCheck=1`): **184 tests**, 0 failures and all three live checks executed —
+  Open Library returned real records, **DLsite returned real works for `東方`** (ids, Japanese
+  titles, circles, `924円`-style prices, `img.dlsite.jp` covers, `dlsite.com` product URLs), Google
+  Books was found or correctly reported `RATE_LIMITED`.
+* Provider access probe (2026-10-22): Melonbooks and Suruga-ya answered **HTTP 403** to `robots.txt`
+  and to their search URL, with both a browser UA and the app UA. Browser hand-off only.
+* `assembleDebug` green.
+
+### Known limitations
+
+* **Melonbooks and Suruga-ya cannot be searched by the app.** Both refuse automated clients (HTTP 403,
+  `robots.txt` included); their rows open a browser search and are never counted as answered.
+* **DLsite results are its books section, first page only.** The listing has no stock, description or
+  rating; the app shows the shop's current price and nothing it did not receive.
+* Visual image-similarity search is not implemented; a provider text search is not a visual match.
+
+
 ## 2.2.0 — 2026-10-22
 
 Corrective release. Supersedes the unreleased 2.3.0 working-tree iteration; nothing under that label
@@ -43,20 +95,6 @@ was published, and its "folder containing five items" model was removed.
   `Add entire result profile to wishlist` on the Workbook tab, and `Bookmark all results` plus a
   collection shortcut on the Bookmarks tab. Built on a shared `SegmentedTabRow` / `SegmentedTab`
   component that the Wishlist sections reuse.
-* **Provider expansion — five providers, three actually queried.** `ProviderCatalog` declares
-  **Open Library**, **Google Books**, **Melonbooks**, **Suruga-ya** and **DLsite**; the controller
-  searches the first two plus DLsite concurrently, each with its own 20-second deadline.
-  * **DLsite adapter** (`DlsiteSource` + `DlsiteResponseParser`): public books search page, Japanese
-    query percent-encoded as UTF-8, reading the work id (`RJ…`), title, circle, the shop's *current*
-    price and the 240×240 cover. No HTML dependency; captured-page fixtures under
-    `app/src/test/resources/fixtures`.
-  * **Melonbooks and Suruga-ya are browser-only**: both answered HTTP 403 to `robots.txt` *and* to
-    their search URL, with a browser UA and with the app's own (measured 2026-10-22). The app sends
-    them no request at all; their provider row opens the shop's own search page instead.
-  * **Per-provider status rows** (`ProviderStatusUi`): results / no match / failure / manual, so a
-    partial search can never read as a complete one and a browser-only provider is never counted.
-  * Result cards name their provider; a shop listing shows the price the shop printed, while
-    availability stays `—` because no provider sends it.
 * Folder picker for both individual adds and session saves; explicit "create new folder" remains a
   user action.
 * `Bookmark all results`, `Add entire result profile to wishlist`, and per-card bookmark/wishlist
@@ -75,13 +113,7 @@ was published, and its "folder containing five items" model was removed.
 
 ### Verified
 
-* JVM: **184 tests**, 0 failures (`testDebugUnitTest`).
-* Live providers (`-DonlineCheck=1`): **184 tests**, 0 failures, all three live checks executed —
-  Open Library returned real records, **DLsite returned real works for `東方`** (ids, titles,
-  circles, `924円`-style prices, `img.dlsite.jp` covers, `dlsite.com` product URLs), Google Books was
-  found or correctly reported `RATE_LIMITED`.
-* Provider access probe (2026-10-22): Melonbooks and Suruga-ya answered **HTTP 403** to `robots.txt`
-  and to their search URL, with both a browser UA and the app UA. They are browser-handoff only.
+* JVM: **165 tests**, 0 failures (`testDebugUnitTest`, and with `-DonlineCheck=1`).
 * Python bridge contract: `tools/lens_bridge_check.py` passes.
 * On-device (emulator `Medium_Phone_API_37.0`, x86_64): **3/3** instrumented tests pass, including a
   real Lens OCR read of the bundled Hobbit cover and a real Open Library query through the
@@ -91,12 +123,8 @@ was published, and its "folder containing five items" model was removed.
 
 ### Known limitations
 
-* Visual image-similarity search is not implemented; OCR + provider text search is not a visual
+* Visual image-similarity search is not implemented; OCR + catalogue text search is not a visual
   match.
-* **Melonbooks and Suruga-ya cannot be searched by the app.** Both refuse automated clients (HTTP 403,
-  `robots.txt` included); their rows open a browser search and are never counted as answered.
-* **DLsite results are its books section, first page only.** The listing has no stock, description or
-  rating; the app shows the shop's current price and nothing it did not receive.
 * Google Books can return HTTP 429 without a key; the app reports `RATE_LIMITED` (Open Library still
   works). No API key is shipped.
 * Camera capture and a full workbook match were not exercised on the available emulator.
