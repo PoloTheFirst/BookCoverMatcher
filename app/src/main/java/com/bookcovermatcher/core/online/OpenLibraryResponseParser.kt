@@ -79,6 +79,8 @@ object OpenLibraryResponseParser {
             coverUrl = coverId?.let { "$COVER_SITE/b/id/$it-M.jpg" },
             detailUrl = SITE + key,
             source = SOURCE_NAME,
+            providerId = "ol",
+            identifier = key.substringAfterLast('/'),
         )
     }
 

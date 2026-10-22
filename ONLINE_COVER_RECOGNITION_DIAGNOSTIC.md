@@ -1,5 +1,15 @@
 # Online Cover Recognition — Diagnostic Report
 
+> **Update for v2.2.0 (2026-10-22).** The OCR bridge described here was exercised for real:
+> `chrome-lens-py` 3.8.2 read the bundled Hobbit cover on an x86_64 emulator in 2.2 s, and the
+> Live catalogue/controller path is covered by device tests. A separate defect was found in this
+> correction: `MainViewModel` never mirrored `OnlineSearchController.ui` into `UiState`, so the
+> online panel always rendered the default off state. That is fixed. Since v2.2.0 that panel is the
+> Search destination's **Online** tab, so "panel 2.5" below is historical naming. The rest of this
+> report is a historical record of the October 2026 investigation, including its original "no
+> device available"
+> caveat; see `README.md` §11 and `ONLINE_SEARCH.md` §7 for current, executed verification.
+
 **Symptom under investigation:** the app reports **“Could not read the cover.”** every time the
 online cover-recognition step is used.
 

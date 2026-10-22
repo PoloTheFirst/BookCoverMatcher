@@ -1,49 +1,103 @@
-# Experimental Image Search Feature with Open Library
+# Changelog
 
-## v2.1.0 (2026-10-21)
+All notable changes are recorded here. Versions follow the project's user-visible feature notes.
 
-## Added
+## 2.2.0 — 2026-10-22
 
-* **Panel 2.5 · Online search**, off by default. Two deliberately separate steps: **A · Read the cover (OCR)** and **B · Search the catalogue (product discovery)**.
-* **Embedded Python via Chaquopy 17.1.0** (CPython 3.12, ABIs `arm64-v8a` + `x86_64`). The original `chrome-lens-py` 3.8.2 package (MIT) is installed unmodified by the build and runs inside the app's own process — no companion PC, no local server, no backend, no FastAPI, no LAN service.
-* **`app/src/main/python/lens_bridge.py`** — the only Python in the app. Wraps `LensAPI.process_image()` and returns plain values, including each text block's glyph height (used to spot the title).
-* **`online/` package** — `OnlineSearchController` (orchestration + state), `PythonRuntime` (owns the interpreter, reports why it cannot start), `ChromeLensPyBridge` (Kotlin ↔ Python, maps Python exceptions to named `OcrFailures`), `OcrTextSource` (contract), `OpenLibraryBooksSource`, `HttpJsonClient` (the only socket in the app, HTTPS only), `CoverImageLoader` (memory-only cache).
-* **`core/online/` package** — plain JVM and unit-tested: `OcrQueryExtractor` (OCR text → title/author query), `OpenLibraryResponseParser`, `ProductSearchResult`, `ProductSearchDataSource` + `ProductSearchOutcome` / `OnlineFailure`.
-* **UI & Data components** — `data/OnlineSearchPrefs.kt`, `OnlineSearchUi.kt`, `ui/OnlineSearchPanel.kt`, `ui/ProductResultCard.kt`.
-* **Product discovery through Open Library Books API** — free, no API key, structured records, and every link is built by the app from the record's own key, so no URL is ever invented.
-* **Tooling scripts** — `tools/lens_poc.py` (desktop proof of concept for the Python package) and `tools/online_search_check.py` (issues the exact catalogue request the app sends).
-* **17 new unit tests** (84 in total).
+Corrective release. Supersedes the unreleased 2.3.0 working-tree iteration; nothing under that label
+was published, and its "folder containing five items" model was removed.
 
-## Changed
+### Fixed
 
-* **`INTERNET` permission added**, used only by panel 2.5. The app made no request before this release and still makes none while the switch is off.
-* **`AndroidImageCodec` gains `encodeJpeg()**` — OCR needs a legible picture, not the 224-pixel thumbnail.
-* **`UiState` gains one field**, `online`; `ScreenActions` gains `onOpenUrl`.
-* **Build configuration** — Chaquopy plugin 17.1.0 in `gradle/libs.versions.toml`; a CPython 3.12 on the build host is now required (see `README.md` → *Quick start*).
+* **Online search could never be used.** The online controller's `StateFlow` was not mirrored into
+  `UiState.online`, so the panel always rendered the default off state and returned early. The
+  controller is now collected into `UiState`; the persisted switch and the UI agree.
+* **Offline saves had the wrong data shape.** A saved scan used to become a new folder containing
+  five independently removable workbook rows. It now becomes one **session** inside a folder the
+  user chooses. Scans never create folders, folders can hold many sessions/results, and workbook
+  rows are read-only comparison output.
+* **Bookmarks could not be ordered inside a session** because there were no sessions. Bookmarked
+  results are now shown first inside their session; bookmark membership and folder membership stay
+  independent.
+* **OCR geometry could be misaligned**: a Lens block containing an internal newline shifted
+  `block_heights` relative to lines. `lens_bridge.py` now emits one line per block, and
+  `OcrQueryExtractor` pairs each height with its source line before filtering.
+* **Instrumentation contexts with a null `applicationContext`** made the embedded Python runtime
+  report `RUNTIME_MISSING`; `PythonRuntime` now falls back to the supplied context.
+* **Catalogue result count** is the merged, unique, displayable list; failures and placeholders are
+  not counted.
 
-## Fixed
+### Added
 
-* **Online cover recognition always failed with "Could not read the cover."** Three defects found and recorded in `ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md`:
-* A Java `byte[]` was rejected before any work was done. `lens_bridge.py` validated the incoming image with `isinstance(x, (bytes, bytearray, memoryview))`, but Chaquopy delivers a Java array as its own `java.chaquopy.jarray` type — a buffer-protocol object that is none of those three. Every call raised `TypeError`. The bridge now tests for the buffer protocol with `memoryview()` and copies with `.tobytes()`, which also maps Java's signed bytes back to unsigned. A bare `bytes(value)` would have been worse than the bug: `bytes(5)` is five NUL bytes.
-* Result fields were read with `getattr()` instead of dictionary lookup. `PyObject.get(String)` is documented as "Equivalent to Python `getattr()`", returning `null` for a missing attribute, so every field of the reply read as `null` — the app would have said "no text found" about a cover full of text. Dictionary access now goes through `asMap()`.
-* `Bitmap.compress()`'s return value was discarded, so a failed encode produced an empty `ByteArray` that surfaced much later as a generic OCR error. The result is now checked, alpha is flattened onto white before encoding, and the bytes are validated before Python sees them.
+* Bottom navigation with **Home**, **Search**, **Wishlist**, **More**.
+* Persistent folder → session → results model (`records.json` **v3**) with:
+  * idempotent reserved `Bookmarks` folder;
+  * `sessions`, `entries` and direct `memberships`;
+  * migrations from v1 records (unfiled sessions, no invented folder) and v2 collections (workbook
+    rows repaired into sessions; bookmarks preserved; legacy payload retained).
+* Session screen with comparison-only offline rows and bookmarks-first ordering.
+* Google Books as a second real catalogue, merged with Open Library. Per-catalogue failures are
+  reported (`CatalogueUi.Found.note`), and a total failure is `CatalogueUi.Failed`.
+* **Search Results tabs** as the workflow image draws them: `Workbook (n) / Online (n) /
+  Bookmarks (n)` with live counts, `Found n workbook match(es)` above the comparison, the bulk
+  `Add entire result profile to wishlist` on the Workbook tab, and `Bookmark all results` plus a
+  collection shortcut on the Bookmarks tab. Built on a shared `SegmentedTabRow` / `SegmentedTab`
+  component that the Wishlist sections reuse.
+* Folder picker for both individual adds and session saves; explicit "create new folder" remains a
+  user action.
+* `Bookmark all results`, `Add entire result profile to wishlist`, and per-card bookmark/wishlist
+  actions with real counts and undo.
+* Opt-in live catalogue tests (`-DonlineCheck=1`) and three on-device tests (OCR, catalogues,
+  controller).
 
+### Changed
 
-* **One generic message was hiding every failure category.** The bridge now returns a coded envelope and classifies `chrome_lens_py` errors by exception type rather than by matching text in a traceback, so each category gets its own actionable sentence. "Could not read the cover" survives only as the genuinely-unexpected case.
-* **Encoding failures were silently swallowed** by `runCatching { … }.getOrNull()` in `MainViewModel`; they are now reported as encoding failures, distinctly from OCR failures.
-* **Logging** — The bridge now logs to Logcat under `OnlineSearch`, including the Python traceback the UI deliberately hides. Image bytes and OCR text are never logged.
-* **Empty scan handling** — An empty OCR result is now unambiguously a successful scan of a cover with no writing on it.
+* `WishlistRepository` is now folder/session based; the v1 `add/rename/delete` record API was
+  removed (its migration path is retained).
+* `WishlistOverlay` was replaced by the Wishlist destination; the header star button was removed.
+* Online panel copy and settings say "catalogues" and name both providers; the "visual match" claim
+  is explicitly absent.
+* Version code/name: **202 / 2.2.0**.
 
-## Tests
+### Verified
 
-* **26 new tests, 110 in total:** `OcrResultParserTest` (20) covers the whole Kotlin↔Python contract without an interpreter, and `EncodedImageTest` (6) covers the encoder-validation rule.
-* **`tools/lens_bridge_check.py`** exercises the real Python bridge against a stubbed `LensAPI` — 40 assertions, no network.
-* The 67 pre-existing offline tests are unchanged and still pass.
+* JVM: **165 tests**, 0 failures (`testDebugUnitTest`, and with `-DonlineCheck=1`).
+* Python bridge contract: `tools/lens_bridge_check.py` passes.
+* On-device (emulator `Medium_Phone_API_37.0`, x86_64): **3/3** instrumented tests pass, including a
+  real Lens OCR read of the bundled Hobbit cover and a real Open Library query through the
+  controller.
+* Debug APK builds; manual smoke test covered navigation, folder creation, bookmark creation,
+  bookmark-to-folder, and persistence across restart.
 
-## Notes and known issues
+### Known limitations
 
-* **`chrome-lens-py` provides no product search.** Verified against the shipped package: `process_image()` returns OCR text, word geometry, detected language, translation and a single whole-image objects entry — no products, prices or shopping links. Product discovery is therefore a separate service, and nothing pretends otherwise.
-* **On-device runtime behaviour is not verified.** Verified: the build, the packaging of the interpreter and `chrome_lens_py` into both APKs, the library's real API against the live Lens endpoint, the Open Library request, and all pure-Kotlin rules. Not verified: the on-device round-trip — no device or emulator was available.
-* **`protobuf` is pinned to 6.33.6:** the 7.x line ships only platform wheels, and 6.33.6 is the newest release in `chrome-lens-py`'s range with a pure-Python wheel Chaquopy can install.
-* **Cancelling an online search** stops the Kotlin side at once; a Lens request already in flight inside Python runs to completion (Chaquopy cannot preempt a running call).
-* **The APK grows by roughly 30 MB.**
+* Visual image-similarity search is not implemented; OCR + catalogue text search is not a visual
+  match.
+* Google Books can return HTTP 429 without a key; the app reports `RATE_LIMITED` (Open Library still
+  works). No API key is shipped.
+* Camera capture and a full workbook match were not exercised on the available emulator.
+* The supplied workflow image is kept outside this repository
+  (`.../Downloads/workflow_image.png`). Its Search screen - result tabs, `Bookmark all results`,
+  bulk add, bookmarked-first ordering - is implemented; its profile cards are user-named folders with
+  no built-in genre taxonomy, and the `Visual match`, price, availability and marketplace chips stay
+  honest empty states because no provider in this build supplies them.
+* Screenshots/interaction timings in the image (a back arrow inside the results screen, cover art
+  inside profile cards) are approximated by the app's own components; the information structure, not
+  the pixels, is what was matched.
+
+## 2.1.0 — 2026-10-21
+
+* Native Android rewrite with OpenCLIP offline matching, Excel picture extraction, CameraX and
+  Auto Scan.
+* Optional online panel: chrome-lens-py OCR + Open Library catalogue lookup, switched off by
+  default.
+* Wishlist records (a saved scan plus its five matches), thumbnails, shared `MiniJson` codec.
+* 110 JVM tests at the time; OCR on a device remained unverified.
+
+## 2.0.0 — 2026-10-20
+
+* First native Kotlin/Compose rewrite of the v1 web prototype.
+
+## 1.1.0 / 1.0.0
+
+* Original web prototype releases (see the repository history).

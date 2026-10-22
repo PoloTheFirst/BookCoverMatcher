@@ -1,509 +1,356 @@
-# BookCover Matcher — v2.1.0
+# BookCover Matcher
 
-A native Android app (Kotlin · Jetpack Compose · CameraX) that scans a book cover with the phone
-camera and finds it inside an Excel spreadsheet by **image similarity**.
+**Version 2.2.0** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
-No accounts. No server. **Matching is entirely on the device.** An optional, opt-in
-[online search panel](ONLINE_SEARCH.md) adds cover OCR and a book-catalogue lookup; it is switched
-off by default and nothing is sent anywhere while it stays off.
+Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
+title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
+a connection; every online feature is opt-in.
 
-> v2.0.0 replaced the v1 WebView app. The Excel workflow is unchanged, the 64-bit pHash matcher is
-> replaced by **OpenCLIP embeddings + an exact inner-product (FAISS-style) index**, and the UI
-> (especially Auto Scan) was reworked.
-> v2.1.0 adds the optional online panel: the original `chrome-lens-py` package running **inside the
-> app** on an embedded Python runtime, plus product discovery through the Open Library Books API.
-> See [CHANGELOG.md](CHANGELOG.md) and [ONLINE_SEARCH.md](ONLINE_SEARCH.md).
-
----
-
-## Table of contents
-
-- [What it does](#what-it-does)
-- [Online search (optional)](#online-search-optional)
-- [Honest status of this release](#honest-status-of-this-release)
-- [Quick start](#quick-start)
-- [How to use](#how-to-use)
-- [The Excel workflow (unchanged)](#the-excel-workflow-unchanged)
-- [Why OpenCLIP + FAISS](#why-openclip--faiss)
-- [Auto Scan](#auto-scan)
-- [Reading a match](#reading-a-match)
-- [Configuration](#configuration)
-- [Project layout](#project-layout)
-- [Desktop tools](#desktop-tools)
-- [Tests](#tests)
-- [Limitations](#limitations)
-- [Troubleshooting](#troubleshooting)
-- [Security and privacy](#security-and-privacy)
+> This release is a corrective implementation. It restores the v2.1.0 offline workflow, replaces the
+> broken "folder of five items" model with **folder → session → results**, fixes the online-search
+> state bug that made the feature unreachable, and adds the bottom navigation the workflow called
+> for. The UI follows the supplied workflow image, which lives outside the repository
+> (`.../Downloads/workflow_image.png`): the Search screen has that image's `Workbook (n) / Online (n)`
+> result tabs, a `Bookmarks` tab with `Bookmark all results`, and the `Add entire result profile to
+> wishlist` button. Where the picture shows data this stack cannot supply (`Visual match`, price,
+> availability, marketplace sources) the field stays in the layout with an honest empty state instead
+> of an invented value. Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in
+> `ARCHITECTURE.md`.
 
 ---
 
-## What it does
+## 1. What the app does
 
-1. **Scan a book cover** with the camera, or pick a photo from the device.
-2. The app turns the cover into a **512-number embedding** with an OpenCLIP image encoder
-   (ONNX Runtime, on-device).
-3. You pick an **`.xlsx` / `.xlsm`** workbook and a **cell range** such as `A1:B20`.
-4. The app extracts the pictures embedded in that range (see
-   [The Excel workflow](#the-excel-workflow-unchanged)), embeds each one, and ranks them by cosine
-   similarity against your scan.
-5. It shows the **top 5 matches** with cell address, thumbnail, similarity percentage and raw cosine.
-6. You can save the scan and its matches to a **local wishlist**.
-7. Optionally, [online search](ONLINE_SEARCH.md) reads the text printed on the cover and looks the
-   title up in the Open Library catalogue.
+| Capability | What actually happens | Needs network? |
+|---|---|---|
+| **Offline matching** | CameraX capture (or a picked photo) → OpenCLIP embedding → cosine comparison against the pictures in the chosen workbook range → top 5 matches with cell, cosine and percent | No |
+| **OCR** | The captured cover is sent to Google Lens through the embedded `chrome-lens-py` package; text, language and glyph heights come back | Yes |
+| **Online catalogue search** | The OCR text (or text you type) is searched in **Open Library** and **Google Books**; results are normalised, de-duplicated and ranked | Yes |
+| **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
+| **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
 
-Embeddings of a workbook are cached on disk, so the second search against the same workbook and
-range is nearly instant.
+The offline matcher is the original one: `Config.TOP_MATCHES = 5`, the same OpenCLIP model, the same
+workbook extraction (`.xlsx`/`.xlsm`, cell-note pictures and floating pictures) and the same score
+scale as v2.1.0. See §9 for the algorithm summary and §11 for the regression evidence.
 
 ---
 
-## Online search (optional)
+## 2. The screen structure
 
-Panel **2.5 · Online search**, off by default. Two deliberately separate steps:
+Bottom navigation has four destinations:
 
-* **A · Read the cover** — OCR through the original [`chrome-lens-py`](https://pypi.org/project/chrome-lens-py/)
-  package, running unmodified inside the app on an embedded CPython 3.12 (Chaquopy). No companion
-  PC, no local server, no backend.
-* **B · Search the catalogue** — structured book records from the free, key-less
-  [Open Library Books API](https://openlibrary.org/developers/api).
+| Tab | Contents |
+|---|---|
+| **Home** | Cover capture (CameraX), Auto Scan toggle, Scan / restart controls, workbook picker, cell range, image picker, "Link & Find Top 5", and a shortcut to the comparison results |
+| **Search** | **Search Results** with `Workbook (n) / Online (n) / Bookmarks (n)` tabs and live counts: the offline controls plus the top-5 comparison, the online panel (OCR status, query field, catalogue results), and this search's bookmarked results with `Bookmark all results`. Offline and online results are never one mixed list |
+| **Wishlist** | **Folders** and **Bookmarks** sections. A folder opens to its sessions; a session opens to its results. Bookmarks are also reachable in their own section |
+| **More** | Online-search settings (toggle, auto-search, OCR/translation languages), a plain-language explanation of each capability, storage counts and "clear online session cache" |
 
-`chrome-lens-py` does **OCR and translation only** — it returns no products, prices or shopping
-links, and this app does not pretend otherwise. That is exactly why step B is a separate service.
-Full details, verification results and limitations: **[ONLINE_SEARCH.md](ONLINE_SEARCH.md)**.
-
----
-
-## Honest status of this release
-
-Read this before you build.
-
-| Area | Status |
-| :--- | :--- |
-| Excel extraction, Auto Scan engine, search index, wishlist storage, preprocessing (`core/` package, plain Kotlin) | **Compiled and unit-tested** — 110 tests pass. The Excel port was differential-tested against the original `excel.js` on 102 generated workbooks with identical results. |
-| Android layer: CameraX, ONNX Runtime wrapper, ViewModel, Jetpack Compose UI, Gradle build | **Written without a compiler in the authoring environment** (no access to Google Maven / Maven Central) and without an independent code review. The project was then moved to AGP 9.4.1 / Gradle 9.8.0 and built by the maintainer; any fixes needed for that are part of the repository. |
-| Online search: `chrome-lens-py` 3.8.2 on embedded CPython 3.12 | **Two integration defects found and fixed** (see [ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md](ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md) §15). The bridge boundary is now covered by 20 JVM tests and 40 assertions in `tools/lens_bridge_check.py`, and the fixed module is confirmed present in both APKs. **Still not executed on a device** — no device or emulator was available, so `asyncio.run()`, the import chain and the live Lens request remain unverified. |
-| Online search: Open Library catalogue | **Verified live.** `tools/online_search_check.py` issues the exact request the app builds and validates the response against the parser's rules. |
-| Online search: query extraction and catalogue parsing | **Unit-tested** — 17 tests in `OnlineSearchTest.kt`. |
-| OpenCLIP accuracy | **Not measured on real weights or real covers.** The model hub was unreachable from the build environment. The case for OpenCLIP below is reasoned plus a synthetic baseline; use `tools/benchmark.py` on your own catalogue to confirm it. |
-| int8 quantisation drift | **Unmeasured.** The export script measures it for you and refuses to write a model that drifted too far (see below). |
-| Match thresholds (High ≥ 70 %, Mid ≥ 45 %) | **Heuristic starting points**, not validated. |
+The wishlist is no longer a full-screen overlay and the header no longer has a star button; the
+Wishlist tab owns that data. Navigation is Compose state (`AppTab`) held by the ViewModel, so a tab
+switch or rotation never touches persisted data.
 
 ---
 
-## Quick start
-
-### 1. Requirements
-
-- Android Studio recent enough to support **Android Gradle Plugin 9.4.1** (the project builds with **Gradle 9.8.0**), and **JDK 17 or newer** (the minimum required by AGP 9 / Gradle 9)
-- A phone with Android 8.0+ (API 26+); 64-bit ARM recommended (the emulator uses x86_64)
-- Python 3.10+ for the one-off model export
-- **CPython 3.12** on the build machine, for the embedded Python runtime (Chaquopy requires the
-  build host's minor version to match the app's). Point at it from `local.properties`:
-
-  ```properties
-  chaquopy.buildPython=C:/path/to/Python/3.12/python.exe
-  ```
-
-  or pass `-PchaquopyBuildPython=<path>`. Without it Chaquopy tries `py -3.12` on `PATH`.
-  If this is missing the build fails when installing Python requirements — see
-  [Troubleshooting](#troubleshooting).
-
-### 2. Create the model file (once)
-
-The OpenCLIP image encoder is **not** included in this repository (it is ~100 MB).
-
-```bash
-pip install -r tools/requirements.txt
-python tools/export_openclip_onnx.py --check-images path/to/some/covers/
-```
-
-This downloads OpenCLIP **ViT-B-32 / laion2b_s34b_b79k**, exports the image tower to ONNX
-(~97 MB after int8 quantisation), verifies it against PyTorch, and checks the int8 model against
-fp32 on your sample covers. It writes `app/src/main/assets/models/openclip_image.onnx`.
-
-Useful variants:
-
-```bash
-python tools/export_openclip_onnx.py --precision fp32          # ~350 MB, exact
-python tools/export_openclip_onnx.py --model ViT-B-16 --pretrained laion2b_s34b_b88k
-python tools/export_openclip_onnx.py --out ~/openclip_image.onnx   # don't bundle; import in the app
-```
-
-### 3. Build and install
-
-```bash
-./gradlew assembleDebug          # Gradle 9.8.0 via the wrapper; app/build/outputs/apk/debug/app-debug.apk
-./gradlew installDebug           # with a phone/emulator attached
-./gradlew testDebugUnitTest      # unit tests
-```
-
-Or open the project folder in Android Studio and press **Run**.
-
-### 4. Model on the device
-
-- **Bundled** (step 2 default): the app copies the model out of the APK on first launch.
-- **Imported**: if the model was not bundled, the app shows a setup screen with **Import model file**;
-  copy the `.onnx` to the phone and pick it. It is stored privately and reused afterwards.
-
-> The `.gitignore` excludes `*.onnx`. A bundled model makes the APK ~100 MB larger.
-
----
-
-## How to use
-
-1. Open the app and allow the camera.
-2. Frame the cover inside the dashed guide and tap **Scan Book Cover** (or switch on the **Auto-scan** toggle next to it).
-3. Under **1 · Spreadsheet & range** tap **Choose file** (`.xlsx` / `.xlsm`) and type a range such as `A1:B20`.
-4. Tap **Link & Find Top 5**. Progress is shown (*Reading spreadsheet…*, *Embedding images… i/N*,
-   *Ranking…*) and can be cancelled.
-5. Inspect the ranked matches.
-6. Tap **Add to Wishlist** to save. A green prompt shows for 5 s with **Remove** (undo) and **✕**.
-7. The ⭐ button in the header opens the wishlist: rename (pen), expand to see the top 5 (arrow),
-   delete (red ✕, with a confirmation dialog).
-
-### Optional: online search (panel 2.5)
-
-Nothing here happens until you switch the panel on — it is off by default.
-
-1. Toggle **Use online services**. The panel reports whether the embedded Python runtime and
-   `chrome-lens-py` loaded (green dot = ready).
-2. Scan a cover, then tap **Read cover text** (or scan again with the panel already on, and it runs
-   by itself). The recognised text appears, together with the query the app picked out.
-3. Edit the query if OCR misread the cover — it always wins.
-4. Tap **Search catalogue** to look the title up in Open Library. Results arrive as cards with the
-   cover, authors, year and publisher; **Open open library page ↗** opens the catalogue's own page
-   in your browser.
-5. **Auto-search** (on by default) runs step 4 straight after a successful OCR pass; turn it off in
-   the panel if you want to review the query first.
-
-Everything above the panel keeps working with it switched off and the phone in airplane mode.
-
-You can also use **Choose image** ("…or use an image from your device") to load a photo instead of using the camera.
-Tap the camera preview to focus.
-
----
-
-## The Excel workflow (unchanged)
-
-As requested, the workflow is the one from v1 and was ported exactly, not redesigned:
-
-- The workbook is read as a ZIP package; no spreadsheet library is involved.
-- Cell-note pictures are read from `xl/drawings/vmlDrawing*.vml` (case-insensitive, visited in the
-  ZIP's central-directory order). Each `<v:shape>` gives its cell via `<x:Row>` / `<x:Column>`;
-  the picture relation id is looked up in this order: `v:fill o:relid`, `v:imagedata r:id`,
-  `v:fill r:id`, `v:imagedata o:relid`; relationships come from
-  `xl/drawings/_rels/<vml>.rels`.
-- The range is applied to each picture's cell; the range text accepts `A1:B20`, any case, `$` allowed.
-- Duplicate cell addresses across sheets collapse to the first one, exactly as in v1.
-- Hard cap of 300 extracted images per run.
-
-**One thing to check.** You described the workflow as extracting *only images embedded in cell
-notes*. The v1 code also read **floating (anchored) pictures of the first sheet**, and because the
-port is meant to be identical, v2 keeps doing so. If you want cell notes only, set
-
-```kotlin
-// app/src/main/java/com/bookcovermatcher/core/Config.kt
-const val EXTRACT_FLOATING_IMAGES = false
-```
-
----
-
-## Why OpenCLIP + FAISS
-
-**The problem with v1.** A 64-bit pHash reduces a cover to the low-frequency pattern of a 32×32
-grey image. That works for near-identical files, but a phone photo differs from a catalogue image
-in perspective, glare, white balance and cropping, and many covers share the same big-colour-block
-layout. Colour is discarded entirely, and the score lives on a coarse 0–64 scale.
-
-**What changes.** An OpenCLIP encoder maps each picture to a 512-dimensional vector that describes
-its content (artwork, colours, large lettering) and is trained to be robust to exactly the kind of
-variation a phone introduces. Matching is then a cosine similarity (inner product of unit vectors)
-over all the workbook's vectors.
-
-**What was measured, and what was not.**
-
-- Measured here: on 90 simulated phone photos of a synthetic catalogue (perspective, rotation,
-  lighting, glare, blur, noise, JPEG), the v1 pHash pipeline reached **top-1 ≈ 44 %, top-5 ≈ 74 %**.
-  That is consistent with the unreliability you described, but it is a synthetic test.
-- **Not measured here:** OpenCLIP on real weights. Treat "OpenCLIP is more accurate" as a
-  well-grounded expectation, not a result. `tools/benchmark.py` runs both engines on your own
-  catalogue and prints top-1 / top-5 / MRR so you can check; it also prints the score distributions
-  used to tune the High/Mid/Low thresholds.
-
-**FAISS on Android.** There is no official FAISS build for Android. The app uses `FlatIpIndex`,
-a Kotlin implementation of exactly what `faiss.IndexFlatIP` does (exact brute-force inner product
-over L2-normalised vectors); results were checked against real `faiss` for identical ranking.
-For a spreadsheet of hundreds of covers exact search is instantaneous, and an approximate index
-(HNSW/IVF) would only add recall loss. The benchmark script uses real `faiss.IndexFlatIP`.
-
-**Pipeline details.**
-
-- Preprocessing matches Pillow's bicubic anti-aliased resize to 224×224 (whole image, not
-  centre-cropped, so title and author at the edges are kept), then CLIP mean/std normalisation.
-- Transparent pictures are flattened onto white.
-- Cover embeddings are cached in `cacheDir/index`, keyed by workbook SHA-256 + range + model
-  fingerprint + floating-image flag (8 workbooks kept, least-recently-used).
-
----
-
-## Auto Scan
-
-The layout is the same as v1 (**Scan Book Cover** button + **Auto-scan** toggle + restart button beneath the camera card). What is new:
-
-- A phase badge in the camera card: *Hold still…*, *Too dark*, *Too bright*, *Stabilizing… n/3*,
-  *Same cover — waiting*, *Captured ✓*.
-- The guide and corner brackets change colour with the phase, a scan line sweeps while Auto is on,
-  three pips fill as the frame steadies, and **Sharp / Light / Steady** chips show which condition
-  is failing.
-- Capture flash and haptic tick on success.
-- A single shaky frame no longer resets the stability streak (`graceFrames = 1`).
-- **Bug fix:** in v1 the saved "Auto on" preference showed *on* after a restart but never armed the
-  timer. In v2 it arms immediately.
-
-Decision logic is unchanged and ported 1:1 (400 ms interval; 3 steady frames; stable distance 4;
-duplicate distance 8; 1.5 s cooldown; blur ≥ 40; brightness 45–215; reset after 5 bad frames).
-Auto Scan uses a small perceptual signature only to detect "steady" and "same cover as last time";
-**matching** always uses the OpenCLIP embedding.
-
----
-
-## Reading a match
-
-- **Similarity %** — relative to *your workbook*. Raw cosine values depend on the model, so the app
-  computes the median cosine between different pictures in the workbook (the "baseline") and shows
-  `(cos − baseline) / (1 − baseline)`, clamped to 0–100 %. Unrelated covers sit near 0 %, a
-  perfect match at 100 %.
-- **Cosine** — the raw score, shown as small text, for tuning.
-- **Match level** (colour of the bar):
-  - **High (green)** ≥ 70 %
-  - **Mid (accent)** ≥ 45 %
-  - **Low (warn)** otherwise — treat as a weak suggestion.
-  These cut-offs are starting points; adjust `ScoreScale` after running the benchmark.
-- **Source** — `floating` for anchored pictures, `comment-fill` for pictures stored in cell notes.
-
-With very small ranges (fewer than 3 pictures) a default baseline of 0.5 is used.
-
----
-
-## Configuration
-
-| Setting | Default | Where | Purpose |
-| :--- | :--- | :--- | :--- |
-| `GUIDE_W` / `GUIDE_H` | `0.70` / `0.78` | `core/Config.kt` | Guide rectangle as a fraction of the camera view (the Compose guide uses the same values). |
-| `THUMB_SCAN_W/H` | `112 × 152` | `Config.kt` | Scan thumbnail (logical px). |
-| `THUMB_MATCH_W/H` | `88 × 118` | `Config.kt` | Match thumbnail (logical px). |
-| `THUMB_PIXEL_SCALE` | `2` | `Config.kt` | **New.** Thumbnails are rendered at 2× so they stay sharp. |
-| `MAX_IMAGE_DECODE` | `800` | `Config.kt` | Max long edge when decoding a user photo. |
-| `MAX_BUFFER_DECODE` | `640` | `Config.kt` | Max long edge when decoding a workbook picture. |
-| `MAX_EXTRACTED_IMAGES` | `300` | `Config.kt` | Hard cap on pictures per run. |
-| `TOP_MATCHES` | `5` | `Config.kt` | Results shown. |
-| `WISHLIST_PROMPT_MS` | `5000` | `Config.kt` | Green prompt duration. |
-| `DEFAULT_RANGE` | `A1:B20` | `Config.kt` | Initial range text. |
-| `EXTRACT_FLOATING_IMAGES` | `true` | `Config.kt` | **New.** `false` = cell-note pictures only. |
-| `AutoScanConfig.*` | see above | `core/autoscan/AutoScan.kt` | Auto Scan thresholds; `graceFrames` is new. |
-| `ScoreScale.HIGH_PERCENT` / `MID_PERCENT` | `70` / `45` | `core/search/CatalogIndex.kt` | Match-level thresholds. |
-
-Removed from v1: `OPENCV_URL`, `EXCELJS_URL`, `JSZIP_URL`, `WISHLIST_STORAGE_KEY`.
-
----
-
-## Project layout
+## 3. Saved-data model: folder → session → results
 
 ```
-BookCoverMatcher/
-├─ app/src/main/java/com/bookcovermatcher/
-│  ├─ core/                   plain Kotlin/JVM, no android.* imports (unit-tested)
-│  │  ├─ Config.kt
-│  │  ├─ excel/               CellRange, ImageMime, ZipSource, WorkbookImageExtractor   (v1 excel.js)
-│  │  ├─ vision/              ImageOps, ClipPreprocessor, PixelImage (+ codec/embedder interfaces)
-│  │  ├─ search/              FlatIpIndex, CatalogIndex (+ScoreScale), CatalogBuilder, IndexCache
-│  │  ├─ autoscan/            AutoScan engine, ScanBadge texts                         (v1 auto-scan.js)
-│  │  ├─ wishlist/            MiniJson, WishlistRepository                             (v1 wishlist.js)
-│  │  ├─ online/              OcrQueryExtractor, ProductSearchResult/DataSource,
-│  │  │                       OpenLibraryResponseParser            (online, plain JVM + tested)
-│  │  └─ format/              Formatting
-│  ├─ data/                   ModelStore, Prefs, WorkbookFiles, OnlineSearchPrefs
-│  ├─ vision/                 AndroidImageCodec (Bitmap + EXIF + JPEG encode), OrtClipEmbedder
-│  ├─ camera/                 CameraController (CameraX preview, guide crop, Auto Scan frames)
-│  ├─ online/                 OnlineSearchController, ChromeLensPyBridge, PythonRuntime,
-│  │                          OcrTextSource, OpenLibraryBooksSource, HttpJsonClient, CoverImageLoader
-│  ├─ ui/                     MainScreen, CameraCard, WishlistOverlay, Overlays, SetupScreen,
-│  │                          OnlineSearchPanel, ProductResultCard, AppScreen,
-│  │                          components/Common, theme/Theme
-│  ├─ MainViewModel.kt, UiState.kt, OnlineSearchUi.kt, MainActivity.kt
-│  ├─ python/lens_bridge.py   the only Python in the app (wraps chrome-lens-py)
-│  └─ (res/ manifest, launcher icon, theme)
-├─ app/src/test/              110 JVM unit tests
-├─ tools/                     export_openclip_onnx.py, benchmark.py, make_sample_workbook.py,
-│                             synthetic.py, lens_poc.py, online_search_check.py
-├─ gradle/libs.versions.toml  dependency versions (AGP 9.4.1, Chaquopy 17.1.0)
-├─ README.md   CHANGELOG.md   ONLINE_SEARCH.md
+Wishlist folder (user-created, persistent)
+├── Session 1 (one matching/search operation)
+│   ├── result 1
+│   ├── result 2  ← bookmarked results are shown first
+│   └── …
+├── Session 2 …
+└── directly saved items (individual result/bookmark added to this folder)
 ```
 
-| v1 (JavaScript) | v2 (Kotlin) |
-| :--- | :--- |
-| `config.js` | `core/Config.kt` |
-| `excel.js`, `libraries.js` (ExcelJS/JSZip) | `core/excel/*` (plain ZIP + regex, no libraries) |
-| `phash.js`, `matcher.js`, `image.js` | `core/vision/*`, `core/search/*`, `vision/*` |
-| `camera.js` | `camera/CameraController.kt` |
-| `auto-scan.js` | `core/autoscan/AutoScan.kt` + UI in `ui/CameraCard.kt` |
-| `wishlist.js` | `core/wishlist/*` + `ui/WishlistOverlay.kt`, `ui/Overlays.kt` |
-| `ui.js`, `dom.js`, `state.js`, `utils.js`, `main.js`, `index.html`, `app.css` | `MainViewModel`, `UiState`, `ui/*` |
-| `online.js` | removed in v2.0.0; **replaced in v2.1.0** by `online/*` + `python/lens_bridge.py` (see [ONLINE_SEARCH.md](ONLINE_SEARCH.md)) |
+* A **folder** is created only by the user (`Create folder`) or by explicitly typing a new folder
+  name in the destination picker. A scan, a search, a bookmark or an OCR pass never creates one.
+* A **session** is the record of one operation: an offline comparison, an online search, or an
+  explicit bulk "result profile" add. It has a stable id, a time, the results in order, and (for
+  offline sessions) the captured-cover thumbnail.
+* **Workbook matches are comparison output.** They live inside their session and have no bookmark,
+  add-to-wishlist or remove control. A folder is not limited to five results; it can contain many
+  sessions and many results.
+* **Bookmarks are saved links**, not sessions and not folders. A bookmark can exist with no folder,
+  can be in `Bookmarks` and several folders at once, and removing one membership never removes the
+  others.
+* **Bookmarked results are ordered first inside their session** (and in a folder's direct items).
+  No global reordering is done, and unrelated sessions are never reordered.
 
----
+`records.json` is the single source of truth (under the app's private `files/wishlist/` directory,
+thumbnails in `thumbs/`). Version 3 shape:
 
-## Desktop tools
-
-All in `tools/`; none are needed to run the app.
-
-```bash
-pip install -r tools/requirements.txt
-
-# 1. Export the model (see Quick start)
-python tools/export_openclip_onnx.py --check-images covers/
-
-# 2. A sample workbook with covers stored as cell-note picture fills, plus simulated phone photos
-python tools/make_sample_workbook.py --count 24 --series 3 --out sample_catalog.xlsx --covers-dir sample_covers
-
-# 3. Compare engines on YOUR catalogue
-python tools/benchmark.py --xlsx catalog.xlsx --range A1:B40 \
-       --onnx app/src/main/assets/models/openclip_image.onnx --trials 5
+```json
+{
+  "version": 3,
+  "folders":   [{"id":"col_bookmarks","name":"Bookmarks","kind":"RESERVED","reserved":"BOOKMARKS","createdAt":0}],
+  "sessions":  [{"id":"ses_…","folderId":"col_…","kind":"OFFLINE_MATCH","title":"Scan #1",
+                 "query":null,"createdAt":0,"scanThumb":"ses_…_scan.jpg"}],
+  "items":     [{"id":"itm_…","kind":"WORKBOOK_MATCH","title":"C97","cell":"C97","cosine":0.91,
+                 "percent":93.0,"matchType":"WORKBOOK","fingerprint":"wb:…","thumb":"itm_….jpg"}],
+  "entries":   [{"sessionId":"ses_…","itemId":"itm_…","position":0,"addedAt":0}],
+  "memberships":[{"itemId":"itm_…","folderId":"col_…","addedAt":0}],
+  "legacy":    null
+}
 ```
 
-`benchmark.py` simulates phone photos of every cover, runs the v1 pHash pipeline and OpenCLIP
-(through `faiss.IndexFlatIP`), and reports top-1 / top-5 / MRR, speed, and the genuine-vs-impostor
-score distributions that `ScoreScale` should be tuned against. `--series N` generates look-alike
-volumes, which is the hardest case for any global image embedding.
-
-The sample workbook was read back with ExcelJS, openpyxl and the app's extractor; it has not been
-opened in desktop Excel.
+* Writes are one temp file + rename per operation, so a bulk add cannot leave half a list.
+* An unreadable or future-version file is renamed `records.json.corrupt`, never overwritten.
+* Initialisation of `Bookmarks` is idempotent: it is created at most once.
+* v1 records (a scan + its matches) migrate to **unfiled sessions** (no folder is invented).
+* v2 folders that were really one scan per folder are repaired: their workbook items become one
+  session inside that folder; remaining direct workbook items are grouped into an `Imported scan`
+  session. Online/manual items keep their direct membership. The v1 payload is retained under
+  `legacy` for recovery. No fabricated metadata is added during migration.
 
 ---
 
-## Tests
+## 4. Using the app
 
-```bash
-./gradlew testDebugUnitTest
+### Home
+1. Choose a workbook and a cell range, or pick an image.
+2. Scan a cover (or use Auto Scan / the gallery).
+3. Press **Link & Find Top 5**.
+4. **Search** shows the comparison; **Wishlist** holds what you save.
+
+### Search
+1. The offline top-5 appears under **2 · Top 5 matches**. These rows are comparison-only.
+2. **Save this scan as a session** → choose an existing folder or type a new folder name → one
+   session is written. It is not five loose items, and the button never creates a folder by itself.
+3. Turn on **Use online services** (or use the switch in **More**).
+   * If OCR succeeds, the query is filled from the cover text; edit it if needed.
+   * If OCR fails, type a title and press **Search catalogues** — OCR is not required for the
+     catalogue step.
+4. Online results are cards. Tap the card body to expand; **Open website**, **Bookmark** and
+   **+ Wishlist** are separate actions. **Bookmark all results** writes all of them to `Bookmarks`
+   without creating a folder. **Add entire result profile to wishlist** writes the offline top-5 and
+   the online results as **one session** in the folder you choose.
+
+### Wishlist
+* **Folders** → **Create folder** → name it. Open a folder to see its sessions and any directly
+  saved items. Open a session to see its results.
+* **Bookmarks** → **Create bookmark** for a hand-typed link, or use **Bookmark** on a result.
+  Filter by title/domain and sort by Added, Title or Domain. Filter/sort are local UI state only.
+* Every saved item row can open its original `https://` page and can be added to a folder.
+* Empty/loading/error states are explicit; no placeholder card pretends to be a result.
+
+### More
+Settings and an honest capability description. Clearing the online session cache removes temporary
+results only — never folders, sessions, items, thumbnails or bookmarks.
+
+---
+
+## 5. Bookmarks and the three workflows
+
+**A · Wishlist first, bookmark second**
+1. Save results (offline session, online session or individual item) into a folder.
+2. Bookmark an individual online result.
+3. The item is in `Bookmarks` and in its folder; the session keeps its results, with bookmarked
+   results first. No unrelated session/folder is reordered.
+
+**B · Bookmark first, wishlist second**
+1. Bookmark an online result. No folder and no session is created.
+2. The bookmark is persisted immediately, independent of the current session.
+3. Later, choose **+ Add to wishlist** on the bookmark and pick an existing folder or create one.
+4. The bookmark remains in `Bookmarks` whether or not it ever joins a folder.
+
+**C · Bookmark first, add after the session is gone**
+1. Bookmark a result.
+2. Change the image, end the search or restart the app.
+3. Open **Wishlist → Bookmarks**, choose the bookmark and **+ Add to wishlist**.
+4. Pick an existing folder or type a new name. No image, OCR output, cache, workbook or open session
+   is required. The bookmark stays saved.
+
+**Individual vs bulk:** `+ Wishlist` on one card adds exactly that item. **Add entire result profile
+to wishlist** is a separate, explicit bulk action that creates one session. Neither silently does
+the other. Undo on the green bar removes exactly the session/memberships that the last add created.
+
+
+---
+
+## 6. Online search in detail
+
+### Pipeline
+```
+capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_bridge.py → chrome-lens-py
+        → OCR text + block heights → OcrQueryExtractor → query
+        → OpenLibraryBooksSource + GoogleBooksSource (HttpURLConnection, HTTPS only)
+        → parsers → ProductSearchResult → OnlineAggregator (key, dedupe, promote, limit)
+        → CatalogueUi.Found → cards → Bookmark / + Wishlist / Open website
 ```
 
-110 tests cover: cell-range parsing, MIME sniffing, VML/relationship resolution and ordering,
-floating-vs-note precedence and the 300-image cap, FlatIpIndex ranking, score scaling, Pillow-parity
-resizing, Auto Scan state transitions and timing, guide geometry, JSON round-trips, the wishlist
-repository, the catalogue builder with its disk cache, the OCR-text → search-query rules, the
-Open Library response parser, the whole Kotlin↔Python bridge contract (`OcrResultParserTest`), and
-the JPEG-encoder validation rule (`EncodedImageTest`). They run on a plain JVM and need no emulator.
+### Providers actually implemented
+* **Open Library Books API** — free, no key, library catalogue. Detail links are built from the
+  validated work/edition key; covers from `covers.openlibrary.org`.
+* **Google Books Volumes API** — free for search, no key, catalogue. `https` detail page and cover
+  (an `http` thumbnail is upgraded to the same host over `https`). No price or stock is invented.
+* No marketplace, shopping or visual-similarity provider is implemented or claimed.
 
-The online feature's two external services are checked separately, from the desktop:
+### Toggle and request lifecycle
+* The switch is persisted in `bookcover_online`; the controller's state is mirrored into `UiState`
+  — this was the actual defect that made online search unreachable (see §10).
+* Turning it off hides results at once, cancels the Kotlin job where possible, bumps the session
+  generation so late callbacks are dropped, clears the temporary cache and starts no new request.
+  A Lens request already inside Python cannot be preempted; its answer is ignored.
+* Selecting a different image invalidates the previous capture's results; a cache entry is keyed by
+  the SHA-256 of the JPEG, never by file name. Clearing the cache cannot delete saved data.
+* A total failure shows a named error. If one catalogue fails and another answers, the results are
+  shown with a visible note naming the failed catalogue.
 
-```bash
-python tools/lens_bridge_check.py            # the bridge, with LensAPI stubbed — no network
-python tools/online_search_check.py "The Hobbit"   # the exact catalogue request the app sends
+### Honest limitations
+* OCR is text recognition. The library does not return products, prices or visual matches.
+* Google Books can answer **HTTP 429** without an API key on shared networks. The app classifies it
+  as `RATE_LIMITED`; it does not retry behind your back or fabricate results. Open Library remains
+  usable. An API key/billing configuration is not shipped.
+* Catalogue results can contain editions/works with similar titles; they are not merged by title.
+* Prices and availability are absent because these catalogues do not provide them; the card shows
+  `—`, never a guess.
+
+---
+
+## 7. Build and run
+
+Requirements: Android Studio with SDK 35, JDK 17, a CPython **3.12** for Chaquopy, and network access
+for the first Python dependency install.
+
+`local.properties`:
+```properties
+sdk.dir=C:\\path\\to\\Android\\Sdk
+chaquopy.buildPython=C:\\path\\to\\Python\\3.12\\python.exe
 ```
 
-### Verifying online recognition on a device
-
-This has **not** been done — no device or emulator was available in the development environment.
-The steps below are the remaining gap; everything before the network call is covered by the tests
-above.
-
-```bash
-adb devices                        # confirm a device (arm64-v8a or x86_64; not armeabi-v7a)
-adb install -r app/build/outputs/apk/release/app-release.apk
-adb logcat -c
-adb logcat -s OnlineSearch:V python.stderr:V python.stdout:V &
+```powershell
+.\gradlew.bat assembleDebug
+.\gradlew.bat testDebugUnitTest                 # JVM suite, live checks skipped
+.\gradlew.bat testDebugUnitTest -DonlineCheck=1 # adds the two live catalogue checks
+.\gradlew.bat connectedDebugAndroidTest         # 3 on-device OCR/catalogue/controller tests
 ```
 
-Then, on the phone: open the app → panel **2.5 · Online search** → switch **Use online services**
-on → check the status line reads **"chrome-lens-py 3.8.2 · OCR only, no product search"** with a
-green dot → photograph a book cover with clear printing → *Read cover text*.
+The build uses `androidx.compose:compose-bom:2024.10.01`, CameraX 1.3.4, ONNX Runtime 1.20.0,
+Chaquopy 17.1.0 and `chrome-lens-py==3.8.2` (protobuf pinned to 6.33.6). Shrinking is intentionally
+off; the release build uses the debug signing config so `assembleRelease` is installable, not
+publishable.
 
-What each outcome means:
-
-| You see | Meaning |
-| :--- | :--- |
-| Text appears, then catalogue cards | the whole pipeline works end to end |
-| *No text found on the cover.* | the bridge works; Lens genuinely read no text — try sharper text |
-| *No connection to Google Lens* | bridge and encoding are fine; the network or TLS path is not |
-| *OCR library not installed* | an import failed inside Python; the panel and Logcat name the module |
-| *Python runtime unavailable* | the interpreter did not start — almost always an ABI mismatch |
-| *Could not read the cover* | genuinely unexpected; the Logcat traceback now names it |
-
----
-
-## Limitations
-
-- **Series covers.** Volumes of one series with the same layout can embed very close to each other.
-  Expect the right title in the top 5 more often than at rank 1. This is inherent to global image
-  embeddings.
-- **Pictures in the range only.** Anything that is not an embedded picture (text-only cells, linked
-  pictures, pictures in later sheets' drawings) is invisible to the search.
-- **Duplicate addresses across sheets** collapse to the first (v1 behaviour, kept).
-- **First embedding is slower.** A workbook of 300 pictures needs 300 model runs the first time
-  (seconds to tens of seconds depending on the phone); later searches use the cache.
-- **Rotation / perspective.** Embeddings tolerate moderate tilt, but keep the cover roughly upright
-  and flat in the guide.
-- **Dark, over-bright or blurred shots** reduce quality; Auto Scan refuses them.
-- **Model size.** The bundled int8 model is ~97 MB; fp32 is ~350 MB.
-- **Percent and levels are workbook-relative heuristics**, not probabilities.
-- Wishlist data is stored privately on the device. Clearing app data clears it. No cloud sync.
-- **Online search is unverified on a device.** Its build, packaging, pure-Kotlin rules and both
-  external services are verified; the on-device round-trip has never been executed because no
-  device or emulator was available. See [ONLINE_SEARCH.md](ONLINE_SEARCH.md) §7 for the rest.
-- **`chrome-lens-py` has no product search** — OCR and translation only. Product results come from
-  Open Library, which describes books and shows no prices or buy links.
+### Useful troubleshooting
+* **"chrome-lens-py could not be loaded"** — the embedded Python runtime or its wheels failed. Check
+  `adb logcat -s OnlineSearch:V python.stderr:V`; the panel shows the categorized reason.
+* **"no connection"** — catalogue requests never leave the device without `INTERNET`; offline
+  matching still works.
+* **Google Books 429** — expected on some networks without a key; use Open Library results.
+* **Workbook empty** — verify the range and that pictures are anchored or stored as cell notes in
+  the first sheet.
 
 ---
 
-## Troubleshooting
+## 8. Project layout (main files)
 
-| Symptom | Likely cause |
-| :--- | :--- |
-| Setup screen "Set up the image model" appears | No `openclip_image.onnx` in the APK assets and none imported. Run the export script, then rebuild, or tap **Import model file**. |
-| "Model failed to load" | Wrong or corrupt file, or exported with a different input layout. Re-export with `tools/export_openclip_onnx.py`; input must be `[1,3,S,S]`. |
-| Camera does not start | `CAMERA` permission denied (enable in system settings) or another app is using the camera. Tap the restart-camera button. |
-| "No images found inside …" | The range has no embedded pictures. Check the cells hold **cell-note picture fills** (see the sample workbook), and that the range covers them. |
-| Matches look random | Check that the workbook pictures are real covers, not placeholders; run `tools/benchmark.py` to see how the model separates your catalogue. |
-| Everything is "Low" | The thresholds are workbook-relative heuristics; tune `ScoreScale` using the benchmark's distributions. |
-| Two sheets have a picture in `B4` and one is missing | Duplicate-address collapsing (v1 behaviour). |
-| Gradle sync fails resolving dependencies | Needs access to `google()` and `mavenCentral()`. Versions are in `gradle/libs.versions.toml` (AGP 9.4.1, Gradle 9.8.0 via `gradle/wrapper/gradle-wrapper.properties`). |
-| Build error about the JDK | AGP 9 / Gradle 9 need JDK 17 or newer. In Android Studio: Settings → Build Tools → Gradle → Gradle JDK. |
-| Build fails in `installDebugPythonRequirements` | Chaquopy cannot find a **CPython 3.12** build interpreter. Set `chaquopy.buildPython=…` in `local.properties` (see [Quick start](#1-requirements)). |
-| Build complains it cannot build Pillow | You moved `chaquopy.defaultConfig.version` off 3.12. Chaquopy only ships a *prebuilt* Pillow wheel up to cp313; 3.12 is what this project uses. |
-| Online panel shows a red "runtime could not be started" dot | The APK was built for an ABI without the embedded interpreter, or the assets were stripped. Rebuild; the offline features are unaffected either way. |
-| "The embedded chrome-lens-py package could not be loaded" | The pip step was skipped or the APK was rebuilt without network. Rebuild; check `assets/chaquopy/requirements-common.imy` contains `chrome_lens_py/`. |
-| Compile error in `ui/`, `camera/` or `MainViewModel.kt` | See [Honest status](#honest-status-of-this-release): this layer was first written without a compiler. |
+```
+app/src/main/java/com/bookcovermatcher/
+├── MainActivity.kt, MainViewModel.kt, UiState.kt, OnlineSearchUi.kt
+├── core/                         plain Kotlin/JVM, unit-tested
+│   ├── excel/                    workbook and picture extraction
+│   ├── search/                   OpenCLIP index, ranking, cache
+│   ├── vision/                   image ops, preprocessing, interfaces
+│   ├── autoscan/                 auto-scan engine
+│   ├── wishlist/                 LibraryModels (folders/sessions/items), repository,
+│   │                             MiniJson, identity and bookmark rules
+│   └── online/                   OcrQueryExtractor, GoogleBooksResponseParser,
+│                                 OpenLibraryResponseParser, OnlineAggregator, SessionCache
+├── data/                         Prefs, OnlineSearchPrefs, ModelStore, WorkbookFiles
+├── vision/                       AndroidImageCodec, OrtClipEmbedder
+├── camera/                       CameraController (CameraX)
+├── online/                       OnlineSearchController, ChromeLensPyBridge, PythonRuntime,
+│                                 OcrTextSource/Parser, OpenLibraryBooksSource,
+│                                 GoogleBooksSource, HttpJsonClient, CoverImageLoader
+└── ui/                           AppScreen (bottom nav), MainScreen (Home/Search),
+                                  WishlistScreen, MoreScreen, OnlineSearchPanel,
+                                  ProductResultCard, BookmarkDialogs, Overlays, CameraCard,
+                                  components/, theme/
+app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
+app/src/test/                        165 JVM tests (2 opt-in live checks)
+app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
+```
 
----
-
-## Security and privacy
-
-**Offline matching (the default).**
-- The camera is the only permission the matcher uses. Photos picked from the gallery and the
-  workbook are read through the system file picker; nothing leaves the device.
-- Models, caches, thumbnails and the wishlist live in the app's private storage
-  (`allowBackup=false`).
-- With the online panel switched off the app makes **no network request at all**.
-
-**Online search (opt-in, off by default).**
-- `INTERNET` is declared solely for panel 2.5. Turning the switch off stops every request.
-- Three hosts, always over `https`: the Google Lens endpoint (via `chrome-lens-py`),
-  `openlibrary.org`, `covers.openlibrary.org`.
-- Pressing *Read cover text* sends the **cover photo** to Google Lens. Only the query text you can
-  see is sent to Open Library. The workbook is never transmitted.
-- Catalogue links open in your browser; the app renders no third-party page.
-- Details, and the terms `chrome-lens-py` asks you to read: [ONLINE_SEARCH.md](ONLINE_SEARCH.md) §4.
-
-**On your computer.** The only network use during development is the model export script (it
-downloads the OpenCLIP weights) and `pip install`.
 
 ---
 
-## Credits
+## 9. Offline matching (unchanged from v2.1.0)
 
-- [OpenCLIP](https://github.com/mlfoundations/open_clip) (ViT-B-32, LAION-2B weights)
-- [ONNX Runtime](https://onnxruntime.ai/) for on-device inference
-- [FAISS](https://github.com/facebookresearch/faiss) (reference behaviour for the exact inner-product index)
-- [chrome-lens-py](https://github.com/bropines/chrome-lens-py) (MIT) — Google Lens OCR, run unmodified on
-  [Chaquopy](https://chaquo.com/chaquopy/)'s embedded CPython
-- [Open Library](https://openlibrary.org/) — the book catalogue behind the product search
-- CameraX, Jetpack Compose, Kotlin coroutines
+1. Workbook images are extracted from the first sheet, inside the selected range, from cell-note
+   pictures and (when `EXTRACT_FLOATING_IMAGES` is true) anchored pictures.
+2. Each image is decoded, centre-cropped/preprocessed and embedded with the bundled OpenCLIP image
+   encoder.
+3. The captured cover is embedded the same way.
+4. Cosine similarity is computed against every workbook image; the score is scaled against the
+   catalogue baseline and clamped to 0–100 % for display.
+5. The top `Config.TOP_MATCHES` (5) are returned in descending order, with cell, source, cosine and
+   percent.
+
+No step of this pipeline is online, and the online feature is never consulted by it.
+
+---
+
+## 10. What was broken and what changed in 2.2.0
+
+1. **Online search was unreachable.** `OnlineSearchController` kept its state in its own
+   `StateFlow`, but `MainViewModel` never mirrored it into `UiState.online`. The panel therefore
+   always rendered the default off state and returned early, so even after the preference was
+   switched on the OCR/catalogue UI never appeared. Fixed with a collected mirror in `init`.
+2. **Offline saves had the wrong shape.** The v2 "compatibility" path turned each scan into a
+   folder containing five independently removable workbook items, with no session entity. Folders
+   were created by scans, could not accumulate sessions, and offline rows gained item semantics.
+   Replaced by the v3 folder → session → results model, with a migration for v1/v2 data.
+3. **Bookmarks were not tied to a session.** There was no session, so "bookmarks first in their
+   session" was impossible. The v3 session view now orders bookmarked results first; the store and
+   UI keep bookmark and folder membership independent.
+4. **Only one catalogue.** Added Google Books as a second real source, with per-source failure
+   reporting. Neither is a shop, so no price/stock is invented.
+5. **OCR geometry could be misaligned.** A Lens block can contain an internal newline; the bridge
+   joined blocks with newlines, so line count and `block_heights` diverged. The bridge now emits one
+   line per block, and `OcrQueryExtractor` pairs each height with its source line before filtering.
+6. **The instrumentation context could be null.** `PythonRuntime` now falls back to the supplied
+   context if `applicationContext` is null (seen in the Android test runner), instead of failing
+   every OCR call with `RUNTIME_MISSING`.
+7. **UI rebuilt** around Home/Search/Wishlist/More, with real empty/loading/error states and
+   separate offline/online result areas.
+
+---
+
+## 11. Verification performed
+
+| Check | Command | Result |
+|---|---|---|
+| JVM unit tests | `.\gradlew.bat testDebugUnitTest` | **165 tests**, 0 failures (2 live checks skipped by design) |
+| JVM + live catalogues | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | **165 tests**, 0 failures; Open Library live query returned real records; Google Books was either found or correctly reported `RATE_LIMITED` |
+| Debug build | `.\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
+| Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
+| Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |
+| Device tests | `.\gradlew.bat connectedDebugAndroidTest` on `Medium_Phone_API_37.0` (x86_64) | **3/3 pass**: real OCR reads the bundled Hobbit cover; both catalogue sources answer or are correctly classified; the controller publishes merged results |
+| UI smoke test | emulator, manual taps | Bottom navigation, folder creation/rename, bookmark form, bookmark → folder picker, restart persistence (`records.json` v3 verified with `run-as`) |
+
+### Not verified
+* Camera capture and Auto Scan (the emulator had no camera; permission was denied during the smoke
+  test). Capture code is unchanged from v2.1.0, but this build did not exercise it.
+* A full workbook match through the UI (no workbook was loaded in the emulator).
+* Offline session save via the UI (the repository and its persistence are covered by tests).
+* Online result card expansion/bookmark actions via the UI (the catalogue/controller path is covered
+  by device tests; the card itself was not driven end-to-end).
+* Google Books with an API key (none is configured).
+* The supplied workflow image (not present). If it specifies different labels/arrangement, this
+  implementation may need visual adjustment.
+
+---
+
+## 12. Privacy and provenance
+
+* Offline matching sends nothing anywhere.
+* With online search on, the captured JPEG is sent to Google Lens via `chrome-lens-py`; the OCR text
+  is sent to `openlibrary.org` and `www.googleapis.com/books`. No account, analytics or ads.
+* Bookmarks store only the URL/title/optional fields you provide; the app never fetches the page to
+  enrich them.
+* The app refuses non-HTTPS links and never renders third-party pages in a WebView.
+* Open Library data is used under its published Open Data terms; `chrome-lens-py` is MIT licensed
+  and used unmodified, pinned in `app/build.gradle.kts`.
+* Version 2.1.0 is the behavioural reference for offline matching; the historical diagnostic is in
+  `ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md`.
