@@ -30,6 +30,7 @@ import com.bookcovermatcher.data.ModelStore
 import com.bookcovermatcher.data.Prefs
 import com.bookcovermatcher.data.StagedWorkbook
 import com.bookcovermatcher.data.WorkbookFiles
+import com.bookcovermatcher.online.OnlineSearchController
 import com.bookcovermatcher.vision.AndroidImageCodec
 import com.bookcovermatcher.vision.OrtClipEmbedder
 import java.io.File
@@ -74,6 +75,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _ui = MutableStateFlow(UiState(autoScan = prefs.autoScan, rangeText = prefs.range))
     val ui: StateFlow<UiState> = _ui.asStateFlow()
+
+    /**
+     * Panel 2.5 — the optional online feature. Owned here so it sees every captured cover and
+     * shares the toast channel, but it keeps its own state flow ([online]) and never touches the
+     * offline matcher. Everything in it is inert until the user switches it on.
+     */
+    val online = OnlineSearchController(app, viewModelScope, onMessage = ::showToast)
 
     /** Fires once per accepted cover (flash + haptic in the UI). */
     private val _captureEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
@@ -239,6 +247,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _ui.update { it.copy(target = TargetUi(thumb, describeEmbedding(emb)), results = ResultsUi.Empty) }
                 _captureEvents.tryEmit(Unit)
                 if (!auto) showToast("Cover captured — embedding computed.", ToastKind.OK)
+
+                // Panel 2.5. Returns immediately when the feature is off, and a failure here can
+                // never affect the offline result above. Encoding is the app's own job, so an
+                // encoding failure is reported as such rather than reaching Python and coming
+                // back looking like an OCR problem.
+                if (online.ui.value.enabled) {
+                    try {
+                        online.onCapture(codec.encodeJpeg(image, AndroidImageCodec.OCR_MAX_EDGE))
+                    } catch (e: Exception) {
+                        online.onCaptureFailed(
+                            e.message ?: "The cover could not be encoded.",
+                            e.toString(),
+                        )
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -409,7 +432,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun setBusy(label: String, progress: Float?) = _ui.update { it.copy(busy = BusyUi(label, progress)) }
 
-    /** Runs on a background dispatcher; honours cancellation between pictures. */
+    /** Runs on a background dispatcher; honors cancellation between pictures. */
     private suspend fun loadOrBuildCatalog(workbook: StagedWorkbook, range: CellRange, model: OrtClipEmbedder): CatalogIndex {
         val key = CatalogIndexStore.cacheKey(
             workbookSha256 = workbook.sha256,
@@ -601,6 +624,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         camera.shutdown()
+        online.shutdown()
         embedder?.close()
         embedder = null
         wishlistExecutor.shutdown()

@@ -83,6 +83,9 @@ data class UiState(
     // panel 2
     val results: ResultsUi = ResultsUi.Initial,
 
+    // panel 2.5 — the online feature; the offline workflow above never reads it
+    val online: OnlineSearchUi = OnlineSearchUi(),
+
     // wishlist
     val wishlistOpen: Boolean = false,
     val wishlist: List<WishlistRecordUi> = emptyList(),

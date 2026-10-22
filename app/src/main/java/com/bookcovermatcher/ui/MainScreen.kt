@@ -89,13 +89,14 @@ import com.bookcovermatcher.ui.components.TargetGlyph
 import com.bookcovermatcher.ui.components.dashedBorder
 import com.bookcovermatcher.ui.theme.Palette
 
-/** What the buttons do that needs Android (permission prompts, document pickers). */
+/** What the buttons do that needs Android (permission prompts, document pickers, browser links). */
 class ScreenActions(
     val onScan: () -> Unit,
     val onToggleAuto: () -> Unit,
     val onRestart: () -> Unit,
     val onPickWorkbook: () -> Unit,
     val onPickImage: () -> Unit,
+    val onOpenUrl: (String) -> Unit,
 )
 
 @Composable
@@ -120,6 +121,9 @@ fun MainContent(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, 
 
         Spacer(Modifier.height(14.dp))
         ResultsPanel(ui.results)
+
+        Spacer(Modifier.height(14.dp))
+        OnlineSearchPanel(ui.online, vm.online, actions.onOpenUrl)
 
         Spacer(Modifier.height(14.dp))
         Panel("3 · Wishlist") {

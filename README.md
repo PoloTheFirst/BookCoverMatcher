@@ -1,20 +1,25 @@
-# BookCover Matcher — v2.0.0
+# BookCover Matcher — v2.1.0
 
 A native Android app (Kotlin · Jetpack Compose · CameraX) that scans a book cover with the phone
 camera and finds it inside an Excel spreadsheet by **image similarity**.
 
-No accounts. No server. **No internet permission at all** — everything runs on the device.
+No accounts. No server. **Matching is entirely on the device.** An optional, opt-in
+[online search panel](ONLINE_SEARCH.md) adds cover OCR and a book-catalogue lookup; it is switched
+off by default and nothing is sent anywhere while it stays off.
 
-> v2.0.0 replaces the v1 WebView app. The Excel workflow is unchanged, the 64-bit pHash matcher is
-> replaced by **OpenCLIP embeddings + an exact inner-product (FAISS-style) index**, all online
-> searching has been removed, and the UI (especially Auto Scan) has been reworked.
-> See [CHANGELOG.md](CHANGELOG.md).
+> v2.0.0 replaced the v1 WebView app. The Excel workflow is unchanged, the 64-bit pHash matcher is
+> replaced by **OpenCLIP embeddings + an exact inner-product (FAISS-style) index**, and the UI
+> (especially Auto Scan) was reworked.
+> v2.1.0 adds the optional online panel: the original `chrome-lens-py` package running **inside the
+> app** on an embedded Python runtime, plus product discovery through the Open Library Books API.
+> See [CHANGELOG.md](CHANGELOG.md) and [ONLINE_SEARCH.md](ONLINE_SEARCH.md).
 
 ---
 
 ## Table of contents
 
 - [What it does](#what-it-does)
+- [Online search (optional)](#online-search-optional)
 - [Honest status of this release](#honest-status-of-this-release)
 - [Quick start](#quick-start)
 - [How to use](#how-to-use)
@@ -43,9 +48,27 @@ No accounts. No server. **No internet permission at all** — everything runs on
    similarity against your scan.
 5. It shows the **top 5 matches** with cell address, thumbnail, similarity percentage and raw cosine.
 6. You can save the scan and its matches to a **local wishlist**.
+7. Optionally, [online search](ONLINE_SEARCH.md) reads the text printed on the cover and looks the
+   title up in the Open Library catalogue.
 
 Embeddings of a workbook are cached on disk, so the second search against the same workbook and
 range is nearly instant.
+
+---
+
+## Online search (optional)
+
+Panel **2.5 · Online search**, off by default. Two deliberately separate steps:
+
+* **A · Read the cover** — OCR through the original [`chrome-lens-py`](https://pypi.org/project/chrome-lens-py/)
+  package, running unmodified inside the app on an embedded CPython 3.12 (Chaquopy). No companion
+  PC, no local server, no backend.
+* **B · Search the catalogue** — structured book records from the free, key-less
+  [Open Library Books API](https://openlibrary.org/developers/api).
+
+`chrome-lens-py` does **OCR and translation only** — it returns no products, prices or shopping
+links, and this app does not pretend otherwise. That is exactly why step B is a separate service.
+Full details, verification results and limitations: **[ONLINE_SEARCH.md](ONLINE_SEARCH.md)**.
 
 ---
 
@@ -55,8 +78,11 @@ Read this before you build.
 
 | Area | Status |
 | :--- | :--- |
-| Excel extraction, Auto Scan engine, search index, wishlist storage, preprocessing (`core/` package, plain Kotlin) | **Compiled and unit-tested** — 67 tests pass. The Excel port was differential-tested against the original `excel.js` on 102 generated workbooks with identical results. |
+| Excel extraction, Auto Scan engine, search index, wishlist storage, preprocessing (`core/` package, plain Kotlin) | **Compiled and unit-tested** — 110 tests pass. The Excel port was differential-tested against the original `excel.js` on 102 generated workbooks with identical results. |
 | Android layer: CameraX, ONNX Runtime wrapper, ViewModel, Jetpack Compose UI, Gradle build | **Written without a compiler in the authoring environment** (no access to Google Maven / Maven Central) and without an independent code review. The project was then moved to AGP 9.4.1 / Gradle 9.8.0 and built by the maintainer; any fixes needed for that are part of the repository. |
+| Online search: `chrome-lens-py` 3.8.2 on embedded CPython 3.12 | **Two integration defects found and fixed** (see [ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md](ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md) §15). The bridge boundary is now covered by 20 JVM tests and 40 assertions in `tools/lens_bridge_check.py`, and the fixed module is confirmed present in both APKs. **Still not executed on a device** — no device or emulator was available, so `asyncio.run()`, the import chain and the live Lens request remain unverified. |
+| Online search: Open Library catalogue | **Verified live.** `tools/online_search_check.py` issues the exact request the app builds and validates the response against the parser's rules. |
+| Online search: query extraction and catalogue parsing | **Unit-tested** — 17 tests in `OnlineSearchTest.kt`. |
 | OpenCLIP accuracy | **Not measured on real weights or real covers.** The model hub was unreachable from the build environment. The case for OpenCLIP below is reasoned plus a synthetic baseline; use `tools/benchmark.py` on your own catalogue to confirm it. |
 | int8 quantisation drift | **Unmeasured.** The export script measures it for you and refuses to write a model that drifted too far (see below). |
 | Match thresholds (High ≥ 70 %, Mid ≥ 45 %) | **Heuristic starting points**, not validated. |
@@ -70,6 +96,16 @@ Read this before you build.
 - Android Studio recent enough to support **Android Gradle Plugin 9.4.1** (the project builds with **Gradle 9.8.0**), and **JDK 17 or newer** (the minimum required by AGP 9 / Gradle 9)
 - A phone with Android 8.0+ (API 26+); 64-bit ARM recommended (the emulator uses x86_64)
 - Python 3.10+ for the one-off model export
+- **CPython 3.12** on the build machine, for the embedded Python runtime (Chaquopy requires the
+  build host's minor version to match the app's). Point at it from `local.properties`:
+
+  ```properties
+  chaquopy.buildPython=C:/path/to/Python/3.12/python.exe
+  ```
+
+  or pass `-PchaquopyBuildPython=<path>`. Without it Chaquopy tries `py -3.12` on `PATH`.
+  If this is missing the build fails when installing Python requirements — see
+  [Troubleshooting](#troubleshooting).
 
 ### 2. Create the model file (once)
 
@@ -123,6 +159,23 @@ Or open the project folder in Android Studio and press **Run**.
 6. Tap **Add to Wishlist** to save. A green prompt shows for 5 s with **Remove** (undo) and **✕**.
 7. The ⭐ button in the header opens the wishlist: rename (pen), expand to see the top 5 (arrow),
    delete (red ✕, with a confirmation dialog).
+
+### Optional: online search (panel 2.5)
+
+Nothing here happens until you switch the panel on — it is off by default.
+
+1. Toggle **Use online services**. The panel reports whether the embedded Python runtime and
+   `chrome-lens-py` loaded (green dot = ready).
+2. Scan a cover, then tap **Read cover text** (or scan again with the panel already on, and it runs
+   by itself). The recognised text appears, together with the query the app picked out.
+3. Edit the query if OCR misread the cover — it always wins.
+4. Tap **Search catalogue** to look the title up in Open Library. Results arrive as cards with the
+   cover, authors, year and publisher; **Open open library page ↗** opens the catalogue's own page
+   in your browser.
+5. **Auto-search** (on by default) runs step 4 straight after a successful OCR pass; turn it off in
+   the panel if you want to review the query first.
+
+Everything above the panel keeps working with it switched off and the phone in airplane mode.
 
 You can also use **Choose image** ("…or use an image from your device") to load a photo instead of using the camera.
 Tap the camera preview to focus.
@@ -265,18 +318,25 @@ BookCoverMatcher/
 │  │  ├─ search/              FlatIpIndex, CatalogIndex (+ScoreScale), CatalogBuilder, IndexCache
 │  │  ├─ autoscan/            AutoScan engine, ScanBadge texts                         (v1 auto-scan.js)
 │  │  ├─ wishlist/            MiniJson, WishlistRepository                             (v1 wishlist.js)
+│  │  ├─ online/              OcrQueryExtractor, ProductSearchResult/DataSource,
+│  │  │                       OpenLibraryResponseParser            (online, plain JVM + tested)
 │  │  └─ format/              Formatting
-│  ├─ data/                   ModelStore, Prefs, WorkbookFiles
-│  ├─ vision/                 AndroidImageCodec (Bitmap + EXIF), OrtClipEmbedder (ONNX Runtime)
+│  ├─ data/                   ModelStore, Prefs, WorkbookFiles, OnlineSearchPrefs
+│  ├─ vision/                 AndroidImageCodec (Bitmap + EXIF + JPEG encode), OrtClipEmbedder
 │  ├─ camera/                 CameraController (CameraX preview, guide crop, Auto Scan frames)
+│  ├─ online/                 OnlineSearchController, ChromeLensPyBridge, PythonRuntime,
+│  │                          OcrTextSource, OpenLibraryBooksSource, HttpJsonClient, CoverImageLoader
 │  ├─ ui/                     MainScreen, CameraCard, WishlistOverlay, Overlays, SetupScreen,
-│  │                          AppScreen, components/Common, theme/Theme
-│  ├─ MainViewModel.kt, UiState.kt, MainActivity.kt
+│  │                          OnlineSearchPanel, ProductResultCard, AppScreen,
+│  │                          components/Common, theme/Theme
+│  ├─ MainViewModel.kt, UiState.kt, OnlineSearchUi.kt, MainActivity.kt
+│  ├─ python/lens_bridge.py   the only Python in the app (wraps chrome-lens-py)
 │  └─ (res/ manifest, launcher icon, theme)
-├─ app/src/test/              67 JVM unit tests
-├─ tools/                     export_openclip_onnx.py, benchmark.py, make_sample_workbook.py, synthetic.py
-├─ gradle/libs.versions.toml  dependency versions (AGP 9.4.1)
-├─ README.md   CHANGELOG.md
+├─ app/src/test/              110 JVM unit tests
+├─ tools/                     export_openclip_onnx.py, benchmark.py, make_sample_workbook.py,
+│                             synthetic.py, lens_poc.py, online_search_check.py
+├─ gradle/libs.versions.toml  dependency versions (AGP 9.4.1, Chaquopy 17.1.0)
+├─ README.md   CHANGELOG.md   ONLINE_SEARCH.md
 ```
 
 | v1 (JavaScript) | v2 (Kotlin) |
@@ -288,7 +348,7 @@ BookCoverMatcher/
 | `auto-scan.js` | `core/autoscan/AutoScan.kt` + UI in `ui/CameraCard.kt` |
 | `wishlist.js` | `core/wishlist/*` + `ui/WishlistOverlay.kt`, `ui/Overlays.kt` |
 | `ui.js`, `dom.js`, `state.js`, `utils.js`, `main.js`, `index.html`, `app.css` | `MainViewModel`, `UiState`, `ui/*` |
-| `online.js` | **removed** |
+| `online.js` | removed in v2.0.0; **replaced in v2.1.0** by `online/*` + `python/lens_bridge.py` (see [ONLINE_SEARCH.md](ONLINE_SEARCH.md)) |
 
 ---
 
@@ -326,11 +386,47 @@ opened in desktop Excel.
 ./gradlew testDebugUnitTest
 ```
 
-67 tests cover: cell-range parsing, MIME sniffing, VML/relationship resolution and ordering,
+110 tests cover: cell-range parsing, MIME sniffing, VML/relationship resolution and ordering,
 floating-vs-note precedence and the 300-image cap, FlatIpIndex ranking, score scaling, Pillow-parity
 resizing, Auto Scan state transitions and timing, guide geometry, JSON round-trips, the wishlist
-repository, and the catalogue builder with its disk cache. They run on a plain JVM and do not need
-an emulator.
+repository, the catalogue builder with its disk cache, the OCR-text → search-query rules, the
+Open Library response parser, the whole Kotlin↔Python bridge contract (`OcrResultParserTest`), and
+the JPEG-encoder validation rule (`EncodedImageTest`). They run on a plain JVM and need no emulator.
+
+The online feature's two external services are checked separately, from the desktop:
+
+```bash
+python tools/lens_bridge_check.py            # the bridge, with LensAPI stubbed — no network
+python tools/online_search_check.py "The Hobbit"   # the exact catalogue request the app sends
+```
+
+### Verifying online recognition on a device
+
+This has **not** been done — no device or emulator was available in the development environment.
+The steps below are the remaining gap; everything before the network call is covered by the tests
+above.
+
+```bash
+adb devices                        # confirm a device (arm64-v8a or x86_64; not armeabi-v7a)
+adb install -r app/build/outputs/apk/release/app-release.apk
+adb logcat -c
+adb logcat -s OnlineSearch:V python.stderr:V python.stdout:V &
+```
+
+Then, on the phone: open the app → panel **2.5 · Online search** → switch **Use online services**
+on → check the status line reads **"chrome-lens-py 3.8.2 · OCR only, no product search"** with a
+green dot → photograph a book cover with clear printing → *Read cover text*.
+
+What each outcome means:
+
+| You see | Meaning |
+| :--- | :--- |
+| Text appears, then catalogue cards | the whole pipeline works end to end |
+| *No text found on the cover.* | the bridge works; Lens genuinely read no text — try sharper text |
+| *No connection to Google Lens* | bridge and encoding are fine; the network or TLS path is not |
+| *OCR library not installed* | an import failed inside Python; the panel and Logcat name the module |
+| *Python runtime unavailable* | the interpreter did not start — almost always an ABI mismatch |
+| *Could not read the cover* | genuinely unexpected; the Logcat traceback now names it |
 
 ---
 
@@ -350,6 +446,11 @@ an emulator.
 - **Model size.** The bundled int8 model is ~97 MB; fp32 is ~350 MB.
 - **Percent and levels are workbook-relative heuristics**, not probabilities.
 - Wishlist data is stored privately on the device. Clearing app data clears it. No cloud sync.
+- **Online search is unverified on a device.** Its build, packaging, pure-Kotlin rules and both
+  external services are verified; the on-device round-trip has never been executed because no
+  device or emulator was available. See [ONLINE_SEARCH.md](ONLINE_SEARCH.md) §7 for the rest.
+- **`chrome-lens-py` has no product search** — OCR and translation only. Product results come from
+  Open Library, which describes books and shows no prices or buy links.
 
 ---
 
@@ -366,19 +467,34 @@ an emulator.
 | Two sheets have a picture in `B4` and one is missing | Duplicate-address collapsing (v1 behaviour). |
 | Gradle sync fails resolving dependencies | Needs access to `google()` and `mavenCentral()`. Versions are in `gradle/libs.versions.toml` (AGP 9.4.1, Gradle 9.8.0 via `gradle/wrapper/gradle-wrapper.properties`). |
 | Build error about the JDK | AGP 9 / Gradle 9 need JDK 17 or newer. In Android Studio: Settings → Build Tools → Gradle → Gradle JDK. |
+| Build fails in `installDebugPythonRequirements` | Chaquopy cannot find a **CPython 3.12** build interpreter. Set `chaquopy.buildPython=…` in `local.properties` (see [Quick start](#1-requirements)). |
+| Build complains it cannot build Pillow | You moved `chaquopy.defaultConfig.version` off 3.12. Chaquopy only ships a *prebuilt* Pillow wheel up to cp313; 3.12 is what this project uses. |
+| Online panel shows a red "runtime could not be started" dot | The APK was built for an ABI without the embedded interpreter, or the assets were stripped. Rebuild; the offline features are unaffected either way. |
+| "The embedded chrome-lens-py package could not be loaded" | The pip step was skipped or the APK was rebuilt without network. Rebuild; check `assets/chaquopy/requirements-common.imy` contains `chrome_lens_py/`. |
 | Compile error in `ui/`, `camera/` or `MainViewModel.kt` | See [Honest status](#honest-status-of-this-release): this layer was first written without a compiler. |
 
 ---
 
 ## Security and privacy
 
-- **No `INTERNET` permission** is declared; the app cannot make network requests.
-- The camera is the only permission. Photos picked from the gallery and the workbook are read
-  through the system file picker; nothing leaves the device.
+**Offline matching (the default).**
+- The camera is the only permission the matcher uses. Photos picked from the gallery and the
+  workbook are read through the system file picker; nothing leaves the device.
 - Models, caches, thumbnails and the wishlist live in the app's private storage
   (`allowBackup=false`).
-- The only network use is on your computer, when you run the export script (it downloads the
-  OpenCLIP weights from the OpenCLIP hub) and `pip install`.
+- With the online panel switched off the app makes **no network request at all**.
+
+**Online search (opt-in, off by default).**
+- `INTERNET` is declared solely for panel 2.5. Turning the switch off stops every request.
+- Three hosts, always over `https`: the Google Lens endpoint (via `chrome-lens-py`),
+  `openlibrary.org`, `covers.openlibrary.org`.
+- Pressing *Read cover text* sends the **cover photo** to Google Lens. Only the query text you can
+  see is sent to Open Library. The workbook is never transmitted.
+- Catalogue links open in your browser; the app renders no third-party page.
+- Details, and the terms `chrome-lens-py` asks you to read: [ONLINE_SEARCH.md](ONLINE_SEARCH.md) §4.
+
+**On your computer.** The only network use during development is the model export script (it
+downloads the OpenCLIP weights) and `pip install`.
 
 ---
 
@@ -387,4 +503,7 @@ an emulator.
 - [OpenCLIP](https://github.com/mlfoundations/open_clip) (ViT-B-32, LAION-2B weights)
 - [ONNX Runtime](https://onnxruntime.ai/) for on-device inference
 - [FAISS](https://github.com/facebookresearch/faiss) (reference behaviour for the exact inner-product index)
+- [chrome-lens-py](https://github.com/bropines/chrome-lens-py) (MIT) — Google Lens OCR, run unmodified on
+  [Chaquopy](https://chaquo.com/chaquopy/)'s embedded CPython
+- [Open Library](https://openlibrary.org/) — the book catalogue behind the product search
 - CameraX, Jetpack Compose, Kotlin coroutines

@@ -1,0 +1,29 @@
+{
+  "model": "ViT-B-32",
+  "pretrained": "laion2b_s34b_b79k",
+  "precision": "int8",
+  "input": {
+    "name": "pixel_values",
+    "size": 224,
+    "mean": [
+      0.48145466,
+      0.4578275,
+      0.40821073
+    ],
+    "std": [
+      0.26862954,
+      0.26130258,
+      0.27577711
+    ]
+  },
+  "output": {
+    "name": "embedding",
+    "dim": 512,
+    "normalized": false
+  },
+  "sha256": "d0ee5e3235b7a715f640a483a4970e5b0cf9754926c4b9e64ed4bf1a513189c8",
+  "bytes": 96919211,
+  "open_clip": "3.3.0",
+  "torch": "2.14.1+cpu",
+  "onnxruntime": "1.30.0"
+}

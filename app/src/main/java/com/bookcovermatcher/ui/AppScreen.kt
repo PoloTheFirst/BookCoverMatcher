@@ -1,7 +1,11 @@
 package com.bookcovermatcher.ui
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +37,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.ModelUi
+import com.bookcovermatcher.ToastKind
 import com.bookcovermatcher.ui.theme.Palette
 
 /** Root of the UI: page background, either the main screen or the model setup, and all overlays. */
@@ -86,7 +91,16 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
         onRestart = { ensureCamera(false) },
         onPickWorkbook = { pickWorkbook.launch(arrayOf("*/*")) },
         onPickImage = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+        // Catalogue links go to the system browser: the app never renders third-party pages.
+        onOpenUrl = { url -> openExternal(context, url, vm) },
     )
+
+    // Ask the embedded Python runtime whether chrome-lens-py is usable, once, as soon as the user
+    // has switched the online feature on (including after an app restart that restored it).
+    LaunchedEffect(ui.online.enabled) {
+        if (ui.online.enabled) vm.online.checkBridge()
+    }
+
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val background = Palette.pageBackground(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
@@ -127,3 +141,24 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
         }
     }
 }
+
+/**
+ * Opens a catalogue page in the user's browser.
+ *
+ * The app never renders third-party pages itself: no WebView, no extra permission beyond
+ * `INTERNET`, and the user sees in the browser which site they landed on.
+ */
+private fun openExternal(context: Context, url: String, vm: MainViewModel) {
+    if (!url.startsWith("https://")) {
+        vm.showToast("Refusing to open a non-HTTPS link.", ToastKind.ERR)
+        return
+    }
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (e: ActivityNotFoundException) {
+        vm.showToast("No browser on this device.", ToastKind.ERR)
+    } catch (e: Exception) {
+        vm.showToast("Could not open the link.", ToastKind.ERR)
+    }
+}
+
