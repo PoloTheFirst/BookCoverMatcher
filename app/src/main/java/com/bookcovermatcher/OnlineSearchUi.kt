@@ -34,7 +34,14 @@ sealed interface OcrUi {
 sealed interface CatalogueUi {
     data object Idle : CatalogueUi
     data class Running(val query: String) : CatalogueUi
-    data class Found(val query: String, val items: List<ProductResultUi>, val totalAvailable: Int?, val source: String) : CatalogueUi
+    data class Found(
+        val query: String,
+        val items: List<ProductResultUi>,
+        val totalAvailable: Int?,
+        val source: String,
+        /** One catalogue failed while another answered; shown, never hidden. */
+        val note: String? = null,
+    ) : CatalogueUi
     data class Empty(val query: String, val source: String) : CatalogueUi
     data class Failed(val message: String) : CatalogueUi
 }
@@ -43,11 +50,21 @@ sealed interface CatalogueUi {
  * One catalogue result, ready to draw.
  *
  * [coverJpeg] arrives after the text does (covers are fetched one by one), and stays null when the
- * catalogue has no cover. [detailUrl] is the catalogue's own page — the app never builds a
- * shopping link of its own.
+ * catalogue has no cover. [detailUrl] is the catalogue's own page — the app never builds a shopping
+ * link of its own.
+ *
+ * Everything a provider may or may not send is nullable: a value it did not send stays null and the
+ * card draws nothing for it. [price] and [availability] exist so the layout stays capable, but Open
+ * Library returns neither, so they are null today and the card says so by omission rather than by
+ * inventing a number.
+ *
+ * [key] is the store identity ([com.bookcovermatcher.core.wishlist.ItemIdentity]); the panel uses it
+ * to look up whether this result is bookmarked or already in a wishlist profile without asking the
+ * online controller to know about the wishlist.
  */
-class ProductResultUi(
+data class ProductResultUi(
     val id: String,
+    val key: String,
     val title: String,
     val authors: String,
     val meta: String,
@@ -55,7 +72,32 @@ class ProductResultUi(
     val coverJpeg: ByteArray?,
     val detailUrl: String,
     val source: String,
+    val provider: String,
+    val sourceDomain: String?,
+    val identifier: String?,
+    val description: String? = null,
+    val price: String? = null,
+    val availability: String? = null,
+    /** `Text match` for OCR → catalogue query. Never `Visual match` unless a provider really did one. */
+    val matchType: String = "Text match",
+    val bookmarked: Boolean = false,
+    val wishlisted: Boolean = false,
 )
+
+/**
+ * Replaces the cover of the item whose **id** is [id].
+ *
+ * Covers are fetched after the text and patched into an already-drawn list. Patching by index (what
+ * this app used to do) puts a cover on the wrong card as soon as the list is deduplicated, promoted
+ * or reordered, so the list is addressed by identity instead.
+ */
+fun patchCoverById(items: List<ProductResultUi>, id: String, coverJpeg: ByteArray?): List<ProductResultUi> {
+    if (coverJpeg == null) return items
+    val index = items.indexOfFirst { it.id == id }
+    if (index < 0) return items
+    return items.toMutableList().also { it[index] = it[index].copy(coverJpeg = coverJpeg) }
+}
+
 
 data class OnlineSearchUi(
     val enabled: Boolean = false,

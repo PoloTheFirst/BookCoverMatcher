@@ -1,5 +1,6 @@
 package com.bookcovermatcher.core
 
+import com.bookcovermatcher.core.online.GoogleBooksResponseParser
 import com.bookcovermatcher.core.online.OcrQueryExtractor
 import com.bookcovermatcher.core.online.OnlineFailure
 import com.bookcovermatcher.core.online.OpenLibraryResponseParser
@@ -71,6 +72,19 @@ class OcrQueryExtractorTest {
         assertTrue(OcrQueryExtractor.lines(ocr).isEmpty())
         assertNull(OcrQueryExtractor.suggest(ocr))
         assertEquals("", OcrQueryExtractor.query(ocr))
+    }
+
+    @Test fun realLensOutputPicksTheTitleAndKeepsBlockHeightsAligned() {
+        // Captured from chrome-lens-py 3.8.2 on the Open Library cover of The Hobbit. The bridge
+        // now collapses a line break inside one block, so one line == one block height.
+        val ocr = "THE AUTHORIZED EDITION\nTHE HOBBIT\nTHE ENCHANTING PRELUDE TO\n\"THE LORD OF THE RINGS\" JRR TOLKIEN"
+        val heights = listOf(0.020f, 0.160f, 0.050f, 0.050f)
+
+        val suggestion = OcrQueryExtractor.suggest(ocr, heights)
+
+        assertNotNull(suggestion)
+        assertEquals("THE HOBBIT", suggestion!!.title)
+        assertEquals("THE HOBBIT", suggestion.query)
     }
 
     @Test fun personNameHeuristics() {
@@ -212,6 +226,102 @@ class OpenLibraryResponseParserTest {
 
         assertTrue(outcome is ProductSearchOutcome.Empty)
         assertEquals("", (outcome as ProductSearchOutcome.Empty).query)
+    }
+}
+
+
+/** The second catalogue: a captured Google Books Volumes reply, not a mock of our own model. */
+class GoogleBooksParserTest {
+
+    private val sample = """
+        {
+          "kind": "books#volumes",
+          "totalItems": 461,
+          "items": [
+            {
+              "kind": "books#volume",
+              "id": "8PkGDQAAQBAJ",
+              "volumeInfo": {
+                "title": "The Hobbit",
+                "authors": ["J.R.R. Tolkien"],
+                "publisher": "Houghton Mifflin Harcourt",
+                "publishedDate": "1937-09-21",
+                "description": "A journey there and back again.",
+                "industryIdentifiers": [
+                  {"type": "ISBN_13", "identifier": "9780547928227"}
+                ],
+                "pageCount": 310,
+                "language": "en",
+                "imageLinks": {
+                  "smallThumbnail": "http://books.google.com/books/content?id=8PkGDQAAQBAJ&zoom=5",
+                  "thumbnail": "http://books.google.com/books/content?id=8PkGDQAAQBAJ&zoom=1"
+                },
+                "infoLink": "https://books.google.com/books?id=8PkGDQAAQBAJ"
+              }
+            },
+            {
+              "kind": "books#volume",
+              "id": "bad id",
+              "volumeInfo": {"title": "Unlinkable"}
+            },
+            {
+              "kind": "books#volume",
+              "id": "NOPE1",
+              "volumeInfo": {"authors": ["No title"]}
+            }
+          ]
+        }
+    """.trimIndent()
+
+    @Test fun `the first volume is read faithfully`() {
+        val (items, total) = GoogleBooksResponseParser.parse(sample, limit = 10)
+        val hobbit = items.single()
+
+        assertEquals(461, total)
+        assertEquals("The Hobbit", hobbit.title)
+        assertEquals(listOf("J.R.R. Tolkien"), hobbit.authors)
+        assertEquals(1937, hobbit.publishedYear)
+        assertEquals(listOf("Houghton Mifflin Harcourt"), hobbit.publishers)
+        assertEquals(310, hobbit.pageCount)
+        assertEquals(listOf("en"), hobbit.languages)
+        assertEquals("Google Books", hobbit.source)
+        assertEquals("gb", hobbit.providerId)
+        assertEquals("9780547928227", hobbit.identifier)
+        assertEquals("A journey there and back again.", hobbit.description)
+    }
+
+    @Test fun `http cover links are upgraded and the detail page is the provider's own`() {
+        val item = GoogleBooksResponseParser.parse(sample, limit = 1).first.single()
+
+        assertEquals("https://books.google.com/books/content?id=8PkGDQAAQBAJ&zoom=1", item.coverUrl)
+        assertEquals("https://books.google.com/books?id=8PkGDQAAQBAJ", item.detailUrl)
+    }
+
+    @Test fun `volumes without an id, a usable title or a valid id are skipped`() {
+        val item = GoogleBooksResponseParser.parse(sample, limit = 10).first.single()
+        assertEquals("8PkGDQAAQBAJ", item.id)
+    }
+
+    @Test fun `an empty catalogue is not an error`() {
+        val (items, total) = GoogleBooksResponseParser.parse("""{"kind":"books#volumes","totalItems":0}""", limit = 5)
+        assertTrue(items.isEmpty())
+        assertEquals(0, total)
+    }
+
+    @Test fun `malformed json is reported, not swallowed`() {
+        for (body in listOf("", "[]", "not json", """{"items": 5}""")) {
+            try {
+                GoogleBooksResponseParser.parse(body, limit = 5)
+                org.junit.Assert.fail("expected a ParseException for: $body")
+            } catch (expected: GoogleBooksResponseParser.ParseException) {
+                // exactly what OnlineSearchController turns into BAD_RESPONSE
+            }
+        }
+    }
+
+    @Test fun `the limit is honoured`() {
+        assertEquals(1, GoogleBooksResponseParser.parse(sample, limit = 1).first.size)
+        assertTrue(GoogleBooksResponseParser.parse(sample, limit = 0).first.isEmpty())
     }
 }
 

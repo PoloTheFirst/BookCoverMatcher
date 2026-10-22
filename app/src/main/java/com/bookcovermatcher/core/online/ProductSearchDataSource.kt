@@ -19,6 +19,9 @@ enum class OnlineFailure {
 
     /** The feature is switched off or has no configured source. */
     NOT_CONFIGURED,
+
+    /** A provider failed in a way that has no better category. */
+    INTERNAL,
 }
 
 /**

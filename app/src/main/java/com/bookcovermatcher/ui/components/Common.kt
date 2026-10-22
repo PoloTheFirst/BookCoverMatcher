@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -199,6 +201,58 @@ fun <T : Any> rememberLastNonNull(value: T?): T? {
     if (value != null) holder[0] = value
     @Suppress("UNCHECKED_CAST")
     return (value ?: holder[0]) as T?
+}
+
+// ---------------------------------------------------------------------------------------------
+// Segmented tabs (Wishlist sections, Search result sources)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The tab track the workflow image draws for a set of related lists: a dark pill with the active
+ * tab filled in accent.
+ *
+ * Shared by the Wishlist sections (Folders / Bookmarks) and the Search result sources
+ * (Workbook / Online / Bookmarks) so both groups read the same way, and so neither screen grows its
+ * own copy of the styling.
+ */
+@Composable
+fun SegmentedTabRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(11.dp))
+            .background(Color.Black.copy(alpha = 0.28f))
+            .border(1.dp, Palette.Line, RoundedCornerShape(11.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        content = content,
+    )
+}
+
+/**
+ * One tab of a [SegmentedTabRow]. The label carries its own count (`Workbook (5)`) so the user can
+ * see where results are without visiting every tab.
+ */
+@Composable
+fun SegmentedTab(label: String, active: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (active) Palette.Accent.copy(alpha = 0.18f) else Color.Transparent)
+            .clickable(role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 2.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (active) Palette.Accent else Palette.Muted,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------------------------

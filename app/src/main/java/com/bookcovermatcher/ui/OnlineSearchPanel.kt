@@ -49,19 +49,29 @@ import com.bookcovermatcher.ui.components.Panel
 import com.bookcovermatcher.ui.theme.Palette
 
 /**
- * Panel "2.5 · Online search" — the number v1 used for its online panel.
+ * Online-search panel: OCR, the editable query and the catalogue results.
  *
  * Two clearly separated steps, because they are two different services:
  *  * **A · Read the cover** — OCR through the embedded `chrome-lens-py` package.
- *  * **B · Search the catalogue** — structured book records from Open Library.
+ *  * **B · Search the catalogues** — structured book records from Open Library and Google Books.
  *
  * The switch is off by default and the panel says so: the app used to ship with no `INTERNET`
  * permission at all, and the offline matcher must stay usable with the switch off and the phone
  * in airplane mode.
  */
 @Composable
-fun OnlineSearchPanel(ui: OnlineSearchUi, controller: OnlineSearchController, onOpenUrl: (String) -> Unit) {
-    Panel("2.5 · Online search") {
+fun OnlineSearchPanel(
+    ui: OnlineSearchUi,
+    controller: OnlineSearchController,
+    onOpenUrl: (String) -> Unit,
+    bookmarkedKeys: Set<String>,
+    wishlistedKeys: Set<String>,
+    onToggleBookmark: (com.bookcovermatcher.ProductResultUi) -> Unit,
+    onAddToWishlist: (com.bookcovermatcher.ProductResultUi) -> Unit,
+    onBulkAdd: () -> Unit,
+    onBookmarkAll: () -> Unit,
+) {
+    Panel("Online search") {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -70,7 +80,7 @@ fun OnlineSearchPanel(ui: OnlineSearchUi, controller: OnlineSearchController, on
             Column(Modifier.weight(1f)) {
                 Text("Use online services", color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Off by default. Sends the cover to Google Lens and the title to Open Library.",
+                    "Off by default. Sends the cover to Google Lens; the text goes to Open Library and Google Books.",
                     color = Palette.Muted,
                     fontSize = 10.5.sp,
                 )
@@ -102,7 +112,17 @@ fun OnlineSearchPanel(ui: OnlineSearchUi, controller: OnlineSearchController, on
         Spacer(Modifier.height(12.dp))
         OcrSection(ui, controller)
         Spacer(Modifier.height(12.dp))
-        CatalogueSection(ui, controller, onOpenUrl)
+        CatalogueSection(
+            ui = ui,
+            controller = controller,
+            onOpenUrl = onOpenUrl,
+            bookmarkedKeys = bookmarkedKeys,
+            wishlistedKeys = wishlistedKeys,
+            onToggleBookmark = onToggleBookmark,
+            onAddToWishlist = onAddToWishlist,
+            onBulkAdd = onBulkAdd,
+            onBookmarkAll = onBookmarkAll,
+        )
     }
 }
 
@@ -225,8 +245,18 @@ private fun OcrTextField(value: String) {
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun CatalogueSection(ui: OnlineSearchUi, controller: OnlineSearchController, onOpenUrl: (String) -> Unit) {
-    FieldLabel("B · Search the catalogue (Open Library)")
+private fun CatalogueSection(
+    ui: OnlineSearchUi,
+    controller: OnlineSearchController,
+    onOpenUrl: (String) -> Unit,
+    bookmarkedKeys: Set<String>,
+    wishlistedKeys: Set<String>,
+    onToggleBookmark: (com.bookcovermatcher.ProductResultUi) -> Unit,
+    onAddToWishlist: (com.bookcovermatcher.ProductResultUi) -> Unit,
+    onBulkAdd: () -> Unit,
+    onBookmarkAll: () -> Unit,
+) {
+    FieldLabel("B · Search the catalogues (Open Library + Google Books)")
 
     BasicTextField(
         value = ui.query,
@@ -260,27 +290,83 @@ private fun CatalogueSection(ui: OnlineSearchUi, controller: OnlineSearchControl
     Spacer(Modifier.height(10.dp))
 
     when (val catalogue = ui.catalogue) {
-        is CatalogueUi.Running -> BusyRow("Searching Open Library for “${catalogue.query}”…", controller::cancel)
+        is CatalogueUi.Running -> BusyRow("Searching the catalogues for " + catalogue.query + " ...", controller::cancel)
         is CatalogueUi.Failed -> Text(catalogue.message, color = Palette.Danger, fontSize = 11.sp)
         is CatalogueUi.Empty -> Text(
-            "Open Library has nothing for “${catalogue.query}”. Try a shorter title.",
+            "No catalogue has anything for " + catalogue.query + ". Try a shorter title.",
             color = Palette.Warn,
             fontSize = 11.sp,
         )
         is CatalogueUi.Found -> {
             Text(
                 buildString {
-                    append("${catalogue.items.size} of ${catalogue.totalAvailable ?: catalogue.items.size} record(s)")
-                    append(" · ${catalogue.source} · “${catalogue.query}”")
+                    append(catalogue.items.size).append(" of ")
+                    append(catalogue.totalAvailable ?: catalogue.items.size).append(" record(s)")
+                    append(" - ").append(catalogue.source).append(" - ").append(catalogue.query)
                 },
                 color = Palette.Muted,
                 fontSize = 10.5.sp,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(bottom = 6.dp),
             )
+            catalogue.note?.let {
+                Text(it, color = Palette.Warn, fontSize = 10.sp, modifier = Modifier.padding(bottom = 8.dp))
+            }
             catalogue.items.forEachIndexed { index, item ->
-                ProductResultCard(item = item, index = index, onOpen = onOpenUrl)
+                val shown = item.copy(
+                    bookmarked = item.key in bookmarkedKeys,
+                    wishlisted = item.key in wishlistedKeys,
+                )
+                ProductResultCard(
+                    item = shown,
+                    index = index,
+                    onOpen = onOpenUrl,
+                    onToggleBookmark = onToggleBookmark,
+                    onAddToWishlist = onAddToWishlist,
+                )
                 Spacer(Modifier.height(8.dp))
             }
+
+            // Two bulk actions with different scopes, both separate from the per-card chips:
+            // bookmarking writes to `Bookmarks` only, adding to the wishlist writes to one profile.
+            GradientButton(
+                onClick = onBookmarkAll,
+                colors = Palette.NavyGradient,
+                contentColor = Palette.Text,
+                modifier = Modifier.fillMaxWidth(),
+                minHeight = 44.dp,
+            ) { ButtonLabel("Bookmark all results", Palette.Text, 13f) }
+            Text(
+                "Saves every result above to the Bookmarks collection. No profile is created.",
+                modifier = Modifier.padding(top = 5.dp),
+                color = Palette.Muted,
+                fontSize = 10.sp,
+            )
+
+            Spacer(Modifier.height(8.dp))
+            GradientButton(
+                onClick = onBulkAdd,
+                colors = Palette.GreenGradient,
+                contentColor = Color.White,
+                modifier = Modifier.fillMaxWidth(),
+                minHeight = 46.dp,
+            ) { ButtonLabel("Add entire result profile to wishlist", Color.White, 13.5f) }
+            Text(
+                "Includes the workbook matches and every online result above; you choose the profile.",
+                modifier = Modifier.padding(top = 6.dp),
+                color = Palette.Muted,
+                fontSize = 10.sp,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Clear session cache",
+                color = Palette.Muted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(role = Role.Button, onClick = controller::clearSession)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            )
         }
         CatalogueUi.Idle -> Unit
     }
@@ -293,7 +379,7 @@ private fun CatalogueSection(ui: OnlineSearchUi, controller: OnlineSearchControl
             modifier = Modifier.fillMaxWidth(),
             minHeight = 46.dp,
             glow = Palette.Accent2.copy(alpha = 0.5f),
-        ) { ButtonLabel("Search catalogue", Palette.OnAccent2, 13.5f) }
+        ) { ButtonLabel("Search catalogues", Palette.OnAccent2, 13.5f) }
     }
 }
 

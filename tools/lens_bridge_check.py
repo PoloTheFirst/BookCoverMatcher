@@ -42,7 +42,7 @@ async def ok_process(self, image, **kwargs):
     SEEN["kwargs"] = kwargs
     return {
         "text_blocks": [
-            {"text": "THE HOBBIT", "geometry": {"height": 0.075}},
+            {"text": "THE\nHOBBIT", "geometry": {"height": 0.075}},
             {"text": "J.R.R. TOLKIEN", "geometry": {"height": 0.020}},
         ],
         "word_data": [{"word": "THE"}, {"word": "HOBBIT"}],

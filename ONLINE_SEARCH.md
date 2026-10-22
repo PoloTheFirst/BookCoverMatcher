@@ -1,211 +1,169 @@
-# Online search (panel 2.5)
+# Online search, OCR and bookmarks — implementation notes (v2.2.0)
 
-How the optional online feature works, what it really uses, and what it cannot do.
+This document describes what the online feature actually does. It deliberately separates four
+capabilities that are easy to confuse:
 
-* For the offline matcher, see [README.md](README.md).
+| Capability | Implementation | Output |
+|---|---|---|
+| **OCR** | `chrome-lens-py` 3.8.2 inside Chaquopy, through `lens_bridge.py` | Recognised text, language, translation, glyph heights |
+| **Text-based catalogue search** | `OpenLibraryBooksSource` + `GoogleBooksSource` | Structured book records with a real detail URL |
+| **Visual image search** | **Not implemented** | No service, no credentials, no claim |
+| **Catalog lookup** | Open Library and Google Books are catalogues, not shops | No price or stock is fabricated |
 
----
-
-## 1. What it does
-
-A new panel, **2.5 · Online search**, sits between the workbook results and the wishlist. It is
-**off by default** and everything in it is inert until you switch it on.
-
-1. You scan a cover as usual (camera, Auto Scan, or a picked photo).
-2. **A · Read the cover** — the captured picture is handed to the embedded
-   `chrome-lens-py` package, which asks Google Lens for the text printed on the cover.
-3. The recognised text is reduced to a search query (a title, plus an author when one is
-   recognisable). The query is shown and is **editable** — OCR gets covers wrong and you know better.
-4. **B · Search the catalogue** — the query is looked up in the **Open Library Books API** and the
-   structured records are shown as cards: title, authors, year, publisher, languages, cover, and a
-   link to the catalogue's own page.
-
-The offline workflow is untouched: same capture, same embedding, same workbook matching, same
-wishlist, and it all still works with the switch off and the phone in airplane mode.
+OCR + text search is **not** visual cover matching. The UI labels catalogue results `Text match`
+and the code never sets `MatchType.VISUAL`.
 
 ---
 
-## 2. The two halves are deliberately different services
-
-| | A · OCR | B · Product search |
-| :--- | :--- | :--- |
-| Library / service | `chrome-lens-py` 3.8.2 (embedded, MIT) → Google Lens `crupload` | Open Library Books API |
-| Runs | in-process Python (Chaquopy 17.1.0, CPython 3.12) | `HttpURLConnection` from Kotlin |
-| Returns | text, per-word geometry, detected language, translation | title, authors, year, publisher, pages, languages, cover, page URL |
-| Kotlin contract | `online/OcrTextSource.kt` | `core/online/ProductSearchDataSource.kt` |
-| Implementation | `online/ChromeLensPyBridge.kt` | `online/OpenLibraryBooksSource.kt` |
-
-### Why they are not the same call
-
-**`chrome-lens-py` has no product search.** Its own README and API reference describe OCR,
-translation, translation-drawn-onto-the-image and word geometry. This was verified against the
-shipped package, not assumed: `LensAPI.process_image()` returns exactly
+## 1. Request flow
 
 ```
-detected_language  image_size  objects  ocr_text | text_blocks | line_blocks | detailed_blocks
-overlay_path  translated_text  translation_render_data  word_data
+Camera / gallery
+  → PixelImage
+  → AndroidImageCodec.encodeJpeg(OCR_MAX_EDGE)
+  → OnlineSearchController.onCapture
+      → SessionCache (SHA-256 of the JPEG)
+      → ChromeLensPyBridge.recognise
+          → PythonRuntime (Chaquopy, Python 3.12)
+          → lens_bridge.ocr_image
+          → chrome_lens_py.LensAPI.process_image(output_format="blocks")
+          → flat envelope {ok, text, block_heights, detected_language, translated_text, …}
+      → OcrText
+  → OcrQueryExtractor.suggest (title/author)
+  → OpenLibraryBooksSource.search + GoogleBooksSource.search (parallel on Dispatchers.IO)
+  → OnlineAggregator.merge (provider key → dedupe → bookmarked promotion → limit)
+  → CatalogueUi.Found
+  → ProductResultCard → Bookmark / + Wishlist / Open website
 ```
 
-`objects` is a single `DetectedObject-WholeImage` bounding box — not a product match. There is no
-shopping, price, or visual-search result anywhere in the response, so nothing in this app pretends
-otherwise. The `SUPPORTS` / `DOES_NOT_SUPPORT` lists in `app/src/main/python/lens_bridge.py` say so
-in the code, and the panel shows "OCR only, no product search".
-
-Product discovery therefore uses a **separate, permitted source**.
-
-### Why Open Library
-
-* Free, **no API key**, no account, no secret to ship in the APK.
-* Returns *structured* records, so the cards are real metadata rather than invented text.
-* A library catalogue, not a shop — it never shows a price we would have to make up. Every result
-  links to a page that exists on openlibrary.org, built by us from the record's own key.
-* Its data is published under the Open Data License / public domain.
-
-Verified live with `python tools/online_search_check.py`, which issues the exact request the app
-builds and checks the response against the same rules the Kotlin parser applies.
-
-**Limitation worth stating:** Open Library describes *books*. This app matches book covers, so that
-is a good fit, but it is not a shop: there are no prices, no stock, and no buy links. If you need
-those, this feature will not give them to you, and no source is being silently substituted to fake it.
+If OCR fails, the query field remains editable; **Search catalogues** works without OCR. That is a
+deliberate separation: the catalogue step does not require the Python bridge.
 
 ---
 
-## 3. Embedded Python: what was verified
+## 2. Providers
 
-| Question | Answer | How it was checked |
-| :--- | :--- | :--- |
-| Can the original package run on Android? | Yes, unmodified | `pip install chrome-lens-py==3.8.2` into the Chaquopy build; `chrome_lens_py` (84 files) confirmed inside `assets/chaquopy/requirements-common.imy` in the built APK |
-| Version | **3.8.2** (pinned) | PyPI metadata |
-| License | **MIT** | PyPI metadata + `LICENSE` in the wheel |
-| Python required | `>=3.9` | `requires_python` |
-| Native extensions in the package itself | **none** — `chrome_lens_py-3.8.2-py3-none-any.whl` | wheel filename + contents |
-| Native extensions in dependencies | **Pillow** only | Chaquopy ships a prebuilt `pillow-11.0.0-0-cp312-cp312-android_24_{arm64_v8a,x86_64}.whl`; confirmed packaged in `requirements-arm64-v8a.imy` |
-| Runtime | **Chaquopy 17.1.0**, CPython **3.12**, ABIs `arm64-v8a` + `x86_64` | Chaquopy supports AGP 7.3–9.4.x; this project is AGP 9.4.1 / Gradle 9.8.0 / minSdk 26 — all inside its stated range |
-| Needs a companion device or server? | **No.** The interpreter runs in the app's own process | `Python.start(AndroidPlatform(context))` in `online/PythonRuntime.kt` |
+### Open Library Books API
+* Endpoint: `https://openlibrary.org/search.json`
+* Free, no API key; structured works/editions; cover ids; detail URLs are built from a validated
+  `/works/OL…` or `/books/OL…` key.
+* Failures map to `OFFLINE`, `TIMEOUT`, `RATE_LIMITED`, `SERVER_ERROR` or `BAD_RESPONSE`.
 
-### protobuf pin
+### Google Books Volumes API
+* Endpoint: `https://www.googleapis.com/books/v1/volumes`
+* Free for search, no API key shipped; structured volume records, covers and a books.google.com
+  page.
+* `http://` cover links are upgraded to `https://` on the same host. A missing/unsafe detail link
+  falls back to `https://books.google.com/books?id=<validated id>`.
+* **Without a key Google may answer HTTP 429** on shared networks. The outcome is
+  `ProductSearchOutcome.Failed(RATE_LIMITED, …)`; the controller still shows the other catalogue's
+  results and displays a note. It does not retry silently.
 
-`chrome-lens-py` asks for `protobuf>=6.33.5,<8`. The 7.x line publishes only platform-specific
-wheels, which Chaquopy cannot install for Android. **6.33.6 is the newest release in the allowed
-range that still ships a pure-Python `py3-none-any` wheel**, so it is pinned explicitly in
-`app/build.gradle.kts`.
-
-### Build-host requirement
-
-Chaquopy needs a **CPython 3.12** on the machine that builds the app — its major.minor must match
-`chaquopy.defaultConfig.version`. 3.12 is also the newest target with a *prebuilt* Pillow wheel,
-which is why the app targets 3.12 rather than 3.14.
-
-Tell Chaquopy where it is, in the git-ignored `local.properties`:
-
-```properties
-chaquopy.buildPython=C:/path/to/Python/3.12/python.exe
-```
-
-or pass `-PchaquopyBuildPython=<path>`. With neither, Chaquopy falls back to `py -3.12` on `PATH`.
+No marketplace, shopping, publisher or visual-similarity API is integrated.
 
 ---
 
-## 4. Privacy
+## 3. Identity and de-duplication
 
-* `INTERNET` is now declared, and it is the only new permission. It exists **only** for this panel.
-* The panel is **off by default**. The app made no request at all before this feature and still
-  makes none while the switch is off.
-* Exactly three hosts are ever contacted: the Lens endpoint (via `chrome-lens-py`),
-  `openlibrary.org` and `covers.openlibrary.org`. `HttpJsonClient` refuses any non-`https` URL.
-* The **cover photo itself** is sent to Google Lens when you press *Read cover text*. That is
-  unavoidable — it is what OCR is.
-* Only the text you can see in the query field is sent to Open Library. The workbook is never sent
-  anywhere.
-* Cover thumbnails are cached **in memory only** and are never written to disk.
-* Catalogue links open in the system browser. The app renders no third-party page itself.
-* `chrome-lens-py` uses a built-in public API key; you do not need an account. Its README states
-  the project is for "educational and experimental purposes" and that use of Google's services must
-  comply with their Terms of Service — worth reading before you rely on it.
+`ItemIdentity` defines "the same thing":
+
+1. A stable provider key wins: `ol:OL27482W`, `gb:<volumeId>`.
+2. Otherwise a normalised URL: `https` forced, host lowercased, default port removed, fragment
+   removed, trailing slash removed, only known tracking parameters stripped. Parameters that can
+   change the destination are kept.
+3. Workbook matches use `wb:<cell>`; two workbooks that share a cell therefore share an identity
+   (documented limitation).
+
+Editions/works with different URLs or titles are **not** merged by title. The merged list is the
+displayed list, so "N results" always equals the number of cards.
 
 ---
 
+## 4. Toggle, cancellation and cache
 
-## 5. Failure handling
-
-Every failure has a name, and none of them is presented as a success. Reporting is in two tiers:
-a short **toast** naming the category, and the full reason in the panel. The Python traceback goes
-only to Logcat (`adb logcat -s OnlineSearch:V python.stderr:V`), never to the screen, and image
-bytes and OCR text are never logged at all.
-
-| Situation | Toast | Panel / log |
-| :--- | :--- | :--- |
-| Python runtime cannot start | *Python runtime unavailable* | red dot + the real reason; the rest of the app keeps working |
-| `chrome_lens_py` cannot be imported | *OCR library not installed* | the import error, which names the module that failed |
-| Cover could not be encoded to JPEG | *Could not read that picture* | the encoder's own reason — **never** reported as a Lens problem |
-| Empty or oversized image reaches Python | *Could not read that picture* | rejected before any request is made |
-| No network / DNS failure | *No connection to Google Lens* | "…check the connection — offline matching still works." |
-| Lens 429 / 503 | *Google Lens is busy* | "Try again in a minute." |
-| Lens rejects the key | *Google Lens refused the request* | "…not something you can fix." |
-| Lens answered with an error | *Google Lens reported an error* | "Try again, or type the title below." |
-| Cover has no text | *No text found on the cover.* | a **successful** scan, not a failure — type a title instead |
-| Text, but no plausible title | *Text found, but no title could be picked out.* | the query field stays editable |
-| Catalogue has no match | *No match in Open Library.* | empty is **not** an error |
-| Catalogue 429 / 5xx / bad JSON | *Catalogue unavailable.* | a line naming the HTTP problem, plus "The offline matcher still works." |
-| Anything genuinely unexpected | *Could not read the cover* | the only case that still uses this wording, and the only one that ever did before |
+* Preference store: `bookcover_online` (`OnlineSearchPrefs`). `enabled` defaults to **false**.
+* `OnlineSearchController` owns its state. `MainViewModel` mirrors it into `UiState`; this mirror
+  is the fix for the release-blocking bug where the panel rendered the default off state forever.
+* Disabling:
+  * hides results immediately (`CatalogueUi.Idle`, OCR idle);
+  * cancels the Kotlin `Job`;
+  * `SessionCache.invalidate()` bumps a generation, so a late Kotlin callback is dropped;
+  * does not start new requests;
+  * never touches saved folders/sessions/items/bookmarks.
+* A Python Lens call already running cannot be preempted. Its token becomes stale and its result is
+  discarded.
+* Cache key: SHA-256 of the cover JPEG; entries are in memory only. A different cover invalidates
+  the previous results. `Clear online session cache` removes cache entries only.
 
 ---
 
-## 6. Files
+## 5. OCR bridge contract
 
-| File | Responsibility |
-| :--- | :--- |
-| `app/src/main/python/lens_bridge.py` | the only Python in the app; wraps `LensAPI`, converts the incoming buffer, returns a coded envelope |
-| `online/PythonRuntime.kt` | starts/owns the embedded interpreter, reports why it cannot |
-| `online/ChromeLensPyBridge.kt` | the only code that touches Chaquopy types; dict → plain Kotlin via `asMap()` |
-| `online/OcrResultParser.kt` | the envelope → Kotlin contract, and error-code → category. Pure, unit-tested |
-| `online/OcrErrorMessages.kt` | the one sentence shown per failure category. Pure, unit-tested |
-| `online/OnlineSearchLog.kt` | Logcat for the feature; never logs image bytes or OCR text |
-| `online/OcrTextSource.kt` | OCR contract + `OcrText`, `OcrFailure`, `OcrAvailability` |
-| `core/vision/EncodedImage.kt` | "did the JPEG encoder actually produce a picture?" Pure, unit-tested |
-| `core/online/OcrQueryExtractor.kt` | OCR text → title/author query (pure JVM, unit-tested) |
-| `core/online/ProductSearchResult.kt` | one catalogue record |
-| `core/online/ProductSearchDataSource.kt` | catalogue contract + `ProductSearchOutcome` / `OnlineFailure` |
-| `core/online/OpenLibraryResponseParser.kt` | Open Library JSON → records (pure JVM, unit-tested) |
-| `online/OpenLibraryBooksSource.kt` | the Open Library request |
-| `online/HttpJsonClient.kt` | the only socket in the app |
-| `online/CoverImageLoader.kt` | in-memory cover cache |
-| `online/OnlineSearchController.kt` | orchestrates both steps, owns the panel's state |
-| `data/OnlineSearchPrefs.kt` | the panel's settings |
-| `OnlineSearchUi.kt` | the panel's UI state |
-| `ui/OnlineSearchPanel.kt`, `ui/ProductResultCard.kt` | the panel and its result cards |
-| `tools/online_search_check.py` | desktop check of the catalogue request |
-| `tools/lens_bridge_check.py` | desktop check of the bridge, with `LensAPI` stubbed — no network |
-| `tools/lens_poc.py` | desktop proof of concept for the Python package |
+`lens_bridge.py` returns a flat dict; `OcrResultParser` is the only Kotlin file that interprets it.
+`ChromeLensPyBridge` reads the dict through `PyObject.asMap()` (item lookup, not `getattr`), and
+converts the Java `byte[]`/`jarray` with the buffer protocol. Failures are stable categories
+(`bad_input`, `image`, `network`, `rate_limit`, `auth`, `timeout`, `api`, `internal`), not string
+matching.
 
-### The two boundary rules worth remembering
-
-Both bugs in
-[ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md](ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md) came from assuming
-how data crosses the Kotlin↔Python line. Neither assumption is obvious, so both are written down:
-
-1. **A Java `byte[]` is not Python `bytes`.** It arrives as Chaquopy's own `java.chaquopy.jarray`,
-   which supports the buffer protocol but fails `isinstance(x, (bytes, bytearray, memoryview))`.
-   Test for the buffer protocol with `memoryview(value)`, then copy with `.tobytes()`. Never use a
-   bare `bytes(value)`: `bytes(5)` is five NUL bytes.
-2. **`PyObject.get(String)` is `getattr()`, not dictionary lookup.** The Chaquopy Javadoc says so
-   and states it returns `null` for a missing attribute — so reading a `dict` that way yields `null`
-   for every key, silently. Dictionary lookup goes through `asMap()`.
+A Lens text block can contain a newline. `_flatten` collapses each block to one line so that
+`block_heights` stays aligned with `text.splitlines()`; `OcrQueryExtractor` then pairs each height
+with its source line **before** filtering noise, so an imprint line cannot shift the geometry onto
+the wrong title candidate.
 
 ---
 
-## 7. Known limitations
+## 6. Bookmarks and wishlist sessions (online side)
 
-* **Runtime behaviour on a device is not verified.** The build, the packaging of the Python runtime
-  and every pure-Kotlin rule are verified; no physical device or emulator was available, so the
-  on-device Lens round-trip has never been executed. See [ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md](ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md) §15.
-* Cancelling an online search stops the Kotlin side immediately, but a Lens request already in
-  flight inside Python runs to completion — Chaquopy cannot preempt a running call.
-* The title heuristic uses Lens's per-block glyph height, a good proxy for "the biggest type on the
-  cover" but not a guarantee. The query is editable for exactly this reason.
-* `chrome-lens-py` is an unofficial client for a Google endpoint. It can stop working at any time
-  and no one is obliged to fix it.
-* Open Library coverage is uneven for recent, non-English and small-press titles.
-* The APK grows by roughly 30 MB (two ABIs of CPython, the standard library, Pillow and the
-  dependencies).
+* `Bookmarks` is a reserved folder in `records.json` (idempotent, not renameable/deletable).
+* A bookmark is a `SavedItem` + membership in `Bookmarks`; it has no session and no folder
+  requirement.
+* A session is created only by:
+  * saving an offline comparison (`OFFLINE_MATCH`);
+  * saving an online result set (`ONLINE_SEARCH`);
+  * the explicit bulk "result profile" action (`RESULT_PROFILE`).
+* Individual `+ Wishlist` adds one item as a direct folder membership; it does not create a session.
+* Session results are ordered with bookmarked items first. Removing a bookmark leaves folder
+  memberships intact; removing a folder membership leaves the bookmark intact.
+* All three workflows (wishlist→bookmark, bookmark→wishlist, bookmark→restart→wishlist) are covered
+  by JVM tests and were exercised manually for the custom-bookmark case.
+
+Schema details and the full migration rules are in `README.md` §3.
+
+---
+
+## 7. Verification (actual, not planned)
+
+| Item | Command / environment | Result |
+|---|---|---|
+| JVM suite | `.\gradlew.bat testDebugUnitTest` | 165 tests, 0 failures |
+| Live catalogue checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | 165 tests, 0 failures; Open Library returned real records |
+| Python bridge | `python tools/lens_bridge_check.py` with chrome-lens-py installed | all checks passed |
+| Real OCR, desktop | chrome-lens-py 3.8.2, Open Library Hobbit cover | read `THE HOBBIT` / `JRR TOLKIEN`, heights present |
+| Real OCR, device | `connectedDebugAndroidTest` on `Medium_Phone_API_37.0` | passed in ~2.2 s |
+| Device catalogues | same run | both sources answered or were correctly classified; Open Library returned records |
+| Device controller | same run | `CatalogueUi.Found` published with merged results |
+
+Google Books returned HTTP 429 from the development network without a key; this is classified as
+`RATE_LIMITED` and is not hidden. A configured API key/billing is a deployment decision the app does
+not make for the user.
+
+### Not verified
+* Visual search (not implemented).
+* OCR on a physical phone with a real camera (emulator OCR used a bundled image).
+* Online result cards driven through the UI end-to-end (controller and sources are covered by
+  device tests; card interactions were visually smoke-tested only indirectly).
+* Google Books with an API key.
+
+---
+
+## 8. Configuration and costs
+
+* No account is required for OCR or either catalogue.
+* `chrome-lens-py` uses Google's public Lens `crupload` endpoint and its own built-in key; Google may
+  rate-limit it. The app reports `RATE_LIMITED`/`AUTH` honestly.
+* Google Books may require a key and billing for high volume; the app does not ship one.
+* Open Library asks clients to be polite; the app makes one request per user action and caps results
+  at 10.
+* To add a provider, implement `ProductSearchDataSource` and add it to the controller's list; do not
+  claim it in the UI until it is implemented and tested.
 

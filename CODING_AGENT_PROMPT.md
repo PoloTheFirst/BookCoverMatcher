@@ -1,12 +1,24 @@
 # Coding-Agent Implementation Prompt — BookCoverMatcher
 ## Online Search Results, Bookmarks, and Wishlist Profiles
 
+> **Superseded for v2.2.0 (2026-10-22).** This file is kept as the historical task prompt. The
+> implemented model is folder → session → results (see `README.md` §3); it is not the older
+> "profiles of items" wording below. Where this prompt and the current README disagree, the README
+> and the source are authoritative. The Phase 1 panel numbering (`1 · ...`, `2.5 · ...`) described
+> below no longer exists in the UI: the Search destination now shows `Workbook (n) / Online (n) /
+> Bookmarks (n)` tabs, and the numbered panel titles were removed.
+
 > **How to use this file.** Everything below is the prompt. Give it to the coding agent as the task
 > description, together with `workflow_image.png` if you have it. It is self-contained: it does not
-> depend on any previous conversation. Sections 2, 3 and 15 are a verified audit of this repository
-> (checked 2026-10-22 against the working tree at `HEAD 6d9e83e` plus the uncommitted v2.1.0
-> online-search work) — trust the repository over this document if they ever disagree, and say so in
-> your report.
+> depend on any previous conversation. Sections 2, 3 and 3A are a verified audit of this repository
+> (re-checked **2026-10-22** at `HEAD cb8a253` *"Prepare release v2.1.0-dev.1"*, working tree with only
+> `CHANGELOG.md` modified) — trust the repository over this document if they ever disagree, and say so
+> in your report.
+>
+> **Scope decision (maintainer, 2026-10-22).** The work is split into **two phases** (§3A). Phase 1 is
+> data, behaviour and the new actions on the **existing single-screen layout**; the bottom-navigation
+> restructure is **Phase 2** and must not be started during Phase 1. Section 16 used to leave this as an
+> open default; it is now decided.
 
 ---
 
@@ -40,16 +52,34 @@ repository and environment allow, verify it, document it, and report honestly.
 5. **Backward compatibility.** Existing `records.json` data must survive the change untouched, and the
    migration must be covered by a test.
 6. Do not claim a test passed, a build succeeded, or a device behaviour works if you did not observe it.
+7. **Phase discipline (§3A).** Phase 1 changes no navigation and no screen ownership: panels 1 / 2 / 2.5 / 3
+   and the wishlist overlay keep their current host composables and the panel numbering keeps working.
+   Do not begin Phase 2 in the same pass as Phase 1; finish, test and report Phase 1 first.
 
 ---
 
 ## 1. Reference image
 
-`workflow_image.png` is the primary visual/workflow reference. **If the image is not attached or not
-readable, say so explicitly in the final report (§15)** and implement from the written requirements in
-§4–§11 plus the transcription in §10. Do not invent details you could not see, and do not claim you
-inspected a file you could not open. As of this audit **the repository contains no image assets at all**
+`workflow_image.png` is the primary visual/workflow reference — read it in **both** phases, but it is
+the authority on structure mainly in Phase 2 (§3A). **If the image is not attached or not readable, say
+so explicitly in the final report (§15)** and implement from the written requirements in §4–§11 plus the
+transcription in §10. Do not invent details you could not see, and do not claim you inspected a file you
+could not open.
+
+Repository fact: the app ships **no image assets at all** — the workflow picture was never committed.
+The original lives outside the repository at
+`C:\Users\ASUS\Downloads\workflow_image.png` (1 780 862 bytes, checked 2026-10-22), and a copy is placed
+at the repository root as `workflow_image.png` (untracked; the maintainer may ignore or delete it) so it
+can be opened without leaving the project. If neither path resolves for you, say so and work from §10.
+
+---
+
 ## 2. Verified repository baseline
+
+Do not trust the repository's own prose as a source of truth without checking it: `README.md`,
+`ONLINE_SEARCH.md` and `CHANGELOG.md` have drifted behind the code before, and `CHANGELOG.md` is not
+even committed (§2.4). Re-verify with `git log`, `git show HEAD:<file>` and the compiler anything you
+intend to repeat as a fact.
 
 Toolchain: Kotlin **2.2.10**, AGP **9.4.1**, Gradle **9.8.0** wrapper, `compileSdk 35`, `minSdk 26`,
 `targetSdk 35`, `jvmTarget 17`, Jetpack Compose (BOM 2024.10.01, Material 3, Material Icons Core),
@@ -92,7 +122,7 @@ python tools/online_search_check.py "The Hobbit"   # exact catalogue request, li
   `app/src/test/java/com/bookcovermatcher/core/PipelineTest.kt` (that file holds several small test
   classes — follow that pattern; temp dirs come from `Files.createTempDirectory("wl")`).
 
-### 2.2 Online search today (v2.1.0, not yet committed)
+### 2.2 Online search today (v2.1.0 — committed in `cb8a253`, verified present in `git ls-files`)
 
 * `online/OnlineSearchController.kt` — owns `MutableStateFlow<OnlineSearchUi>`; a plain class owned by
   `MainViewModel` (`val online = OnlineSearchController(app, viewModelScope, onMessage = ::showToast)`),
@@ -153,12 +183,17 @@ Grepping the tree for `bookmark`, for `profile` as a domain word, or for `genre`
 search (optional) · Honest status of this release · Quick start · How to use (incl. "Optional: online
 search (panel 2.5)") · The Excel workflow (unchanged) · Why OpenCLIP + FAISS · Auto Scan · Reading a
 match · Configuration · Project layout · Desktop tools · Tests · Limitations · Troubleshooting ·
-Security and privacy · Credits), `CHANGELOG.md` (Keep a Changelog + SemVer, newest entry
-`## [2.1.0] — 2026-10-21` with Added/Changed/Fixed), `ONLINE_SEARCH.md` (the online feature's own
+Security and privacy · Credits). `CHANGELOG.md` is **stale in the history and is not Keep a Changelog**:
+`git show HEAD:CHANGELOG.md` returns an **empty file**, and the only content anywhere is an uncommitted
+49-line working copy titled `# Experimental Image Search Feature with Open Library` with
+`## v2.1.0 (2026-10-21)` followed by `## Added` / `## Changed` / `## Fixed` / `## Tests` /
+`## Notes and known issues`. Match *that* layout (confirm against the working copy you are given, not
+against this sentence). `ONLINE_SEARCH.md` (the online feature's own
 guide: what it does, the two halves table, why Open Library, the file map in §6, known limitations in
 §7), `ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md` (the two bridge defects and their §15 verification
-status). There is **no** user guide, architecture guide, testing guide, provider-configuration guide or
-feature inventory — creating those is part of this task (§12).
+status), and `CODING_AGENT_PROMPT.md` (this file, added in `cb8a253`). There is **no** user guide,
+architecture guide, testing guide, provider-configuration guide or feature inventory — creating those is
+part of this task (§12).
 
 ---
 
@@ -176,19 +211,86 @@ Read this section twice. The feature request reads as if the app already had wis
 | "Hybrid providers, shopping sites, visual match, price, availability" | One provider: Open Library — a library catalogue with no price, no stock, no buy link and no visual search. More providers are allowed only under §9 and the honesty rules of §14. |
 | "Bottom navigation (Home / Search / Wishlist / More), profile grid, result-profile screens" | A single scrolling screen plus a full-screen wishlist overlay. |
 
-So this task has three layers, and the report must state which ones were completed:
+The work therefore splits into three layers, and the maintainer has decided **which pass each layer
+belongs to**:
 
-* **Layer A — data & behaviour (mandatory, testable on the JVM):** item/collection model, profiles, the
+* **Layer A — data & behaviour (testable on the JVM):** item/collection model, profiles, the
   reserved `Bookmarks` collection, bookmark ↔ wishlist independence, identity & dedup, migration, session
   cache, bulk add, the three outcomes.
-* **Layer B — UI on top of the existing structure (mandatory):** expandable result card with the three
+* **Layer B — UI on top of the existing structure:** expandable result card with the three
   actions, profile-selection sheet, bookmarks view, custom-bookmark form, `Add result profile to
   wishlist`, indicators.
-* **Layer C — navigation conformance to the image (do it, or state clearly why not):** the image shows a
+* **Layer C — navigation conformance to the image:** the image shows a
   bottom navigation bar (Home / Search / Wishlist / More), a Wishlist tab that is a grid of profile cards
   including the reserved `Bookmarks` card, and a Search tab holding the scan / workbook / online flow.
-  Reusing the existing composables is fine, but panel numbering, the offline workflow and the 5-second
-  wishlist prompt must keep working.
+
+---
+
+## 3A. Scope: two phases — the maintainer's decision (2026-10-22)
+
+**Phase 1 = Layers A + B. Phase 2 = Layer C.** This is decided, not a default: do not re-litigate it, do
+not "helpfully" start the navigation rework while writing Phase 1 code, and do not drop the parts of the
+image this stack cannot back (that alternative was also rejected — see §10 and §16).
+
+### Phase 1 — data, behaviour and integration (build first)
+
+Keep the current screen shape exactly as it is today: **panels 1 / 2 / 2.5 / 3 in one scrolling screen
+plus the wishlist overlay**. Phase 1 delivers, on that layout:
+
+1. The persistent `Bookmarks` collection inside the existing wishlist store (§5, §6.1).
+2. Backward-compatible v1 → v2 store and migration (§5).
+3. Separate bookmark membership and wishlist membership, with the §8 removal semantics.
+4. Individual `Bookmark` and `Add to wishlist` actions on the result card, and the bulk
+   `Add result profile to wishlist` control (§6.2–§6.5).
+5. Bulk addition of workbook matches **and** online results into a chosen wishlist profile.
+6. All three outcomes of §7 — including adding a saved bookmark to a wishlist **after** the search
+   session has expired or the app has restarted.
+7. Manual custom-bookmark creation, and its later move into a profile (§6.6).
+8. Genre/purpose-based wishlist profiles and collection management (§6.7) — reached through the existing
+   overlay, not through new navigation.
+9. Indicators, dedup, persistence, removal semantics, the session cache + fingerprint, the toggle and
+   stale-response protection (§6.8, §6.9).
+10. A dedicated **Bookmarks view** inside the existing wishlist overlay (a segmented control or a second
+    list is fine — it must be a real, reachable view, not a TODO).
+
+**Phase 1 acceptance gate** (all of these before Phase 2 starts):
+
+* Every Phase 1 test in §11 passes; `./gradlew assembleDebug` succeeds, or the exact reason it cannot run
+  here is reported.
+* Outcomes 1, 2 and 3 each have a named passing test; the v1 → v2 migration has one.
+* `git diff` shows **no** bottom navigation bar, no navigation host / tab scaffolding, no new screen
+  owner, and the panel labels `1 · `, `2 · `, `2.5 · `, `3 · ` still render.
+* Documentation describes Phase 1 as done and Phase 2 as not started (§12).
+
+### Phase 2 — navigation and visual conformance (only after the gate)
+
+Rebuild the presentation to match `workflow_image.png`, **reusing** the models, repositories, controller
+and tested behaviour from Phase 1. Do not duplicate persistence and do not rewrite working business
+logic to feed a new navigation graph — if Phase 1 logic does not fit the new screen, that is a Phase 1
+bug to fix in place, with the tests as the safety net.
+
+Before touching anything, write the mapping of what exists to where it goes, and keep it in the report:
+
+| Today (verified) | Phase 2 destination |
+| :--- | :--- |
+| Header in `MainContent` (title + ⭐ `openWishlist`) | Top bar stays; ⭐ becomes the **Wishlist** tab |
+| `1 · Spreadsheet & range` | **Search** tab: capture/upload + workbook + range |
+| `2 · Top 5 matches` | **Search** tab, directly under the workbook picker |
+| `2.5 · Online search` (panel + result cards) | **Search** tab (image screens 2–4) |
+| `3 · Wishlist` (single "Add to Wishlist" button) | The bulk / per-item actions on **Search**; the saved list itself lives on **Wishlist** |
+| `WishlistOverlay` (full screen, opened by ⭐) | The **Wishlist** tab: profile grid, `Bookmarks` card, `Create new profile`, bookmarks list |
+| `WishlistPrompt` (5-second undo bar), `ToastHost`, `ConfirmDeleteDialog`, `RenameDialog` in `AppScreen` | Stay app-level, drawn **above** the nav bar |
+| Nothing | **More** tab: `Create bookmark`, `Clear session cache`, online-search settings (toggle, OCR/target language), model setup, about/limitations |
+
+What must still work at the end of Phase 2, unchanged: offline matching in airplane mode, workbook
+`.xlsx`/`.xlsm` selection and the top-5 ranking, camera capture, Auto Scan, the 5-second undo prompt,
+rename, delete-with-confirmation, the empty states, and the system back gesture (the overlay's
+`BackHandler` behaviour has to be re-expressed as tab-level back, not silently deleted).
+
+Phase 2 may add UI-level tests where the existing JUnit-4/JVM setup can reach the logic (state classes,
+reducers, ordering), and must state plainly which Compose behaviour remains unverified because there is
+no `androidTest`, Robolectric or Compose UI test harness in this project.
+
 
 ---
 
@@ -289,10 +391,22 @@ view whatever its size — a long messy list is a reason for sorting/grouping, n
 works fully offline (opening a site needs a connection, reading the list does not). An item may exist only
 in `Bookmarks`, or in `Bookmarks` **and** one or more profiles, and it is the *same* stored item, not a copy.
 
-### 6.2 Result card: collapsed and expanded
+### 6.2 Result card: collapsed and expanded  *(Phase 1)*
 
 Extend `ProductResultUi` with the fields the card needs (source domain, description, price, availability,
 match type, `bookmarked`, `wishlisted`) instead of smuggling them through strings.
+
+**Provider-capability rule — every field is optional, in both phases.** The card and the stored item are
+deliberately wider than the one provider this app currently has: title, url, source domain, thumbnail,
+description, creator (author/artist/circle/publisher), price, availability, provider and match type are
+all nullable. Render only what a given result actually carries, and expect different providers to fill
+different subsets — an Open Library record, a future marketplace item and a future visual-search hit are
+not the same shape, and one shared card has to look right for all three. A value the provider did not
+send is omitted or drawn as `—`; a chip appears only when the value behind it exists. Two failure modes
+are equally wrong: **fabricating** price / availability / "Visual match" that no provider returned (§14),
+and **deleting** the price / availability / visual-match part of the layout because Open Library has
+nothing to put there — the model and the layout stay capable, Phase 2 reproduces the image's card, and a
+missing value is a formatting question. Record in the report which fields no current provider can fill.
 
 * **Collapsed:** thumbnail or placeholder, title, source domain, state indicators. Today's card is already
   a good collapsed state — keep it.
@@ -331,7 +445,7 @@ wishlist membership. Works when the item was bookmarked from a live search or fr
 ### 6.5 Profile-selection workflow (shared)
 
 One reusable picker used by: bulk add, per-item `Add to wishlist`, the bookmark "Add to wishlist" action,
-and the wishlist tab's `+`. Requirements:
+and the `+` on the profile list (the overlay's in Phase 1, the Wishlist tab's in Phase 2). Requirements:
 
 * Lists existing **regular** profiles with item counts (never offers `Bookmarks` as a target for a regular
   wishlist add unless the item is a bookmark the user explicitly sends there).
@@ -344,12 +458,16 @@ and the wishlist tab's `+`. Requirements:
 
 ### 6.6 Bookmarks view + custom bookmark form
 
-* A dedicated view of the `Bookmarks` collection: thumbnail or placeholder, title, source domain, provider,
+* A dedicated view of the `Bookmarks` collection — **inside the existing wishlist overlay in Phase 1**, as
+  its own list or as a segmented control alongside the profile list; it becomes the dedicated Bookmarks
+  view of the Wishlist tab in Phase 2 without changing where the data comes from. Contents:
+  thumbnail or placeholder, title, source domain, provider,
   added date; per-row actions `Open website`, `Add to wishlist`, and remove-bookmark (with confirmation,
   like record deletion today).
 * Long lists must stay usable (lazy list — `LazyColumn` is already used in `WishlistOverlay`), with
   sorting (added / title / domain) and a text filter if cheap. Do not paginate away the reserved view.
-* `+ Create bookmark` (available from the bookmarks view and from `More`): **Title** (required), **URL**
+* `+ Create bookmark` (on the bookmarks view's own header in Phase 1, and from `More` once Phase 2
+  exists): **Title** (required), **URL**
   (required, validated — the app only ever opens `https`, so reject anything else with a clear message),
   source domain (derived from the URL), description/notes, author/artist/circle/publisher, product
   identifier, price, thumbnail reference. All optional beyond title and URL.
@@ -360,7 +478,8 @@ and the wishlist tab's `+`. Requirements:
 
 ### 6.7 Profile / genre organisation
 
-* The wishlist tab shows profile cards (name, item count, representative thumbnail) plus `Create new
+* Phase 1 shows the profile cards in the existing overlay; Phase 2 moves them to the Wishlist tab
+  (name, item count, representative thumbnail) plus `Create new
   profile`, matching the image's `All / Books / Doujinshi / Others` filter row if you implement filtering —
   otherwise state plainly that grouping is by profile and genre is just a profile name the user chooses.
   **Do not hardcode genre names.**

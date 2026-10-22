@@ -250,7 +250,9 @@ def _flatten(result):
     texts = []
     heights = []
     for block in (result.get("text_blocks") or []):
-        text = str(block.get("text") or "").strip()
+        # One line per block, so ``text.splitlines()`` and ``block_heights`` stay aligned even
+        # when Lens puts a line break inside a paragraph.
+        text = " ".join(str(block.get("text") or "").split())
         if not text:
             continue
         texts.append(text)

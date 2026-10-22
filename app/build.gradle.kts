@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.tasks.testing.Test
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,12 +16,14 @@ android {
         applicationId = "com.bookcovermatcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 201
-        versionName = "2.1.0"
+        versionCode = 202
+        versionName = "2.2.0"
 
         // ONNX Runtime ships four ABIs (~15 MB each). Real phones are arm64-v8a;
         // x86_64 keeps the emulator working. Add "armeabi-v7a" for old 32-bit phones.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -38,7 +41,12 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        // Turned on so the More screen can show `BuildConfig.VERSION_NAME` instead of a hand-copied
+        // string that silently drifts from this file on every release.
+        buildConfig = true
+    }
 
     // The model is a big, already-compact binary: store it uncompressed so it can be read straight from the APK.
     androidResources { noCompress += "onnx" }
@@ -83,6 +91,11 @@ chaquopy {
     }
 }
 
+// The live catalogue checks are opt-in: `-DonlineCheck=1` forwards the flag to the test JVM.
+tasks.withType<Test>().configureEach {
+    systemProperty("onlineCheck", System.getProperty("onlineCheck") ?: "")
+}
+
 dependencies {
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
@@ -106,4 +119,7 @@ dependencies {
     implementation(libs.onnxruntime.android)
 
     testImplementation(libs.junit)
+
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }

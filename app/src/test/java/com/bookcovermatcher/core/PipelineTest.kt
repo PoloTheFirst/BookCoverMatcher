@@ -15,8 +15,12 @@ import com.bookcovermatcher.core.vision.GuideGeometry
 import com.bookcovermatcher.core.vision.ImageCodec
 import com.bookcovermatcher.core.vision.ImageEmbedder
 import com.bookcovermatcher.core.vision.PixelImage
+import com.bookcovermatcher.core.wishlist.ItemDraft
+import com.bookcovermatcher.core.wishlist.ItemKind
+import com.bookcovermatcher.core.wishlist.MatchType
 import com.bookcovermatcher.core.wishlist.MiniJson
-import com.bookcovermatcher.core.wishlist.NewWishlistMatch
+import com.bookcovermatcher.core.wishlist.SessionDraft
+import com.bookcovermatcher.core.wishlist.SessionKind
 import com.bookcovermatcher.core.wishlist.WishlistRepository
 import java.io.File
 import java.nio.file.Files
@@ -137,73 +141,88 @@ class WishlistRepositoryTest {
     private fun tmp(): File = Files.createTempDirectory("wl").toFile()
     private fun jpeg(tag: Int) = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), tag.toByte())
 
-    private fun matches(n: Int) = (0 until n).map { NewWishlistMatch("A${it + 1}", 0.9f - it * 0.1f, 80f - it * 10, "comment-fill", jpeg(it)) }
+    private fun match(cell: String, tag: Int, percent: Float = 90f) = ItemDraft(
+        kind = ItemKind.WORKBOOK_MATCH,
+        title = cell,
+        description = "comment-fill",
+        matchType = MatchType.WORKBOOK,
+        matchTypeVerified = true,
+        cell = cell,
+        cosine = percent / 100f,
+        percent = percent,
+        thumbJpeg = jpeg(tag),
+    )
 
-    @Test fun addsRecordsWithV1Naming() {
-        var t = 1_000L
-        var seq = 0
-        val repo = WishlistRepository(tmp(), { t++ }, { "id${seq++}" })
-        val a = repo.add(jpeg(9), matches(3))
-        val b = repo.add(null, emptyList())
-        assertEquals("#1", a.name); assertEquals("#2", b.name)
-        val loaded = repo.load()
-        assertEquals(listOf("id0", "id1"), loaded.map { it.id })
-        assertEquals(3, loaded[0].matches.size)
-        assertEquals("A2", loaded[0].matches[1].cell)
-        assertEquals(0.8f, loaded[0].matches[1].cosine, 1e-6f)
-        assertEquals(70f, loaded[0].matches[1].percent, 1e-6f)
-        assertEquals("comment-fill", loaded[0].matches[0].source)
-        assertArrayEquals(jpeg(9), repo.thumbFile(loaded[0].scanThumbName!!).readBytes())
-        assertArrayEquals(jpeg(2), repo.thumbFile(loaded[0].matches[2].thumbName!!).readBytes())
-        assertNull(loaded[1].scanThumbName)
+    private fun session(folderId: String, cells: List<String>, scan: ByteArray? = null) = SessionDraft(
+        folderId = folderId,
+        kind = SessionKind.OFFLINE_MATCH,
+        title = "",
+        scanThumbJpeg = scan,
+        results = cells.mapIndexed { index, cell -> match(cell, index + 1) },
+    )
+
+    @Test fun `a saved session keeps its scan and result thumbnails on disk`() {
+        val dir = tmp()
+        val repo = WishlistRepository(dir)
+        val folder = repo.createFolder("Reading")
+        val report = repo.saveSession(session(folder.id, listOf("A1", "A2", "A3"), scan = jpeg(9)))
+
+        val stored = repo.library()
+        val saved = stored.session(report.sessionId!!)!!
+        assertEquals("Scan #1", saved.title)
+        assertEquals(3, stored.sessionItems(saved.id).size)
+        assertArrayEquals(jpeg(9), repo.thumbFile(saved.scanThumbName!!).readBytes())
+        assertArrayEquals(jpeg(2), repo.thumbFile(stored.sessionItems(saved.id)[1].thumbName!!).readBytes())
+
+        val reopened = WishlistRepository(dir).library()
+        assertEquals(3, reopened.sessionItems(saved.id).size)
     }
 
-    @Test fun renameTrimsAndKeepsOldNameWhenBlank() {
+    @Test fun `renaming a session trims and keeps the old name when blank`() {
         val repo = WishlistRepository(tmp())
-        val r = repo.add(null, emptyList())
-        assertTrue(repo.rename(r.id, "  Dune  "))
-        assertEquals("Dune", repo.load()[0].name)
-        assertTrue(repo.rename(r.id, "   "))
-        assertEquals("Dune", repo.load()[0].name)
-        assertFalse(repo.rename("nope", "x"))
+        val folder = repo.createFolder("Reading")
+        val report = repo.saveSession(session(folder.id, listOf("A1")))
+
+        assertTrue(repo.renameSession(report.sessionId!!, "  Dune  "))
+        assertEquals("Dune", repo.library().session(report.sessionId)!!.title)
+        assertTrue(repo.renameSession(report.sessionId, "   "))
+        assertEquals("Dune", repo.library().session(report.sessionId)!!.title)
+        assertFalse(repo.renameSession("nope", "x"))
     }
 
-    @Test fun deleteRemovesRecordAndItsThumbnails() {
+    @Test fun `deleting a session removes its thumbnails but not a bookmark`() {
         val repo = WishlistRepository(tmp())
-        val a = repo.add(jpeg(1), matches(2))
-        val b = repo.add(jpeg(2), matches(1))
-        val files = listOf(a.scanThumbName!!) + a.matches.map { it.thumbName!! }
+        val folder = repo.createFolder("Reading")
+        val report = repo.saveSession(session(folder.id, listOf("A1", "A2"), scan = jpeg(1)))
+        val saved = repo.library().session(report.sessionId!!)!!
+        val files = listOf(saved.scanThumbName!!) + repo.library().sessionItems(saved.id).map { it.thumbName!! }
         assertTrue(files.all { repo.thumbFile(it).exists() })
-        assertTrue(repo.delete(a.id))
+
+        assertTrue(repo.deleteSession(saved.id))
         assertTrue(files.none { repo.thumbFile(it).exists() })
-        assertEquals(listOf(b.id), repo.load().map { it.id })
-        assertTrue(repo.thumbFile(b.scanThumbName!!).exists())
-        assertFalse(repo.delete(a.id))
+        assertFalse(repo.deleteSession(saved.id))
     }
 
-    @Test fun newRecordGetsNumberOfExistingRecordsPlusOneEvenAfterDeletes() {
-        val repo = WishlistRepository(tmp())
-        val a = repo.add(null, emptyList()); repo.add(null, emptyList())
-        repo.delete(a.id)
-        assertEquals("#2", repo.add(null, emptyList()).name)       // same quirk as v1
-    }
-
-    @Test fun corruptFileIsKeptAndTreatedAsEmpty() {
+    @Test fun `a record is written as v3 and a corrupt file is kept for recovery`() {
         val dir = tmp()
         File(dir, "records.json").writeText("{ not json")
         val repo = WishlistRepository(dir)
-        assertEquals(0, repo.load().size)
+        assertEquals(0, repo.library().sessions.size)
         assertTrue(File(dir, "records.json.corrupt").exists())
-        assertEquals("#1", repo.add(null, emptyList()).name)
+
+        val folder = repo.createFolder("Reading")
+        repo.saveSession(session(folder.id, listOf("A1")))
+        assertTrue(File(dir, "records.json").readText(Charsets.UTF_8).contains("\"version\":3"))
     }
 
-    @Test fun thumbnailLookupCannotEscapeTheFolder() {
+    @Test fun `thumbnail lookup cannot escape the folder`() {
         val dir = tmp()
         val repo = WishlistRepository(dir)
         assertEquals("passwd", repo.thumbFile("../../etc/passwd").name)
         assertEquals(File(dir, "thumbs"), repo.thumbFile("../../etc/passwd").parentFile)
     }
 }
+
 
 /** Embedding = one-hot-ish vector derived from the first byte of the picture (after the 4-byte header). */
 private class FakeCodec : ImageCodec {

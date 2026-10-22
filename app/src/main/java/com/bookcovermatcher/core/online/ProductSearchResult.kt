@@ -24,6 +24,12 @@ class ProductSearchResult(
     val detailUrl: String,
     /** Human name of the catalogue the item came from, e.g. `"Open Library"`. */
     val source: String,
+    /** Short stable provider id (`ol`, `gb`) used to build the item's identity. */
+    val providerId: String = "",
+    /** Provider description, when it sends one. Never invented. */
+    val description: String? = null,
+    /** Provider identifier (ISBN, volume id), when it sends one. */
+    val identifier: String? = null,
 ) {
     val authorLine: String
         get() = if (authors.isEmpty()) "Unknown author" else authors.joinToString(", ")

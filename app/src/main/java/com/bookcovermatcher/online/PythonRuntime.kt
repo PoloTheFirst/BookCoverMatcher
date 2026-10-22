@@ -18,7 +18,8 @@ import com.chaquo.python.android.AndroidPlatform
  */
 class PythonRuntime(context: Context) {
 
-    private val appContext = context.applicationContext
+    // A few test/instrumentation contexts have no Application; never pass null to Chaquopy.
+    private val appContext = context.applicationContext ?: context
 
     @Volatile private var started = false
     @Volatile private var problem: String? = null

@@ -49,25 +49,35 @@ object OcrQueryExtractor {
         "www", "http", "https", "com", "net", "org", "page", "pages", "chap", "chapter",
     )
 
-    /** Splits the OCR text into cleaned, non-empty candidate lines, in reading order. */
-    fun lines(ocrText: String): List<String> =
-        ocrText.lineSequence()
-            .map { normalise(it) }
-            .filter { it.length >= MIN_LINE && it.length <= MAX_LINE }
-            .filter { !isNoiseLine(it) }
-            .toList()
+    /**
+     * Splits the OCR text into cleaned, non-empty candidate lines, in reading order.
+     *
+     * Filtering happens **after** the height is paired with its source line, so a dropped imprint
+     * line cannot shift the geometry onto the wrong candidate (a real defect found with a captured
+     * Lens reply).
+     */
+    fun lines(ocrText: String): List<String> = candidates(ocrText, emptyList()).map { it.first }
+
+    private fun candidates(ocrText: String, blockHeights: List<Float>): List<Pair<String, Float>> =
+        ocrText.lineSequence().mapIndexedNotNull { index, raw ->
+            val text = normalise(raw)
+            if (text.length < MIN_LINE || text.length > MAX_LINE) return@mapIndexedNotNull null
+            if (isNoiseLine(text)) return@mapIndexedNotNull null
+            text to heightAt(blockHeights, index)
+        }.toList()
 
     /** Null when the OCR text holds nothing that could plausibly be a title. */
     fun suggest(ocrText: String, blockHeights: List<Float> = emptyList()): Suggestion? {
-        val lines = lines(ocrText)
+        val lines = candidates(ocrText, blockHeights)
         if (lines.isEmpty()) return null
 
-        val titleIndex = pickTitle(lines, blockHeights)
-        if (letters(lines[titleIndex]) < 2) return null
-        val title = lines[titleIndex]
+        val titleIndex = pickTitle(lines)
+        val title = lines[titleIndex].first
+        if (letters(title) < 2) return null
 
-        val author = lines.drop(titleIndex + 1).firstOrNull { looksLikePersonName(it) }
-            ?: lines.take(titleIndex).lastOrNull { looksLikePersonName(it) }
+        val texts = lines.map { it.first }
+        val author = texts.drop(titleIndex + 1).firstOrNull { looksLikePersonName(it) }
+            ?: texts.take(titleIndex).lastOrNull { looksLikePersonName(it) }
         val confidence = if (author == null) 1 else 2
 
         return if (queryLength(title, author) <= MAX_QUERY) Suggestion(title, author, confidence)
@@ -75,16 +85,15 @@ object OcrQueryExtractor {
     }
 
     /**
-     * Which line is the title.
+     * Which candidate line is the title.
      *
-     * [blockHeights] is the normalized glyph height of each block, which chrome-lens-py returns
-     * for free. On a designed cover the title is the largest type on the page, so height beats
-     * reading order; when the geometry is missing we fall back to "the first line wins", which is
-     * what Lens's reading order usually gives us anyway. Ties go to the earliest line.
+     * Height is the normalized glyph height chrome-lens-py returns for free, paired with the line it
+     * came from. On a designed cover the title is the largest type, so height beats reading order;
+     * without geometry the earliest line wins. Ties go to the earliest line.
      */
-    private fun pickTitle(lines: List<String>, blockHeights: List<Float>): Int {
+    private fun pickTitle(lines: List<Pair<String, Float>>): Int {
         val window = lines.indices.take(TITLE_WINDOW)
-        return window.maxByOrNull { rank(heightAt(blockHeights, it), it) } ?: 0
+        return window.maxByOrNull { rank(lines[it].second, it) } ?: 0
     }
 
     private fun heightAt(heights: List<Float>, index: Int): Float =
