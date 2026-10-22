@@ -212,7 +212,8 @@ capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_br
 ## 7. Build and run
 
 Requirements: Android Studio with SDK 35, JDK 17, a CPython **3.12** for Chaquopy, and network access
-for the first Python dependency install.
+for the first Python dependency install. The build runs on **Android Gradle Plugin 9.4.1**, **Gradle
+9.8.0** via the wrapper, and **Kotlin 2.2.10** (`gradle/libs.versions.toml`, `gradle-wrapper.properties`).
 
 `local.properties`:
 ```properties
