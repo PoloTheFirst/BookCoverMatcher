@@ -1,6 +1,8 @@
 package com.bookcovermatcher.core
 
+import com.bookcovermatcher.core.online.OnlineFailure
 import com.bookcovermatcher.core.online.ProductSearchOutcome
+import com.bookcovermatcher.online.DlsiteSource
 import com.bookcovermatcher.online.GoogleBooksSource
 import com.bookcovermatcher.online.OpenLibraryBooksSource
 import org.junit.Assert.assertEquals
@@ -61,6 +63,45 @@ class LiveCatalogueTest {
                 "Google Books must either answer or be reported as rate-limited, not as something else",
                 com.bookcovermatcher.core.online.OnlineFailure.RATE_LIMITED,
                 outcome.failure,
+            )
+            is ProductSearchOutcome.Empty -> Unit
+        }
+    }
+
+    /**
+     * DLsite, through the app's own adapter: a real Japanese query must return real works with real
+     * product URLs. If the site ever starts refusing the app's client, the failure must be classified
+     * as `BLOCKED` (or a network category), never silently reported as "no results".
+     */
+    @Test
+    fun dlsiteAnswersARealJapaneseQuery() {
+        val outcome = DlsiteSource().search("東方", 3)
+
+        when (outcome) {
+            is ProductSearchOutcome.Found -> {
+                assertFalse("DLsite returned no usable works", outcome.results.isEmpty())
+                assertTrue(outcome.results.size <= 3)
+                assertTrue(outcome.results.all { it.providerId == "dl" })
+                assertTrue(outcome.results.all { it.isMarketplace })
+                assertTrue(outcome.results.all { it.detailUrl.startsWith("https://www.dlsite.com/") })
+                assertTrue(outcome.results.all { it.title.isNotBlank() })
+                assertTrue(
+                    "a real listing prints a price; the parse should have found one",
+                    outcome.results.any { it.priceText != null },
+                )
+                assertTrue(
+                    "a real listing links a genuine thumbnail on img.dlsite.jp",
+                    outcome.results.any { it.coverUrl?.startsWith("https://img.dlsite.jp/") == true },
+                )
+            }
+            is ProductSearchOutcome.Failed -> assertTrue(
+                "unexpected DLsite failure: ${outcome.failure} / ${outcome.message}",
+                outcome.failure in setOf(
+                    OnlineFailure.BLOCKED,
+                    OnlineFailure.RATE_LIMITED,
+                    OnlineFailure.OFFLINE,
+                    OnlineFailure.TIMEOUT,
+                ),
             )
             is ProductSearchOutcome.Empty -> Unit
         }

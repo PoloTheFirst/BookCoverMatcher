@@ -34,6 +34,18 @@ class HttpJsonClient(
         return Response(fetched.status, String(fetched.bytes, Charsets.UTF_8))
     }
 
+    /**
+     * GET an HTML page (a provider's public search page).
+     *
+     * [HTML_MAX_BYTES] is larger than the JSON cap on purpose: a shop's search page carries its own
+     * markup and inline templates (DLsite's is ~275 KB for 30 works). The body is decoded as UTF-8,
+     * which is what the providers this app reads declare.
+     */
+    fun getHtml(url: String, acceptLanguage: String? = null): Response {
+        val fetched = get(url, "text/html,application/xhtml+xml", acceptLanguage, HTML_MAX_BYTES)
+        return Response(fetched.status, String(fetched.bytes, Charsets.UTF_8))
+    }
+
     /** GET raw bytes (a cover thumbnail). */
     fun getBytes(url: String, byteLimit: Int = maxBytes): ByteArray =
         get(url, "image/*", null, byteLimit).bytes
@@ -86,6 +98,10 @@ class HttpJsonClient(
     }
 
     private fun failureForStatus(status: Int): ProductSourceException = when (status) {
+        401, 403, 451 -> ProductSourceException(
+            OnlineFailure.BLOCKED,
+            "The site refused an automated request (HTTP $status). Open it in your browser instead.",
+        )
         429 -> ProductSourceException(OnlineFailure.RATE_LIMITED, "The catalogue is throttling requests (429). Try again shortly.")
         503 -> ProductSourceException(OnlineFailure.RATE_LIMITED, "The catalogue is busy (503). Try again shortly.")
         in 500..599 -> ProductSourceException(OnlineFailure.SERVER_ERROR, "The catalogue failed (HTTP $status).")
@@ -111,7 +127,10 @@ class HttpJsonClient(
     private companion object {
         const val HTTP_OK = 200
 
-        /** A descriptive UA: both catalogues ask automated clients to identify themselves. */
-        const val USER_AGENT = "BookCoverMatcher/2.1 (Android; on-device cover matcher)"
+        /** A shop search page is markup, not a JSON document; it needs more room. */
+        const val HTML_MAX_BYTES = 2 * 1024 * 1024
+
+        /** A descriptive UA: every provider asks automated clients to identify themselves. */
+        const val USER_AGENT = "BookCoverMatcher/2.2 (Android; on-device cover matcher)"
     }
 }

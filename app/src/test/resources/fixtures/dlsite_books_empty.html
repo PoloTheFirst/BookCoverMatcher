@@ -1,0 +1,89 @@
+', index)" :class="{on: perPageItem.checked}" v-cloak>
+                  <a href="#">{{ perPageItem.val }}</a>
+                </li>
+              </template>
+            </ul>
+            <span>表示件数&nbsp;：</span>
+          </div>
+        </div>
+        <!-- 作品結果のロード中 -->
+        <div
+          id="search_result_list"
+          class="loading_display"
+          data-toggle="found"
+          style="display: none;"
+        >
+          <div
+            v-if="getParams() && getParams().show_type === '1'"
+            class="search_skeleton_box work_1col"
+          >
+            <template v-for="n of 50">
+              <div class="search_skeleton_inner">
+                <div class="search_skeleton_tumb">
+                  <div class="search_skeleton_img"></div>
+                </div>
+                <div class="search_skeleton_detail">
+                  <div class="search_skeleton_title"></div>
+                  <div class="search_skeleton_name"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div
+            v-else
+            class="search_skeleton_box n_worklist"
+          >
+            <template v-for="n of 50">
+              <div class="search_skeleton_inner">
+                <div class="search_skeleton_tumb">
+                  <div class="search_skeleton_img"></div>
+                </div>
+                <div class="search_skeleton_detail">
+                  <div class="search_skeleton_title"></div>
+                  <div class="search_skeleton_name"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+      
+            <div id="search_result_list" class="loading_display_open" data-toggle="found">
+        <div class="work_not_found">
+      <p class="lead">「<strong>zzzqqqxxyy12345</strong>」に一致する作品は見つかりませんでした</p>
+    <div class="work_not_found_guide">
+    <p>入力内容の確認や、短いキーワードでお試しください<br>絞り込み条件を減らすと見つかることがあります</p>
+    <a class="nohit_btn" href="https://www.dlsite.com/books/fs/=/language/jp/sex_category%5B0%5D/male/keyword/zzzqqqxxyy12345/order%5B0%5D/trend/options_and_or/and/options%5B0%5D/JPN/options%5B1%5D/NM/options_name%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E%E4%BD%9C%E5%93%81/options_name%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E5%95%8F%E4%BD%9C%E5%93%81/per_page/30/page/1/show_type/3/lang_options%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E/lang_options%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E8%A6%81/from/fsr.kaizen2_1">検索条件を変更する</a>
+  </div>
+                                                              <div class="extend_search">
+    <p class="lead">他フロアの検索結果</p>
+    <ul class="extend_search_list">
+                                                                <li class="extend_search_list_item" data-vue-component="search_result" data-vue-async="true" data-url="https://www.dlsite.com/comic/sapi/=/language/jp/keyword/zzzqqqxxyy12345/order%5B0%5D/trend/options_and_or/and/options%5B0%5D/JPN/options%5B1%5D/NM/options_name%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E%E4%BD%9C%E5%93%81/options_name%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E5%95%8F%E4%BD%9C%E5%93%81/per_page/30/page/1/show_type/3/lang_options%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E/lang_options%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E8%A6%81/format/json/?cdn_cache=1">
+                <a href="https://www.dlsite.com/comic/fsr/=/language/jp/keyword/zzzqqqxxyy12345/order%5B0%5D/trend/options_and_or/and/options%5B0%5D/JPN/options%5B1%5D/NM/options_name%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E%E4%BD%9C%E5%93%81/options_name%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E5%95%8F%E4%BD%9C%E5%93%81/per_page/30/page/1/show_type/3/lang_options%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E/lang_options%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E8%A6%81/from/fsr.more" :class="isEmpty && 'disabled'">    コミック（comipo）  <span v-if="completed" v-cloak class="search_more_number">(<span class="number">{{ count | number_format }}</span>件)</span></a>
+              </li>
+                                                  <li class="extend_search_list_item" data-vue-component="search_result" data-vue-async="true" data-url="https://www.dlsite.com/garumani/sapi/=/language/jp/keyword/zzzqqqxxyy12345/order%5B0%5D/trend/options_and_or/and/options%5B0%5D/JPN/options%5B1%5D/NM/options_name%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E%E4%BD%9C%E5%93%81/options_name%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E5%95%8F%E4%BD%9C%E5%93%81/per_page/30/page/1/show_type/3/lang_options%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E/lang_options%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E8%A6%81/format/json/?cdn_cache=1">
+                <a href="https://www.dlsite.com/garumani/fsr/=/language/jp/keyword/zzzqqqxxyy12345/order%5B0%5D/trend/options_and_or/and/options%5B0%5D/JPN/options%5B1%5D/NM/options_name%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E%E4%BD%9C%E5%93%81/options_name%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E5%95%8F%E4%BD%9C%E5%93%81/per_page/30/page/1/show_type/3/lang_options%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E/lang_options%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E8%A6%81/from/fsr.more" :class="isEmpty && 'disabled'">    女性向け作品（全年齢）  <span v-if="completed" v-cloak class="search_more_number">(<span class="number">{{ count | number_format }}</span>件)</span></a>
+              </li>
+                        <li class="extend_search_list_item" data-vue-component="search_result" data-vue-async="true" data-url="https://www.dlsite.com/girls-pro/sapi/=/language/jp/keyword/zzzqqqxxyy12345/work_category%5B0%5D/books/order%5B0%5D/trend/options_and_or/and/options%5B0%5D/JPN/options%5B1%5D/NM/options_name%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E%E4%BD%9C%E5%93%81/options_name%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E5%95%8F%E4%BD%9C%E5%93%81/per_page/30/page/1/show_type/3/lang_options%5B0%5D/%E6%97%A5%E6%9C%AC%E8%AA%9E/lang_options%5B1%5D/%E8%A8%80%E8%AA%9E%E4%B8%8D%E8%A6%81/format/json/?cdn_cache=1">
+              <a href="https://www.dlsite.com/girls-pro/fsr/=/language/jp/keyword/zzzqqqxxyy12345/work_category%5B0%5D/books/order%5B0%5D/trend/options_and_or/and/options%5B0%5D/JPN/options%5B1%5D/NM
+<!-- 該当 message -->
+h_example">例）ディーエルサイト → ディーエル</p>
+  </li>
+  <li>
+    <h4>漢字の送り仮名に間違いはありませんか？</h4>
+    <p>送り仮名が異なるとヒットしない場合があります。作品名・サークル名・作者名は、ひらがなやカタカナのよみがなでも探せます。（検索結果はどちらも同じです）</p>
+    <p class="search_example">例）検索の行い方 or 検索の行ない方 → けんさくのおこないかた</p>
+  </li>
+  <li>
+    <h4>検索条件を多く設定していませんか？</h4>
+    <p>検索条件が多くなるほど該当作品が0件になりやすくなります。可能な限り条件を外して、もう一度お試しください。</p>
+    <p class="search_example">例）ファンタジー コメディ エルフ メガネ → ファンタジー コメディ</p>
+  </li>
+  <li>
+    <h4>こだわり条件の「ジャンル」からも探すことができます</h4>
+    <p>同じジャンルでも一部のキーワードにおいては、検索窓に打った言葉ではヒットしないことがあります。こだわり条件の「ジャンル」から選ぶと見つかる可能性があります。</p>
+    <p class="nohit_btn_wrap"><a class="nohit_btn" href="https://www.dlsite.com/books/fs">こだわり検索から探す</a></p>
+  </li>
+</ul>
+  </div>
+</div>

@@ -16,6 +16,9 @@ import com.bookcovermatcher.core.wishlist.MiniJson
 object OpenLibraryResponseParser {
     const val SOURCE_NAME = "Open Library"
 
+    /** Short stable provider id, used by [ProviderCatalog] and by item identity. */
+    const val PROVIDER_ID = "ol"
+
     /** The fields we request. Keep in sync with [parse]. */
     const val FIELDS = "key,title,author_name,first_publish_year,publisher,cover_i,language,number_of_pages"
 

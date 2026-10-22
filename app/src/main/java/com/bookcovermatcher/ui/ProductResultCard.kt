@@ -141,7 +141,9 @@ fun ProductResultCard(
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    item.sourceDomain?.let { Chip(it, Palette.Muted) }
+                    // The provider is named on the card itself, so a library record and a shop
+                    // listing never look alike. The domain is repeated in the expanded view.
+                    Chip(item.provider, Palette.Accent)
                     Chip(item.matchType, Palette.Accent2)
                 }
                 Row(

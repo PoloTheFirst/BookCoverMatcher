@@ -80,9 +80,10 @@ fun MoreScreen(ui: UiState, vm: MainViewModel) {
         Panel("What runs where") {
             InfoLine("Offline matching", "On-device OpenCLIP comparison against the chosen workbook. No network.")
             InfoLine("OCR", "Google Lens through chrome-lens-py, inside the app. Text only.")
-            InfoLine("Online search", "Open Library and Google Books catalogue queries with that text. Text match, not visual.")
+            InfoLine("Online search", "Open Library, Google Books and DLsite are queried with that text. Text match, not visual.")
+            InfoLine("Providers not queried", "Melonbooks and Suruga-ya refuse automated clients (HTTP 403); their rows open a browser search instead.")
             InfoLine("Visual cover search", "Not implemented: it requires a third-party image-similarity service and credentials the app does not ship.")
-            InfoLine("Prices / stock", "Not supplied by these catalogues, so never shown as if they were.")
+            InfoLine("Prices / stock", "Only a DLsite listing's own current price is shown. No provider sends stock, so none is invented.")
         }
 
         Spacer(Modifier.height(14.dp))
