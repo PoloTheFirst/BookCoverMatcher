@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.2.0)
+# Architecture and developer notes (v2.2.1)
 
 ## Layers
 
