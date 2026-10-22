@@ -17,6 +17,13 @@ enum class OnlineFailure {
     /** HTTP 200 that is not the JSON we expected, or a response we cannot read. */
     BAD_RESPONSE,
 
+    /**
+     * The site refused an automated client (HTTP 403 and friends, or a bot-protection page). The app
+     * does not try to defeat that: it says so and offers the provider's own search page in the
+     * browser instead.
+     */
+    BLOCKED,
+
     /** The feature is switched off or has no configured source. */
     NOT_CONFIGURED,
 

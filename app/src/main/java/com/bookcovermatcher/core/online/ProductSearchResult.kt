@@ -30,9 +30,21 @@ class ProductSearchResult(
     val description: String? = null,
     /** Provider identifier (ISBN, volume id), when it sends one. */
     val identifier: String? = null,
+    /** The price the shop itself printed (`924円`), or null when the source has none. */
+    val priceText: String? = null,
+    /**
+     * True for a shop listing with a price and a circle (DLsite), false for a bibliographic
+     * catalogue record (Open Library, Google Books). It only changes how missing fields are worded:
+     * a listing has no "author" and no "publisher", so it must not claim either.
+     */
+    val isMarketplace: Boolean = false,
 ) {
     val authorLine: String
-        get() = if (authors.isEmpty()) "Unknown author" else authors.joinToString(", ")
+        get() = when {
+            authors.isNotEmpty() -> authors.joinToString(", ")
+            isMarketplace -> "circle not shown"
+            else -> "Unknown author"
+        }
 
     val yearText: String
         get() = publishedYear?.toString() ?: "year unknown"
@@ -40,7 +52,14 @@ class ProductSearchResult(
     val publisherLine: String
         get() = publishers.joinToString(", ").ifEmpty { "publisher unknown" }
 
-    /** Short caption under the title: `1937 · George Allen & Unwin`. */
+    /**
+     * Short caption under the title. A shop listing shows its real price; a catalogue record shows
+     * `1937 · George Allen & Unwin`. Nothing is ever filled in with a guess.
+     */
     val metaLine: String
-        get() = listOf(yearText, publisherLine).joinToString(" · ")
+        get() = if (isMarketplace) {
+            priceText ?: "price not shown"
+        } else {
+            listOf(yearText, publisherLine).joinToString(" · ")
+        }
 }

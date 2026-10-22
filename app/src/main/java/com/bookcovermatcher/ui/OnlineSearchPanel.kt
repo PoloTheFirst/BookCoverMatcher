@@ -41,6 +41,8 @@ import com.bookcovermatcher.BridgeUi
 import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.OcrUi
 import com.bookcovermatcher.OnlineSearchUi
+import com.bookcovermatcher.ProviderState
+import com.bookcovermatcher.ProviderStatusUi
 import com.bookcovermatcher.online.OnlineSearchController
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.FieldLabel
@@ -289,14 +291,24 @@ private fun CatalogueSection(
 
     Spacer(Modifier.height(10.dp))
 
+    // Who was actually asked, and what each one said. Drawn before the results so a partial answer
+    // can never look like a complete one.
+    ProviderStatusList(ui.providers, onOpenUrl)
+    Spacer(Modifier.height(10.dp))
+
     when (val catalogue = ui.catalogue) {
         is CatalogueUi.Running -> BusyRow("Searching the catalogues for " + catalogue.query + " ...", controller::cancel)
         is CatalogueUi.Failed -> Text(catalogue.message, color = Palette.Danger, fontSize = 11.sp)
-        is CatalogueUi.Empty -> Text(
-            "No catalogue has anything for " + catalogue.query + ". Try a shorter title.",
-            color = Palette.Warn,
-            fontSize = 11.sp,
-        )
+        is CatalogueUi.Empty -> {
+            Text(
+                "No catalogue has anything for " + catalogue.query + ". Try a shorter title.",
+                color = Palette.Warn,
+                fontSize = 11.sp,
+            )
+            catalogue.note?.let {
+                Text(it, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
         is CatalogueUi.Found -> {
             Text(
                 buildString {
@@ -380,6 +392,90 @@ private fun CatalogueSection(
             minHeight = 46.dp,
             glow = Palette.Accent2.copy(alpha = 0.5f),
         ) { ButtonLabel("Search catalogues", Palette.OnAccent2, 13.5f) }
+    }
+}
+
+/**
+ * Every provider of this build, with what it did in the last search.
+ *
+ * Automated providers show their measured outcome. Browser-only providers are drawn as manual: the
+ * app never queries them, so their row offers the provider's own search page and can never look like
+ * "found nothing". A search that only partly worked therefore reads correctly at a glance.
+ */
+@Composable
+private fun ProviderStatusList(providers: List<ProviderStatusUi>, onOpenUrl: (String) -> Unit) {
+    if (providers.isEmpty()) return
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.18f))
+            .border(1.dp, Palette.Line, RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            "PROVIDERS",
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.8.sp,
+        )
+        providers.forEach { provider -> ProviderRow(provider, onOpenUrl) }
+    }
+}
+
+@Composable
+private fun ProviderRow(provider: ProviderStatusUi, onOpenUrl: (String) -> Unit) {
+    val dot = when (provider.state) {
+        ProviderState.RESULTS -> Palette.Ok
+        ProviderState.EMPTY -> Palette.Muted
+        ProviderState.FAILED -> Palette.Danger
+        ProviderState.SEARCHING -> Palette.Accent
+        ProviderState.READY -> Palette.Accent2
+        ProviderState.MANUAL -> Palette.Warn
+    }
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    provider.name,
+                    color = Palette.Text,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Text(
+                    "  " + provider.host,
+                    color = Palette.Muted,
+                    fontSize = 9.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            provider.detail?.let {
+                Text(it, color = Palette.Muted, fontSize = 9.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (provider.manual) {
+            Text(
+                "Open \u2197",
+                color = Palette.Accent,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(role = Role.Button) { onOpenUrl(provider.searchUrl) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
     }
 }
 

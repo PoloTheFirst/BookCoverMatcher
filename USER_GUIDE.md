@@ -20,9 +20,10 @@ The workbook is only read on the device. Offline matching works in airplane mode
 
 * **Workbook (n)** - the offline comparison: spreadsheet controls, the five match rows and
   **Save this scan as a session**. The count is the number of workbook matches for the current scan.
-* **Online (n)** - OCR, the editable query and the catalogue results from Open Library and Google
-  Books. The count is the number of unique, displayable results; failures and placeholders are not
-  counted.
+* **Online (n)** - OCR, the editable query, the provider status list and the results from Open
+  Library, Google Books and DLsite. Melonbooks and Suruga-ya are listed with a browser search link
+  instead of being queried. The count is the number of unique, displayable results; failures and
+  placeholders are not counted.
 * **Bookmarks (n)** - the results of the current search that are already in the `Bookmarks`
   collection, with **Bookmark all results** and a shortcut to the full collection.
 
@@ -44,9 +45,10 @@ runtime and asks whether `chrome-lens-py` is available.
 
 1. The captured cover is read with OCR. The query is filled from the title that was read; edit it if
    needed.
-2. **Search catalogues** queries Open Library and Google Books.
-3. Result cards show a real cover (or a placeholder), title, source domain, bookmark state and
-   wishlist state. Tap the card body to expand.
+2. **Search catalogues** queries three providers at once: **Open Library**, **Google Books** and
+   **DLsite**. The provider panel above the results shows what each one actually did.
+3. Result cards show a real cover (or a placeholder), title, provider chip, price for a shop listing,
+   source domain, bookmark state and wishlist state. Tap the card body to expand.
 4. Expanded actions are separate: **Open website**, **Bookmark**, **+ Wishlist**.
    * **Bookmark** saves the link in `Bookmarks`.
    * **+ Wishlist** adds only that one item to a folder you choose.
@@ -55,9 +57,13 @@ runtime and asks whether `chrome-lens-py` is available.
      session in the chosen folder.
 5. **Clear session cache** removes temporary results only.
 
-If OCR fails, type a title and search anyway. If one catalogue is unavailable, the other still
-returns results and the panel names the failure. Google Books can answer HTTP 429 without an API
-key; this is reported, not hidden.
+**Melonbooks** and **Suruga-ya** are listed in the provider panel but are *not* searched: both sites
+refuse automated clients (HTTP 403), so the app never disguises itself to get in. Their row says so
+and offers **Open ↗**, which opens that shop's own search page for the current title in your browser.
+
+If OCR fails, type a title and search anyway. If one provider is unavailable, the others still return
+results and the panel names the failure in that provider's row. Google Books can answer HTTP 429
+without an API key; this is reported, not hidden.
 
 ## Wishlist
 
@@ -97,8 +103,9 @@ stored exactly as typed). Bookmarks:
 ## Data and privacy
 
 Everything is stored locally in the app's private storage. Offline matching sends nothing. With
-online search on, the cover JPEG goes to Google Lens; the recognised text goes to Open Library and
-Google Books. No account, analytics or ads. The app refuses non-HTTPS links.
+online search on, the cover JPEG goes to Google Lens; the recognised text goes to Open Library,
+Google Books and DLsite. Melonbooks and Suruga-ya are never contacted by the app — their search pages
+open in your browser. No account, analytics or ads. The app refuses non-HTTPS links.
 
 ## Troubleshooting
 
@@ -107,5 +114,7 @@ Google Books. No account, analytics or ads. The app refuses non-HTTPS links.
 | “chrome-lens-py could not be loaded” | The embedded Python runtime failed; see `adb logcat -s OnlineSearch:V python.stderr:V`. Offline matching still works. |
 | Online search is off after restart | The switch is persisted; open **More** and turn it on. The Search panel reflects the same preference. |
 | No workbook images | Check the range and that pictures are anchored or stored as cell notes in the first sheet. |
-| Google Books 429 | Shared networks without an API key are throttled; Open Library results still appear. |
+| Google Books 429 | Shared networks without an API key are throttled; Open Library and DLsite results still appear. |
+| Melonbooks / Suruga-ya show "manual" | Expected: both sites refuse automated access (HTTP 403). Tap **Open ↗** to search them in your browser. |
+| DLsite shows no results | Try a Japanese title; the app searches DLsite's books section, first page only. |
 | Bookmark link will not save | Only `https://` URLs with a host are accepted. |

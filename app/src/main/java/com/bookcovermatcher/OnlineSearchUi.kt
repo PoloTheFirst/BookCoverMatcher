@@ -42,9 +42,39 @@ sealed interface CatalogueUi {
         /** One catalogue failed while another answered; shown, never hidden. */
         val note: String? = null,
     ) : CatalogueUi
-    data class Empty(val query: String, val source: String) : CatalogueUi
+    data class Empty(val query: String, val source: String, /** Other providers' failures, when some answered. */ val note: String? = null) : CatalogueUi
     data class Failed(val message: String) : CatalogueUi
 }
+
+/** What one provider did in the last search. Drawn as a status row, never as a success claim. */
+enum class ProviderState {
+    /** Automated provider, not queried yet. */
+    READY,
+    SEARCHING,
+    RESULTS,
+    EMPTY,
+    FAILED,
+
+    /** The provider refuses automated clients; the row offers its search page in the browser. */
+    MANUAL,
+}
+
+/**
+ * One row of the panel's provider list.
+ *
+ * [detail] is the provider's own explanation (its note) or the measured outcome of the last search.
+ * [searchUrl] is always the provider's real search page for the current query, so a manual provider
+ * is still usable — by the user's browser, not by a disguised request.
+ */
+data class ProviderStatusUi(
+    val id: String,
+    val name: String,
+    val host: String,
+    val manual: Boolean,
+    val state: ProviderState,
+    val detail: String?,
+    val searchUrl: String,
+)
 
 /**
  * One catalogue result, ready to draw.
@@ -108,7 +138,17 @@ data class OnlineSearchUi(
     val autoSearch: Boolean = true,
     val ocrLanguage: String = "",
     val targetLanguage: String = "",
+    /**
+     * Every provider of this build, with what it did in the last search. Filled from
+     * [com.bookcovermatcher.core.online.ProviderCatalog], so the panel can never show a provider the
+     * app does not actually have, nor imply that a manual provider answered.
+     */
+    val providers: List<ProviderStatusUi> = emptyList(),
 ) {
     /** True while either half of the feature is working. */
     val isBusy: Boolean get() = ocr is OcrUi.Running || catalogue is CatalogueUi.Running
+
+    /** Providers the app queried and that answered with at least one result. */
+    val answeredProviders: List<ProviderStatusUi>
+        get() = providers.filter { it.state == ProviderState.RESULTS }
 }

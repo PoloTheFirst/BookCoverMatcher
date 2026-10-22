@@ -6,6 +6,8 @@ import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.OcrUi
 import com.bookcovermatcher.OnlineSearchUi
 import com.bookcovermatcher.ProductResultUi
+import com.bookcovermatcher.ProviderState
+import com.bookcovermatcher.ProviderStatusUi
 import com.bookcovermatcher.ToastKind
 import com.bookcovermatcher.core.online.ImageFingerprint
 import com.bookcovermatcher.core.online.OcrQueryExtractor
@@ -14,6 +16,9 @@ import com.bookcovermatcher.core.online.OnlineFailure
 import com.bookcovermatcher.core.online.ProductSearchDataSource
 import com.bookcovermatcher.core.online.ProductSearchOutcome
 import com.bookcovermatcher.core.online.ProductSearchResult
+import com.bookcovermatcher.core.online.ProviderAccess
+import com.bookcovermatcher.core.online.ProviderCatalog
+import com.bookcovermatcher.core.online.ProviderSpec
 import com.bookcovermatcher.core.online.SessionCache
 import com.bookcovermatcher.core.wishlist.ItemIdentity
 import com.bookcovermatcher.core.wishlist.MatchType
@@ -23,12 +28,16 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 /**
  * Runs the online-search feature and owns its UI state.
@@ -52,11 +61,20 @@ class OnlineSearchController(
     private val prefs: OnlineSearchPrefs = OnlineSearchPrefs(context),
     private val bridge: OcrTextSource = ChromeLensPyBridge(PythonRuntime(context)),
     /**
-     * Every catalogue the search queries. Two today: Open Library and Google Books. They are
-     * catalogues, not shops, so no price or stock is ever fabricated. A failure of one is reported
-     * without hiding the results of the other.
+     * Every provider the app actually queries, each through its own adapter:
+     *  * **Open Library** — library catalogue, JSON API;
+     *  * **Google Books** — book catalogue, JSON API;
+     *  * **DLsite** — doujinshi / digital works shop, public search page (HTML).
+     *
+     * The two browser-only shops (Melonbooks, Suruga-ya) are deliberately **not** here: they refuse
+     * automated clients, so [ProviderCatalog] lists them for the UI's manual-search row instead.
+     * A failure of one provider is reported without hiding the results of the others.
      */
-    private val catalogues: List<ProductSearchDataSource> = listOf(OpenLibraryBooksSource(), GoogleBooksSource()),
+    private val catalogues: List<ProductSearchDataSource> = listOf(
+        OpenLibraryBooksSource(),
+        GoogleBooksSource(),
+        DlsiteSource(),
+    ),
     private val covers: CoverImageLoader = CoverImageLoader(),
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
@@ -66,6 +84,7 @@ class OnlineSearchController(
             autoSearch = prefs.autoSearch,
             ocrLanguage = prefs.ocrLanguage,
             targetLanguage = prefs.targetLanguage,
+            providers = providerStatuses(query = ""),
         ),
     )
     val ui: StateFlow<OnlineSearchUi> = _ui.asStateFlow()
@@ -88,7 +107,42 @@ class OnlineSearchController(
         val totalAvailable: Int?,
         val source: String,
         val note: String?,
+        /** The per-provider outcome of the search that produced these results. */
+        val providers: List<ProviderStatusUi>,
     )
+
+    /**
+     * The provider rows for [query].
+     *
+     * Browser-only providers are always [ProviderState.MANUAL]: they are never queried, so their row
+     * can never claim a result. Automated providers are [ProviderState.READY] until a search replaces
+     * [automated] with what actually happened.
+     */
+    private fun providerStatuses(
+        query: String,
+        automated: Map<String, Pair<ProviderState, String>> = emptyMap(),
+        searching: Boolean = false,
+    ): List<ProviderStatusUi> = ProviderCatalog.ALL.map { spec ->
+        val manual = spec.access == ProviderAccess.BROWSER_ONLY
+        val (state, detail) = when {
+            manual -> ProviderState.MANUAL to spec.note
+            searching -> ProviderState.SEARCHING to "Searching\u2026"
+            else -> automated[spec.id] ?: (ProviderState.READY to spec.note)
+        }
+        ProviderStatusUi(
+            id = spec.id,
+            name = spec.name,
+            host = spec.host,
+            manual = manual,
+            state = state,
+            detail = detail,
+            searchUrl = spec.searchUrl(query),
+        )
+    }
+
+    /** The registry row a live source belongs to, matched by the provider name the source reports. */
+    private fun specFor(source: ProductSearchDataSource): ProviderSpec? =
+        ProviderCatalog.ALL.firstOrNull { it.name.equals(source.name, ignoreCase = true) }
 
     // =========================================================================================
     // Settings
@@ -96,7 +150,16 @@ class OnlineSearchController(
 
     fun setEnabled(on: Boolean) {
         prefs.enabled = on
-        _ui.update { it.copy(enabled = on, ocr = OcrUi.Idle, catalogue = CatalogueUi.Idle, query = "") }
+        _ui.update {
+            it.copy(
+                enabled = on,
+                ocr = OcrUi.Idle,
+                catalogue = CatalogueUi.Idle,
+                query = "",
+                // A disabled feature has searched nothing: every row goes back to its resting state.
+                providers = providerStatuses(query = ""),
+            )
+        }
         if (on) {
             checkBridge()
         } else {
@@ -109,7 +172,9 @@ class OnlineSearchController(
     /** "Clear session cache": temporary results only, never a bookmark, item or membership. */
     fun clearSession() {
         session.invalidate()
-        _ui.update { it.copy(catalogue = CatalogueUi.Idle) }
+        _ui.update {
+            it.copy(catalogue = CatalogueUi.Idle, providers = providerStatuses(query = it.query))
+        }
         onMessage("Session cache cleared — saved bookmarks and wishlist items are untouched.", ToastKind.INFO)
     }
 
@@ -297,18 +362,33 @@ class OnlineSearchController(
                     fromCache = true,
                     source = cached.source,
                     note = cached.note,
+                    providers = cached.providers,
                 )
                 loadCovers(cached.results, session.token())
                 return
             }
         }
 
-        _ui.update { it.copy(query = trimmed, catalogue = CatalogueUi.Running(trimmed)) }
+        _ui.update {
+            it.copy(
+                query = trimmed,
+                catalogue = CatalogueUi.Running(trimmed),
+                providers = providerStatuses(query = trimmed, searching = true),
+            )
+        }
         val token = session.token()
         job = scope.launch {
+            // Providers run concurrently: a slow shop must not delay a fast catalogue, and one
+            // provider's timeout must not cancel the others. Each call gets its own deadline.
             val outcomes = withContext(Dispatchers.IO) {
-                catalogues.map { source ->
-                    source to runCatching { source.search(trimmed, prefs.resultLimit) }
+                coroutineScope {
+                    catalogues.map { source ->
+                        async {
+                            source to runCatching {
+                                withTimeout(PROVIDER_TIMEOUT_MS) { source.search(trimmed, prefs.resultLimit) }
+                            }
+                        }
+                    }.awaitAll()
                 }
             }
             if (!session.isCurrent(token)) return@launch
@@ -317,9 +397,13 @@ class OnlineSearchController(
     }
 
     /**
-     * Merges every catalogue that answered. One failing catalogue does not hide another's results:
-     * the failure is reported in the panel note and in the toast, and only a total failure becomes
-     * [CatalogueUi.Failed].
+     * Merges every provider that answered. One failing provider does not hide another's results: the
+     * failure is reported in the panel note, in that provider's own status row and in the toast, and
+     * only a total failure becomes [CatalogueUi.Failed].
+     *
+     * The per-provider rows are the honest record of the search: a provider that answered with
+     * results, one that answered with nothing, one that failed and one that was never queried
+     * (browser-only) are four different states, and the UI shows all four.
      */
     private fun applyOutcomes(
         query: String,
@@ -330,46 +414,67 @@ class OnlineSearchController(
         val found = ArrayList<ProductSearchResult>()
         val answered = ArrayList<String>()
         val failures = ArrayList<String>()
+        val perProvider = LinkedHashMap<String, Pair<ProviderState, String>>()
         var total: Int? = null
         var totalCount = 0
 
         outcomes.forEach { (source, attempt) ->
             val outcome = attempt.getOrElse { error ->
+                val timedOut = error is kotlinx.coroutines.TimeoutCancellationException
                 ProductSearchOutcome.Failed(
-                    OnlineFailure.INTERNAL,
-                    error.message ?: error.javaClass.simpleName,
+                    if (timedOut) OnlineFailure.TIMEOUT else OnlineFailure.INTERNAL,
+                    if (timedOut) {
+                        "no answer within ${PROVIDER_TIMEOUT_MS / 1000} s"
+                    } else {
+                        error.message ?: error.javaClass.simpleName
+                    },
                 )
             }
+            val spec = specFor(source)
+            val id = spec?.id ?: source.name.lowercase()
             when (outcome) {
                 is ProductSearchOutcome.Found -> {
                     found += outcome.results
                     answered += source.name
+                    // The row reports what this provider returned, not what survived merging: a
+                    // provider whose items were all duplicates still answered.
+                    perProvider[id] = ProviderState.RESULTS to "${outcome.results.size} result(s)"
                     outcome.totalAvailable?.let {
                         total = (total ?: 0) + it
                         totalCount++
                     }
                 }
-                is ProductSearchOutcome.Empty -> answered += source.name
-                is ProductSearchOutcome.Failed -> failures += "${source.name}: ${messageFor(outcome.failure, outcome.message)}"
+                is ProductSearchOutcome.Empty -> {
+                    answered += source.name
+                    perProvider[id] = ProviderState.EMPTY to "no match"
+                }
+                is ProductSearchOutcome.Failed -> {
+                    val why = messageFor(outcome.failure, outcome.message)
+                    failures += "${source.name}: $why"
+                    perProvider[id] = ProviderState.FAILED to why
+                }
             }
         }
 
+        val providers = providerStatuses(query, perProvider)
         val sourceLabel = answered.distinct().joinToString(" + ")
             .ifEmpty { catalogues.joinToString(" + ") { it.name } }
         if (answered.isEmpty() && found.isEmpty()) {
-            val reason = failures.firstOrNull() ?: "No catalogue answered."
-            _ui.update { it.copy(catalogue = CatalogueUi.Failed(reason)) }
+            val reason = failures.joinToString("; ").ifEmpty { "No provider answered." }
+            _ui.update { it.copy(catalogue = CatalogueUi.Failed(reason), providers = providers) }
             onMessage("Catalogue search failed.", ToastKind.ERR)
             return
         }
 
         val merged = OnlineAggregator.merge(listOf(found), limit = prefs.resultLimit)
+        val note = failures.takeIf { it.isNotEmpty() }?.joinToString("; ")
         if (merged.isEmpty()) {
-            _ui.update { it.copy(catalogue = CatalogueUi.Empty(query, sourceLabel)) }
+            _ui.update {
+                it.copy(catalogue = CatalogueUi.Empty(query, sourceLabel, note), providers = providers)
+            }
             onMessage("No match in $sourceLabel.", ToastKind.INFO)
             return
         }
-        val note = failures.takeIf { it.isNotEmpty() }?.joinToString("; ")
         applyResults(
             results = merged,
             query = query,
@@ -378,6 +483,7 @@ class OnlineSearchController(
             fromCache = false,
             source = sourceLabel,
             note = note,
+            providers = providers,
         )
         loadCovers(merged, token)
     }
@@ -391,9 +497,10 @@ class OnlineSearchController(
         fromCache: Boolean,
         source: String,
         note: String?,
+        providers: List<ProviderStatusUi>,
     ) {
         if (fingerprint != null && !fromCache) {
-            session.store(fingerprint, CachedSearch(query, results, totalAvailable, source, note))
+            session.store(fingerprint, CachedSearch(query, results, totalAvailable, source, note, providers))
         }
         _ui.update {
             it.copy(
@@ -404,6 +511,7 @@ class OnlineSearchController(
                     source = source,
                     note = note,
                 ),
+                providers = providers,
             )
         }
         val suffix = if (fromCache) " (cached for this cover)" else ""
@@ -441,7 +549,7 @@ class OnlineSearchController(
         sourceDomain = ItemIdentity.domainOf(detailUrl),
         identifier = identifier ?: id,
         description = description,
-        price = null,
+        price = priceText,
         availability = null,
         matchType = matchTypeLabel(),
     )
@@ -463,6 +571,7 @@ class OnlineSearchController(
         OnlineFailure.RATE_LIMITED -> "The catalogue is throttling requests — try again in a minute."
         OnlineFailure.SERVER_ERROR -> "The catalogue is having trouble right now."
         OnlineFailure.BAD_RESPONSE -> "The catalogue sent something unexpected."
+        OnlineFailure.BLOCKED -> "The site refused automated access. Use its search link instead."
         OnlineFailure.NOT_CONFIGURED -> "No product catalogue is configured."
         OnlineFailure.INTERNAL -> "The catalogue search failed unexpectedly."
     } + " ($detail)"
@@ -490,6 +599,13 @@ class OnlineSearchController(
     private companion object {
         /** Generous: the first Lens call of a session also pays for TLS setup. */
         const val OCR_TIMEOUT_SECONDS = 60
+
+        /**
+         * One provider's budget for one search. Providers run concurrently, so this is also the
+         * worst case a user waits when a shop is slow: a hung provider is dropped, the others are
+         * kept, and its row says it timed out.
+         */
+        const val PROVIDER_TIMEOUT_MS = 20_000L
     }
 }
 
