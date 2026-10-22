@@ -1,4 +1,4 @@
-# Online search, OCR and bookmarks — implementation notes (v2.2.0)
+# Online search, OCR and bookmarks — implementation notes (v2.2.1)
 
 This document describes what the online feature actually does. It deliberately separates four
 capabilities that are easy to confuse:

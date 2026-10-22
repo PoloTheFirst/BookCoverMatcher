@@ -1,6 +1,6 @@
 # BookCover Matcher
 
-**Version 2.2.0** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.2.1** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -14,8 +14,10 @@ a connection; every online feature is opt-in.
 > result tabs, a `Bookmarks` tab with `Bookmark all results`, and the `Add entire result profile to
 > wishlist` button. Where the picture shows data this stack cannot supply (`Visual match`, price,
 > availability, marketplace sources) the field stays in the layout with an honest empty state instead
-> of an invented value. Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in
-> `ARCHITECTURE.md`.
+> of an invented value. **2.2.1** corrects the provider layer: DLsite is searched for real, and
+> Melonbooks and Suruga-ya are declared browser-only because both refuse automated clients (HTTP
+> 403) — see §6 for the measured evidence. Step-by-step usage is in `USER_GUIDE.md`; layering and
+> invariants are in `ARCHITECTURE.md`.
 
 ---
 
@@ -317,7 +319,7 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 ---
 
-## 10. What was broken and what changed in 2.2.0
+## 10. What was broken and what changed (2.2.0 → 2.2.1)
 
 1. **Online search was unreachable.** `OnlineSearchController` kept its state in its own
    `StateFlow`, but `MainViewModel` never mirrored it into `UiState.online`. The panel therefore

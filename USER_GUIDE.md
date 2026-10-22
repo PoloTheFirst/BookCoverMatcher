@@ -1,4 +1,4 @@
-# BookCover Matcher — User Guide (v2.2.0)
+# BookCover Matcher — User Guide (v2.2.1)
 
 This guide covers the four tabs and the saved-data rules. For build instructions and architecture,
 see `README.md` and `ARCHITECTURE.md`.
