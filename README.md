@@ -1,4 +1,4 @@
-# BookCover Matcher
+# BookCoverMatcher
 
 **Version 2.2.2** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
