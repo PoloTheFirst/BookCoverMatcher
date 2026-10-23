@@ -23,6 +23,7 @@ import com.bookcovermatcher.core.search.IndexCache
 import com.bookcovermatcher.core.search.RankedMatch
 import com.bookcovermatcher.core.vision.ImageOps
 import com.bookcovermatcher.core.vision.PixelImage
+import com.bookcovermatcher.core.wishlist.BatchReport
 import com.bookcovermatcher.core.wishlist.BookmarkRules
 import com.bookcovermatcher.core.wishlist.InvalidItemException
 import com.bookcovermatcher.core.wishlist.ItemDraft
@@ -35,6 +36,7 @@ import com.bookcovermatcher.core.wishlist.SessionDraft
 import com.bookcovermatcher.core.wishlist.SessionKind
 import com.bookcovermatcher.core.wishlist.WishlistFolder
 import com.bookcovermatcher.core.wishlist.WishlistRepository
+import com.bookcovermatcher.data.ImageFiles
 import com.bookcovermatcher.data.ModelStore
 import com.bookcovermatcher.data.Prefs
 import com.bookcovermatcher.data.StagedWorkbook
@@ -244,12 +246,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onImagePicked(uri: Uri) {
         viewModelScope.launch {
             try {
-                val image = withContext(Dispatchers.IO) {
+                val picked = withContext(Dispatchers.IO) {
                     val bytes = getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
                         ?: throw IOException("Cannot open the selected image.")
-                    codec.decodePhoto(bytes, Config.MAX_IMAGE_DECODE) ?: throw IOException("Unsupported or corrupt image file.")
+                    val image = codec.decodePhoto(bytes, Config.MAX_IMAGE_DECODE)
+                        ?: throw IOException("Unsupported or corrupt image file.")
+                    // The picker's provider knows the real file name; a content:// URI does not.
+                    val label = ImageFiles.labelFor(
+                        resolvedName = ImageFiles.displayName(getApplication(), uri),
+                        lastPathSegment = uri.lastPathSegment,
+                        mimeType = getApplication<Application>().contentResolver.getType(uri),
+                    )
+                    image to label
                 }
-                applyCapture(image, auto = false)
+                // The name is applied only after a successful decode: a failed pick must not show a
+                // file name next to the previous cover.
+                applyCapture(picked.first, auto = false, imageName = picked.second)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -259,7 +271,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Makes [image] the cover to search for: thumbnail + embedding. */
-    private fun applyCapture(image: PixelImage, auto: Boolean) {
+    private fun applyCapture(image: PixelImage, auto: Boolean, imageName: String? = null) {
         capturing = true
         viewModelScope.launch(Dispatchers.Default) {
             try {
@@ -271,7 +283,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val emb = embedder?.embed(image)
                 targetEmbedding = emb
                 lastRanked = emptyList()
-                _ui.update { it.copy(target = TargetUi(thumb, describeEmbedding(emb)), results = ResultsUi.Empty) }
+                _ui.update {
+                    it.copy(
+                        target = TargetUi(thumb, describeEmbedding(emb)),
+                        // A camera capture has no file name; that clears a previous file's name.
+                        imageName = imageName,
+                        results = ResultsUi.Empty,
+                    )
+                }
                 _captureEvents.tryEmit(Unit)
                 if (!auto) showToast("Cover captured \u2014 embedding computed.", ToastKind.OK)
 
@@ -531,7 +550,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun selectWishlistSection(section: WishlistSection) {
-        _ui.update { it.copy(wishlistSection = section, folderDetail = null, sessionDetail = null) }
+        _ui.update {
+            it.copy(
+                wishlistSection = section,
+                folderDetail = null,
+                sessionDetail = null,
+                selection = null,
+                batchTarget = null,
+                batchDelete = null,
+            )
+        }
         refreshLibrary()
     }
 
@@ -552,22 +580,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val library = withContext(wishlistDispatcher) { wishlist.library() }
             val detail = buildFolderDetail(library, id) ?: return@launch
-            _ui.update { it.copy(wishlistSection = WishlistSection.FOLDERS, sessionDetail = null, folderDetail = detail) }
+            _ui.update {
+                it.copy(
+                    wishlistSection = WishlistSection.FOLDERS,
+                    sessionDetail = null,
+                    folderDetail = detail,
+                    selection = null,
+                )
+            }
         }
     }
 
-    fun closeFolder() = _ui.update { it.copy(folderDetail = null, sessionDetail = null) }
+    fun closeFolder() = _ui.update { it.copy(folderDetail = null, sessionDetail = null, selection = null) }
 
     /** Opens one session: its results, bookmarked ones first. */
     fun openSession(id: String) {
         viewModelScope.launch {
             val library = withContext(wishlistDispatcher) { wishlist.library() }
             val detail = buildSessionDetail(library, id) ?: return@launch
-            _ui.update { it.copy(sessionDetail = detail) }
+            _ui.update { it.copy(sessionDetail = detail, selection = null) }
         }
     }
 
-    fun closeSession() = _ui.update { it.copy(sessionDetail = null) }
+    fun closeSession() = _ui.update { it.copy(sessionDetail = null, selection = null) }
 
     /** `+ New folder`: a real, user-named folder; the rename dialog gives it a name immediately. */
     fun createFolder() {
@@ -1070,6 +1105,262 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // -------------------------------------------------------------------------------------
+    // Multi-selection and batch actions
+    //
+    // Selection is navigation state, never stored data: entering it writes nothing, leaving it
+    // writes nothing, and every batch is one repository call that writes once (or not at all).
+    // -------------------------------------------------------------------------------------
+
+    /** Enters selection mode for one list. Nothing is written until an action is confirmed. */
+    fun startSelection(kind: BatchKind, containerId: String? = null) {
+        _ui.update {
+            it.copy(
+                selection = SelectionUi(kind, SelectionLogic.clear(), containerId),
+                batchTarget = null,
+                batchDelete = null,
+            )
+        }
+    }
+
+    /**
+     * Long-press entry point: starts selection mode for this list *and* selects the held row, so a
+     * long-press is a one-step way in and never opens the item by accident.
+     */
+    fun startSelectionWith(kind: BatchKind, id: String, containerId: String? = null) {
+        val current = _ui.value.selection
+        if (current != null && current.kind == kind && current.containerId == containerId) {
+            toggleSelected(id)
+            return
+        }
+        _ui.update {
+            it.copy(
+                selection = SelectionUi(kind, setOf(id), containerId),
+                batchTarget = null,
+                batchDelete = null,
+            )
+        }
+    }
+
+    fun toggleSelected(id: String) {
+        _ui.update { state ->
+            val selection = state.selection ?: return@update state
+            state.copy(selection = selection.copy(ids = SelectionLogic.toggle(selection.ids, id)))
+        }
+    }
+
+    /** Selects exactly what this screen shows, so "All" can never select an invisible row. */
+    fun selectAllVisible() {
+        val state = _ui.value
+        val selection = state.selection ?: return
+        val visible = when (selection.kind) {
+            BatchKind.FOLDERS -> state.folders.map { it.id }
+            BatchKind.BOOKMARKS -> state.bookmarks.map { it.id }
+            BatchKind.SESSIONS -> state.folderDetail?.sessions?.map { it.id }.orEmpty()
+            BatchKind.ITEMS -> state.folderDetail?.directItems?.map { it.id }.orEmpty()
+            BatchKind.SESSION_ITEMS ->
+                state.sessionDetail?.items?.filterNot { it.comparisonOnly }?.map { it.id }.orEmpty()
+        }
+        _ui.update { it.copy(selection = selection.copy(ids = SelectionLogic.selectAll(visible))) }
+    }
+
+    fun clearSelection() = _ui.update { it.copy(selection = it.selection?.copy(ids = SelectionLogic.clear())) }
+
+    /** Leaves selection mode, dropping any pending action. Never touches saved data. */
+    fun exitSelection() = _ui.update { it.copy(selection = null, batchTarget = null, batchDelete = null) }
+
+    /** Copy: folder copies need no target (they stay where they are), everything else picks one. */
+    fun requestBatchCopy() = openBatchTarget(BatchAction.COPY)
+
+    /** Move: only offered for sessions, folder items and session results. */
+    fun requestBatchMove() = openBatchTarget(BatchAction.MOVE)
+
+    private fun openBatchTarget(action: BatchAction) {
+        val selection = _ui.value.selection ?: return
+        if (!selection.active) {
+            showToast("Select at least one ${SelectionLogic.noun(selection.kind)} first.", ToastKind.INFO)
+            return
+        }
+        if (action == BatchAction.MOVE && !SelectionLogic.canMove(selection.kind)) {
+            // The UI hides Move for these lists; this guard keeps a stale click from doing the wrong
+            // thing (a folder "move" would otherwise become a copy).
+            showToast("Move is not available for ${SelectionLogic.noun(selection.kind)}.", ToastKind.INFO)
+            return
+        }
+        if (selection.kind == BatchKind.FOLDERS) {
+            // A folder has no parent in this model, so a folder copy needs no destination.
+            runBatch(action, selection.kind, selection.ids.toList(), selection.containerId, null)
+            return
+        }
+        val folders = _ui.value.folders
+        if (folders.isEmpty()) {
+            showToast("Create a wishlist folder first.", ToastKind.ERR)
+            return
+        }
+        val verb = if (action == BatchAction.MOVE) "Move" else "Copy"
+        _ui.update {
+            it.copy(
+                batchTarget = BatchTargetUi(
+                    action = action,
+                    kind = selection.kind,
+                    ids = selection.ids.toList(),
+                    containerId = selection.containerId,
+                    title = "$verb ${selection.count} ${SelectionLogic.noun(selection.kind)} to",
+                    folders = folders.map { folder -> PickerFolderUi(folder.id, folder.name, folder.itemCount, false) },
+                    defaultFolderId = folders.firstOrNull { folder ->
+                        action != BatchAction.MOVE || folder.id != selection.containerId
+                    }?.id,
+                ),
+            )
+        }
+    }
+
+    fun cancelBatchTarget() = _ui.update { it.copy(batchTarget = null) }
+
+    fun confirmBatchTarget(folderId: String) {
+        val target = _ui.value.batchTarget ?: return
+        _ui.update { it.copy(batchTarget = null) }
+        runBatch(target.action, target.kind, target.ids, target.containerId, folderId)
+    }
+
+    /** Asks before anything destructive; the dialog states the count and the exact scope. */
+    fun requestBatchDelete() {
+        val selection = _ui.value.selection ?: return
+        if (!selection.active) {
+            showToast("Select at least one item first.", ToastKind.INFO)
+            return
+        }
+        val n = selection.count
+        val (title, detail) = when (selection.kind) {
+            BatchKind.FOLDERS -> "Delete $n folder(s)?" to
+                "Their sessions and saved items go with them. Bookmarked items and items in other folders stay."
+            BatchKind.SESSIONS -> "Delete $n session(s)?" to
+                "Their results are removed with them. Bookmarks and other sessions are untouched."
+            BatchKind.BOOKMARKS -> "Remove $n bookmark(s)?" to
+                "Only the bookmark is removed. Wishlist folders and sessions keep their copy."
+            BatchKind.ITEMS -> "Remove $n item(s) from this folder?" to
+                "The bookmark and any other folder membership stay."
+            BatchKind.SESSION_ITEMS -> "Remove $n result(s) from this session?" to
+                "Bookmarks and folder memberships stay. Comparison rows are never removed one by one."
+        }
+        _ui.update {
+            it.copy(
+                batchDelete = BatchDeleteUi(
+                    kind = selection.kind,
+                    ids = selection.ids.toList(),
+                    containerId = selection.containerId,
+                    title = title,
+                    detail = detail,
+                ),
+            )
+        }
+    }
+
+    fun cancelBatchDelete() = _ui.update { it.copy(batchDelete = null) }
+
+    fun confirmBatchDelete() {
+        val pending = _ui.value.batchDelete ?: return
+        _ui.update { it.copy(batchDelete = null) }
+        runBatch(BatchAction.DELETE, pending.kind, pending.ids, pending.containerId, null)
+    }
+
+    /**
+     * Runs one batch and then re-reads the store, so the screen always shows what was actually
+     * persisted - a partial failure cannot leave the UI ahead of the file. [targetFolderId] is null
+     * for a delete and for a folder copy (which needs no destination).
+     */
+    private fun runBatch(
+        action: BatchAction,
+        kind: BatchKind,
+        ids: List<String>,
+        containerId: String?,
+        targetFolderId: String?,
+    ) {
+        viewModelScope.launch {
+            try {
+                val report = withContext(wishlistDispatcher) {
+                    executeBatch(action, kind, ids, containerId, targetFolderId)
+                }
+                _ui.update { it.copy(selection = null, batchTarget = null, batchDelete = null) }
+                refreshLibrary()
+                showToast(batchMessage(action, kind, report), batchToastKind(report))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _ui.update { it.copy(selection = null, batchTarget = null, batchDelete = null) }
+                refreshLibrary()
+                showToast("Wishlist storage error \u2014 nothing was changed.", ToastKind.ERR)
+            }
+        }
+    }
+
+    private fun executeBatch(
+        action: BatchAction,
+        kind: BatchKind,
+        ids: List<String>,
+        containerId: String?,
+        targetFolderId: String?,
+    ): BatchReport {
+        val folder = targetFolderId.orEmpty()
+        val container = containerId.orEmpty()
+        if (action == BatchAction.DELETE) {
+            return when (kind) {
+                BatchKind.FOLDERS -> wishlist.deleteFolders(ids)
+                BatchKind.SESSIONS -> wishlist.deleteSessions(ids)
+                BatchKind.BOOKMARKS -> wishlist.deleteBookmarks(ids)
+                BatchKind.ITEMS -> wishlist.removeItemsFromFolder(ids, container)
+                BatchKind.SESSION_ITEMS -> wishlist.removeSessionEntries(ids, container)
+            }
+        }
+        return when (kind) {
+            BatchKind.FOLDERS -> wishlist.copyFolders(ids)
+            BatchKind.BOOKMARKS -> wishlist.copyItemsToFolder(ids, folder)
+            BatchKind.SESSIONS ->
+                if (action == BatchAction.MOVE) {
+                    wishlist.moveSessionsToFolder(ids, folder)
+                } else {
+                    wishlist.copySessionsToFolder(ids, folder)
+                }
+            BatchKind.ITEMS ->
+                if (action == BatchAction.MOVE) {
+                    wishlist.moveItemsToFolder(ids, container, folder)
+                } else {
+                    wishlist.copyItemsToFolder(ids, folder)
+                }
+            BatchKind.SESSION_ITEMS ->
+                if (action == BatchAction.MOVE) {
+                    wishlist.moveSessionEntries(ids, container, folder)
+                } else {
+                    wishlist.copySessionEntries(ids, container, folder)
+                }
+        }
+    }
+
+    private fun batchNoun(kind: BatchKind): String = SelectionLogic.noun(kind)
+
+    private fun batchMessage(action: BatchAction, kind: BatchKind, report: BatchReport): String {
+        val verb = when (action) {
+            BatchAction.COPY -> "Copied"
+            BatchAction.MOVE -> "Moved"
+            BatchAction.DELETE -> "Removed"
+        }
+        val base = "$verb ${report.changed} ${batchNoun(kind)}."
+        val skipped = if (report.skipped > 0) {
+            " ${report.skipped} skipped (already there, or read-only comparison rows)."
+        } else {
+            ""
+        }
+        val failed = if (report.failed > 0) " ${report.failed} failed." else ""
+        val reason = report.message?.let { " $it" }.orEmpty()
+        return base + reason + skipped + failed
+    }
+
+    private fun batchToastKind(report: BatchReport): ToastKind = when {
+        report.failed > 0 -> ToastKind.ERR
+        report.changed == 0 -> ToastKind.INFO
+        else -> ToastKind.OK
+    }
+
     /** "Clear session cache": temporary online results only - never a bookmark or wishlist item. */
     fun clearSessionCache() {
         online.clearSession()
@@ -1127,13 +1418,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         val detail = _ui.value.folderDetail?.let { open -> buildFolderDetail(library, open.id) }
         val sessionDetail = _ui.value.sessionDetail?.let { open -> buildSessionDetail(library, open.id) }
+        val bookmarkCards = library.bookmarkedItems().map { item -> item.toUi(library) }
+        // A selection must never outlive the rows it points at: after a delete, a move or a refresh,
+        // ids that are no longer visible are dropped here, so no action can target an invisible row.
+        val liveSelection = _ui.value.selection?.let { selection ->
+            val visible = when (selection.kind) {
+                BatchKind.FOLDERS -> folderCards.map { it.id }
+                BatchKind.BOOKMARKS -> bookmarkCards.map { it.id }
+                BatchKind.SESSIONS -> detail?.sessions?.map { it.id }.orEmpty()
+                BatchKind.ITEMS -> detail?.directItems?.map { it.id }.orEmpty()
+                BatchKind.SESSION_ITEMS ->
+                    sessionDetail?.items?.filterNot { it.comparisonOnly }?.map { it.id }.orEmpty()
+            }
+            selection.copy(ids = SelectionLogic.reconcile(selection.ids, SelectionLogic.eligible(selection.kind, visible)))
+        }
         _ui.update {
             it.copy(
                 folders = folderCards,
                 unfiledSessions = library.unfiledSessions().map { session -> session.toUi(library) },
-                bookmarks = library.bookmarkedItems().map { item -> item.toUi(library) },
+                bookmarks = bookmarkCards,
                 folderDetail = detail,
                 sessionDetail = sessionDetail,
+                selection = liveSelection,
                 bookmarkedKeys = library.items.filter { item -> library.isBookmarked(item.id) }
                     .map { item -> item.fingerprint }.toSet(),
                 wishlistedKeys = library.items.filter { item -> library.isWishlisted(item.id) }

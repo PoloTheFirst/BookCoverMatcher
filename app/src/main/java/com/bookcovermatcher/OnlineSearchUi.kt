@@ -44,36 +44,53 @@ sealed interface CatalogueUi {
     ) : CatalogueUi
     data class Empty(val query: String, val source: String, /** Other providers' failures, when some answered. */ val note: String? = null) : CatalogueUi
     data class Failed(val message: String) : CatalogueUi
+
+    /**
+     * The search could not run in the app because the selected platforms are browser-only. No request
+     * was made and no result list exists; the message explains where the results can be seen.
+     */
+    data class BrowserOnly(val message: String) : CatalogueUi
 }
 
 /** What one provider did in the last search. Drawn as a status row, never as a success claim. */
 enum class ProviderState {
-    /** Automated provider, not queried yet. */
+    /** Automated provider, selected, not queried yet. */
     READY,
     SEARCHING,
     RESULTS,
     EMPTY,
     FAILED,
 
+    /** The site refused the automated request (401/403/451); it is not an empty success. */
+    BLOCKED,
+
     /** The provider refuses automated clients; the row offers its search page in the browser. */
     MANUAL,
+
+    /** Not selected for the next search, so it was not queried. */
+    SKIPPED,
 }
 
 /**
  * One row of the panel's provider list.
  *
  * [detail] is the provider's own explanation (its note) or the measured outcome of the last search.
- * [searchUrl] is always the provider's real search page for the current query, so a manual provider
- * is still usable — by the user's browser, not by a disguised request.
+ * [searchUrl] is the provider's real search page for the current query — built and validated by
+ * `ProviderLinks` — so every platform with a verified page can be opened in the browser independently
+ * of selection. It is null only for a provider with no configured page — no shipped card is in that
+ * state today, and `ProviderLinks` refuses to build one rather than drawing a dead button.
+ * [selected] is only ever true for a selectable (automated) provider; [manual] is a capability fact
+ * that selection cannot change.
  */
 data class ProviderStatusUi(
     val id: String,
     val name: String,
     val host: String,
     val manual: Boolean,
+    val selected: Boolean,
     val state: ProviderState,
     val detail: String?,
-    val searchUrl: String,
+    val searchUrl: String?,
 )
 
 /**
@@ -138,6 +155,10 @@ data class OnlineSearchUi(
     val autoSearch: Boolean = true,
     val ocrLanguage: String = "",
     val targetLanguage: String = "",
+    /** Platforms selected for the next search (provider ids). Intent only; see [providers]. */
+    val selectedProviders: Set<String> = emptySet(),
+    /** Maximum number of online results the user asked for. Never a promise (see `SearchLimits`). */
+    val resultLimit: Int = com.bookcovermatcher.core.online.SearchLimits.DEFAULT,
     /**
      * Every provider of this build, with what it did in the last search. Filled from
      * [com.bookcovermatcher.core.online.ProviderCatalog], so the panel can never show a provider the

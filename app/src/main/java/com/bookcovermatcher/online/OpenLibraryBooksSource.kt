@@ -29,6 +29,9 @@ class OpenLibraryBooksSource(
 
     override val name: String get() = OpenLibraryResponseParser.SOURCE_NAME
 
+    /** The Books API accepts a large `limit`; the app keeps its own ceiling at the panel's maximum. */
+    override val maxResults: Int get() = MAX_LIMIT
+
     override fun search(query: String, limit: Int): ProductSearchOutcome {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return ProductSearchOutcome.Empty(trimmed)
@@ -62,7 +65,7 @@ class OpenLibraryBooksSource(
     companion object {
         const val ENDPOINT = "https://openlibrary.org/search.json"
 
-        /** The catalogue would happily return thousands; a phone screen cannot show them. */
-        const val MAX_LIMIT = 10
+        /** The API allows more; the panel's own maximum is 50, so nothing larger is ever requested. */
+        const val MAX_LIMIT = 50
     }
 }

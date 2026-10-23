@@ -6,47 +6,125 @@ import com.bookcovermatcher.core.online.OpenLibraryResponseParser
 import com.bookcovermatcher.core.online.ProductSearchResult
 import com.bookcovermatcher.core.online.ProviderAccess
 import com.bookcovermatcher.core.online.ProviderCatalog
+import com.bookcovermatcher.core.online.ProviderLinks
+import com.bookcovermatcher.core.online.ProviderSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * The provider list itself: five providers, three of which the app queries and two of which it
- * deliberately does not. These are the assertions the README's provider table must keep matching.
+ * The registry: ten providers, three of which the app queries in-app and seven of which are
+ * browser-only shortcuts that can never be selected. Each browser-only entry carries the measured
+ * reason it is not queried.
  */
 class ProviderCatalogTest {
 
-    @Test fun allFiveProvidersAreDeclared() {
-        assertEquals(listOf("ol", "gb", "mb", "sy", "dl"), ProviderCatalog.ALL.map { it.id })
+    @Test fun allTenProvidersAreDeclaredInDisplayOrder() {
         assertEquals(
-            listOf("Open Library", "Google Books", "Melonbooks", "Suruga-ya", "DLsite"),
+            listOf("ol", "gb", "dl", "mb", "sy", "dm", "eh", "di", "mal", "nh"),
+            ProviderCatalog.ALL.map { it.id },
+        )
+        assertEquals(
+            listOf(
+                "Open Library", "Google Books", "DLsite", "Melonbooks", "Suruga-ya",
+                "Doujin no Mori", "E-Hentai", "Doujinshi.info", "MyAnimeList", "nhentai",
+            ),
             ProviderCatalog.ALL.map { it.name },
         )
+        assertEquals("every provider id must be unique", 10, ProviderCatalog.ALL.map { it.id }.toSet().size)
     }
 
-    @Test fun onlyTheThreeWorkingProvidersAreAutomated() {
+    @Test fun onlyTheInAppProvidersAreAutomatedAndSelectable() {
         assertEquals(listOf("ol", "gb", "dl"), ProviderCatalog.AUTOMATED.map { it.id })
-        assertEquals(listOf("mb", "sy"), ProviderCatalog.BROWSER_ONLY.map { it.id })
+        assertEquals(listOf("ol", "gb", "dl"), ProviderCatalog.SELECTABLE.map { it.id })
+        assertEquals(
+            listOf("mb", "sy", "dm", "eh", "di", "mal", "nh"),
+            ProviderCatalog.BROWSER_ONLY.map { it.id },
+        )
+
+        ProviderCatalog.SELECTABLE.forEach { assertTrue("${it.name} must be automated", it.selectable) }
+        ProviderCatalog.BROWSER_ONLY.forEach { assertFalse("${it.name} must never be selectable", it.selectable) }
+        assertEquals(ProviderAccess.AUTOMATED, ProviderCatalog.OPEN_LIBRARY.access)
+        assertEquals(ProviderAccess.AUTOMATED, ProviderCatalog.GOOGLE_BOOKS.access)
+        assertEquals(ProviderAccess.AUTOMATED, ProviderCatalog.DLSITE.access)
         assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.MELONBOOKS.access)
         assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.SURUGAYA.access)
-        assertEquals(ProviderAccess.AUTOMATED, ProviderCatalog.DLSITE.access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.DOUJIN_NO_MORI.access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.EHENTAI.access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.DOUJINSHI_INFO.access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.MYANIMELIST.access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.NHENTAI.access)
     }
 
-    @Test fun aManualProviderStillGetsAUsableSearchLink() {
-        val melonbooks = ProviderCatalog.MELONBOOKS.searchUrl("東方 紅魔郷")
+    @Test fun everyPlatformHasItsOwnSearchAndLandingLink() {
+        assertEquals("every card must have a usable link", 10, ProviderCatalog.ALL.count { it.hasLink })
+        ProviderCatalog.ALL.forEach { spec ->
+            assertTrue("${spec.name} search", spec.searchTemplate!!.startsWith("https://"))
+            assertTrue("${spec.name} landing", spec.landingUrl!!.startsWith("https://"))
+            assertTrue("${spec.name} template keeps the placeholder", spec.searchTemplate!!.contains("{q}"))
+            val url = spec.searchUrl("the hobbit")
+            assertTrue("${spec.name}: $url", url.startsWith("https://"))
+            val host = java.net.URI(url).host.lowercase()
+            assertTrue("${spec.name}: $host", host == spec.host || host.endsWith(".${spec.host}"))
+            // A blank query must not leave an empty search term in the URL.
+            assertFalse("${spec.name} landing still has a placeholder", spec.searchUrl("").contains("{q}"))
+        }
+    }
 
-        assertTrue(melonbooks.startsWith("https://www.melonbooks.co.jp/search/search.php?mode=search&name="))
-        assertTrue(melonbooks.contains("%E6%9D%B1%E6%96%B9"))
-        assertFalse("the query must be encoded, never sent raw", melonbooks.contains("東方"))
-        assertFalse(melonbooks.contains(" "))
+    @Test fun doujinNoMoriUsesTheCorrectedDomainAndKeywordUrl() {
+        val spec = ProviderCatalog.DOUJIN_NO_MORI
 
+        assertEquals("Doujin no Mori", spec.name)
+        assertEquals("doujinnomori.com", spec.host)
+        assertEquals("dm", spec.id)
+        assertTrue("the wrong domains must no longer be used", spec.searchTemplate!!.startsWith("https://doujinnomori.com/"))
         assertEquals(
-            "https://www.suruga-ya.jp/search?category=&search_word=%E6%9D%B1%E6%96%B9",
-            ProviderCatalog.SURUGAYA.searchUrl("東方"),
+            "https://doujinnomori.com/comics/free-search?keyword=%E6%9D%B1%E6%96%B9%20%E7%B4%85%E9%AD%94%E9%83%B7",
+            spec.searchUrl("\u6771\u65B9 \u7D05\u9B54\u90F7"),
         )
+        assertEquals("https://doujinnomori.com/", spec.searchUrl("   "))
+    }
+
+    @Test fun theThreeNewProvidersAreBrowserShortcutsWithEncodedQueries() {
+        assertEquals(
+            "https://www.doujinshi.info/works?query=the%20hobbit",
+            ProviderCatalog.DOUJINSHI_INFO.searchUrl("the hobbit"),
+        )
+        assertEquals(
+            "https://myanimelist.net/manga.php?q=the%20hobbit&cat=manga",
+            ProviderCatalog.MYANIMELIST.searchUrl("the hobbit"),
+        )
+        assertEquals(
+            "https://nhentai.net/search/?q=the%20hobbit",
+            ProviderCatalog.NHENTAI.searchUrl("the hobbit"),
+        )
+        assertEquals("https://www.doujinshi.info/", ProviderCatalog.DOUJINSHI_INFO.searchUrl(""))
+        assertEquals("https://myanimelist.net/manga.php", ProviderCatalog.MYANIMELIST.searchUrl(""))
+        assertEquals("https://nhentai.net/", ProviderCatalog.NHENTAI.searchUrl(""))
+    }
+
+    @Test fun aProviderWithNoConfiguredPageIsRefusedInsteadOfBuildingABlankLink() {
+        val unlinked = ProviderSpec(
+            id = "xx",
+            name = "Unlinked",
+            host = "example.com",
+            access = ProviderAccess.BROWSER_ONLY,
+            note = "test fixture",
+            searchTemplate = null,
+            landingUrl = null,
+        )
+
+        assertFalse(unlinked.hasLink)
+        try {
+            unlinked.searchUrl("anything")
+            fail("a provider with no verified page must not produce a link")
+        } catch (e: ProviderLinks.UnsafeLinkException) {
+            assertTrue(e.message!!.contains("Unlinked"))
+        }
     }
 
     @Test fun idsHostsAndNotesArePresentForEveryProvider() {
@@ -80,7 +158,7 @@ class MarketplaceAggregationTest {
         detailUrl = "https://www.dlsite.com/books/work/=/product_id/$id.html",
         source = DlsiteResponseParser.SOURCE_NAME,
         providerId = DlsiteResponseParser.PROVIDER_ID,
-        priceText = "924円",
+        priceText = "924\u5186",
         isMarketplace = true,
     )
 
@@ -141,7 +219,7 @@ class MarketplaceAggregationTest {
     @Test fun aMarketplaceResultCarriesItsOwnPriceAndNoInventedFields() {
         val item = shop("RJ01730150", "A")
 
-        assertEquals("924円", item.metaLine)
+        assertEquals("924\u5186", item.metaLine)
         assertNull(item.publishedYear)
         assertTrue(item.publishers.isEmpty())
     }

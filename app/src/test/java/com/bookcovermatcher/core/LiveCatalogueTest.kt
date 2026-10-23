@@ -106,4 +106,5 @@ class LiveCatalogueTest {
             is ProductSearchOutcome.Empty -> Unit
         }
     }
+
 }

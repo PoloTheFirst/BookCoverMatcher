@@ -31,6 +31,7 @@ object HtmlText {
         "ndash" to "\u2013",
         "middot" to "\u00B7",
         "times" to "\u00D7",
+        "yen" to "\u00A5",
         // `amp` last: `&amp;lt;` must become `&lt;`, not `<`.
         "amp" to "&",
     )
