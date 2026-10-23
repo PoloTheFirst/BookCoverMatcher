@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.2.1)
+# Architecture and developer notes (v2.2.2)
 
 ## Layers
 
@@ -33,30 +33,56 @@ dialogs                      │            CatalogIndex
 ## Online providers
 
 ```
-ProviderCatalog (core/online)      five ProviderSpec rows: id, host, access, note, search URL
-        │
-        ├── AUTOMATED ── OnlineSearchController.catalogues
-        │       ├── OpenLibraryBooksSource ── OpenLibraryResponseParser      (JSON)
-        │       ├── GoogleBooksSource      ── GoogleBooksResponseParser      (JSON)
-        │       └── DlsiteSource           ── DlsiteResponseParser + HtmlText (HTML)
-        └── BROWSER_ONLY ── no source at all; the panel draws the row and opens `searchUrl`
+ProviderCatalog (core/online)      ten ProviderSpec rows: id, host, access, note, search + landing URL
+        |
+        +-- AUTOMATED + SELECTABLE -- selected by the user (SearchRouting) -- OnlineSearchController.catalogues
+        |       +-- OpenLibraryBooksSource -- OpenLibraryResponseParser      (JSON)
+        |       +-- GoogleBooksSource      -- GoogleBooksResponseParser      (JSON)
+        |       +-- DlsiteSource           -- DlsiteResponseParser + HtmlText (HTML)
+        +-- BROWSER_ONLY -- never selected, never queried; each card opens ProviderLinks.searchUrl:
+                Melonbooks        (product decision; page answers, adapter unregistered)
+                Suruga-ya         (robots: Disallow /search/)
+                Doujin no Mori    (robots: Disallow /comics/free-search)
+                E-Hentai          (adult; robots: /s/, /codegen.php)
+                Doujinshi.info    (HTTP 403 to automated clients)
+                MyAnimeList       (no unauthenticated API; /topmanga is 404)
+                nhentai           (HTTP 403, adult)
+        MelonbooksSource -- MelonbooksResponseParser stays in the tree, unregistered, fixture-tested only
 ```
 
 * `ProductSearchDataSource` is the seam: synchronous, returning `Found` / `Empty` /
-  `Failed(OnlineFailure)`. Network code lives in `online/`; parsing lives in `core/online` and is
-  pure Kotlin, so every provider's markup handling is unit-tested without a socket.
+  `Failed(OnlineFailure)`, plus a `maxResults` capability the controller caps against. Network code
+  lives in `online/`; parsing lives in `core/online` and is pure Kotlin, so every provider's markup
+  handling is unit-tested without a socket.
+* **Selection** is user intent, kept in `OnlineSearchPrefs` (`online_providers`) and routed by
+  `SearchRouting` (`automated`, `shortcuts`, `hasAutomated`, `key`). Only a `selectable` provider (an
+  automated one) can enter the selection: `sanitize` drops browser-only ids, so a stored selection
+  from an older build cannot resurrect an in-app search. An empty selection performs no request
+  (`CatalogueUi.BrowserOnly`) and says which shortcuts keep their link.
+* **Limits** live in `SearchLimits` (options 5/10/20/30/50, default 5, validated on read). The
+  controller asks each adapter for `min(chosen, adapter.maxResults)` and applies the chosen maximum to
+  the merged list *after* `OnlineAggregator` deduplicates. `Config.TOP_MATCHES = 5` is the offline
+  comparison and is not reachable from this control.
 * Adapters run **concurrently** (`async` + `awaitAll`) with a 20-second `withTimeout` each, so a slow
   shop cannot delay a fast catalogue and a hung provider cannot cancel the others.
 * `OnlineFailure.BLOCKED` is the honest answer to HTTP 401/403/451. The app never retries with a
   different identity, never solves a challenge and never paginates a disallowed URL.
-* `ProviderStatusUi` (in `OnlineSearchUi.kt`) is built from the measured outcomes, so the panel shows
-  results / no-match / failure / manual per provider and cannot claim that a provider answered when it
-  did not. Browser-only providers are always `MANUAL` and are never counted.
+* `ProviderStatusUi` (in `OnlineSearchUi.kt`) is built from the measured outcomes and carries
+  `selected` (only ever true for an automated provider) and a nullable `searchUrl`, so the card shows
+  results / no-match / failure / blocked / searching / browser-only / not-selected and cannot claim
+  that a provider answered when it did not.
 * Identity: `OnlineAggregator.itemKey` → `ItemIdentity` with `providerId:id` keys (`ol:…`, `gb:…`,
-  `dl:rj…`). Different providers never merge into one card; `rankOf` prefers `RANK_MARKETPLACE` for a
-  shop listing and `RANK_CATALOGUE` for a bibliographic record.
-* Fixtures under `app/src/test/resources/fixtures` are **captured provider pages** (DLsite search and
-  empty results), so the parser tests assert against the real markup rather than a hand-written mock.
+  `mb:…`, `dl:rj…`). Different providers never merge into one card; `rankOf` prefers
+  `RANK_MARKETPLACE` for a shop listing and `RANK_CATALOGUE` for a bibliographic record.
+* The **session cache entry** carries the query, the requested maximum and the selection key, so a
+  cached answer is reused only for the same cover *and* the same request.
+* `ProviderLinks` builds and validates every browser link (https, own host, no credentials, `%20`
+  encoding, landing page for a blank query) outside Compose, so link behaviour is unit-tested.
+* `ui/PlatformPicker.kt` draws the cards: a checkbox-role toggle row plus a **sibling** link button,
+  so the two click targets can never overlap. A browser-only card has no toggle node at all, a
+  `Browser only` chip, a warm border and either a link button or `No link`.
+* Fixtures under `app/src/test/resources/fixtures` are captured provider pages (DLsite and
+  Melonbooks search/empty results), so the parser tests assert against real markup, not mocks.
 
 ## Saved-data invariants
 
@@ -72,6 +98,53 @@ ProviderCatalog (core/online)      five ProviderSpec rows: id, host, access, not
   reorders other sessions.
 * `records.json` version 3; v1/v2 migrations run once and retain the old v1 payload under `legacy`.
   Future versions are quarantined rather than overwritten.
+## Batch operations
+
+`BatchReport(requested, changed, skipped, failed, message)` is what a batch actually did; every
+batch method in `WishlistRepository` reads the store once, mutates an in-memory `State`, then writes
+**once** through the existing temp-file + rename path. A write failure returns `changed = 0, failed =
+requested` and leaves the previous file untouched; scan thumbnails are deleted only after the new
+file is in place, so a failed batch cannot orphan data.
+
+| Method | Scope |
+|---|---|
+| `copyItemsToFolder` | adds a `Membership`; skips workbook rows, an existing membership and a reserved target |
+| `moveItemsToFolder` | removes the source `Membership` and adds the target one; bookmarks and third folders untouched |
+| `removeItemsFromFolder`, `deleteBookmarks` | remove exactly one membership each, then `prune()` |
+| `copySessionEntries`, `moveSessionEntries`, `removeSessionEntries` | work on one session; workbook rows are never promoted or removed |
+| `moveSessionsToFolder`, `copySessionsToFolder`, `deleteSessions` | a session keeps its entries; a copy shares the same items and does not copy the scan thumbnail |
+| `copyFolders`, `deleteFolders` | a folder copy duplicates sessions (same items) and direct memberships; the reserved folder is refused |
+
+Selection is UI state (`SelectionUi` in `BatchModels.kt`), never persisted. The rules live in
+`SelectionLogic` (plain Kotlin, unit-tested): `toggle`, `selectAll`, `clear`, `reconcile`,
+`canMove`/`canCopy`/`canDelete`, `noun`, `hint`. `MainViewModel` owns the state and reconciles it in
+`publish()` against the rows that are actually visible, so a delete can never leave an action pointing
+at an invisible row.
+
+The UI entry points are explicit and repeated, not hidden: `SelectEntry` (a labelled button with a
+checkbox glyph) sits in the header of every selectable list, and `onLongClick` on a row calls
+`startSelectionWith(kind, id, container)` as a shortcut. `SelectionToolbar` shows the count, a one-line
+explanation and Select all / Clear / Done; `BatchActionBar` repeats the count and offers Copy / Move /
+Delete plus Done, and only draws the actions `SelectionLogic` allows. `runBatch` re-reads the library
+after every batch so the screen cannot be ahead of the file.
+
+`BatchOperationsTest` additionally pins the failure path: with `records.json` marked read-only, a batch
+returns `changed = 0, failed = n` and a reload still shows the old data.
+
+A selection only ever holds one kind, so the action bar can be derived from `selection.kind` with no
+mixed-selection logic. Session results move **out** into a folder rather than into another session: a
+`SearchSession` is the immutable record of one operation, and re-homing a result would rewrite that
+record.
+
+## Image status and OCR text
+
+* `data/ImageFiles` reads `OpenableColumns.DISPLAY_NAME` and exposes the pure `labelFor` mapping
+  (provider name, then URI last segment, then a MIME-based fallback). `MainViewModel.onImagePicked`
+  resolves it on `Dispatchers.IO` and applies it only after a successful decode, so a failed pick
+  leaves the previous cover and its name alone. A camera capture passes no name, clearing it.
+* The Read the Cover field is a `Text` inside `SelectionContainer`: read-only, no `BasicTextField`,
+  so the text cannot be edited but can be selected and copied by the system toolbar.
+
 
 ## Offline matching
 

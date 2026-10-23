@@ -3,9 +3,11 @@
 package com.bookcovermatcher.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,10 +50,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bookcovermatcher.BatchKind
 import com.bookcovermatcher.FolderDetailUi
 import com.bookcovermatcher.FolderUi
 import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.SavedItemUi
+import com.bookcovermatcher.SelectionUi
 import com.bookcovermatcher.SessionDetailUi
 import com.bookcovermatcher.SessionUi
 import com.bookcovermatcher.UiState
@@ -73,24 +77,49 @@ import com.bookcovermatcher.ui.theme.Palette
 fun WishlistScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
     val session = ui.sessionDetail
     val folder = ui.folderDetail
-    BackHandler(enabled = session != null || folder != null) {
-        if (session != null) vm.closeSession() else vm.closeFolder()
+    BackHandler(enabled = session != null || folder != null || ui.selection != null) {
+        when {
+            session != null -> vm.closeSession()
+            folder != null -> vm.closeFolder()
+            else -> vm.exitSelection()
+        }
     }
 
+    val selection = ui.selection
     Column(Modifier.fillMaxSize()) {
-        when {
-            session != null -> SessionDetailScreen(session, vm, onOpenUrl)
-            folder != null -> FolderDetailScreen(folder, vm, onOpenUrl)
-            else -> {
-                Header()
-                Spacer(Modifier.height(8.dp))
-                Sections(ui.wishlistSection, vm::selectWishlistSection)
-                Spacer(Modifier.height(8.dp))
-                when (ui.wishlistSection) {
-                    WishlistSection.FOLDERS -> FolderList(ui, vm)
-                    WishlistSection.BOOKMARKS -> BookmarkList(ui, vm, onOpenUrl)
+        if (selection != null) {
+            SelectionToolbar(
+                selection = selection,
+                onSelectAll = vm::selectAllVisible,
+                onClear = vm::clearSelection,
+                onDone = vm::exitSelection,
+            )
+        }
+        Column(Modifier.weight(1f)) {
+            when {
+                session != null -> SessionDetailScreen(session, vm, onOpenUrl, selection)
+                folder != null -> FolderDetailScreen(folder, vm, onOpenUrl, selection)
+                else -> {
+                    Header()
+                    Spacer(Modifier.height(8.dp))
+                    Sections(ui.wishlistSection, vm::selectWishlistSection)
+                    Spacer(Modifier.height(8.dp))
+                    when (ui.wishlistSection) {
+                        WishlistSection.FOLDERS -> FolderList(ui, vm, selection)
+                        WishlistSection.BOOKMARKS -> BookmarkList(ui, vm, onOpenUrl, selection)
+                    }
                 }
             }
+        }
+        if (selection != null) {
+            BatchActionBar(
+                kind = selection.kind,
+                count = selection.count,
+                onCopy = vm::requestBatchCopy,
+                onMove = vm::requestBatchMove,
+                onDelete = vm::requestBatchDelete,
+                onDone = vm::exitSelection,
+            )
         }
     }
 }
@@ -124,7 +153,7 @@ private fun Sections(selected: WishlistSection, onSelect: (WishlistSection) -> U
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun FolderList(ui: UiState, vm: MainViewModel) {
+private fun FolderList(ui: UiState, vm: MainViewModel, selection: SelectionUi?) {
     Column(Modifier.fillMaxSize()) {
         GradientButton(
             onClick = vm::createFolder,
@@ -140,8 +169,12 @@ private fun FolderList(ui: UiState, vm: MainViewModel) {
             "A folder holds sessions. A scan or a search never creates one by itself.",
             color = Palette.Muted,
             fontSize = 10.sp,
-            modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
+            modifier = Modifier.padding(top = 6.dp),
         )
+        if (ui.folders.isNotEmpty() && selection?.kind != BatchKind.FOLDERS) {
+            SelectEntry("Select folders") { vm.startSelection(BatchKind.FOLDERS) }
+        }
+        Spacer(Modifier.height(6.dp))
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (ui.folders.isEmpty()) {
                 item {
@@ -154,7 +187,7 @@ private fun FolderList(ui: UiState, vm: MainViewModel) {
                 }
             }
             items(ui.folders, key = { it.id }) { folder ->
-                FolderCard(folder, vm)
+                FolderCard(folder, vm, selection)
             }
             if (ui.unfiledSessions.isNotEmpty()) {
                 item {
@@ -174,20 +207,34 @@ private fun FolderList(ui: UiState, vm: MainViewModel) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FolderCard(folder: FolderUi, vm: MainViewModel) {
+private fun FolderCard(folder: FolderUi, vm: MainViewModel, selection: SelectionUi?) {
     val shape = RoundedCornerShape(14.dp)
+    val selecting = selection?.kind == BatchKind.FOLDERS
+    val checked = selecting && folder.id in (selection?.ids ?: emptySet())
     Row(
         Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.02f))), shape)
-            .border(1.dp, Palette.Line, shape)
-            .clickable(role = Role.Button) { vm.openFolder(folder.id) }
+            .background(
+                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.02f))),
+                shape,
+            )
+            .then(
+                if (checked) Modifier.background(Palette.Accent.copy(alpha = 0.12f), shape) else Modifier,
+            )
+            .border(1.dp, if (checked) Palette.Accent.copy(alpha = 0.8f) else Palette.Line, shape)
+            .combinedClickable(
+                role = Role.Button,
+                onClick = { if (selecting) vm.toggleSelected(folder.id) else vm.openFolder(folder.id) },
+                onLongClick = { vm.startSelectionWith(BatchKind.FOLDERS, folder.id) },
+            )
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (selecting) BatchCheck(checked, "Select ${folder.name}")
         FileImage(
             folder.cover,
             Modifier.size(46.dp, 62.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, Palette.Line, RoundedCornerShape(8.dp)),
@@ -225,7 +272,14 @@ private fun FolderCard(folder: FolderUi, vm: MainViewModel) {
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun FolderDetailScreen(detail: FolderDetailUi, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
+private fun FolderDetailScreen(
+    detail: FolderDetailUi,
+    vm: MainViewModel,
+    onOpenUrl: (String) -> Unit,
+    selection: SelectionUi?,
+) {
+    val sessionsSelecting = selection?.kind == BatchKind.SESSIONS
+    val itemsSelecting = selection?.kind == BatchKind.ITEMS
     Column(Modifier.fillMaxSize()) {
         DetailHeader(
             backLabel = "\u2039 All folders",
@@ -233,6 +287,15 @@ private fun FolderDetailScreen(detail: FolderDetailUi, vm: MainViewModel, onOpen
             countText = "${detail.sessions.size} session(s) \u00B7 ${detail.directItems.size} saved item(s)",
             onBack = vm::closeFolder,
         )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (detail.sessions.isNotEmpty() && selection?.kind != BatchKind.SESSIONS) {
+                SelectEntry("Select sessions") { vm.startSelection(BatchKind.SESSIONS, detail.id) }
+            }
+            if (detail.directItems.isNotEmpty() && selection?.kind != BatchKind.ITEMS) {
+                SelectEntry("Select items") { vm.startSelection(BatchKind.ITEMS, detail.id) }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 Text("SESSIONS", color = Palette.Muted, fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.8.sp)
@@ -252,6 +315,9 @@ private fun FolderDetailScreen(detail: FolderDetailUi, vm: MainViewModel, onOpen
                     session = session,
                     onOpen = { vm.openSession(session.id) },
                     onDelete = { vm.requestDeleteSession(session.id) },
+                    selected = if (sessionsSelecting) session.id in (selection?.ids ?: emptySet()) else null,
+                    onToggle = { vm.toggleSelected(session.id) },
+                    onLongPress = { vm.startSelectionWith(BatchKind.SESSIONS, session.id, detail.id) },
                 )
             }
             if (detail.directItems.isNotEmpty()) {
@@ -273,6 +339,9 @@ private fun FolderDetailScreen(detail: FolderDetailUi, vm: MainViewModel, onOpen
                         onRemove = { vm.requestRemoveFromFolder(item.id, detail.id) },
                         removeDescription = "Remove from this folder",
                         allowWishlist = true,
+                        selected = if (itemsSelecting) item.id in (selection?.ids ?: emptySet()) else null,
+                        onToggleSelect = { vm.toggleSelected(item.id) },
+                        onLongPress = { vm.startSelectionWith(BatchKind.ITEMS, item.id, detail.id) },
                     )
                 }
             }
@@ -280,20 +349,35 @@ private fun FolderDetailScreen(detail: FolderDetailUi, vm: MainViewModel, onOpen
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SessionCard(session: SessionUi, onOpen: () -> Unit, onDelete: (() -> Unit)?) {
+private fun SessionCard(
+    session: SessionUi,
+    onOpen: () -> Unit,
+    onDelete: (() -> Unit)?,
+    selected: Boolean? = null,
+    onToggle: (() -> Unit)? = null,
+    onLongPress: (() -> Unit)? = null,
+) {
     val shape = RoundedCornerShape(14.dp)
+    val selecting = selected != null
     Row(
         Modifier
             .fillMaxWidth()
             .clip(shape)
             .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.02f))), shape)
-            .border(1.dp, Palette.Line, shape)
-            .clickable(role = Role.Button, onClick = onOpen)
+            .then(if (selected == true) Modifier.background(Palette.Accent.copy(alpha = 0.12f), shape) else Modifier)
+            .border(1.dp, if (selected == true) Palette.Accent.copy(alpha = 0.8f) else Palette.Line, shape)
+            .combinedClickable(
+                role = Role.Button,
+                onClick = { if (selecting) onToggle?.invoke() else onOpen() },
+                onLongClick = { onLongPress?.invoke() },
+            )
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (selecting) BatchCheck(selected == true, "Select ${session.title}")
         FileImage(
             session.scanThumb,
             Modifier.size(44.dp, 58.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, Palette.Line, RoundedCornerShape(8.dp)),
@@ -314,7 +398,7 @@ private fun SessionCard(session: SessionUi, onOpen: () -> Unit, onDelete: (() ->
             }
             Text(session.meta, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
         }
-        if (onDelete != null) {
+        if (onDelete != null && selected == null) {
             SquareIconButton(
                 Icons.Filled.Delete,
                 "Delete session",
@@ -353,7 +437,14 @@ private fun DetailHeader(backLabel: String, title: String, countText: String, on
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun SessionDetailScreen(detail: SessionDetailUi, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
+private fun SessionDetailScreen(
+    detail: SessionDetailUi,
+    vm: MainViewModel,
+    onOpenUrl: (String) -> Unit,
+    selection: SelectionUi?,
+) {
+    val selecting = selection?.kind == BatchKind.SESSION_ITEMS
+    val selectable = detail.items.count { !it.comparisonOnly }
     Column(Modifier.fillMaxSize()) {
         DetailHeader(
             backLabel = "\u2039 Back",
@@ -374,6 +465,10 @@ private fun SessionDetailScreen(detail: SessionDetailUi, vm: MainViewModel, onOp
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
+        if (selectable > 0 && !selecting) {
+            SelectEntry("Select results") { vm.startSelection(BatchKind.SESSION_ITEMS, detail.id) }
+            Spacer(Modifier.height(4.dp))
+        }
         Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(detail.items, key = { it.id }) { item ->
@@ -387,6 +482,9 @@ private fun SessionDetailScreen(detail: SessionDetailUi, vm: MainViewModel, onOp
                         onRemove = null,
                         removeDescription = "",
                         allowWishlist = true,
+                        selected = if (selecting) item.id in (selection?.ids ?: emptySet()) else null,
+                        onToggleSelect = { vm.toggleSelected(item.id) },
+                        onLongPress = { vm.startSelectionWith(BatchKind.SESSION_ITEMS, item.id, detail.id) },
                     )
                 }
             }
@@ -447,9 +545,10 @@ private enum class BookmarkSort(val label: String) {
 }
 
 @Composable
-private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
+private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit, selection: SelectionUi?) {
     var filter by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(BookmarkSort.ADDED) }
+    val selecting = selection?.kind == BatchKind.BOOKMARKS
     val needle = filter.trim()
     val shown = ui.bookmarks
         .filter { item ->
@@ -484,6 +583,10 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
             modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
         )
         BookmarkFilter(filter) { filter = it }
+        if (!selecting && ui.bookmarks.isNotEmpty()) {
+            SelectEntry("Select bookmarks") { vm.startSelection(BatchKind.BOOKMARKS) }
+            Spacer(Modifier.height(6.dp))
+        }
         Row(
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -517,6 +620,9 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
                     onRemove = { vm.requestDeleteBookmark(item.id) },
                     removeDescription = "Remove bookmark",
                     allowWishlist = true,
+                    selected = if (selecting) item.id in (selection?.ids ?: emptySet()) else null,
+                    onToggleSelect = { vm.toggleSelected(item.id) },
+                    onLongPress = { vm.startSelectionWith(BatchKind.BOOKMARKS, item.id) },
                 )
             }
         }
@@ -574,6 +680,7 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
 // One saved non-comparison item
 // ---------------------------------------------------------------------------------------------
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SavedItemRow(
     item: SavedItemUi,
@@ -582,18 +689,30 @@ private fun SavedItemRow(
     onRemove: (() -> Unit)?,
     removeDescription: String,
     allowWishlist: Boolean,
+    selected: Boolean? = null,
+    onToggleSelect: (() -> Unit)? = null,
+    onLongPress: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(14.dp)
+    val selecting = selected != null
     Column(
         Modifier
             .fillMaxWidth()
             .clip(shape)
             .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.02f))), shape)
-            .border(1.dp, Palette.Line, shape)
+            .then(if (selected == true) Modifier.background(Palette.Accent.copy(alpha = 0.12f), shape) else Modifier)
+            .border(1.dp, if (selected == true) Palette.Accent.copy(alpha = 0.8f) else Palette.Line, shape)
+            .combinedClickable(
+                enabled = selecting || onLongPress != null,
+                role = Role.Button,
+                onClick = { if (selecting) onToggleSelect?.invoke() },
+                onLongClick = { onLongPress?.invoke() },
+            )
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+            if (selecting) BatchCheck(selected == true, "Select ${item.title}")
             FileImage(
                 item.thumb,
                 Modifier.size(44.dp, 60.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, Palette.Line, RoundedCornerShape(8.dp)),
@@ -625,7 +744,7 @@ private fun SavedItemRow(
                 }
                 Text(item.addedText, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 3.dp))
             }
-            if (onRemove != null) {
+            if (onRemove != null && !selecting) {
                 SquareIconButton(
                     Icons.Filled.Delete,
                     removeDescription,
@@ -635,12 +754,14 @@ private fun SavedItemRow(
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (item.url != null) {
-                RowAction("Open website", Palette.Accent, Modifier.weight(1f), onOpen)
-            }
-            if (allowWishlist) {
-                RowAction("+ Add to wishlist", Palette.Accent2, Modifier.weight(1f), onWishlist)
+        if (!selecting) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (item.url != null) {
+                    RowAction("Open website", Palette.Accent, Modifier.weight(1f), onOpen)
+                }
+                if (allowWishlist) {
+                    RowAction("+ Add to wishlist", Palette.Accent2, Modifier.weight(1f), onWishlist)
+                }
             }
         }
     }
@@ -682,3 +803,4 @@ private fun SquareIconButton(
     }
 }
 
+/** `Select ...` is drawn by [SelectEntry] in `BatchSelection.kt`, next to each list header. */
