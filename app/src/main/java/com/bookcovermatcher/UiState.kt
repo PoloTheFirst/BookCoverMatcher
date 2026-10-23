@@ -178,7 +178,6 @@ class PendingDeleteUi(
 
 /** Renaming a folder or a session. [title] keeps the dialog honest about what is being renamed. */
 class RenameUi(val recordId: String, val currentName: String, val title: String = "Rename folder")
-
 /** State of the hand-typed bookmark form. [error] is a message the form shows verbatim. */
 class CustomBookmarkUi(val error: String? = null)
 
@@ -199,6 +198,8 @@ data class UiState(
     val workbookLoading: Boolean = false,
     val rangeText: String = Config.DEFAULT_RANGE,
     val target: TargetUi? = null,
+    /** Display name of the selected image file, e.g. `book_cover.jpg`. Null for a camera capture. */
+    val imageName: String? = null,
     val busy: BusyUi? = null,
 
     // offline comparison results (Search > Workbook tab)
@@ -224,6 +225,13 @@ data class UiState(
     val picker: PickerUi? = null,
     val customBookmark: CustomBookmarkUi? = null,
     val renaming: RenameUi? = null,
+
+    /** Multi-selection mode (bookmarks, folders, sessions, saved items, session results). */
+    val selection: SelectionUi? = null,
+    /** A Copy/Move batch waiting for its target folder. */
+    val batchTarget: BatchTargetUi? = null,
+    /** A destructive batch waiting for confirmation. */
+    val batchDelete: BatchDeleteUi? = null,
 
     /** Fingerprints of saved items, so a result card can show its bookmark/wishlist state. */
     val bookmarkedKeys: Set<String> = emptySet(),

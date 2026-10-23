@@ -16,9 +16,10 @@ import com.bookcovermatcher.core.online.OnlineFailure
 import com.bookcovermatcher.core.online.ProductSearchDataSource
 import com.bookcovermatcher.core.online.ProductSearchOutcome
 import com.bookcovermatcher.core.online.ProductSearchResult
-import com.bookcovermatcher.core.online.ProviderAccess
 import com.bookcovermatcher.core.online.ProviderCatalog
 import com.bookcovermatcher.core.online.ProviderSpec
+import com.bookcovermatcher.core.online.SearchLimits
+import com.bookcovermatcher.core.online.SearchRouting
 import com.bookcovermatcher.core.online.SessionCache
 import com.bookcovermatcher.core.wishlist.ItemIdentity
 import com.bookcovermatcher.core.wishlist.MatchType
@@ -61,14 +62,17 @@ class OnlineSearchController(
     private val prefs: OnlineSearchPrefs = OnlineSearchPrefs(context),
     private val bridge: OcrTextSource = ChromeLensPyBridge(PythonRuntime(context)),
     /**
-     * Every provider the app actually queries, each through its own adapter:
+     * Every provider the app can query itself, each through its own adapter:
      *  * **Open Library** — library catalogue, JSON API;
      *  * **Google Books** — book catalogue, JSON API;
      *  * **DLsite** — doujinshi / digital works shop, public search page (HTML).
      *
-     * The two browser-only shops (Melonbooks, Suruga-ya) are deliberately **not** here: they refuse
-     * automated clients, so [ProviderCatalog] lists them for the UI's manual-search row instead.
-     * A failure of one provider is reported without hiding the results of the others.
+     * Melonbooks and Suruga-ya are deliberately **not** here: the first is browser-only by product
+     * decision (v2.2.2 patch), the second because its `robots.txt` disallows `/search/`. Doujin no Mori
+     * disallows its own search route in `robots.txt`, Doujinshi.info and nhentai answer HTTP 403 to
+     * automated clients, and MyAnimeList has no unauthenticated API — all five are listed by
+     * [ProviderCatalog] for the browser-handoff card only (E-Hentai too, as an adult catalogue).
+     * Which of these actually run is decided by the user's platform selection ([SearchRouting]).
      */
     private val catalogues: List<ProductSearchDataSource> = listOf(
         OpenLibraryBooksSource(),
@@ -84,7 +88,9 @@ class OnlineSearchController(
             autoSearch = prefs.autoSearch,
             ocrLanguage = prefs.ocrLanguage,
             targetLanguage = prefs.targetLanguage,
-            providers = providerStatuses(query = ""),
+            selectedProviders = prefs.selectedProviders,
+            resultLimit = prefs.resultLimit,
+            providers = providerStatuses(query = "", selected = prefs.selectedProviders),
         ),
     )
     val ui: StateFlow<OnlineSearchUi> = _ui.asStateFlow()
@@ -103,6 +109,10 @@ class OnlineSearchController(
 
     private class CachedSearch(
         val query: String,
+        /** The maximum the user asked for; a 5-result answer must not satisfy a 20-result request. */
+        val limit: Int,
+        /** Which platforms were selected when this answer was produced. */
+        val selectionKey: String,
         val results: List<ProductSearchResult>,
         val totalAvailable: Int?,
         val source: String,
@@ -112,20 +122,28 @@ class OnlineSearchController(
     )
 
     /**
-     * The provider rows for [query].
+     * The provider rows for [query] under [selected].
      *
-     * Browser-only providers are always [ProviderState.MANUAL]: they are never queried, so their row
-     * can never claim a result. Automated providers are [ProviderState.READY] until a search replaces
-     * [automated] with what actually happened.
+     * Four honest states, all drawn:
+     *  * a browser-only platform is always [ProviderState.MANUAL] — it is never queried, so its row can
+     *    never claim a result, whether or not it is selected;
+     *  * an unselected platform is [ProviderState.SKIPPED] — not queried, and it must not look like an
+     *    empty successful search;
+     *  * a selected automated platform is [ProviderState.SEARCHING] during a search, then whatever
+     *    [automated] says it actually returned;
+     *  * otherwise it is [ProviderState.READY] with its own note.
      */
     private fun providerStatuses(
         query: String,
+        selected: Set<String>,
         automated: Map<String, Pair<ProviderState, String>> = emptyMap(),
         searching: Boolean = false,
     ): List<ProviderStatusUi> = ProviderCatalog.ALL.map { spec ->
-        val manual = spec.access == ProviderAccess.BROWSER_ONLY
+        val manual = !spec.selectable
+        val isSelected = spec.selectable && spec.id in selected
         val (state, detail) = when {
             manual -> ProviderState.MANUAL to spec.note
+            !isSelected -> ProviderState.SKIPPED to "Not selected for this search."
             searching -> ProviderState.SEARCHING to "Searching\u2026"
             else -> automated[spec.id] ?: (ProviderState.READY to spec.note)
         }
@@ -134,9 +152,12 @@ class OnlineSearchController(
             name = spec.name,
             host = spec.host,
             manual = manual,
+            selected = isSelected,
             state = state,
             detail = detail,
-            searchUrl = spec.searchUrl(query),
+            // Every platform with a verified public page gets a link, selected or not; the link is
+            // built and validated by ProviderLinks. A provider with no verified page has none.
+            searchUrl = if (spec.hasLink) runCatching { spec.searchUrl(query) }.getOrNull() else null,
         )
     }
 
@@ -157,7 +178,7 @@ class OnlineSearchController(
                 catalogue = CatalogueUi.Idle,
                 query = "",
                 // A disabled feature has searched nothing: every row goes back to its resting state.
-                providers = providerStatuses(query = ""),
+                providers = providerStatuses(query = "", selected = prefs.selectedProviders),
             )
         }
         if (on) {
@@ -173,9 +194,81 @@ class OnlineSearchController(
     fun clearSession() {
         session.invalidate()
         _ui.update {
-            it.copy(catalogue = CatalogueUi.Idle, providers = providerStatuses(query = it.query))
+            it.copy(
+                catalogue = CatalogueUi.Idle,
+                providers = providerStatuses(query = it.query, selected = it.selectedProviders),
+            )
         }
         onMessage("Session cache cleared — saved bookmarks and wishlist items are untouched.", ToastKind.INFO)
+    }
+
+    // =========================================================================================
+    // Platform selection and result count
+    // =========================================================================================
+
+    /**
+     * Selects or deselects one platform for the **next** search. Never starts a search itself.
+     *
+     * A running search belongs to the previous selection, so it is cancelled and its cache entry is
+     * dropped: a late answer must not be shown as if it came from the new set of platforms.
+     */
+    fun toggleProvider(id: String) {
+        val spec = ProviderCatalog.byId(id) ?: return
+        // Browser-only cards are deliberately not selectable: they have no in-app search to enable.
+        if (!spec.selectable) {
+            onMessage(
+                "${spec.name} is browser-only \u2014 use its Open \u2197 button; it is never searched in the app.",
+                ToastKind.INFO,
+            )
+            return
+        }
+        val current = prefs.selectedProviders
+        val next = SearchRouting.toggle(current, id)
+        if (next == current) return
+        prefs.selectedProviders = next
+
+        val wasRunning = _ui.value.catalogue is CatalogueUi.Running
+        if (wasRunning) {
+            job?.cancel()
+            job = null
+        }
+        session.invalidate()
+        _ui.update {
+            it.copy(
+                selectedProviders = next,
+                catalogue = if (it.catalogue is CatalogueUi.Running) CatalogueUi.Idle else it.catalogue,
+                providers = providerStatuses(query = it.query, selected = next),
+            )
+        }
+        val message = if (spec.id in next) "${spec.name} selected." else "${spec.name} deselected."
+        onMessage(message, ToastKind.INFO)
+    }
+
+    /**
+     * Sets the maximum number of online results for the **next** search and persists it.
+     *
+     * The value is validated by [SearchLimits] (an unknown value becomes the default) and only affects
+     * the online list; the offline comparison keeps `Config.TOP_MATCHES`. The cached answer for the
+     * current cover is dropped because it was produced for a different maximum.
+     */
+    fun setResultLimit(value: Int) {
+        val sanitized = SearchLimits.sanitize(value)
+        if (sanitized == prefs.resultLimit) return
+        prefs.resultLimit = sanitized
+
+        val wasRunning = _ui.value.catalogue is CatalogueUi.Running
+        if (wasRunning) {
+            job?.cancel()
+            job = null
+        }
+        session.invalidate()
+        _ui.update {
+            it.copy(
+                resultLimit = sanitized,
+                catalogue = if (it.catalogue is CatalogueUi.Running) CatalogueUi.Idle else it.catalogue,
+            )
+        }
+        onMessage("Up to $sanitized online result(s) per search.", ToastKind.INFO)
     }
 
     fun setAutoSearch(on: Boolean) {
@@ -336,7 +429,16 @@ class OnlineSearchController(
     // Step 2 - catalogue (product) search
     // =========================================================================================
 
-    /** "Search the catalogues" / auto-invoked after a successful OCR pass. */
+    /**
+     * "Search the providers" / auto-invoked after a successful OCR pass.
+     *
+     * Routing is decided by the user's selection ([SearchRouting]) and the configured maximum
+     * ([SearchLimits]):
+     *  * only selected **automated** platforms are queried, each with its own capped limit;
+     *  * selected **browser-only** platforms are never queried — if they are the only thing selected,
+     *    no request is made at all and the panel says where those results can be seen;
+     *  * an empty selection searches nothing (and says so) rather than silently querying defaults.
+     */
     fun search(query: String = _ui.value.query) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
@@ -349,11 +451,47 @@ class OnlineSearchController(
         }
         if (_ui.value.isBusy) return
 
+        val selection = prefs.selectedProviders
+        val limit = SearchLimits.sanitize(prefs.resultLimit)
+        val selectionKey = SearchRouting.key(selection)
+        val automatedSpecs = SearchRouting.automated(selection)
+
+        if (automatedSpecs.isEmpty()) {
+            // Browser-only platforms are never part of the selection, so this can only mean that no
+            // in-app platform is selected. The cards and their Open buttons stay available.
+            session.invalidate()
+            val shortcuts = SearchRouting.shortcuts().filter { it.hasLink }.joinToString { it.name }
+            val message = if (shortcuts.isEmpty()) {
+                "Select at least one platform to search (Open Library, Google Books or DLsite)."
+            } else {
+                "No in-app platform is selected. Browser-only shortcuts ($shortcuts) open their own " +
+                    "search pages with the Open \u2197 buttons above."
+            }
+            _ui.update {
+                it.copy(
+                    query = trimmed,
+                    catalogue = CatalogueUi.BrowserOnly(message),
+                    selectedProviders = selection,
+                    resultLimit = limit,
+                    providers = providerStatuses(trimmed, selection),
+                )
+            }
+            onMessage("Select at least one in-app platform to search.", ToastKind.INFO)
+            return
+        }
+
+        val selectedIds = automatedSpecs.map { it.id }.toSet()
+        val sources = catalogues.filter { specFor(it)?.id in selectedIds }
+
         val fingerprint = capture?.let { ImageFingerprint.of(it) }
         if (fingerprint != null) {
             val cached = session.cached(fingerprint)
-            if (cached != null && cached.query == trimmed) {
-                // Same cover, same query, session still alive: reuse instead of asking again.
+            // Same cover, same query, same platforms, same maximum: only then is the answer reused.
+            if (cached != null &&
+                cached.query == trimmed &&
+                cached.limit == limit &&
+                cached.selectionKey == selectionKey
+            ) {
                 applyResults(
                     results = cached.results,
                     query = cached.query,
@@ -363,6 +501,8 @@ class OnlineSearchController(
                     source = cached.source,
                     note = cached.note,
                     providers = cached.providers,
+                    limit = cached.limit,
+                    selectionKey = cached.selectionKey,
                 )
                 loadCovers(cached.results, session.token())
                 return
@@ -373,26 +513,38 @@ class OnlineSearchController(
             it.copy(
                 query = trimmed,
                 catalogue = CatalogueUi.Running(trimmed),
-                providers = providerStatuses(query = trimmed, searching = true),
+                selectedProviders = selection,
+                resultLimit = limit,
+                providers = providerStatuses(query = trimmed, selected = selection, searching = true),
             )
         }
         val token = session.token()
         job = scope.launch {
             // Providers run concurrently: a slow shop must not delay a fast catalogue, and one
-            // provider's timeout must not cancel the others. Each call gets its own deadline.
+            // provider's timeout must not cancel the others. Each call gets its own deadline and
+            // its own capped limit.
             val outcomes = withContext(Dispatchers.IO) {
                 coroutineScope {
-                    catalogues.map { source ->
+                    sources.map { source ->
                         async {
+                            val ask = SearchLimits.forProvider(limit, source.maxResults)
                             source to runCatching {
-                                withTimeout(PROVIDER_TIMEOUT_MS) { source.search(trimmed, prefs.resultLimit) }
+                                withTimeout(PROVIDER_TIMEOUT_MS) { source.search(trimmed, ask) }
                             }
                         }
                     }.awaitAll()
                 }
             }
             if (!session.isCurrent(token)) return@launch
-            applyOutcomes(trimmed, outcomes, fingerprint, token)
+            applyOutcomes(
+                query = trimmed,
+                outcomes = outcomes,
+                fingerprint = fingerprint,
+                token = token,
+                limit = limit,
+                selection = selection,
+                selectionKey = selectionKey,
+            )
         }
     }
 
@@ -402,14 +554,20 @@ class OnlineSearchController(
      * only a total failure becomes [CatalogueUi.Failed].
      *
      * The per-provider rows are the honest record of the search: a provider that answered with
-     * results, one that answered with nothing, one that failed and one that was never queried
-     * (browser-only) are four different states, and the UI shows all four.
+     * results, one that answered with nothing, one that failed, one that was not selected and one that
+     * can only be used in a browser are five different states, and the UI shows all five.
+     *
+     * Deduplication happens inside [OnlineAggregator.merge] before [limit] is applied, so the final
+     * count is the number of real, distinct cards the panel draws.
      */
     private fun applyOutcomes(
         query: String,
         outcomes: List<Pair<ProductSearchDataSource, Result<ProductSearchOutcome>>>,
         fingerprint: String?,
         token: Long,
+        limit: Int,
+        selection: Set<String>,
+        selectionKey: String,
     ) {
         val found = ArrayList<ProductSearchResult>()
         val answered = ArrayList<String>()
@@ -451,12 +609,16 @@ class OnlineSearchController(
                 is ProductSearchOutcome.Failed -> {
                     val why = messageFor(outcome.failure, outcome.message)
                     failures += "${source.name}: $why"
-                    perProvider[id] = ProviderState.FAILED to why
+                    perProvider[id] = if (outcome.failure == OnlineFailure.BLOCKED) {
+                        ProviderState.BLOCKED to why
+                    } else {
+                        ProviderState.FAILED to why
+                    }
                 }
             }
         }
 
-        val providers = providerStatuses(query, perProvider)
+        val providers = providerStatuses(query, selection, perProvider)
         val sourceLabel = answered.distinct().joinToString(" + ")
             .ifEmpty { catalogues.joinToString(" + ") { it.name } }
         if (answered.isEmpty() && found.isEmpty()) {
@@ -466,7 +628,7 @@ class OnlineSearchController(
             return
         }
 
-        val merged = OnlineAggregator.merge(listOf(found), limit = prefs.resultLimit)
+        val merged = OnlineAggregator.merge(listOf(found), limit = limit)
         val note = failures.takeIf { it.isNotEmpty() }?.joinToString("; ")
         if (merged.isEmpty()) {
             _ui.update {
@@ -484,6 +646,8 @@ class OnlineSearchController(
             source = sourceLabel,
             note = note,
             providers = providers,
+            limit = limit,
+            selectionKey = selectionKey,
         )
         loadCovers(merged, token)
     }
@@ -498,9 +662,14 @@ class OnlineSearchController(
         source: String,
         note: String?,
         providers: List<ProviderStatusUi>,
+        limit: Int,
+        selectionKey: String,
     ) {
         if (fingerprint != null && !fromCache) {
-            session.store(fingerprint, CachedSearch(query, results, totalAvailable, source, note, providers))
+            session.store(
+                fingerprint,
+                CachedSearch(query, limit, selectionKey, results, totalAvailable, source, note, providers),
+            )
         }
         _ui.update {
             it.copy(
@@ -512,6 +681,7 @@ class OnlineSearchController(
                     note = note,
                 ),
                 providers = providers,
+                resultLimit = limit,
             )
         }
         val suffix = if (fromCache) " (cached for this cover)" else ""

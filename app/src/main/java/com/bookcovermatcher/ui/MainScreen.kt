@@ -480,7 +480,7 @@ private fun SpreadsheetPanel(ui: UiState, vm: MainViewModel, actions: ScreenActi
         PickerField(
             label = "or use an image from your device",
             buttonText = "Choose image",
-            value = null,
+            value = ui.imageName,
             placeholder = "No image chosen",
             loading = false,
             onClick = actions.onPickImage,

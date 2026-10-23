@@ -22,6 +22,9 @@ class GoogleBooksSource(
 
     override val name: String get() = GoogleBooksResponseParser.SOURCE_NAME
 
+    /** Google caps `maxResults` at 40, which is lower than the panel's maximum of 50. */
+    override val maxResults: Int get() = MAX_LIMIT
+
     override fun search(query: String, limit: Int): ProductSearchOutcome {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return ProductSearchOutcome.Empty(trimmed)
@@ -52,7 +55,7 @@ class GoogleBooksSource(
     companion object {
         const val ENDPOINT = "https://www.googleapis.com/books/v1/volumes"
 
-        /** Google caps `maxResults` at 40; the app keeps the same small limit as Open Library. */
-        const val MAX_LIMIT = 10
+        /** Google caps `maxResults` at 40; the app never asks for more than that. */
+        const val MAX_LIMIT = 40
     }
 }

@@ -1,4 +1,4 @@
-# Online search, OCR and bookmarks — implementation notes (v2.2.1)
+# Online search, OCR and bookmarks — implementation notes (v2.2.2)
 
 This document describes what the online feature actually does. It deliberately separates four
 capabilities that are easy to confuse:
@@ -77,28 +77,98 @@ deliberate separation: the catalogue step does not require the Python bridge.
   disallows the paged result URLs (`/fsr/=/*/per_page/*/page/`), which the adapter never requests.
 * A 401/403/451 becomes `OnlineFailure.BLOCKED` — never a retry with a disguised client.
 
-### Melonbooks and Suruga-ya — deliberately **not** queried
-Measured on 2026-10-22, with both a Chrome user agent and the app's own:
+### Melonbooks - browser-only by product decision
+* Search page: `https://www.melonbooks.co.jp/search/search.php?mode=search&name=<percent-encoded query>`
+* Access evidence (2026-10-23, app user agent, no cookies):
+  * `GET /robots.txt` -> **HTTP 404** (RFC 9309: no rules published);
+  * `GET /search/search.php?mode=search&name=...` -> **HTTP 200**, UTF-8, ~588 KB, 100 products.
+* **The app does not query it.** This is an explicit product decision recorded in the v2.2.2 patch: the
+  card stays, its `Open` link stays, and it can never enter the selected set. The adapter
+  (`MelonbooksSource`) and parser (`MelonbooksResponseParser`) remain in the tree, unregistered and
+  covered by offline fixture tests only.
 
-| Request | Result |
-|---|---|
-| `GET https://www.melonbooks.co.jp/robots.txt` | **HTTP 403** |
-| `GET https://www.melonbooks.co.jp/search/search.php?mode=search&name=東方` | **HTTP 403** |
-| `GET https://www.suruga-ya.jp/robots.txt` | **HTTP 403** |
-| `GET https://www.suruga-ya.jp/search?category=&search_word=東方` | **HTTP 403** |
+### Suruga-ya - robots.txt disallows /search/
+Its `robots.txt` is readable and excludes the endpoint:
 
-A 403 on `robots.txt` itself means the site's rules cannot even be read. Both shops sit behind bot
-protection that refuses non-browser clients, so there is no compliant automated route. The app
-therefore:
+```
+HTTP 200  https://www.suruga-ya.jp/robots.txt
+User-agent: *
+Crawl-delay: 30
+Disallow: /search/      (...plus /core/, /mypage/, several facet parameters)
+```
 
-* marks them `ProviderAccess.BROWSER_ONLY` in `ProviderCatalog`;
-* never sends them a request (not even a probe);
-* shows a row that says so, with **Open ↗** opening the shop's own search page for the query in the
-  user's browser;
-* never counts them in the result count or in "providers that answered".
+The search page itself answers, but the shop's own rules exclude `/search/`. The app does not exploit
+the missing trailing slash: it marks Suruga-ya `BROWSER_ONLY`, sends it **no** request and offers its
+`Open` link. It is never counted as an answered provider, whatever the selection state.
 
-If either shop ever publishes a documented search API — or starts serving plain HTTP clients — adding
-it is one `ProductSearchDataSource` plus one `ProviderSpec` entry.
+### Doujin no Mori - browser-only (robots disallows the search route)
+* The provider was previously recorded here as "DoujinMori" at `doujinmori.com` / `doujin-mori.com`;
+  those domains do not exist. The intended site is `https://doujinnomori.com/`, which answers.
+* Verified search route (user-supplied, then measured here):
+  `https://doujinnomori.com/comics/free-search?keyword=<percent-encoded query>` -> HTTP 200,
+  server-rendered (the HTML already contains the work links and images).
+* `robots.txt` (HTTP 200) says `User-agent:*` / `Disallow:/comics/free-search`. That is exactly the
+  route the search uses, so **the app does not query it**, even though the page would be parseable.
+* The card keeps its `Open` link for that URL (query percent-encoded by `ProviderLinks`), opens in the
+  user browser, and can never be selected. The site own "show adult content" preference is a
+  user-facing setting the user changes there; the app sets no cookie and bypasses nothing.
+* The provider id stays `dm`; it has never been selectable, so no saved selection can contain it, and
+  `SearchRouting.sanitize` drops it on read. No migration is needed.
+
+### Doujinshi.info - browser-only (HTTP 403 to automated clients)
+* Search route: `https://www.doujinshi.info/works?query=<percent-encoded query>`.
+* `robots.txt` (HTTP 200) is permissive (`User-agent: *` / `Allow: /`, content signal `search=yes`),
+  but every page request from this client answers **HTTP 403** (the site bot protection), including
+  the home page and the search page. Nothing can be read reliably, so no adapter exists.
+* Browser-only card: the `Open` link carries the query, and the user solves whatever the site asks for
+  (including its own "show adult content" control) in the browser.
+
+### MyAnimeList - browser-only (no unauthenticated API)
+* The URL in the request, `https://myanimelist.net/topmanga`, answers **HTTP 404** - it is not a
+  search endpoint. The site manga search is
+  `https://myanimelist.net/manga.php?q=<percent-encoded query>&cat=manga` (HTTP 200).
+* `robots.txt` disallows several paths (`/includes/`, `/comments.php`, `/mymessages.php`, ...) and the
+  site terms do not permit automated collection; there is no unauthenticated public API (the
+  documented API needs a registered client and OAuth). The app therefore does not scrape it.
+* Browser-only card: the `Open` link goes to that manga search. A ranking page is never used as a
+  stand-in for query results.
+
+### nhentai - browser-only (HTTP 403, adult catalogue)
+* Home, `/robots.txt` and `/search/?q=<query>` all answer **HTTP 403** (Cloudflare) to this client, so
+  the query URL cannot be verified from here and nothing can be parsed. The catalogue is adult
+  content, which the app does not store or display.
+* Browser-only card: `https://nhentai.net/search/?q=<percent-encoded query>` opens in the user
+  browser, where the site own age gate applies. The app sends no request, sets no cookie and keeps
+  no adult fixture in the test suite.
+### E-Hentai - browser-only (adult catalogue, age gate)
+* Search page answers: `GET https://e-hentai.org/?f_search=<query>` -> HTTP 200, and the HTML contains
+  gallery rows.
+* `robots.txt` (HTTP 200) disallows `/s/`, `/codegen.php`, `/archiver.php`, `/favorites.php`,
+  `/gallerypopups.php`, `/report.php` and `/stats.php`. `/s/` is where the images live and
+  `/codegen.php` is the challenge endpoint, so automated image access is off limits by the site's own
+  rules.
+* The catalogue is adult content behind the site's own age acknowledgement. The app therefore does not
+  parse, store or display those results: the card opens the site's own search page in the browser, where
+  the user answers the age gate. The app sets no cookie, bypasses no age gate, and the test suite
+  contains no adult fixture.
+
+### Platform selection and the result maximum
+* `SearchRouting` owns the rules: `DEFAULT_SELECTION` = the three automated ids, `sanitize` drops
+  unknown **and browser-only** ids, `toggle` refuses a non-selectable id, `automated` returns the
+  selected in-app providers, `shortcuts` returns every browser-only card, `key` is the cache key.
+  Selection is persisted in `bookcover_online` -> `online_providers`; unset means the default, an
+  empty set stays empty.
+* `SearchLimits` owns the count (options 5/10/20/30/50, default 5, validated on read, `forProvider`).
+  Persisted as `online_limit`. The **offline** comparison keeps `Config.TOP_MATCHES = 5`.
+* The controller reads query + selection + limit, queries **only selected automated** platforms with
+  `min(limit, adapter.maxResults)`, merges/deduplicates, then applies `limit`. With no automated
+  platform selected it issues no request and reports `CatalogueUi.BrowserOnly`, naming the shortcuts.
+* The cache entry stores query, limit and selection key; a hit requires all three, so a five-result
+  answer can never satisfy a twenty-result request. Changing either cancels an in-flight search.
+* Every card link comes from `ProviderLinks` (validated https + own host, `%20`-encoded query,
+  landing page for a blank query) and is independent of the selection. A `ProviderSpec` with no
+  configured page is refused by `ProviderLinks` instead of producing a dead button (unit-tested);
+  every shipped card does have a verified page.
 
 ---
 
@@ -106,7 +176,7 @@ it is one `ProductSearchDataSource` plus one `ProviderSpec` entry.
 
 `ItemIdentity` defines "the same thing":
 
-1. A stable provider key wins: `ol:OL27482W`, `gb:<volumeId>`, `dl:rj01730150`.
+1. A stable provider key wins: `ol:OL27482W`, `gb:<volumeId>`, `mb:3897050`, `dl:rj01730150`.
 2. Otherwise a normalised URL: `https` forced, host lowercased, default port removed, fragment
    removed, trailing slash removed, only known tracking parameters stripped. Parameters that can
    change the destination are kept.
@@ -176,10 +246,11 @@ Schema details and the full migration rules are in `README.md` §3.
 
 | Item | Command / environment | Result |
 |---|---|---|
-| JVM suite | `.\gradlew.bat testDebugUnitTest` | 184 tests, 0 failures (3 live checks skipped by design) |
-| Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | 184 tests, 0 failures; all three live checks **ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED` |
+| JVM suite | `.\gradlew.bat testDebugUnitTest` | 259 tests, 0 failures (3 live checks skipped by design) |
+| Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks` | 259 tests, 0 failures; **3/3 live checks ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED`. Melonbooks is not in the live suite any more |
+| Compose UI tests | none | **not run**: no `ui-test-junit4` dependency and no emulator/device; selection rules, link independence, the cap and the batch repository calls are unit-tested (`SelectionLogicTest`, `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest`, `BatchOperationsTest`) |
 | DLsite live parse | `DlsiteSource().search("東方", 3)` | real `RJ…` works with Japanese titles, circles, `924円`-style prices, `img.dlsite.jp` covers and `dlsite.com` product URLs |
-| Melonbooks / Suruga-ya | `robots.txt` + search URL, two user agents (2026-10-22) | HTTP 403 on all four requests → browser-handoff only |
+| Provider access probe | `robots.txt` + search URL, app user agent (2026-10-23) | Melonbooks robots **404**, search **200** (not queried); Suruga-ya robots **200** with `Disallow: /search/`; DLsite robots **200**, paged URLs disallowed; E-Hentai robots **200**, `/s/` and `/codegen.php` disallowed; Doujin no Mori robots **200** with `Disallow: /comics/free-search`, search **200**; Doujinshi.info robots **200** but every page **403**; MyAnimeList `/topmanga` **404**, `/manga.php?q=` **200**; nhentai **403** everywhere |
 | Python bridge | `python tools/lens_bridge_check.py` with chrome-lens-py installed | all checks passed |
 | Real OCR, desktop | chrome-lens-py 3.8.2, Open Library Hobbit cover | read `THE HOBBIT` / `JRR TOLKIEN`, heights present |
 | Real OCR, device | `connectedDebugAndroidTest` on `Medium_Phone_API_37.0` | passed in ~2.2 s |
@@ -196,9 +267,18 @@ not make for the user.
 * Online result cards driven through the UI end-to-end (controller and sources are covered by
   device tests; card interactions were visually smoke-tested only indirectly).
 * Google Books with an API key.
-* **Melonbooks and Suruga-ya as searches** — HTTP 403 from this environment; only their generated
-  browser links are verified.
-* **DLsite on a device** — the live check ran on the desktop JVM through the same adapter.
+* **Suruga-ya as an in-app search** - deliberately not implemented (its `robots.txt` disallows
+  `/search/`); only its generated browser link is verified.
+* **Melonbooks as an in-app search** - not implemented in this build; its adapter and parser exist but
+  are not registered. Only DLsite runs live among the Japanese shops.
+* **Doujin no Mori as an in-app search** - not implemented: its `robots.txt` disallows the search route.
+* **Doujinshi.info / nhentai** - not implemented: both answer HTTP 403 to automated clients.
+* **MyAnimeList** - not implemented: no unauthenticated API and terms forbid scraping.
+* **E-Hentai** - browser-only: adult content behind the site age gate, `/s/` disallowed by robots.
+* **DLsite on a device** - the live checks ran on the desktop JVM through the same adapter.
+* **Compose UI interaction** (card toggle, glow/dim, link independence) — no Compose UI-test
+  dependency and no emulator/device was available; the state transitions those clicks drive are
+  unit-tested instead.
 
 ---
 
@@ -208,12 +288,14 @@ not make for the user.
 * `chrome-lens-py` uses Google's public Lens `crupload` endpoint and its own built-in key; Google may
   rate-limit it. The app reports `RATE_LIMITED`/`AUTH` honestly.
 * Google Books may require a key and billing for high volume; the app does not ship one.
-* Open Library asks clients to be polite; the app makes one request per user action and caps results
-  at 10.
+* Open Library asks clients to be polite; the app makes one request per user action and never asks for
+  more than 50.
 * DLsite's `robots.txt` asks for a 10-second crawl delay and disallows the paged result URLs. The app
   makes one first-page request per user action, never retries and never paginates.
-* Melonbooks and Suruga-ya refuse automated clients. The app sends them no request at all; their
-  browser links are generated locally from the query.
+* Melonbooks publishes no `robots.txt` (HTTP 404); its search page answers, but this build keeps it
+  browser-only by product decision and sends it no request at all.
+* Suruga-ya's `robots.txt` disallows `/search/`. The app sends it no request; its browser link is
+  generated locally from the query.
 * To add a provider, implement `ProductSearchDataSource`, add a `ProviderSpec` to `ProviderCatalog`
   and register the source in `OnlineSearchController`; do not claim it in the UI until it is
   implemented and tested. A provider that cannot be queried belongs in `ProviderCatalog` as

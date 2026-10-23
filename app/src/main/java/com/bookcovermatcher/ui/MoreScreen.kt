@@ -81,7 +81,8 @@ fun MoreScreen(ui: UiState, vm: MainViewModel) {
             InfoLine("Offline matching", "On-device OpenCLIP comparison against the chosen workbook. No network.")
             InfoLine("OCR", "Google Lens through chrome-lens-py, inside the app. Text only.")
             InfoLine("Online search", "Open Library, Google Books and DLsite are queried with that text. Text match, not visual.")
-            InfoLine("Providers not queried", "Melonbooks and Suruga-ya refuse automated clients (HTTP 403); their rows open a browser search instead.")
+            InfoLine("Providers", "Seven of the ten cards are browser-only shortcuts. Every card has its own browser link and never changes the selection.")
+            InfoLine("Providers not queried", "Melonbooks (product decision), Suruga-ya (robots.txt disallows /search/), Doujin no Mori (robots.txt disallows /comics/free-search), E-Hentai and nhentai (adult sites; robots/Cloudflare block automated access), Doujinshi.info (answers HTTP 403 to automated requests) and MyAnimeList (no unauthenticated API). Their cards open the site's own search page and can never be selected.")
             InfoLine("Visual cover search", "Not implemented: it requires a third-party image-similarity service and credentials the app does not ship.")
             InfoLine("Prices / stock", "Only a DLsite listing's own current price is shown. No provider sends stock, so none is invented.")
         }

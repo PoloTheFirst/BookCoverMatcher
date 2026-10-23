@@ -175,6 +175,8 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
             )
             RenameDialog(ui.renaming, onCancel = vm::cancelRename, onSave = vm::commitRename)
             ProfilePickerDialog(ui.picker, onCancel = vm::closePicker, onConfirm = vm::confirmPicker)
+            BatchTargetDialog(ui.batchTarget, onCancel = vm::cancelBatchTarget, onPick = vm::confirmBatchTarget)
+            BatchDeleteDialog(ui.batchDelete, onCancel = vm::cancelBatchDelete, onConfirm = vm::confirmBatchDelete)
             CustomBookmarkDialog(ui.customBookmark, onCancel = vm::closeCustomBookmark, onCreate = vm::createCustomBookmark)
         }
     }

@@ -31,6 +31,9 @@ class DlsiteSource(
 
     override val name: String get() = DlsiteResponseParser.SOURCE_NAME
 
+    /** One page of 30 works: the app never paginates DLsite, so this is the ceiling. */
+    override val maxResults: Int get() = MAX_LIMIT
+
     override fun search(query: String, limit: Int): ProductSearchOutcome {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return ProductSearchOutcome.Empty(trimmed)
@@ -55,7 +58,7 @@ class DlsiteSource(
     }
 
     companion object {
-        /** DLsite lists 30 works per page; the panel never needs more than the other providers. */
-        const val MAX_LIMIT = 10
+        /** DLsite lists 30 works per page and paged URLs are disallowed by its robots file. */
+        const val MAX_LIMIT = 30
     }
 }

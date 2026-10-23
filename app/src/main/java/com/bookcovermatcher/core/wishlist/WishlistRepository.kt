@@ -308,6 +308,363 @@ class WishlistRepository(
 
 
     // =========================================================================================
+    // Batch operations (multi-selection)
+    //
+    // Every operation below reads the store once, applies all changes in memory and writes **once**,
+    // so a batch is all-or-nothing at the file level. Bookmark membership and wishlist membership
+    // stay independent: a copy adds a membership, a move removes only the membership in scope, and a
+    // delete removes only the membership the screen owns. Nothing here can delete an item that is
+    // still referenced somewhere else - `prune` drops an item only when its last reference is gone.
+    // =========================================================================================
+
+    /** Copies [itemIds] into [targetFolderId] as direct items; every other membership is untouched. */
+    fun copyItemsToFolder(itemIds: List<String>, targetFolderId: String): BatchReport {
+        val state = readState()
+        val target = state.folders.firstOrNull { it.id == targetFolderId }
+            ?: return failed(itemIds, "That folder no longer exists.")
+        if (target.isReserved) return failed(itemIds, "Bookmarks cannot take a copy.")
+        var changed = 0
+        var skipped = 0
+        for (id in itemIds.distinct()) {
+            val item = state.items.firstOrNull { it.id == id }
+            when {
+                item == null -> skipped++
+                // Comparison output lives inside its session; it is never promoted to a folder item.
+                item.kind == ItemKind.WORKBOOK_MATCH -> skipped++
+                state.memberships.any { it.itemId == id && it.collectionId == target.id } -> skipped++
+                else -> {
+                    state.memberships.add(Membership(id, target.id, clock()))
+                    changed++
+                }
+            }
+        }
+        return commit(state, BatchReport(itemIds.size, changed, skipped, 0))
+    }
+
+    /**
+     * Moves [itemIds] out of [sourceFolderId] and into [targetFolderId].
+     *
+     * Only the membership of the source folder moves; a bookmark or a membership of a third folder is
+     * preserved. A session inside the source folder is not edited: those results belong to that
+     * session's record, so an item reachable only through a session is skipped (the UI says so).
+     */
+    fun moveItemsToFolder(itemIds: List<String>, sourceFolderId: String, targetFolderId: String): BatchReport {
+        val state = readState()
+        val source = state.folders.firstOrNull { it.id == sourceFolderId }
+            ?: return failed(itemIds, "That folder no longer exists.")
+        val target = state.folders.firstOrNull { it.id == targetFolderId }
+            ?: return failed(itemIds, "That folder no longer exists.")
+        if (target.isReserved) return failed(itemIds, "Bookmarks cannot receive a move.")
+        if (source.id == target.id) return failed(itemIds, "The items are already in that folder.")
+        var changed = 0
+        var skipped = 0
+        for (id in itemIds.distinct()) {
+            val membership = state.memberships.firstOrNull { it.itemId == id && it.collectionId == source.id }
+            if (membership == null) {
+                skipped++
+                continue
+            }
+            state.memberships.remove(membership)
+            if (state.memberships.none { it.itemId == id && it.collectionId == target.id }) {
+                state.memberships.add(Membership(id, target.id, clock()))
+            }
+            changed++
+        }
+        prune(state)
+        return commit(state, BatchReport(itemIds.size, changed, skipped, 0))
+    }
+
+    /** Removes [itemIds] from one folder only: their bookmark and other folder memberships survive. */
+    fun removeItemsFromFolder(itemIds: List<String>, folderId: String): BatchReport {
+        val state = readState()
+        val gone = state.memberships.filter { it.collectionId == folderId && it.itemId in itemIds }.toSet()
+        if (gone.isEmpty()) return BatchReport(itemIds.size, 0, itemIds.size, 0)
+        state.memberships.removeAll(gone)
+        prune(state)
+        return commit(state, BatchReport(itemIds.size, gone.size, itemIds.size - gone.size, 0))
+    }
+
+    /** Removes these items from `Bookmarks` only; wishlist memberships and sessions are untouched. */
+    fun deleteBookmarks(itemIds: List<String>): BatchReport {
+        val state = readState()
+        val bookmarks = state.folders.firstOrNull { it.reserved == ReservedCollection.BOOKMARKS }
+            ?: return failed(itemIds, "There is no Bookmarks collection.")
+        val gone = state.memberships.filter { it.collectionId == bookmarks.id && it.itemId in itemIds }.toSet()
+        if (gone.isEmpty()) return BatchReport(itemIds.size, 0, itemIds.size, 0)
+        state.memberships.removeAll(gone)
+        prune(state)
+        return commit(state, BatchReport(itemIds.size, gone.size, itemIds.size - gone.size, 0))
+    }
+
+    /** Copies the selected results of [sourceSessionId] into [targetFolderId] as direct items. */
+    fun copySessionEntries(
+        itemIds: List<String>,
+        sourceSessionId: String,
+        targetFolderId: String,
+    ): BatchReport = transferSessionEntries(itemIds, sourceSessionId, targetFolderId, move = false)
+
+    /**
+     * Moves the selected results **out** of [sourceSessionId] into [targetFolderId].
+     *
+     * The session keeps its other results and its order; the moved result becomes a direct item of
+     * the target folder, so it is still reachable and still bookmarked if it was.
+     */
+    fun moveSessionEntries(
+        itemIds: List<String>,
+        sourceSessionId: String,
+        targetFolderId: String,
+    ): BatchReport = transferSessionEntries(itemIds, sourceSessionId, targetFolderId, move = true)
+
+    private fun transferSessionEntries(
+        itemIds: List<String>,
+        sourceSessionId: String,
+        targetFolderId: String,
+        move: Boolean,
+    ): BatchReport {
+        val state = readState()
+        val session = state.sessions.firstOrNull { it.id == sourceSessionId }
+            ?: return failed(itemIds, "That session no longer exists.")
+        val target = state.folders.firstOrNull { it.id == targetFolderId }
+            ?: return failed(itemIds, "That folder no longer exists.")
+        if (target.isReserved) return failed(itemIds, "Bookmarks cannot receive results.")
+        val wanted = itemIds.toSet()
+        val entries = state.entries.filter { it.sessionId == session.id && it.itemId in wanted }
+        if (entries.isEmpty()) return BatchReport(itemIds.size, 0, itemIds.size, 0)
+        var changed = 0
+        var skipped = itemIds.size - entries.map { it.itemId }.toSet().size
+        for (entry in entries.toList()) {
+            val item = state.items.firstOrNull { it.id == entry.itemId }
+            if (item == null || item.kind == ItemKind.WORKBOOK_MATCH) {
+                // Comparison rows exist only inside their session and are never promoted.
+                skipped++
+                continue
+            }
+            if (state.memberships.none { it.itemId == item.id && it.collectionId == target.id }) {
+                state.memberships.add(Membership(item.id, target.id, clock()))
+            }
+            if (move) state.entries.remove(entry)
+            changed++
+        }
+        prune(state)
+        return commit(state, BatchReport(itemIds.size, changed, skipped, 0))
+    }
+
+    /** Removes selected results from one session only; bookmarks and folder memberships survive. */
+    fun removeSessionEntries(itemIds: List<String>, sessionId: String): BatchReport {
+        val state = readState()
+        val session = state.sessions.firstOrNull { it.id == sessionId }
+            ?: return failed(itemIds, "That session no longer exists.")
+        val wanted = itemIds.toSet()
+        val entries = state.entries.filter { it.sessionId == session.id && it.itemId in wanted }
+        if (entries.isEmpty()) return BatchReport(itemIds.size, 0, itemIds.size, 0)
+        var skipped = itemIds.size - entries.map { it.itemId }.toSet().size
+        var removed = 0
+        for (entry in entries.toList()) {
+            val item = state.items.firstOrNull { it.id == entry.itemId }
+            // A comparison row is part of the session's own record: never removed one by one.
+            if (item != null && item.kind == ItemKind.WORKBOOK_MATCH) {
+                skipped++
+                continue
+            }
+            state.entries.remove(entry)
+            removed++
+        }
+        prune(state)
+        return commit(state, BatchReport(itemIds.size, removed, skipped, 0))
+    }
+
+    /** Moves whole sessions (profiles) to another ordinary folder; their results move with them. */
+    fun moveSessionsToFolder(sessionIds: List<String>, targetFolderId: String): BatchReport {
+        val state = readState()
+        val target = state.folders.firstOrNull { it.id == targetFolderId }
+            ?: return failed(sessionIds, "That folder no longer exists.")
+        if (target.isReserved) return failed(sessionIds, "Bookmarks cannot hold a session.")
+        var changed = 0
+        var skipped = 0
+        for (id in sessionIds.distinct()) {
+            val index = state.sessions.indexOfFirst { it.id == id }
+            if (index < 0) {
+                skipped++
+                continue
+            }
+            val session = state.sessions[index]
+            if (session.folderId == target.id) {
+                skipped++
+                continue
+            }
+            state.sessions[index] = withFolder(session, target.id)
+            changed++
+        }
+        return commit(state, BatchReport(sessionIds.size, changed, skipped, 0))
+    }
+
+    /**
+     * Copies whole sessions into [targetFolderId].
+     *
+     * The copy is a new session with its own id, holding the **same items** in the same order - no
+     * item is duplicated, so a bookmark or another folder's membership stays shared. The captured
+     * scan thumbnail is not copied: that file belongs to the original session and would be deleted
+     * with it.
+     */
+    fun copySessionsToFolder(sessionIds: List<String>, targetFolderId: String): BatchReport {
+        val state = readState()
+        val target = state.folders.firstOrNull { it.id == targetFolderId }
+            ?: return failed(sessionIds, "That folder no longer exists.")
+        if (target.isReserved) return failed(sessionIds, "Bookmarks cannot hold a session.")
+        var changed = 0
+        var skipped = 0
+        for (id in sessionIds.distinct()) {
+            val session = state.sessions.firstOrNull { it.id == id }
+            if (session == null) {
+                skipped++
+                continue
+            }
+            val now = clock()
+            val copy = SearchSession(
+                id = uniqueSessionId(state),
+                folderId = target.id,
+                kind = session.kind,
+                title = copiedTitle(session.title),
+                query = session.query,
+                createdAtMillis = now,
+                scanThumbName = null,
+            )
+            state.sessions.add(copy)
+            state.entries
+                .filter { it.sessionId == session.id }
+                .sortedBy { it.position }
+                .forEach { entry -> state.entries.add(SessionEntry(copy.id, entry.itemId, entry.position, now)) }
+            changed++
+        }
+        return commit(state, BatchReport(sessionIds.size, changed, skipped, 0))
+    }
+
+    /** Deletes whole sessions and their entries; items used elsewhere survive. */
+    fun deleteSessions(sessionIds: List<String>): BatchReport {
+        val state = readState()
+        val doomed = state.sessions.filter { it.id in sessionIds }
+        if (doomed.isEmpty()) return BatchReport(sessionIds.size, 0, sessionIds.size, 0)
+        val ids = doomed.map { it.id }.toSet()
+        state.sessions.removeAll(doomed)
+        state.entries.removeAll { it.sessionId in ids }
+        prune(state)
+        return commit(state, BatchReport(sessionIds.size, doomed.size, sessionIds.size - doomed.size, 0), doomed)
+    }
+
+    /**
+     * Copies whole folders: a new folder per source, holding copies of its sessions (same items) and
+     * its direct memberships. The reserved collection is never copied.
+     */
+    fun copyFolders(folderIds: List<String>): BatchReport {
+        val state = readState()
+        var changed = 0
+        var skipped = 0
+        for (id in folderIds.distinct()) {
+            val source = state.folders.firstOrNull { it.id == id }
+            if (source == null || source.isReserved) {
+                skipped++
+                continue
+            }
+            val now = clock()
+            val copy = WishlistFolder(
+                id = uniqueFolderId(state),
+                name = uniqueFolderName(state, copiedTitle(source.name)),
+                kind = source.kind,
+                createdAtMillis = now,
+            )
+            state.folders.add(copy)
+            state.memberships
+                .filter { it.collectionId == source.id }
+                .forEach { m -> state.memberships.add(Membership(m.itemId, copy.id, now)) }
+            state.sessions
+                .filter { it.folderId == source.id }
+                .sortedBy { it.createdAtMillis }
+                .forEach { session ->
+                    val sessionCopy = SearchSession(
+                        id = uniqueSessionId(state),
+                        folderId = copy.id,
+                        kind = session.kind,
+                        title = session.title,
+                        query = session.query,
+                        createdAtMillis = session.createdAtMillis,
+                        scanThumbName = null,
+                    )
+                    state.sessions.add(sessionCopy)
+                    state.entries
+                        .filter { it.sessionId == session.id }
+                        .sortedBy { it.position }
+                        .forEach { entry ->
+                            state.entries.add(SessionEntry(sessionCopy.id, entry.itemId, entry.position, now))
+                        }
+                }
+            changed++
+        }
+        return commit(state, BatchReport(folderIds.size, changed, skipped, 0))
+    }
+
+    /**
+     * Deletes whole folders, their sessions and their direct memberships, exactly like the
+     * single-folder action. Bookmarked items and items in other folders survive; so does the
+     * reserved collection itself.
+     */
+    fun deleteFolders(folderIds: List<String>): BatchReport {
+        val state = readState()
+        val doomed = state.folders.filter { it.id in folderIds && !it.isReserved }
+        if (doomed.isEmpty()) return BatchReport(folderIds.size, 0, folderIds.size, 0)
+        val ids = doomed.map { it.id }.toSet()
+        val sessions = state.sessions.filter { it.folderId in ids }
+        val sessionIds = sessions.map { it.id }.toSet()
+        state.folders.removeAll(doomed)
+        state.memberships.removeAll { it.collectionId in ids }
+        state.sessions.removeAll(sessions)
+        state.entries.removeAll { it.sessionId in sessionIds }
+        prune(state)
+        val skipped = folderIds.size - doomed.size
+        return commit(state, BatchReport(folderIds.size, doomed.size, skipped, 0), sessions)
+    }
+
+    private fun withFolder(session: SearchSession, folderId: String): SearchSession = SearchSession(
+        session.id, folderId, session.kind, session.title, session.query,
+        session.createdAtMillis, session.scanThumbName,
+    )
+
+    /** `"Name"` -> `"Name (copy)"`; copied names stay readable instead of stacking suffixes. */
+    private fun copiedTitle(name: String): String = name.trim().ifEmpty { "Untitled" } + " (copy)"
+
+    private fun uniqueFolderName(state: State, wanted: String): String {
+        if (state.folders.none { it.name.equals(wanted, ignoreCase = true) }) return wanted
+        var n = 2
+        while (state.folders.any { it.name.equals("$wanted $n", ignoreCase = true) } && n < 100) n++
+        return "$wanted $n"
+    }
+
+    private fun failed(ids: List<String>, message: String): BatchReport =
+        BatchReport(ids.size, 0, 0, ids.size, message)
+
+    /** Writes a batch once. A failed write reports failure and leaves the stored file untouched. */
+    private fun commit(
+        state: State,
+        report: BatchReport,
+        removedSessions: List<SearchSession> = emptyList(),
+    ): BatchReport {
+        if (report.changed == 0) return report
+        return try {
+            save(state)
+            // Only after the new file is safely in place may the old scan thumbnails go.
+            removedSessions.forEach { removeScanThumb(it) }
+            report
+        } catch (e: Exception) {
+            BatchReport(
+                requested = report.requested,
+                changed = 0,
+                skipped = report.skipped,
+                failed = report.requested,
+                message = "Could not save the change: " + (e.message ?: e.toString()),
+            )
+        }
+    }
+
+    // =========================================================================================
     // Internals
     // =========================================================================================
 

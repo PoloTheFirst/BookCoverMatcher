@@ -1,6 +1,8 @@
 package com.bookcovermatcher.data
 
 import android.content.Context
+import com.bookcovermatcher.core.online.SearchLimits
+import com.bookcovermatcher.core.online.SearchRouting
 
 /**
  * User-controlled settings for the online-search feature.
@@ -37,10 +39,29 @@ class OnlineSearchPrefs(context: Context) {
         get() = sp.getString(KEY_TARGET_LANGUAGE, "") ?: ""
         set(value) { sp.edit().putString(KEY_TARGET_LANGUAGE, value.trim().lowercase().take(2)).apply() }
 
-    /** How many catalogue results to ask for. Clamped by [OpenLibraryBooksSource.MAX_LIMIT]. */
+    /**
+     * How many online results to ask for (it is a maximum, never a promise).
+     *
+     * Validated by [SearchLimits]: an unknown or corrupted value falls back to the default rather
+     * than being sent to a provider. The **offline** workbook comparison has its own fixed limit
+     * (`Config.TOP_MATCHES = 5`) and is not affected by this preference.
+     */
     var resultLimit: Int
-        get() = sp.getInt(KEY_LIMIT, DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
-        set(value) { sp.edit().putInt(KEY_LIMIT, value.coerceIn(1, MAX_LIMIT)).apply() }
+        get() = SearchLimits.sanitize(sp.getInt(KEY_LIMIT, SearchLimits.DEFAULT))
+        set(value) { sp.edit().putInt(KEY_LIMIT, SearchLimits.sanitize(value)).apply() }
+
+    /**
+     * The platforms the user selected, as `ProviderCatalog` ids.
+     *
+     * Never written → the automated providers (what v2.2.1 always searched). An empty set is kept as
+     * empty: "search nothing" is a real choice and must not silently revert to the defaults. Unknown
+     * ids are dropped by [SearchRouting.sanitize], so a provider removed in a later build cannot linger.
+     */
+    var selectedProviders: Set<String>
+        get() = SearchRouting.sanitize(sp.getStringSet(KEY_PROVIDERS, null))
+        set(value) {
+            sp.edit().putStringSet(KEY_PROVIDERS, SearchRouting.sanitize(value)).apply()
+        }
 
     /** Run the catalogue search straight after a successful OCR pass. */
     var autoSearch: Boolean
@@ -53,9 +74,7 @@ class OnlineSearchPrefs(context: Context) {
         const val KEY_OCR_LANGUAGE = "online_ocr_language"
         const val KEY_TARGET_LANGUAGE = "online_target_language"
         const val KEY_LIMIT = "online_limit"
+        const val KEY_PROVIDERS = "online_providers"
         const val KEY_AUTO_SEARCH = "online_auto_search"
-
-        const val DEFAULT_LIMIT = 5
-        const val MAX_LIMIT = 10
     }
 }

@@ -70,6 +70,15 @@ interface ProductSearchDataSource {
     val name: String
 
     /**
+     * The most results this provider can return for one request.
+     *
+     * The user's configured count is capped by this value ([SearchLimits.forProvider]), so a provider
+     * with a single results page never promises more than it can deliver.
+     */
+    val maxResults: Int
+        get() = SearchLimits.MAX
+
+    /**
      * Free-text search. Must return [ProductSearchOutcome.Empty] when nothing matched and throw
      * [ProductSourceException] when the request itself failed.
      */
