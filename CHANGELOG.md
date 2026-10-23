@@ -1,155 +1,167 @@
-# Changelog
+# Added more providers
 
-All notable changes are recorded here. Versions follow the project's user-visible feature notes.
+## v2.2.2 — 2026-10-23
 
-## 2.2.1 — 2026-10-22
+A design correction for the online-search panel. Users choose which platforms to search, every platform has its own browser link, and the online result count is configurable instead of being fixed at five. The offline workbook matcher, the saved-data structure (`records.json` v3: folder → session → results, with an independent `Bookmarks` collection) and the bookmark rules are unchanged.
 
-Design correction for the online provider layer. 2.2.0 shipped two providers, both bibliographic
-catalogues, which is not the workflow this app exists for (Japanese doujinshi, commercial doujinshi,
-secondhand listings, digital works) and which gave the panel no way to say which provider had
-actually been asked. The saved-data model, the offline matcher and the bookmark rules are unchanged.
+## Added
 
-### Added
+* **Platform selection.** All ten platforms are drawn from `ProviderCatalog` as cards: the three the app can query (Open Library, Google Books, DLsite) and the seven browser-only shortcuts (Melonbooks, Suruga-ya, Doujin no Mori, E-Hentai, Doujinshi.info, MyAnimeList, nhentai). The card body is a checkbox-role target that selects or deselects an **automated** platform; its `Open ↗` control is a separate sibling target that opens that platform's search page and never changes the selection. Selection is persisted in `bookcover_online` (`online_providers`) and validated by `SearchRouting`.
+* **Selected/unselected styling.** A selected card uses the blue accent with a soft glow, a thicker accent border and a check mark (shape, not colour alone); an unselected card keeps a subdued surface and muted text but remains fully usable, link included.
+* **A browser link for every platform.** `ProviderLinks` builds each search URL from the current query (UTF-8, `%20`), falls back to the platform's landing page when the query is blank, and rejects any result that is not HTTPS on that platform's own host.
+* **Configurable online result count.** 5 / 10 / 20 / 30 / 50 (default 5), persisted as `online_limit` and applied per provider through each adapter's cap (`SearchLimits.forProvider`).
+* **Doujin no Mori, Doujinshi.info, MyAnimeList and nhentai are browser-only shortcuts.** Doujin no Mori (`doujinnomori.com`) answers and its `/comics/free-search?keyword=` page is server-rendered, but its `robots.txt` says `Disallow: /comics/free-search` — the search route itself — so the app links to it without querying it. Doujinshi.info answers HTTP 403 to automated requests; MyAnimeList has no unauthenticated API and its `/topmanga` URL is a 404; nhentai answers HTTP 403 (Cloudflare) and is an adult catalogue. E-Hentai's `robots.txt` disallows `/s/` and `/codegen.php`, so its card only opens the site's own search page. None of them is parsed, stored or counted as an in-app result.
 
-* **Provider expansion — five providers declared, three actually queried.** `ProviderCatalog` lists
-  **Open Library**, **Google Books**, **Melonbooks**, **Suruga-ya** and **DLsite**; the controller
-  searches the first two plus DLsite concurrently, each with its own 20-second deadline.
-  * **DLsite adapter** (`DlsiteSource` + `DlsiteResponseParser` + `HtmlText`): public books search
-    page, Japanese query percent-encoded as UTF-8, reading the work id (`RJ…`), title, circle, the
-    shop's *current* price and the 240×240 cover. No HTML dependency; the parser is fixture-tested
-    against captured pages in `app/src/test/resources/fixtures`.
-  * **Melonbooks and Suruga-ya are browser-only.** Both answered HTTP 403 to `robots.txt` *and* to
-    their search URL, with a browser user agent and with the app's own (measured 2026-10-22). The app
-    sends them no request at all; their provider row opens the shop's own search page instead.
-  * **Per-provider status rows** (`ProviderStatusUi`): results / no match / failure / manual, so a
-    partial search can never read as a complete one and a browser-only provider is never counted.
-  * Result cards name their provider; a shop listing shows the price the shop printed, while
-    availability stays `—` because no provider sends it.
+## Changed
 
-### Changed
+* **Search routing follows the selection.** Only selected automated platforms are queried, concurrently and with a 20-second deadline each; one failure never hides another provider's results. Selecting only browser-only platforms issues no request at all and shows a browser-handoff message.
+* **Honest per-provider states:** results / no match / failed / blocked / searching / browser-only /
+  not selected. A skipped or browser-only platform is never counted as an answered provider, and its
+  card still offers its link.
+* **Session cache key** now includes the requested maximum and the selection, so a cached five-result answer cannot satisfy a request for twenty; changing either cancels an in-flight search and drops the stale entry.
+* **Result header** reports the number of cards actually drawn, the configured maximum, and states when fewer than the maximum arrived.
+* **Melonbooks is browser-only and unselectable** by explicit product decision: its card stays, its link stays, and it is never queried in the app. Its adapter and parser remain in the tree, unregistered and covered by their own tests. **Suruga-ya** stays browser-only because its readable `robots.txt` disallows `/search/`. A browser-only card cannot be toggled into the selected set, and a selection stored by an older build is filtered on read.
+* Version code/name: **204 / 2.2.2**.
 
-* `OnlineFailure.BLOCKED` classifies HTTP 401/403/451 instead of calling them a bad response.
-* A shop listing ranks `RANK_MARKETPLACE` above a catalogue record (`RANK_CATALOGUE`); provider
-  identity (`dl:rj…`) keeps a DLsite work and a library record of a similar title as two results.
-* Result cards show the provider chip where they used to show only the domain chip.
-* Version code/name: **203 / 2.2.1**.
+## Verified
 
-### Verified
+* Unit tests: `.\gradlew.bat :app:testDebugUnitTest` — **259 tests, 0 failures** (3 live checks skipped by design).
+* Compose UI tests: **none executed.** The project has no `androidx.compose.ui:ui-test-junit4` dependency and no emulator or device was attached (`adb devices` empty), so selection toggling, the glow/dim styling and the independence of the link control are covered by pure-logic tests (`SearchRoutingTest`, `ProviderLinksTest`) and by compilation — not by an interaction test.
+* Live providers (`.\\gradlew.bat :app:testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks`) — **3 tests, 0 failures, 0 skipped**: Open Library and DLsite returned real records for a real query; Google Books was found or correctly reported `RATE_LIMITED`. Melonbooks left the live suite with its registration, so the live run makes no request to it.
+* Build: `.\gradlew.bat :app:assembleDebug` — **BUILD SUCCESSFUL** (`app-debug.apk`).
 
-* JVM: **184 tests**, 0 failures (`testDebugUnitTest`; 3 live checks skipped by design).
-* Live providers (`-DonlineCheck=1`): **184 tests**, 0 failures and all three live checks executed —
-  Open Library returned real records, **DLsite returned real works for `東方`** (ids, Japanese
-  titles, circles, `924円`-style prices, `img.dlsite.jp` covers, `dlsite.com` product URLs), Google
-  Books was found or correctly reported `RATE_LIMITED`.
-* Provider access probe (2026-10-22): Melonbooks and Suruga-ya answered **HTTP 403** to `robots.txt`
-  and to their search URL, with both a browser UA and the app UA. Browser hand-off only.
-* `assembleDebug` green.
+## Known limitations
 
-### Known limitations
+* **Suruga-ya remains browser-only.** Its `robots.txt` (HTTP 200) contains `User-agent: *` → `Disallow: /search/` with `Crawl-delay: 30`; the search page answers, but its own rules exclude the endpoint, so the app never queries it and offers `Open ↗` instead.
+* **Melonbooks is browser-only in this build.** Its card and its link stay, but the app never queries it: the adapter and parser remain in the tree, unregistered, and only their offline fixture tests run.
+* **DLsite is first-page-only (30 works)** and its paged URLs are disallowed by its robots file; **Google Books caps one request at 40** and can answer 429 without a key. A selected maximum is therefore never a promise.
+* **UI interactions and visual styling were not verified on a device or emulator** — none was available and the project has no Compose UI-test infrastructure.
+* **Visual image-similarity search remains unimplemented.** Every online result is a text match on OCR'd or typed text; no provider performs an image search.
 
-* **Melonbooks and Suruga-ya cannot be searched by the app.** Both refuse automated clients (HTTP 403,
-  `robots.txt` included); their rows open a browser search and are never counted as answered.
-* **DLsite results are its books section, first page only.** The listing has no stock, description or
-  rating; the app shows the shop's current price and nothing it did not receive.
-* Visual image-similarity search is not implemented; a provider text search is not a visual match.
+## v2.2.2 patch — image name, copyable OCR text, batch management, provider correction
 
-
-## 2.2.0 — 2026-10-22
-
-Corrective release. Supersedes the unreleased 2.3.0 working-tree iteration; nothing under that label
-was published, and its "folder containing five items" model was removed.
+Still **2.2.2** (`versionCode 204`). This patch fixes and extends the same release; it adds no new
+release version and no tag.
 
 ### Fixed
 
-* **Online search could never be used.** The online controller's `StateFlow` was not mirrored into
-  `UiState.online`, so the panel always rendered the default off state and returned early. The
-  controller is now collected into `UiState`; the persisted switch and the UI agree.
-* **Offline saves had the wrong data shape.** A saved scan used to become a new folder containing
-  five independently removable workbook rows. It now becomes one **session** inside a folder the
-  user chooses. Scans never create folders, folders can hold many sessions/results, and workbook
-  rows are read-only comparison output.
-* **Bookmarks could not be ordered inside a session** because there were no sessions. Bookmarked
-  results are now shown first inside their session; bookmark membership and folder membership stay
-  independent.
-* **OCR geometry could be misaligned**: a Lens block containing an internal newline shifted
-  `block_heights` relative to lines. `lens_bridge.py` now emits one line per block, and
-  `OcrQueryExtractor` pairs each height with its source line before filtering.
-* **Instrumentation contexts with a null `applicationContext`** made the embedded Python runtime
-  report `RUNTIME_MISSING`; `PythonRuntime` now falls back to the supplied context.
-* **Catalogue result count** is the merged, unique, displayable list; failures and placeholders are
-  not counted.
+* **The selected image's name is shown.** After a picker selection the status line shows the file's
+  own display name with its extension (`book_cover.jpg`, `scan_001.png`, `cover.webp`), read through
+  `ContentResolver` + `OpenableColumns.DISPLAY_NAME`. The name is set only after a successful decode,
+  so a failed pick never shows a name next to the previous cover. A camera capture has no file, so it
+  clears the name back to the `No image chosen` placeholder. The pure mapping is `ImageFiles.labelFor`
+  (unit-tested): provider name, then the URI's last segment, then a MIME-based fallback, never an
+  opaque content id.
+* **Read the Cover can be copied from.** The field stays read-only, but its text is now inside a
+  `SelectionContainer`, so a long-press selects part or all of it and the system Copy command works.
+  Selecting or copying never changes the OCR text, the query or the catalogue state.
+* **Melonbooks is browser-only and unselectable.** Its card, note and `Open` link remain; its body is
+  no longer clickable and `SearchRouting` drops the id from any stored selection. The adapter and
+  parser stay in the tree, unregistered, with their fixture tests.
 
 ### Added
 
-* Bottom navigation with **Home**, **Search**, **Wishlist**, **More**.
-* Persistent folder → session → results model (`records.json` **v3**) with:
-  * idempotent reserved `Bookmarks` folder;
-  * `sessions`, `entries` and direct `memberships`;
-  * migrations from v1 records (unfiled sessions, no invented folder) and v2 collections (workbook
-    rows repaired into sessions; bookmarks preserved; legacy payload retained).
-* Session screen with comparison-only offline rows and bookmarks-first ordering.
-* Google Books as a second real catalogue, merged with Open Library. Per-catalogue failures are
-  reported (`CatalogueUi.Found.note`), and a total failure is `CatalogueUi.Failed`.
-* **Search Results tabs** as the workflow image draws them: `Workbook (n) / Online (n) /
-  Bookmarks (n)` with live counts, `Found n workbook match(es)` above the comparison, the bulk
-  `Add entire result profile to wishlist` on the Workbook tab, and `Bookmark all results` plus a
-  collection shortcut on the Bookmarks tab. Built on a shared `SegmentedTabRow` / `SegmentedTab`
-  component that the Wishlist sections reuse.
-* Folder picker for both individual adds and session saves; explicit "create new folder" remains a
-  user action.
-* `Bookmark all results`, `Add entire result profile to wishlist`, and per-card bookmark/wishlist
-  actions with real counts and undo.
-* Opt-in live catalogue tests (`-DonlineCheck=1`) and three on-device tests (OCR, catalogues,
-  controller).
+* **Multi-selection and batch actions** for the Wishlist lists, each action one atomic repository
+  write (`WishlistRepository`):
 
-### Changed
+  | List | Copy | Move | Delete |
+  |---|---|---|---|
+  | Bookmarks | into any folder, bookmark kept | not offered (a bookmark *is* a Bookmarks membership; moving it would un-bookmark it) | removes the bookmark only |
+  | Saved items in a folder | into any folder | to another folder, source membership removed | removes it from that folder only |
+  | Sessions (profiles) | new session, same items, ` (copy)` suffix | to another folder | session and its entries |
+  | Session results | into a folder | into a folder, entry removed from the session | removes the entry, never a comparison row |
+  | Folders | new folder with copies of its sessions and direct items | not offered (the model is flat, a folder has no parent, so no cycle is possible) | folder, its sessions and memberships |
 
-* `WishlistRepository` is now folder/session based; the v1 `add/rename/delete` record API was
-  removed (its migration path is retained).
-* `WishlistOverlay` was replaced by the Wishlist destination; the header star button was removed.
-* Online panel copy and settings say "catalogues" and name both providers; the "visual match" claim
-  is explicitly absent.
-* Version code/name: **202 / 2.2.0**.
+  Selection is navigation state only: `Select` on a list, a count plus Select all / Clear / Done, a
+  per-row check mark, and a Copy / Move / Delete bar. Leaving the screen, switching tab or pressing
+  Back drops it. Deletion asks first and names the count and the scope. Undo is **not** offered:
+  there is no safe reversed write in this store.
+* **Membership integrity is now pinned by tests:** deleting a bookmark keeps the wishlist entry,
+  removing an item from a folder keeps its bookmark and other folder memberships, moving a result out
+  of a session keeps its bookmark, and copying never duplicates an item or a membership.
+* **Doujin no Mori / Doujinshi.info / MyAnimeList / nhentai cards** (browser-only, unselectable). Each
+  shortcut carries the query; none of them can be selected or queried.
 
 ### Verified
 
-* JVM: **165 tests**, 0 failures (`testDebugUnitTest`, and with `-DonlineCheck=1`).
-* Python bridge contract: `tools/lens_bridge_check.py` passes.
-* On-device (emulator `Medium_Phone_API_37.0`, x86_64): **3/3** instrumented tests pass, including a
-  real Lens OCR read of the bundled Hobbit cover and a real Open Library query through the
-  controller.
-* Debug APK builds; manual smoke test covered navigation, folder creation, bookmark creation,
-  bookmark-to-folder, and persistence across restart.
+* Unit tests: **259 tests, 0 failures** (3 live checks skipped by design), including 19 new
+  repository batch tests and 8 image-label tests.
+* Build: `.\gradlew.bat :app:assembleDebug` — BUILD SUCCESSFUL.
+* Compose interaction tests: still **none executed** — the project has no `androidx.compose.ui:ui-test-junit4`
+  dependency and no emulator/device is attached. Selection styling, the batch bar and text selection
+  are therefore covered by compilation and by pure-logic tests, not by an interaction test.
 
 ### Known limitations
 
-* Visual image-similarity search is not implemented; OCR + catalogue text search is not a visual
-  match.
-* Google Books can return HTTP 429 without a key; the app reports `RATE_LIMITED` (Open Library still
-  works). No API key is shipped.
-* Camera capture and a full workbook match were not exercised on the available emulator.
-* The supplied workflow image is kept outside this repository
-  (`.../Downloads/workflow_image.png`). Its Search screen - result tabs, `Bookmark all results`,
-  bulk add, bookmarked-first ordering - is implemented; its profile cards are user-named folders with
-  no built-in genre taxonomy, and the `Visual match`, price, availability and marketplace chips stay
-  honest empty states because no provider in this build supplies them.
-* Screenshots/interaction timings in the image (a back arrow inside the results screen, cover art
-  inside profile cards) are approximated by the app's own components; the information structure, not
-  the pixels, is what was matched.
+* **Doujin no Mori is browser-only** because its own `robots.txt` disallows `/comics/free-search`.
+  Doujinshi.info (HTTP 403), nhentai (HTTP 403) and MyAnimeList (no unauthenticated API) are
+  browser-only for their own measured reasons.
+* **E-Hentai, Melonbooks and Suruga-ya are browser-only.** E-Hentai is an adult catalogue behind the
+  site's own age acknowledgement and its `robots.txt` disallows `/s/` and `/codegen.php`; the app
+  never parses or stores those results.
+* **A copied session or folder does not copy the captured scan thumbnail** — that file belongs to the
+  original session and is deleted with it. Results, titles, queries and membership are preserved.
 
-## 2.1.0 — 2026-10-21
+## v2.2.2 continuation — three more catalogue methods, batch UI completed
 
-* Native Android rewrite with OpenCLIP offline matching, Excel picture extraction, CameraX and
-  Auto Scan.
-* Optional online panel: chrome-lens-py OCR + Open Library catalogue lookup, switched off by
-  default.
-* Wishlist records (a saved scan plus its five matches), thumbnails, shared `MiniJson` codec.
-* 110 JVM tests at the time; OCR on a device remained unverified.
+Still **2.2.2** (`versionCode 204`); no new version and no tag.
 
-## 2.0.0 — 2026-10-20
+### Providers
 
-* First native Kotlin/Compose rewrite of the v1 web prototype.
+* **Doujin no Mori (`dm`)** — the entry previously named "DoujinMori" pointed at `doujinmori.com` /
+  `doujin-mori.com`, which do not exist; that was a naming error, not evidence about the site. It is
+  now named correctly, uses `doujinnomori.com`, and its shortcut is the verified
+  `https://doujinnomori.com/comics/free-search?keyword=<percent-encoded query>`. The page answers 200
+  and is server-rendered, but the site's own `robots.txt` says `Disallow: /comics/free-search` — the
+  search route itself — so it stays browser-only and unselectable. The id stays `dm`; a browser-only
+  id can never be in a saved selection (it is dropped on read), so no migration is needed.
+* **Doujinshi.info (`di`)** — browser-only. `/works?query=` is the site's own route and its
+  `robots.txt` allows everything, but every request from an automated client answers **HTTP 403**. The
+  shortcut carries the query; the user handles the site's "show adult content" control themselves.
+* **MyAnimeList (`mal`)** — browser-only. `/topmanga` answers **404**, so the card uses the site's real
+  manga search, `/manga.php?q=<query>&cat=manga`. No scraping: there is no unauthenticated API and the
+  terms do not permit automated collection.
+* **nhentai (`nh`)** — browser-only. Home, `robots.txt` and `/search/?q=` all answer **HTTP 403**
+  (Cloudflare) and the catalogue is adult content; the card opens the site's own search page, where its
+  age gate applies. The app makes no request, sets no cookie and adds no adult fixture.
 
-## 1.1.0 / 1.0.0
+All ten cards keep the existing theme: the three in-app providers glow blue when selected, the seven
+browser-only ones are dimmed with a warm border, a `Browser only` chip and a body that is not a toggle.
+Every card keeps its own `Open` link, which never changes the selection.
 
-* Original web prototype releases (see the repository history).
+### Batch management: the UI is now complete
+
+The earlier state had the repository operations and a selection state, but the only way in was a small
+text link, there was no explanation of the actions, the action bar had no Done, and a stale id could
+survive a delete. That is fixed:
+
+* a labelled **Select** button (with a checkbox glyph) in the header of every selectable list, plus
+  **long-press on a row** to enter selection mode with that row already selected;
+* a pinned panel showing `n selected`, a one-line explanation of what Copy/Move/Delete will do for
+  that list, and **Select all / Clear / Done**;
+* a pinned action bar with the count, **Copy / Move / Delete** and **Done** — only actions the model
+  supports are drawn (no Move for folders or bookmarks);
+* `SelectionLogic` (new, unit-tested) owns toggle / select-all / clear / reconcile and per-kind
+  capability checks; `publish()` reconciles the live selection against the visible rows, so a deleted
+  row can never be acted on;
+* `requestBatchMove` refuses a kind without a destination instead of silently copying;
+* the failure path is pinned: with `records.json` read-only, a batch reports `changed = 0, failed = n`
+  and a reload still shows the old data.
+
+### Verified
+
+* Unit tests: **259 tests, 0 failures** (3 live checks skipped by design), including 13 selection-logic
+  tests and the 19 repository batch tests.
+* Build: `.\gradlew.bat :app:assembleDebug` — BUILD SUCCESSFUL.
+* Compose UI tests: **none executed** — no `ui-test-junit4` dependency and no device/emulator. The
+  exact manual steps are in `USER_GUIDE.md` under "Batch actions".
+
+### Known limitations
+
+* The batch workflow's visible interactions were **not** exercised on a device here; the state rules
+  and every repository operation are unit-tested and the manual checklist is documented.
+* Doujinshi.info, nhentai and MyAnimeList cannot be searched in-app (403 / no API / terms).
+* A result selected inside a session moves into a **folder**, not into another session: a session is
+  the record of one search, and re-homing a result would rewrite that record.
+* A copied session or folder does not copy the captured scan thumbnail (it belongs to the original
+  session).
