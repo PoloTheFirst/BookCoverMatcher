@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.2.2)
+# Architecture and developer notes (v2.2.3)
 
 ## Layers
 
@@ -76,8 +76,9 @@ ProviderCatalog (core/online)      ten ProviderSpec rows: id, host, access, note
   `RANK_MARKETPLACE` for a shop listing and `RANK_CATALOGUE` for a bibliographic record.
 * The **session cache entry** carries the query, the requested maximum and the selection key, so a
   cached answer is reused only for the same cover *and* the same request.
-* `ProviderLinks` builds and validates every browser link (https, own host, no credentials, `%20`
-  encoding, landing page for a blank query) outside Compose, so link behaviour is unit-tested.
+* `ProviderLinks` builds and validates every browser link (https, own host, no credentials, the
+  platform's own query form — `%20`, or `+` for DLsite — landing page for a blank query) outside
+  Compose, so link behaviour is unit-tested.
 * `ui/PlatformPicker.kt` draws the cards: a checkbox-role toggle row plus a **sibling** link button,
   so the two click targets can never overlap. A browser-only card has no toggle node at all, a
   `Browser only` chip, a warm border and either a link button or `No link`.
@@ -96,6 +97,13 @@ ProviderCatalog (core/online)      ten ProviderSpec rows: id, host, access, note
   session entry references it.
 * Session result ordering is computed: bookmarked items first, then entry position. No write
   reorders other sessions.
+* A result profile is renamed **in place** (`renameSession`): same id, same folder, same
+  `SessionEntry` list. That is the profile counterpart of `renameFolder`, and the UI reuses the folder
+  pencil, dialog and `commitRename` path (`RenameUi.kind` only chooses which repository call runs).
+* `bookmarkExisting(itemId)` adds only the `Bookmarks` membership of an item that already exists, so a
+  result inside a profile can be bookmarked with **no new item record and no changed profile entry**:
+  the entry (`SessionEntry`) and the bookmark (`Membership`) are two references to one item, and
+  `prune()` keeps the item while either exists.
 * `records.json` version 3; v1/v2 migrations run once and retain the old v1 payload under `legacy`.
   Future versions are quarantined rather than overwritten.
 ## Batch operations

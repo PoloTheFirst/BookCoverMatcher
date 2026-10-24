@@ -1,6 +1,6 @@
 # BookCover Matcher
 
-**Version 2.2.2** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.2.3** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -19,7 +19,9 @@ a connection; every online feature is opt-in.
 > and the online result maximum is now chosen (5–50) instead of fixed at five. Open Library, Google
 > Books and DLsite are searched in the app; Melonbooks, Suruga-ya, Doujin no Mori, E-Hentai,
 > Doujinshi.info, MyAnimeList and nhentai are browser-only shortcuts with a card and a link, never
-> part of the in-app selection - see section 6.
+> part of the in-app selection - see section 6. **2.2.3** fixes multi-word DLsite queries (its keyword
+> path needs `+`, not `%20`), lets result profiles be renamed like folders, and lets a result inside a
+> profile be bookmarked without leaving the profile.
 > Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in `ARCHITECTURE.md`.
 ---
 
@@ -206,10 +208,12 @@ capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_br
 * **Melonbooks** - **not queried in this build** (browser-only by product decision). Its adapter and
   parser remain in the tree for reference, unregistered, and are covered by offline fixture tests.
   `robots.txt` answers **HTTP 404** (no rules published); the card keeps its `Open` link.
-* **DLsite** — one request per search to `/books/fsr/=/keyword/<query>`. The adapter reads the work id
-  (`RJ…`), the title, the circle, the **current** price and the 240×240 cover. The listing carries no
-  stock status, description or rating, so those stay `—`. `robots.txt` asks for a 10-second crawl
-  delay and disallows the paged result URLs, so the app never paginates and never retries.
+* **DLsite** — one request per search to `/books/fsr/=/keyword/<query>`. The query is form-encoded
+  (`Blue+Archive`), because that route answers **HTTP 403** to `%20` — verified 2026-10-23. The adapter
+  reads the work id (`RJ…`), the title, the circle, the **current** price and the 240×240 cover. The
+  listing carries no stock status, description or rating, so those stay `—`. `robots.txt` asks for a
+  10-second crawl delay and disallows the paged result URLs, so the app never paginates and never
+  retries.
 * **Suruga-ya** — `robots.txt` is readable (HTTP 200) and contains `User-agent: *` / `Disallow:
   /search/` with `Crawl-delay: 30`. The search page would answer, but its own rules exclude that
   endpoint, so `ProviderCatalog` marks it `BROWSER_ONLY`: the app sends it no request and the card's
@@ -361,7 +365,7 @@ app/src/main/java/com/bookcovermatcher/
                                   ProductResultCard, BookmarkDialogs, Overlays, CameraCard,
                                   components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        259 JVM tests (3 opt-in live provider checks)
+app/src/test/                        285 JVM tests (4 opt-in live provider checks)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
 
@@ -384,7 +388,7 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 ---
 
-## 10. What was broken and what changed (2.2.0 → 2.2.2)
+## 10. What was broken and what changed (2.2.0 → 2.2.3)
 
 1. **Online search was unreachable.** `OnlineSearchController` kept its state in its own
    `StateFlow`, but `MainViewModel` never mirrored it into `UiState.online`. The panel therefore
@@ -410,7 +414,9 @@ No step of this pipeline is online, and the online feature is never consulted by
 8. **Only two providers, and no way to choose them.** 2.2.1 added **Melonbooks** and **DLsite** as
    real providers; 2.2.2 adds the platform picker (select/deselect per platform, `Open ↗` on every
    card), a configurable online result maximum, and a selection-aware search route. **Suruga-ya**
-   stays browser-only because its `robots.txt` disallows `/search/`.
+   stays browser-only because its `robots.txt` disallows `/search/`. **2.2.3** fixes DLsite queries
+   with spaces (`+`, not `%20`), adds the folder-style pencil to result profiles, and lets a profile
+   result be bookmarked into `Bookmarks` while staying in its profile.
 
 ---
 
@@ -418,8 +424,8 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 | Check | Command | Result |
 |---|---|---|
-| JVM unit tests | `.\gradlew.bat testDebugUnitTest` | **259 tests**, 0 failures (3 live checks skipped by design) |
-| JVM + live providers | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | **259 tests**, 0 failures; all three live checks ran: Open Library and **DLsite** returned real records, Google Books was found or correctly `RATE_LIMITED`. Melonbooks left the live suite with its registration, so the run makes no request to it |
+| JVM unit tests | `.\gradlew.bat testDebugUnitTest` | **285 tests**, 0 failures (4 live checks skipped by design) |
+| JVM + live providers | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | **284 tests**, 0 failures; all three live checks ran: Open Library and **DLsite** returned real records, Google Books was found or correctly `RATE_LIMITED`. Melonbooks left the live suite with its registration, so the run makes no request to it |
 | DLsite live query | `DlsiteSource().search("東方", 3)` inside the live suite | **real works returned**: `RJ…` ids, Japanese titles, circle names, prices (`924円`-style), `img.dlsite.jp` covers, `dlsite.com` product URLs |
 | Provider access probe | `GET robots.txt` and the search URL with the app's own UA (2026-10-23) | Melonbooks: robots **404** (no rules), search **200**; Suruga-ya: robots **200** with `Disallow: /search/`; DLsite: robots **200**, paged URLs disallowed |
 | Compose UI tests | none | **Not run**: the project has no `compose.ui:ui-test-junit4` dependency and no emulator/device was attached; platform selection, link independence, the count cap and the batch repository operations are covered by `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest` and `BatchOperationsTest` |
