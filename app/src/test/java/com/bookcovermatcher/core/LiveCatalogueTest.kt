@@ -8,6 +8,7 @@ import com.bookcovermatcher.online.OpenLibraryBooksSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
@@ -104,6 +105,30 @@ class LiveCatalogueTest {
                 ),
             )
             is ProductSearchOutcome.Empty -> Unit
+        }
+    }
+
+    /**
+     * The v2.2.3 regression, live: a query with a space must reach DLsite as one phrase and come back
+     * with real works. Before the fix this request was `keyword/Blue%20Archive`, which DLsite answers
+     * with **HTTP 403** (`BLOCKED`), so this test is the end-to-end proof of the encoding change.
+     */
+    @Test
+    fun dlsiteAnswersAMultiWordQuery() {
+        val outcome = DlsiteSource().search("Blue Archive", 3)
+
+        when (outcome) {
+            is ProductSearchOutcome.Found -> {
+                assertFalse("a multi-word query returned no works", outcome.results.isEmpty())
+                assertTrue(outcome.results.size <= 3)
+                assertTrue(outcome.results.all { it.providerId == "dl" })
+                assertTrue(outcome.results.all { it.title.isNotBlank() })
+            }
+            is ProductSearchOutcome.Failed -> assertTrue(
+                "a multi-word query must not be blocked any more: ${outcome.failure} / ${outcome.message}",
+                outcome.failure in setOf(OnlineFailure.OFFLINE, OnlineFailure.TIMEOUT, OnlineFailure.RATE_LIMITED),
+            )
+            is ProductSearchOutcome.Empty -> fail("DLsite returned no works for a multi-word query")
         }
     }
 

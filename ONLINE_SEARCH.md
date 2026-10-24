@@ -1,4 +1,4 @@
-# Online search, OCR and bookmarks — implementation notes (v2.2.2)
+# Online search, OCR and bookmarks — implementation notes (v2.2.3)
 
 This document describes what the online feature actually does. It deliberately separates four
 capabilities that are easy to confuse:
@@ -61,7 +61,13 @@ deliberate separation: the catalogue step does not require the Python bridge.
   results and displays a note. It does not retry silently.
 
 ### DLsite (books search page)
-* Endpoint: `https://www.dlsite.com/books/fsr/=/keyword/<percent-encoded query>`
+* Endpoint: `https://www.dlsite.com/books/fsr/=/keyword/<form-encoded query>`
+* **Encoding is `+` for a space, not `%20`.** The keyword is a path segment, but DLsite parses it as its
+  own form value and rejects `%20` outright: measured 2026-10-23 with the app's user agent,
+  `keyword/Blue+Archive` → **HTTP 200 with 30 works**, `keyword/Blue%20Archive` → **HTTP 403** (a
+  239-byte error page). That is why every multi-word query used to fail while single words worked.
+  `QueryForm.PLUS` on the `ProviderSpec` plus `ProviderLinks.encode(query, form)` keep the rule in one
+  place; a `+` typed by the user is still `%2B`, so the two cannot be confused.
 * Public HTML page, no key, no cookie, no login. Measured live on 2026-10-22: HTTP 200 with **30 real
   works** for `東方`, and a genuine (empty) result page for a nonsense query — with the app's own user
   agent, not a spoofed browser one.
@@ -165,10 +171,10 @@ the missing trailing slash: it marks Suruga-ya `BROWSER_ONLY`, sends it **no** r
   platform selected it issues no request and reports `CatalogueUi.BrowserOnly`, naming the shortcuts.
 * The cache entry stores query, limit and selection key; a hit requires all three, so a five-result
   answer can never satisfy a twenty-result request. Changing either cancels an in-flight search.
-* Every card link comes from `ProviderLinks` (validated https + own host, `%20`-encoded query,
-  landing page for a blank query) and is independent of the selection. A `ProviderSpec` with no
-  configured page is refused by `ProviderLinks` instead of producing a dead button (unit-tested);
-  every shipped card does have a verified page.
+* Every card link comes from `ProviderLinks` (validated https + own host, the platform's own query form
+  — `%20`, or `+` for DLsite — landing page for a blank query) and is independent of the selection.
+  A `ProviderSpec` with no configured page is refused by `ProviderLinks` instead of producing a dead
+  button (unit-tested); every shipped card does have a verified page.
 
 ---
 
@@ -246,8 +252,8 @@ Schema details and the full migration rules are in `README.md` §3.
 
 | Item | Command / environment | Result |
 |---|---|---|
-| JVM suite | `.\gradlew.bat testDebugUnitTest` | 259 tests, 0 failures (3 live checks skipped by design) |
-| Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks` | 259 tests, 0 failures; **3/3 live checks ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED`. Melonbooks is not in the live suite any more |
+| JVM suite | `.\gradlew.bat testDebugUnitTest` | 285 tests, 0 failures (4 live checks skipped by design) |
+| Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks` | 285 tests, 0 failures; **4/4 live checks ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED`. Melonbooks is not in the live suite any more |
 | Compose UI tests | none | **not run**: no `ui-test-junit4` dependency and no emulator/device; selection rules, link independence, the cap and the batch repository calls are unit-tested (`SelectionLogicTest`, `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest`, `BatchOperationsTest`) |
 | DLsite live parse | `DlsiteSource().search("東方", 3)` | real `RJ…` works with Japanese titles, circles, `924円`-style prices, `img.dlsite.jp` covers and `dlsite.com` product URLs |
 | Provider access probe | `robots.txt` + search URL, app user agent (2026-10-23) | Melonbooks robots **404**, search **200** (not queried); Suruga-ya robots **200** with `Disallow: /search/`; DLsite robots **200**, paged URLs disallowed; E-Hentai robots **200**, `/s/` and `/codegen.php` disallowed; Doujin no Mori robots **200** with `Disallow: /comics/free-search`, search **200**; Doujinshi.info robots **200** but every page **403**; MyAnimeList `/topmanga` **404**, `/manga.php?q=` **200**; nhentai **403** everywhere |

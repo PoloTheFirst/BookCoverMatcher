@@ -622,26 +622,74 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun requestRenameFolder(id: String) {
         val folder = _ui.value.folders.firstOrNull { it.id == id } ?: return
         if (folder.reserved) return
-        _ui.update { it.copy(renaming = RenameUi(folder.id, folder.name, "Rename folder")) }
+        _ui.update { it.copy(renaming = RenameUi(folder.id, folder.name, "Rename folder", RenameKind.FOLDER)) }
+    }
+
+    /**
+     * The pencil on a result profile: exactly the folder flow (same dialog, same commit path), with the
+     * session title as the current name. Works from the folder list and from an open session.
+     */
+    fun requestRenameSession(id: String) {
+        val fromFolder = _ui.value.folderDetail?.sessions?.firstOrNull { it.id == id }
+        val fromDetail = _ui.value.sessionDetail?.takeIf { it.id == id }
+        val title = fromFolder?.title ?: fromDetail?.title ?: return
+        _ui.update { it.copy(renaming = RenameUi(id, title, "Rename result profile", RenameKind.SESSION)) }
     }
 
     fun cancelRename() = _ui.update { it.copy(renaming = null) }
 
+    /**
+     * One commit path for both kinds, so validation and feedback cannot drift apart: the repository
+     * trims the name and keeps the current one when the field is blank, exactly as it does for folders.
+     */
     fun commitRename(id: String, name: String) {
+        val kind = _ui.value.renaming?.kind ?: RenameKind.FOLDER
         _ui.update { it.copy(renaming = null) }
         viewModelScope.launch {
             try {
-                withContext(wishlistDispatcher) { wishlist.renameFolder(id, name) }
-                refreshLibrary()
-                _ui.value.folderDetail?.let { detail ->
-                    if (detail.id == id) {
-                        _ui.update { it.copy(folderDetail = detail.copy(name = name.trim().ifEmpty { detail.name })) }
+                val renamed = withContext(wishlistDispatcher) {
+                    when (kind) {
+                        RenameKind.FOLDER -> wishlist.renameFolder(id, name)
+                        RenameKind.SESSION -> wishlist.renameSession(id, name)
                     }
                 }
+                if (!renamed) {
+                    showToast(
+                        when (kind) {
+                            RenameKind.FOLDER -> "That folder no longer exists."
+                            RenameKind.SESSION -> "That result profile no longer exists."
+                        },
+                        ToastKind.ERR,
+                    )
+                    refreshLibrary()
+                    return@launch
+                }
+                val effective = name.trim()
+                if (kind == RenameKind.FOLDER) {
+                    _ui.value.folderDetail?.let { detail ->
+                        if (detail.id == id) {
+                            _ui.update { it.copy(folderDetail = detail.copy(name = effective.ifEmpty { detail.name })) }
+                        }
+                    }
+                } else {
+                    // Immediate feedback; refreshLibrary() rebuilds the detail from storage anyway.
+                    _ui.value.sessionDetail?.let { detail ->
+                        if (detail.id == id) {
+                            _ui.update { it.copy(sessionDetail = detail.copy(title = effective.ifEmpty { detail.title })) }
+                        }
+                    }
+                }
+                refreshLibrary()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                showToast("Wishlist storage error \u2014 could not rename the folder.", ToastKind.ERR)
+                showToast(
+                    when (kind) {
+                        RenameKind.FOLDER -> "Wishlist storage error \u2014 could not rename the folder."
+                        RenameKind.SESSION -> "Wishlist storage error \u2014 could not rename the result profile."
+                    },
+                    ToastKind.ERR,
+                )
             }
         }
     }
@@ -924,6 +972,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 throw e
             } catch (e: Exception) {
                 showToast("Wishlist storage error - could not change the bookmark.", ToastKind.ERR)
+            }
+        }
+    }
+
+    /**
+     * `Bookmark` on a saved result inside a result profile: the item itself gains the `Bookmarks`
+     * membership, so the profile entry and the bookmark are two independent memberships of one item.
+     *
+     * Tapping again removes only the bookmark, mirroring [toggleBookmark] for live online results. The
+     * profile keeps its entry in both directions, and no new item record or thumbnail is ever created.
+     */
+    fun toggleSavedItemBookmark(itemId: String) {
+        viewModelScope.launch {
+            try {
+                val nowBookmarked = withContext(wishlistDispatcher) {
+                    val library = wishlist.library()
+                    val item = library.item(itemId) ?: return@withContext null
+                    if (library.isBookmarked(item.id)) {
+                        wishlist.removeBookmark(item.id)
+                        false
+                    } else if (wishlist.bookmarkExisting(item.id)) {
+                        true
+                    } else {
+                        null
+                    }
+                }
+                refreshLibrary()
+                when (nowBookmarked) {
+                    true -> showToast(
+                        "Bookmark added \u2014 saved in Bookmarks. The profile entry is untouched.",
+                        ToastKind.OK,
+                    )
+                    false -> showToast(
+                        "Bookmark removed. The profile entry is untouched.",
+                        ToastKind.INFO,
+                    )
+                    null -> showToast("That result can no longer be bookmarked.", ToastKind.ERR)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showToast("Wishlist storage error \u2014 could not change the bookmark.", ToastKind.ERR)
             }
         }
     }

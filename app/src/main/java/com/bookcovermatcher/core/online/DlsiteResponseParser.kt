@@ -1,7 +1,6 @@
 package com.bookcovermatcher.core.online
 
 import com.bookcovermatcher.core.wishlist.ItemIdentity
-import java.net.URLEncoder
 
 /**
  * Reads a **DLsite** books search page (`https://www.dlsite.com/books/fsr/=/keyword/…`) into
@@ -63,11 +62,18 @@ object DlsiteResponseParser {
     class ParseException(message: String) : RuntimeException(message)
 
     /**
-     * The public search URL for [query]. Japanese text is percent-encoded as UTF-8; `%20` is used
-     * instead of `+`, because this is a path segment, not a form field.
+     * The public search URL for [query].
+     *
+     * The keyword is a **path segment** on DLsite, and the site only accepts its own form encoding
+     * there: a space must be `+`. Measured 2026-10-23 with the app's user agent —
+     * `keyword/Blue+Archive` → 200 with 30 works, while `keyword/Blue%20Archive` → **403**. This used
+     * to translate spaces to `%20`, which is why any multi-word query failed.
+     *
+     * Characters that are not safe in a path are still percent-encoded by the encoder (`+` → `%2B`,
+     * `&` → `%26`, `#` → `%23`), so the `+` produced here only ever means "space".
      */
     fun searchUrl(query: String): String {
-        val encoded = URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
+        val encoded = ProviderLinks.encode(query.trim(), QueryForm.PLUS)
         return "$SITE/$SECTION/fsr/=/keyword/$encoded"
     }
 

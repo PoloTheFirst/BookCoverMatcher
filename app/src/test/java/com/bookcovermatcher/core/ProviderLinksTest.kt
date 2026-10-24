@@ -4,6 +4,7 @@ import com.bookcovermatcher.core.online.OnlineAggregator
 import com.bookcovermatcher.core.online.ProductSearchResult
 import com.bookcovermatcher.core.online.ProviderCatalog
 import com.bookcovermatcher.core.online.ProviderLinks
+import com.bookcovermatcher.core.online.QueryForm
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -51,6 +52,27 @@ class ProviderLinksTest {
         )
         assertTrue(url.startsWith("https://doujinnomori.com/comics/free-search?keyword="))
         assertFalse("the wrong domain must not appear anywhere", url.contains("doujinmori.com"))
+    }
+
+    @Test fun theDlsiteCardLinkUsesTheSameFormEncodingAsTheAdapter() {
+        // The card's Open button must not 403 either: same route, same encoding as the adapter.
+        assertEquals(
+            "https://www.dlsite.com/books/fsr/=/keyword/Blue+Archive",
+            ProviderCatalog.DLSITE.searchUrl("Blue Archive"),
+        )
+        assertEquals(QueryForm.PLUS, ProviderCatalog.DLSITE.queryForm)
+        // Every other platform keeps %20 in its query string.
+        assertEquals("Blue%20Archive", ProviderLinks.encode("Blue Archive"))
+        assertTrue(ProviderCatalog.MELONBOOKS.searchUrl("Blue Archive").contains("Blue%20Archive"))
+        assertEquals("Blue%20Archive", ProviderLinks.encode("Blue Archive", QueryForm.PERCENT_20))
+        assertEquals("Blue+Archive", ProviderLinks.encode("Blue Archive", QueryForm.PLUS))
+    }
+
+    @Test fun theTwoQueryFormsNeverConfuseASpaceWithALiteralPlus() {
+        assertEquals("C%2B%2B", ProviderLinks.encode("C++", QueryForm.PLUS))
+        assertEquals("C%2B%2B", ProviderLinks.encode("C++", QueryForm.PERCENT_20))
+        assertEquals("A+B", ProviderLinks.encode("A B", QueryForm.PLUS))
+        assertEquals("A%20B", ProviderLinks.encode("A B", QueryForm.PERCENT_20))
     }
 
     @Test fun aBlankQueryOpensThePlatformLandingPage() {

@@ -316,6 +316,7 @@ private fun FolderDetailScreen(
                     selected = if (sessionsSelecting) session.id in (selection?.ids ?: emptySet()) else null,
                     onToggle = { vm.toggleSelected(session.id) },
                     onLongPress = { vm.startSelectionWith(BatchKind.SESSIONS, session.id, detail.id) },
+                    onRename = { vm.requestRenameSession(session.id) },
                 )
             }
             if (detail.directItems.isNotEmpty()) {
@@ -356,6 +357,7 @@ private fun SessionCard(
     selected: Boolean? = null,
     onToggle: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
+    onRename: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(14.dp)
     val selecting = selected != null
@@ -395,6 +397,9 @@ private fun SessionCard(
                 if (session.bookmarkedCount > 0) Chip("${session.bookmarkedCount} bookmarked", Palette.Ok)
             }
             Text(session.meta, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
+        }
+        if (onRename != null && selected == null) {
+            SquareIconButton(Icons.Filled.Edit, "Rename result profile", Palette.Text, onClick = onRename)
         }
         if (onDelete != null && selected == null) {
             SquareIconButton(
@@ -483,6 +488,7 @@ private fun SessionDetailScreen(
                         selected = if (selecting) item.id in (selection?.ids ?: emptySet()) else null,
                         onToggleSelect = { vm.toggleSelected(item.id) },
                         onLongPress = { vm.startSelectionWith(BatchKind.SESSION_ITEMS, item.id, detail.id) },
+                        onBookmark = { vm.toggleSavedItemBookmark(item.id) },
                     )
                 }
             }
@@ -690,6 +696,7 @@ private fun SavedItemRow(
     selected: Boolean? = null,
     onToggleSelect: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
+    onBookmark: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(14.dp)
     val selecting = selected != null
@@ -754,6 +761,15 @@ private fun SavedItemRow(
         }
         if (!selecting) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (onBookmark != null) {
+                    // Same label and state colour as the live online-result card: one convention.
+                    RowAction(
+                        if (item.bookmarked) "\u2605 Bookmarked" else "\u2605 Bookmark",
+                        if (item.bookmarked) Palette.Ok else Palette.Accent2,
+                        Modifier.weight(1f),
+                        onBookmark,
+                    )
+                }
                 if (item.url != null) {
                     RowAction("Open website", Palette.Accent, Modifier.weight(1f), onOpen)
                 }
