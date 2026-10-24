@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.2.2)
+# BookCover Matcher - User Guide (v2.2.3)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -105,6 +105,15 @@ results first.
 
 * Folder delete removes its sessions; bookmarks and items shared with other folders stay.
 * Session delete removes that session's results; bookmarks and other sessions stay.
+* Every folder row has a **pencil** (rename) next to the bin, and so does every **result profile** row:
+  the same dialog, the same rules (the name is trimmed; an empty name keeps the current one; two
+  profiles may share a name), and the profile keeps its id, folder, results and bookmarks.
+
+### Bookmarking a result that is inside a profile
+Open a profile and each result row offers **★ Bookmark**. It saves that work in `Bookmarks` **and
+leaves it in the profile**, because a profile entry and a bookmark are two independent references to
+the same work: nothing is copied, nothing is duplicated, and removing one never removes the other.
+Tapping **★ Bookmarked** again removes only the bookmark.
 
 ### Bookmarks
 **Create bookmark** accepts a required title and an `https://` URL (other fields are optional and
@@ -211,4 +220,7 @@ refuses non-HTTPS links.
 | A batch says "n skipped" | Those items were already in the destination, or they are read-only comparison rows. Nothing was overwritten. |
 | A batch says "failed" | The write did not happen; the list is re-read from storage, so what you see is what was saved. Try again. |
 | I asked for 50 results and got fewer | That is the maximum, not a guarantee - Google Books stops at 40 and DLsite lists one page. The header says how many cards you actually have. |
+| DLsite shows no results | Try a Japanese title; DLsite is searched on its first page only. Multi-word titles work as one phrase (the app sends them the way DLsite's own form does) - fixed in 2.2.3. |
+| I cannot find the rename pencil on a profile | Open the folder that holds it: the pencil sits next to the bin on each result-profile row, exactly like folders. |
+| Bookmarking a profile result did nothing | If the row already says **★ Bookmarked**, the work is already in `Bookmarks`; tapping again removes only the bookmark, never the profile entry. |
 | Bookmark link will not save | Only `https://` URLs with a host are accepted. |

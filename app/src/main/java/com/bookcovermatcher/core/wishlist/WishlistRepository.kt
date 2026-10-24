@@ -306,6 +306,31 @@ class WishlistRepository(
         return true
     }
 
+    /**
+     * Bookmarks an **existing** saved item: the item keeps its id, thumbnail, provider metadata and
+     * fingerprint, and simply gains the `Bookmarks` membership.
+     *
+     * This is what a result inside a result profile needs. The profile entry is a `SessionEntry` and the
+     * bookmark is a `Membership`; both point at the same item, so bookmarking never duplicates the work,
+     * never removes it from the profile, and un-bookmarking never deletes the profile entry.
+     *
+     * Workbook comparison rows are refused, exactly as in [addDrafts]: they are comparison output, not
+     * independently bookmarkable records.
+     *
+     * @return true when a membership was added; false when the item is unknown, a comparison row, or
+     * already bookmarked (no duplicate membership is ever created).
+     */
+    fun bookmarkExisting(itemId: String): Boolean {
+        val state = readState()
+        val item = state.items.firstOrNull { it.id == itemId } ?: return false
+        if (item.kind == ItemKind.WORKBOOK_MATCH) return false
+        val reserved = ensureReservedIn(state)
+        if (state.memberships.any { it.itemId == itemId && it.collectionId == reserved.id }) return false
+        state.memberships.add(Membership(itemId, reserved.id, clock()))
+        save(state)
+        return true
+    }
+
 
     // =========================================================================================
     // Batch operations (multi-selection)

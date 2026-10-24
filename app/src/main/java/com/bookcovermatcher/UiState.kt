@@ -176,8 +176,16 @@ class PendingDeleteUi(
     val collectionId: String? = null,
 )
 
-/** Renaming a folder or a session. [title] keeps the dialog honest about what is being renamed. */
-class RenameUi(val recordId: String, val currentName: String, val title: String = "Rename folder")
+/** What a rename dialog is editing. Both share one dialog and one commit path, like the folder flow. */
+enum class RenameKind { FOLDER, SESSION }
+
+/** Renaming a folder or a result profile. [title] keeps the dialog honest about what is being renamed. */
+class RenameUi(
+    val recordId: String,
+    val currentName: String,
+    val title: String = "Rename folder",
+    val kind: RenameKind = RenameKind.FOLDER,
+)
 /** State of the hand-typed bookmark form. [error] is a message the form shows verbatim. */
 class CustomBookmarkUi(val error: String? = null)
 

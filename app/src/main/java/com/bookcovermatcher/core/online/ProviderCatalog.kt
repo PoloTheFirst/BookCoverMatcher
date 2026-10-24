@@ -1,7 +1,5 @@
 package com.bookcovermatcher.core.online
 
-import java.net.URLEncoder
-
 /** How a provider can honestly be used from the app. */
 enum class ProviderAccess {
     /** The app queries it and shows its results. */
@@ -13,6 +11,16 @@ enum class ProviderAccess {
      */
     BROWSER_ONLY,
 }
+
+/**
+ * How a platform expects a space in its own search URL. It is a per-platform fact, measured, not a
+ * style choice:
+ *
+ *  * [PERCENT_20] — `%20`, correct for an ordinary query string (most platforms);
+ *  * [PLUS] — the platform's own form encoding, where a space is `+`. **DLsite** needs this: its
+ *    `/keyword/<query>` path answers HTTP 403 to `%20` and 200 with results to `+`.
+ */
+enum class QueryForm { PERCENT_20, PLUS }
 
 /**
  * One provider, as the UI and the controller need to describe it: what it is called, which host it
@@ -32,10 +40,12 @@ class ProviderSpec(
     val access: ProviderAccess,
     /** One sentence, shown under the provider's name. Never a marketing claim. */
     val note: String,
-    /** `{q}` is replaced with the percent-encoded query. Null = no verified search page. */
+    /** `{q}` is replaced with the encoded query (see [queryForm]). Null = no verified search page. */
     val searchTemplate: String?,
     /** Opened instead when the query is blank. Null = no verified landing page. */
     val landingUrl: String?,
+    /** How this platform encodes a space in its own search URL. */
+    val queryForm: QueryForm = QueryForm.PERCENT_20,
 ) {
     /** Only automated providers can be selected for an in-app search. */
     val selectable: Boolean get() = access == ProviderAccess.AUTOMATED
@@ -234,6 +244,8 @@ object ProviderCatalog {
         note = "Doujinshi and digital works. Public books search page, first page only.",
         searchTemplate = "https://www.dlsite.com/books/fsr/=/keyword/{q}",
         landingUrl = "https://www.dlsite.com/books/",
+        // Measured 2026-10-23: `keyword/Blue%20Archive` -> 403, `keyword/Blue+Archive` -> 200 (30 works).
+        queryForm = QueryForm.PLUS,
     )
 
     /**

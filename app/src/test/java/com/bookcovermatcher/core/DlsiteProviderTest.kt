@@ -77,14 +77,82 @@ class DlsitePageParserTest {
         DlsiteResponseParser.parse("<html><body>ご利用のブラウザでは表示できません</body></html>", 5)
     }
 
-    @Test fun japaneseQueriesArePercentEncodedInThePath() {
+    @Test fun multiWordQueriesUseTheShopsOwnFormEncoding() {
+        // Measured 2026-10-23: keyword/Blue%20Archive -> HTTP 403, keyword/Blue+Archive -> HTTP 200.
+        assertEquals(
+            "https://www.dlsite.com/books/fsr/=/keyword/HelloWorld+Bobby",
+            DlsiteResponseParser.searchUrl("HelloWorld Bobby"),
+        )
+        assertEquals(
+            "https://www.dlsite.com/books/fsr/=/keyword/Blue+Archive",
+            DlsiteResponseParser.searchUrl("  Blue Archive  "),
+        )
+        assertFalse("a space must never reach the URL raw", DlsiteResponseParser.searchUrl("Blue Archive").contains(" "))
+    }
+
+    @Test fun aSingleWordQueryIsStillJustTheWord() {
+        assertEquals(
+            "https://www.dlsite.com/books/fsr/=/keyword/BlueArchive",
+            DlsiteResponseParser.searchUrl("BlueArchive"),
+        )
+        assertEquals(
+            "https://www.dlsite.com/books/fsr/=/keyword/%E6%9D%B1%E6%96%B9",
+            DlsiteResponseParser.searchUrl("東方"),
+        )
+        assertFalse(DlsiteResponseParser.searchUrl("東方").contains("東方"))
+    }
+
+    @Test fun consecutiveSpacesArePreservedNotCollapsed() {
+        // The app trims the ends only; word boundaries inside the phrase are the user's.
+        assertEquals(
+            "https://www.dlsite.com/books/fsr/=/keyword/A++B",
+            DlsiteResponseParser.searchUrl("A  B"),
+        )
+    }
+
+    @Test fun unicodeWithSpacesKeepsBothWords() {
         val url = DlsiteResponseParser.searchUrl("東方 紅魔郷")
 
         assertTrue(url.startsWith("https://www.dlsite.com/books/fsr/=/keyword/"))
-        assertTrue(url.contains("%E6%9D%B1%E6%96%B9"))
-        assertTrue("spaces must be %20 in a path, not +", url.contains("%20"))
-        assertFalse(url.contains("+"))
+        assertEquals(
+            "https://www.dlsite.com/books/fsr/=/keyword/%E6%9D%B1%E6%96%B9+%E7%B4%85%E9%AD%94%E9%83%B7",
+            url,
+        )
         assertFalse(url.contains("東方"))
+    }
+
+    @Test fun reservedCharactersCannotSplitOrTruncateTheQuery() {
+        val cases = linkedMapOf(
+            "A&B" to "A%26B",
+            "C++" to "C%2B%2B",
+            "100% Example" to "100%25+Example",
+            "hash#tag" to "hash%23tag",
+        )
+        cases.forEach { (query, encoded) ->
+            assertEquals(
+                "https://www.dlsite.com/books/fsr/=/keyword/$encoded",
+                DlsiteResponseParser.searchUrl(query),
+            )
+            val uri = java.net.URI(DlsiteResponseParser.searchUrl(query))
+            assertNull("$query must not become a query parameter", uri.query)
+            assertNull("$query must not become a fragment", uri.fragment)
+        }
+    }
+
+    @Test fun theDecodedKeywordIsExactlyWhatTheUserTyped() {
+        listOf(
+            "HelloWorld Bobby",
+            "Blue Archive",
+            "東方 紅魔郷",
+            "A&B",
+            "C++",
+            "100% Example",
+            "hash#tag",
+            "A  B",
+        ).forEach { query ->
+            val encoded = DlsiteResponseParser.searchUrl(query).substringAfterLast('/')
+            assertEquals(query, java.net.URLDecoder.decode(encoded, "UTF-8"))
+        }
     }
 
     @Test fun missingPriceOrCircleIsNotInvented() {
