@@ -3,7 +3,7 @@
 **v2.2.3 is a bug-fix patch** for the v2.2.2 release: it adds no provider, no search mode and no stored
 field. Only this fix patch is recorded here — the notes for earlier releases stay in the Git history.
 
-## v2.2.3 — 2026-10-23 (bug-fix patch)
+## v2.2.3 (2026-10-25)
 
 Fixes three defects from v2.2.2, one of them a v2.2.2 regression. `records.json` stays at version 3, and
 no provider, setting or stored field was added.
