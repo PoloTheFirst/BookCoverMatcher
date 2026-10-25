@@ -21,7 +21,10 @@ a connection; every online feature is opt-in.
 > Doujinshi.info, MyAnimeList and nhentai are browser-only shortcuts with a card and a link, never
 > part of the in-app selection - see section 6. **2.2.3** fixes multi-word DLsite queries (its keyword
 > path needs `+`, not `%20`), lets result profiles be renamed like folders, and lets a result inside a
-> profile be bookmarked without leaving the profile.
+> profile be bookmarked without leaving the profile. **2.2.4** adds **Toranoana** as an eighth
+> browser-only card (no documented public API; 18+ catalogue) and makes every card's `Open ↗` link
+> follow the query field immediately, so a browser-only shop can be opened without running a dummy
+> in-app search first.
 > Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in `ARCHITECTURE.md`.
 ---
 
@@ -31,7 +34,7 @@ a connection; every online feature is opt-in.
 |---|---|---|
 | **Offline matching** | CameraX capture (or a picked photo) → OpenCLIP embedding → cosine comparison against the pictures in the chosen workbook range → top 5 matches with cell, cosine and percent | No |
 | **OCR** | The captured cover is sent to Google Lens through the embedded `chrome-lens-py` package; text, language and glyph heights come back | Yes |
-| **Online platform search** | The OCR text (or text you type) is searched in the platforms you select. **Open Library**, **Google Books** and **DLsite** are queried in the app. **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**, **Doujinshi.info**, **MyAnimeList** and **nhentai** are browser-only cards with their own link and can never be selected: Melonbooks is a product decision, Suruga-ya and Doujin no Mori disallow their search route in `robots.txt`, E-Hentai/nhentai are adult sites that block automated access, Doujinshi.info answers HTTP 403 and MyAnimeList has no unauthenticated API. Every card has its own `Open` link, and the result maximum is configurable (5-50) | Yes |
+| **Online platform search** | The OCR text (or text you type) is searched in the platforms you select. **Open Library**, **Google Books** and **DLsite** are queried in the app. **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**, **Doujinshi.info**, **MyAnimeList**, **nhentai** and **Toranoana** are browser-only cards with their own link and can never be selected: Melonbooks is a product decision, Suruga-ya and Doujin no Mori disallow their search route in `robots.txt`, E-Hentai/nhentai are adult sites that block automated access, Doujinshi.info answers HTTP 403, MyAnimeList has no unauthenticated API and Toranoana publishes no documented public API (its page is an undocumented storefront, 18+). Every card has its own `Open` link, the link always uses the text currently in the query field, and the result maximum is configurable (5-50) | Yes |
 | **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
 
@@ -200,6 +203,7 @@ capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_br
 | **Doujinshi.info** | Public search page (`/works?query=`) | **No** - HTTP 403 to automated clients | `Open` carries the query; the user handles the site's adult toggle |
 | **MyAnimeList** | Public manga search (`/manga.php?q=&cat=manga`); `/topmanga` is 404 | **No** - no unauthenticated API; terms forbid scraping | `Open` opens the manga search |
 | **nhentai** | Public search page | **No** - HTTP 403 (Cloudflare), adult catalogue | `Open` opens the site's own search page |
+| **Toranoana** | Public storefront search page (`/tora_r/ec/app/catalog/list?searchWord=`), server-rendered and parseable; `robots.txt` does **not** cover that route | **No** - undocumented HTML page, not a public API; 18+ catalogue behind its own age gate | `Open` carries the current query; the app sends no request |
 
 * **Open Library** — detail links are built from the validated work/edition key; covers come from
   `covers.openlibrary.org`.
@@ -218,6 +222,15 @@ capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_br
   /search/` with `Crawl-delay: 30`. The search page would answer, but its own rules exclude that
   endpoint, so `ProviderCatalog` marks it `BROWSER_ONLY`: the app sends it no request and the card's
   `Open ↗` control opens the search in the user's browser.
+* **Toranoana** — browser-only by decision, not by a robots rule: `robots.txt` (HTTP 200, `text/plain`,
+  283 B, no redirect) lists `Disallow: /api/`, `/app/`, `/ec/app/`, `/cms/`, `/cems/`, `/log/`, `/pc/`
+  and no `Crawl-delay`, and **none of those prefixes matches the storefront route**
+  `/tora_r/ec/app/catalog/list`; the search page itself answers **200** with 50 server-rendered result
+  blocks. The app still sends no request, because there is **no documented public API** (an undocumented
+  storefront page with no stability contract, session cookies on every response and a 5.4 MB
+  unpaginated answer for a blank parameter) and the catalogue is **18+** behind the site's own age
+  acknowledgement, which the app keeps browser-side (the E-Hentai/nhentai policy). `Open` builds
+  `?searchWord=<percent-encoded query>`; a blank query opens `https://ec.toranoana.jp/tora_r/ec/`.
 * No visual-similarity provider is implemented or claimed.
 
 > The earlier 403s recorded for Melonbooks/Suruga-ya came from a different HTTP client, not from the
@@ -226,8 +239,8 @@ capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_br
 
 ### Choosing platforms
 
-The panel shows all ten platform cards, in `ProviderCatalog` order: three selectable in-app providers
-and seven browser-only shortcuts. This is the only place a
+The panel shows all eleven platform cards, in `ProviderCatalog` order: three selectable in-app providers
+and eight browser-only shortcuts. This is the only place a
 platform is selected; no other screen keeps its own list.
 
 * **Tap the card body** to select or deselect it. Nothing is searched until **Search selected
@@ -236,11 +249,12 @@ platform is selected; no other screen keeps its own list.
   The glow is a 10 dp shadow plus a 10 % accent fill: visible, not neon.
 * **Unselected** → subdued surface, muted text, thin neutral border. Still fully usable: tapping it
   selects it, and its link still opens.
-* **`Open ↗` on every card** opens that platform's search page for the query currently in the box. It
-  is a separate click target, so it never toggles the selection and works whether the platform is
-  selected or not.
+* **`Open ↗` on every card** opens that platform's search page for the text currently in the query
+  box — rebuilt on every keystroke since v2.2.4, so no in-app search is needed first, and a search that
+  finishes later cannot revert it. It is a separate click target, so it never toggles the selection and
+  works whether the platform is selected or not.
 * **Selection does not change capability.** Open Library, Google Books and DLsite are queried in the
-  app. The other seven cards are browser-only: they cannot be selected, and they are never counted as
+  app. The other eight cards are browser-only: they cannot be selected, and they are never counted as
   in-app providers.
 * The selection is persisted (`bookcover_online` → `online_providers`) and restored after a restart.
   Unknown ids are dropped on read, and so is every browser-only id, so a provider that became
@@ -289,11 +303,11 @@ with the offline comparison, which keeps its fixed five results (`Config.TOP_MAT
   not used. Availability/stock is never shown, because no provider in this build sends it.
 * DLsite results come from its first page only: one request per search, no pagination, no retry.
   Google Books stops at 40 records per request.
-* Seven providers are **not** searched by the app; their cards are labelled *browser only* and never
+* Eight providers are **not** searched by the app; their cards are labelled *browser only* and never
   count as answered providers: Melonbooks (product decision), Suruga-ya (`robots.txt` disallows
   `/search/`), Doujin no Mori (`robots.txt` disallows `/comics/free-search`), E-Hentai and nhentai
-  (adult sites that block automated access), Doujinshi.info (HTTP 403) and MyAnimeList (no
-  unauthenticated API).
+  (adult sites that block automated access), Doujinshi.info (HTTP 403), MyAnimeList (no
+  unauthenticated API) and Toranoana (no documented public API; 18+ catalogue).
 
 ---
 
