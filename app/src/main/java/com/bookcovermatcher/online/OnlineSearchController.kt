@@ -10,6 +10,7 @@ import com.bookcovermatcher.OnlineSearchUi
 import com.bookcovermatcher.ProductResultUi
 import com.bookcovermatcher.ProviderState
 import com.bookcovermatcher.ProviderStatusUi
+import com.bookcovermatcher.withQuery
 import com.bookcovermatcher.ToastKind
 import com.bookcovermatcher.core.online.ImageFingerprint
 import com.bookcovermatcher.core.online.OcrQueryExtractor
@@ -288,7 +289,17 @@ class OnlineSearchController(
         _ui.update { it.copy(targetLanguage = prefs.targetLanguage) }
     }
 
-    fun setQuery(text: String) = _ui.update { it.copy(query = text) }
+    /**
+     * The text field's only writer, and the **source of truth** for every browser-only link.
+     *
+     * The cards' `Open ↗` targets are rebuilt for [text] on each edit, so typing a title and opening
+     * Melonbooks/Suruga-ya/Toranoana… never requires a dummy in-app search first. Nothing is launched
+     * here and no provider is contacted: a search still starts only from [search]. The rows keep the
+     * states/details of the last search that actually ran, so an edit never fakes a result.
+     */
+    fun setQuery(text: String) = _ui.update {
+        it.copy(query = text, providers = it.providers.withQuery(text))
+    }
 
     /** Called by the main screen when the panel becomes visible for the first time. */
     fun checkBridge() {
@@ -475,7 +486,7 @@ class OnlineSearchController(
                     catalogue = CatalogueUi.BrowserOnly(message),
                     selectedProviders = selection,
                     resultLimit = limit,
-                    providers = providerStatuses(trimmed, selection),
+                    providers = providerStatuses(trimmed, selection).withQuery(trimmed),
                 )
             }
             onMessage("Select at least one in-app platform to search.", ToastKind.INFO)
@@ -517,7 +528,8 @@ class OnlineSearchController(
                 catalogue = CatalogueUi.Running(trimmed),
                 selectedProviders = selection,
                 resultLimit = limit,
-                providers = providerStatuses(query = trimmed, selected = selection, searching = true),
+                providers = providerStatuses(query = trimmed, selected = selection, searching = true)
+                    .withQuery(trimmed),
             )
         }
         val token = session.token()
@@ -620,7 +632,10 @@ class OnlineSearchController(
             }
         }
 
-        val providers = providerStatuses(query, selection, perProvider)
+        // The rows report this search's outcome, but their Open links follow the text field: the user
+        // may have typed something else while this search was running, and a late answer must never
+        // drag the browser links back to the query that produced it.
+        val providers = providerStatuses(query, selection, perProvider).withQuery(_ui.value.query)
         val sourceLabel = answered.distinct().joinToString(" + ")
             .ifEmpty { catalogues.joinToString(" + ") { it.name } }
         if (answered.isEmpty() && found.isEmpty()) {

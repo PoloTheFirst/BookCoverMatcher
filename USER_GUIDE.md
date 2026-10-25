@@ -24,7 +24,7 @@ placeholder.
 
 * **Workbook (n)** - the offline comparison: spreadsheet controls, the five match rows and
   **Save this scan as a session**. The count is the number of workbook matches for the current scan.
-* **Online (n)** - the OCR text (read-only but selectable), the editable query, the ten platform cards,
+* **Online (n)** - the OCR text (read-only but selectable), the editable query, the eleven platform cards,
   the 5-50 result maximum, and the results from the selected platforms. The count is the number of
   unique, displayable results; failures and placeholders are not counted.
 * **Bookmarks (n)** - the results of the current search that are already in the `Bookmarks`
@@ -49,11 +49,11 @@ runtime and asks whether `chrome-lens-py` is available.
 **Read the cover.** The OCR text is read-only, but you can copy it: long-press it, drag to select part
 or all, then use the system **Copy** command and paste it into the query box.
 
-**Choose your platforms.** The panel shows ten cards in `ProviderCatalog` order:
+**Choose your platforms.** The panel shows eleven cards in `ProviderCatalog` order:
 
 * Searched in the app (selectable): **Open Library**, **Google Books**, **DLsite**.
 * Browser-only (never selectable): **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**,
-  **Doujinshi.info**, **MyAnimeList**, **nhentai**.
+  **Doujinshi.info**, **MyAnimeList**, **nhentai**, **Toranoana**.
 
 Tap a selectable card body to include or exclude it: a selected card turns blue with a soft glow, an
 accent border and a check mark; an unselected one is greyed down but still usable. **Open** on every
@@ -71,6 +71,10 @@ Why a card is browser-only (each measured; see `ONLINE_SEARCH.md` section 2):
   and the age gate is answered on the site, never by the app.
 * **Doujinshi.info** - answers HTTP 403 to automated requests.
 * **MyAnimeList** - no unauthenticated API; its terms do not permit automated collection.
+* **Toranoana** - `ec.toranoana.jp`; it publishes no documented public API (only its own storefront
+  HTML page, which answers but has no stability contract) and the catalogue is 18+ with the age gate
+  answered on the site. Its `robots.txt` does **not** forbid the search route. **Open** searches
+  `?searchWord=<your query>` in your browser.
 
 **Choose how many results.** `ONLINE RESULTS` offers **5 / 10 / 20 / 30 / 50** (default 5) and
 remembers your choice after a restart. It is a maximum: Open Library tops out at 50, Google Books at
@@ -202,10 +206,10 @@ Manual check on a device (no emulator was available for this build):
 
 Everything is stored locally in the app's private storage. Offline matching sends nothing. With
 online search on, the cover JPEG goes to Google Lens and the recognised text goes to the three
-providers the app queries: Open Library, Google Books and DLsite. The seven browser-only cards
-(Melonbooks, Suruga-ya, Doujin no Mori, E-Hentai, Doujinshi.info, MyAnimeList, nhentai) are never
-contacted by the app - their search pages open in your browser. No account, analytics or ads. The app
-refuses non-HTTPS links.
+providers the app queries: Open Library, Google Books and DLsite. The eight browser-only cards
+(Melonbooks, Suruga-ya, Doujin no Mori, E-Hentai, Doujinshi.info, MyAnimeList, nhentai, Toranoana) are
+never contacted by the app - their search pages open in your browser. No account, analytics or ads. The
+app refuses non-HTTPS links.
 
 ## Troubleshooting
 
