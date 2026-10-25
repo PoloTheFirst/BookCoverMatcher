@@ -79,6 +79,10 @@ class ProviderSpec(
  *    card opens the site's own manga search page (`/topmanga` itself answers 404).
  *  * `nh` **nhentai** — every request answers HTTP 403 (Cloudflare) and the catalogue is adult
  *    content; the card opens the site's own search page.
+ *  * `tr` **Toranoana** — an undocumented HTML storefront page is its only search route; there is no
+ *    documented public API, and the catalogue is 18+ behind the site's own age acknowledgement. Its
+ *    `robots.txt` does **not** disallow that route (see the measured notes below), so this is a
+ *    product/terms decision, not a robots one. The card only opens the site's own search page.
  *
  * Access evidence measured on 2026-10-23 (see `ONLINE_SEARCH.md` §2 for the full table):
  *
@@ -96,6 +100,20 @@ class ProviderSpec(
  * MyAnimeList    GET /topmanga                        -> 404 (the requested URL does not exist)
  * MyAnimeList    GET /manga.php?q=                    -> 200
  * nhentai        GET /  and  /robots.txt  and  /search -> 403 (Cloudflare)
+ * ```
+ *
+ * Toranoana measured separately on 2026-10-25 (app user agent, no cookies):
+ *
+ * ```
+ * Toranoana      GET /robots.txt                          -> 200 text/plain, 283 B, no Crawl-delay
+ *                rules: User-agent: *  Disallow: /api/ /app/ /ec/app/ /cms/ /cems/ /log/ /pc/
+ *                (the prefix /ec/app/ does NOT match /tora_r/ec/app/... , so the search route is
+ *                 not covered by any rule; nothing in that file forbids it)
+ * Toranoana      GET /tora_r/ec/app/catalog/list?searchWord=Blue%20Archive -> 200, ~709 KB, 50 items
+ * Toranoana      GET /tora_r/ec/app/catalog/list?searchWord=Blue+Archive   -> 200, ~709 KB, 50 items
+ * Toranoana      GET /tora_r/ec/app/catalog/list?searchWord=<japanese>    -> 200, ~790 KB
+ * Toranoana      GET /tora_r/ec/                          -> 200 (the landing page a blank query opens)
+ * Toranoana      GET .../catalog/list?searchWord=  (blank) -> 200, 5.4 MB (whole catalogue, not a search)
  * ```
  *
  * Every automated adapter makes **one** request per user-initiated search, never paginates and never
@@ -236,6 +254,41 @@ object ProviderCatalog {
         landingUrl = "https://nhentai.net/",
     )
 
+    /**
+     * **Toranoana** (`ec.toranoana.jp`) — browser-only, by product decision (see the evidence).
+     *
+     * Measured 2026-10-25 with the app's user agent and no cookies:
+     *  * `robots.txt` → **200**, `text/plain`, 283 B, `User-agent: *` with `Disallow: /api/`, `/app/`,
+     *    `/ec/app/`, `/cms/`, `/cems/`, `/log/`, `/pc/`, and **no** `Crawl-delay`. The response is a
+     *    genuine robots file (no redirect, no challenge page). None of those prefixes matches the
+     *    storefront path `/tora_r/ec/app/catalog/list`, so **robots.txt does not forbid this route**.
+     *  * The search page answers **200** `text/html` with 50 server-rendered result blocks, so a
+     *    parser *could* be written against it.
+     *
+     * It is still **not** queried, for two reasons that are not about robots:
+     *  * there is no documented public API. The only route is an undocumented HTML page of the web
+     *    storefront, with no versioning or stability contract, that hands out session cookies and
+     *    returns the whole 5.4 MB catalogue when the parameter is empty. A browser page is not a
+     *    supported API, and this app does not scrape one on that basis.
+     *  * the catalogue is 18+ doujinshi material behind the site's own age acknowledgement, and this
+     *    app keeps age-gated adult catalogues browser-only (the E-Hentai/nhentai policy), so the
+     *    site's gate applies rather than being bypassed by an in-app search.
+     *
+     * The card uses the verified public URL anyway: `searchWord=Blue%20Archive` → 200 (~709 KB, 50
+     * result blocks), `searchWord=Blue+Archive` → 200 as well (both space forms are accepted, so the
+     * ordinary query-string form `%20` is kept), a Japanese query → 200 (~790 KB), and the landing
+     * page `/tora_r/ec/` → 200 for a blank query (`searchWord=` empty returns the whole catalogue).
+     */
+    val TORANOANA = ProviderSpec(
+        id = "tr",
+        name = "Toranoana",
+        host = "ec.toranoana.jp",
+        access = ProviderAccess.BROWSER_ONLY,
+        note = "Doujinshi shop, 18+ catalogue. Browser only: no documented public API, so its search opens in your browser.",
+        searchTemplate = "https://ec.toranoana.jp/tora_r/ec/app/catalog/list?searchWord={q}",
+        landingUrl = "https://ec.toranoana.jp/tora_r/ec/",
+    )
+
     val DLSITE = ProviderSpec(
         id = DlsiteResponseParser.PROVIDER_ID,
         name = DlsiteResponseParser.SOURCE_NAME,
@@ -263,6 +316,7 @@ object ProviderCatalog {
         DOUJINSHI_INFO,
         MYANIMELIST,
         NHENTAI,
+        TORANOANA,
     )
 
     /** Only these are ever queried by the app (and only these can be selected). */

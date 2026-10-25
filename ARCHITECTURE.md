@@ -33,7 +33,7 @@ dialogs                      │            CatalogIndex
 ## Online providers
 
 ```
-ProviderCatalog (core/online)      ten ProviderSpec rows: id, host, access, note, search + landing URL
+ProviderCatalog (core/online)      eleven ProviderSpec rows: id, host, access, note, search + landing URL
         |
         +-- AUTOMATED + SELECTABLE -- selected by the user (SearchRouting) -- OnlineSearchController.catalogues
         |       +-- OpenLibraryBooksSource -- OpenLibraryResponseParser      (JSON)
@@ -47,6 +47,7 @@ ProviderCatalog (core/online)      ten ProviderSpec rows: id, host, access, note
                 Doujinshi.info    (HTTP 403 to automated clients)
                 MyAnimeList       (no unauthenticated API; /topmanga is 404)
                 nhentai           (HTTP 403, adult)
+                Toranoana         (robots: Disallow /api/, /app/, /ec/app/; 18+ catalogue)
         MelonbooksSource -- MelonbooksResponseParser stays in the tree, unregistered, fixture-tested only
 ```
 

@@ -1,5 +1,7 @@
 package com.bookcovermatcher
 
+import com.bookcovermatcher.core.online.ProviderCatalog
+
 /**
  * UI state of the online-search panel.
  *
@@ -92,6 +94,29 @@ data class ProviderStatusUi(
     val detail: String?,
     val searchUrl: String?,
 )
+
+/**
+ * The same rows with every browser link rebuilt for [query], which is the **text field's current
+ * value**, not the query of the last search.
+ *
+ * A card's `Open ↗` target is a pure function of (provider, current query), so it must never lag
+ * behind the field: the user may type a title and open a browser-only shop without searching first,
+ * and a link pointing at a previous search is a bug, not a feature.
+ *
+ * Only `searchUrl` changes. [ProviderStatusUi.state]/[ProviderStatusUi.detail] still describe the
+ * last search that actually ran, so editing the text never pretends a platform answered. A provider
+ * with no verified page keeps a null link, exactly as `ProviderLinks` decides.
+ */
+fun List<ProviderStatusUi>.withQuery(query: String): List<ProviderStatusUi> = map { row ->
+    val spec = ProviderCatalog.byId(row.id)
+    row.copy(
+        searchUrl = if (spec != null && spec.hasLink) {
+            runCatching { spec.searchUrl(query) }.getOrNull()
+        } else {
+            null
+        },
+    )
+}
 
 /**
  * One catalogue result, ready to draw.
