@@ -17,32 +17,32 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * The registry: ten providers, three of which the app queries in-app and seven of which are
+ * The registry: eleven providers, three of which the app queries in-app and eight of which are
  * browser-only shortcuts that can never be selected. Each browser-only entry carries the measured
  * reason it is not queried.
  */
 class ProviderCatalogTest {
 
-    @Test fun allTenProvidersAreDeclaredInDisplayOrder() {
+    @Test fun allElevenProvidersAreDeclaredInDisplayOrder() {
         assertEquals(
-            listOf("ol", "gb", "dl", "mb", "sy", "dm", "eh", "di", "mal", "nh"),
+            listOf("ol", "gb", "dl", "mb", "sy", "dm", "eh", "di", "mal", "nh", "tr"),
             ProviderCatalog.ALL.map { it.id },
         )
         assertEquals(
             listOf(
                 "Open Library", "Google Books", "DLsite", "Melonbooks", "Suruga-ya",
-                "Doujin no Mori", "E-Hentai", "Doujinshi.info", "MyAnimeList", "nhentai",
+                "Doujin no Mori", "E-Hentai", "Doujinshi.info", "MyAnimeList", "nhentai", "Toranoana",
             ),
             ProviderCatalog.ALL.map { it.name },
         )
-        assertEquals("every provider id must be unique", 10, ProviderCatalog.ALL.map { it.id }.toSet().size)
+        assertEquals("every provider id must be unique", 11, ProviderCatalog.ALL.map { it.id }.toSet().size)
     }
 
     @Test fun onlyTheInAppProvidersAreAutomatedAndSelectable() {
         assertEquals(listOf("ol", "gb", "dl"), ProviderCatalog.AUTOMATED.map { it.id })
         assertEquals(listOf("ol", "gb", "dl"), ProviderCatalog.SELECTABLE.map { it.id })
         assertEquals(
-            listOf("mb", "sy", "dm", "eh", "di", "mal", "nh"),
+            listOf("mb", "sy", "dm", "eh", "di", "mal", "nh", "tr"),
             ProviderCatalog.BROWSER_ONLY.map { it.id },
         )
 
@@ -58,10 +58,11 @@ class ProviderCatalogTest {
         assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.DOUJINSHI_INFO.access)
         assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.MYANIMELIST.access)
         assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.NHENTAI.access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.TORANOANA.access)
     }
 
     @Test fun everyPlatformHasItsOwnSearchAndLandingLink() {
-        assertEquals("every card must have a usable link", 10, ProviderCatalog.ALL.count { it.hasLink })
+        assertEquals("every card must have a usable link", 11, ProviderCatalog.ALL.count { it.hasLink })
         ProviderCatalog.ALL.forEach { spec ->
             assertTrue("${spec.name} search", spec.searchTemplate!!.startsWith("https://"))
             assertTrue("${spec.name} landing", spec.landingUrl!!.startsWith("https://"))

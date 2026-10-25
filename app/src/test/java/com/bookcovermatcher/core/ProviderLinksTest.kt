@@ -86,7 +86,44 @@ class ProviderLinksTest {
         assertEquals("https://www.doujinshi.info/", ProviderCatalog.DOUJINSHI_INFO.searchUrl(""))
         assertEquals("https://myanimelist.net/manga.php", ProviderCatalog.MYANIMELIST.searchUrl(""))
         assertEquals("https://nhentai.net/", ProviderCatalog.NHENTAI.searchUrl(""))
+        assertEquals("https://ec.toranoana.jp/tora_r/ec/", ProviderCatalog.TORANOANA.searchUrl("   "))
     }
+
+    @Test fun toranoanaSearchUrlKeepsTheSearchWordParameterAndEncodesTheQueryOnce() {
+        // Browser-only card: the app builds the link, the user's browser performs the search.
+        assertEquals(
+            "https://ec.toranoana.jp/tora_r/ec/app/catalog/list?searchWord=Blue%20Archive",
+            ProviderCatalog.TORANOANA.searchUrl("Blue Archive"),
+        )
+        assertEquals(QueryForm.PERCENT_20, ProviderCatalog.TORANOANA.queryForm)
+
+        val japanese = ProviderCatalog.TORANOANA.searchUrl("\u6771\u65B9 \u7D05\u9B54\u90F7")
+        assertEquals(
+            "https://ec.toranoana.jp/tora_r/ec/app/catalog/list?searchWord=%E6%9D%B1%E6%96%B9%20%E7%B4%85%E9%AD%94%E9%83%B7",
+            japanese,
+        )
+        assertEquals("\u6771\u65B9 \u7D05\u9B54\u90F7", searchWord(japanese))
+
+        // Reserved characters are escaped exactly once: the parameter is the encoder's own output
+        // (not a second encoding of it) and decodes back to exactly what the user typed.
+        listOf("A&B", "C++", "100%", "hash#tag", "a=b?c", "Blue  Archive").forEach { query ->
+            val parameter = parameterOf(ProviderCatalog.TORANOANA.searchUrl(query))
+            assertEquals(query, ProviderLinks.encode(query), parameter)
+            assertEquals(query, searchWord(ProviderCatalog.TORANOANA.searchUrl(query)))
+        }
+        assertEquals("A%26B", parameterOf(ProviderCatalog.TORANOANA.searchUrl("A&B")))
+        assertEquals("C%2B%2B", parameterOf(ProviderCatalog.TORANOANA.searchUrl("C++")))
+        assertEquals("100%25", parameterOf(ProviderCatalog.TORANOANA.searchUrl("100%")))
+        assertEquals("hash%23tag", parameterOf(ProviderCatalog.TORANOANA.searchUrl("hash#tag")))
+    }
+
+    /** The still-encoded `searchWord` value of a Toranoana link. */
+    private fun parameterOf(url: String): String =
+        java.net.URI(url).rawQuery.substringAfter("searchWord=")
+
+    /** The decoded `searchWord` value of a Toranoana link — the text the browser will submit. */
+    private fun searchWord(url: String): String =
+        java.net.URLDecoder.decode(parameterOf(url), "UTF-8")
 
     @Test fun aLinkOnTheWrongHostSchemeOrPortIsRefused() {
         val spec = ProviderCatalog.MELONBOOKS

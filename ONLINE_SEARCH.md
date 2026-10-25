@@ -158,6 +158,36 @@ the missing trailing slash: it marks Suruga-ya `BROWSER_ONLY`, sends it **no** r
   the user answers the age gate. The app sets no cookie, bypasses no age gate, and the test suite
   contains no adult fixture.
 
+### Toranoana - browser-only (no documented API; 18+ catalogue)
+* Search page: `https://ec.toranoana.jp/tora_r/ec/app/catalog/list?searchWord=<percent-encoded query>`
+  (a blank query opens the storefront, `https://ec.toranoana.jp/tora_r/ec/`).
+* **Diagnostics (2026-10-25, app user agent, no cookies)** - the route is *not* robots-disallowed:
+  * `GET /robots.txt` -> **HTTP 200**, `text/plain`, 283 bytes, `Last-Modified: 2024-05-31`, served by
+    nginx: a genuine robots file, not an error or challenge page, and **no redirect**. Rules:
+    `User-agent: *` with `Disallow: /api/`, `/app/`, `/ec/app/`, `/cms/`, `/cems/`, `/log/`, `/pc/`;
+    no `Crawl-delay`. None of those prefixes matches `/tora_r/ec/app/catalog/list`, so no rule covers
+    the search route.
+  * `GET /tora_r/ec/app/catalog/list?searchWord=<japanese>` -> **200**, `text/html;charset=UTF-8`, no
+    redirect (final URL equals the requested URL), ~790 KB, **50 server-rendered `catalog-item`
+    blocks**; the response also issues session cookies (`APP-ID`, `TSESSIONID`, ...), none of which the
+    app stores.
+  * Same route with `Blue%20Archive` and with `Blue+Archive` -> **200** both ways (~709 KB, 50 blocks),
+    so the ordinary query-string form `%20` is kept.
+  * `GET /` and `GET /tora_r/ec/` -> **200**; `?searchWord=` with an empty value -> **200** but 5.4 MB
+    of the whole catalogue, which is why a blank query opens the landing page.
+* **The app still queries nothing here**, for reasons unrelated to robots:
+  * there is **no documented public API**; the only route is an undocumented HTML page of the web
+    storefront - no versioning, no stability contract, session cookies on every response, and a 5.4 MB
+    unpaginated catalogue when the parameter is empty. A browser page is not a supported API, so the
+    app does not scrape it;
+  * the catalogue is doujinshi/adult material behind the site's own age acknowledgement, and the app
+    keeps age-gated adult catalogues browser-only (the E-Hentai/nhentai policy), so the gate is
+    answered on the site.
+* Result: the card is `BROWSER_ONLY`, its id (`tr`) can never be selected, and it never contributes to
+  the online result count. A single-product metadata lookup is **not** implemented (deferred): it would
+  mean fetching storefront pages programmatically for the same reasons, and the app has no product-URL
+  enrichment entry point.
+
 ### Platform selection and the result maximum
 * `SearchRouting` owns the rules: `DEFAULT_SELECTION` = the three automated ids, `sanitize` drops
   unknown **and browser-only** ids, `toggle` refuses a non-selectable id, `automated` returns the
@@ -175,6 +205,11 @@ the missing trailing slash: it marks Suruga-ya `BROWSER_ONLY`, sends it **no** r
   — `%20`, or `+` for DLsite — landing page for a blank query) and is independent of the selection.
   A `ProviderSpec` with no configured page is refused by `ProviderLinks` instead of producing a dead
   button (unit-tested); every shipped card does have a verified page.
+* **The links follow the query field, not the last search** (v2.2.4): `OnlineSearchController.setQuery`
+  rebuilds every row's `searchUrl` through `List<ProviderStatusUi>.withQuery(text)` on each edit, so a
+  browser-only card can be opened with freshly typed text without a dummy in-app search, and a search
+  that completes late re-applies the *current* text instead of reverting the links. Editing launches
+  nothing: a search still starts only from the Search button (`applyResults` never writes `query`).
 
 ---
 
@@ -257,6 +292,7 @@ Schema details and the full migration rules are in `README.md` §3.
 | Compose UI tests | none | **not run**: no `ui-test-junit4` dependency and no emulator/device; selection rules, link independence, the cap and the batch repository calls are unit-tested (`SelectionLogicTest`, `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest`, `BatchOperationsTest`) |
 | DLsite live parse | `DlsiteSource().search("東方", 3)` | real `RJ…` works with Japanese titles, circles, `924円`-style prices, `img.dlsite.jp` covers and `dlsite.com` product URLs |
 | Provider access probe | `robots.txt` + search URL, app user agent (2026-10-23) | Melonbooks robots **404**, search **200** (not queried); Suruga-ya robots **200** with `Disallow: /search/`; DLsite robots **200**, paged URLs disallowed; E-Hentai robots **200**, `/s/` and `/codegen.php` disallowed; Doujin no Mori robots **200** with `Disallow: /comics/free-search`, search **200**; Doujinshi.info robots **200** but every page **403**; MyAnimeList `/topmanga` **404**, `/manga.php?q=` **200**; nhentai **403** everywhere |
+| Toranoana access probe | `robots.txt` + search URL, app user agent (2026-10-25) | robots **200** `text/plain` (283 B, no redirect, no `Crawl-delay`), rules `/api/ /app/ /ec/app/ /cms/ /cems/ /log/ /pc/` — **none matches `/tora_r/ec/app/catalog/list`**; search **200** `text/html` with no redirect, 50 `catalog-item` blocks, with `%20` and with `+`; landing **200**; **not queried** by the app (no documented API; 18+ catalogue) |
 | Python bridge | `python tools/lens_bridge_check.py` with chrome-lens-py installed | all checks passed |
 | Real OCR, desktop | chrome-lens-py 3.8.2, Open Library Hobbit cover | read `THE HOBBIT` / `JRR TOLKIEN`, heights present |
 | Real OCR, device | `connectedDebugAndroidTest` on `Medium_Phone_API_37.0` | passed in ~2.2 s |
@@ -281,6 +317,10 @@ not make for the user.
 * **Doujinshi.info / nhentai** - not implemented: both answer HTTP 403 to automated clients.
 * **MyAnimeList** - not implemented: no unauthenticated API and terms forbid scraping.
 * **E-Hentai** - browser-only: adult content behind the site age gate, `/s/` disallowed by robots.
+* **Toranoana** - browser-only: `robots.txt` disallows `/api/`, `/app/` and `/ec/app/` (where its
+  search runs) and the catalogue is 18+; only its generated browser link is verified.
+* **Toranoana product-URL lookup** - not implemented (deferred): it would fetch product pages on the
+  same disallowed paths, and there is no product-URL enrichment entry point in the app.
 * **DLsite on a device** - the live checks ran on the desktop JVM through the same adapter.
 * **Compose UI interaction** (card toggle, glow/dim, link independence) — no Compose UI-test
   dependency and no emulator/device was available; the state transitions those clicks drive are
@@ -302,6 +342,8 @@ not make for the user.
   browser-only by product decision and sends it no request at all.
 * Suruga-ya's `robots.txt` disallows `/search/`. The app sends it no request; its browser link is
   generated locally from the query.
+* Toranoana's `robots.txt` disallows `/api/`, `/app/` and `/ec/app/`, so the app sends it no request
+  either; only the browser link is built locally from the query. Nothing is cached for it.
 * To add a provider, implement `ProductSearchDataSource`, add a `ProviderSpec` to `ProviderCatalog`
   and register the source in `OnlineSearchController`; do not claim it in the UI until it is
   implemented and tested. A provider that cannot be queried belongs in `ProviderCatalog` as

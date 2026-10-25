@@ -96,16 +96,31 @@ class SearchRoutingTest {
     }
 
     @Test fun theNewProvidersAreShortcutsOnly() {
-        assertEquals(setOf("ol"), SearchRouting.sanitize(listOf("ol", "dm", "eh", "di", "mal", "nh")))
-        listOf("dm", "eh", "di", "mal", "nh").forEach { id ->
+        assertEquals(setOf("ol"), SearchRouting.sanitize(listOf("ol", "dm", "eh", "di", "mal", "nh", "tr")))
+        listOf("dm", "eh", "di", "mal", "nh", "tr").forEach { id ->
             assertEquals("$id must never be selectable", setOf("ol"), SearchRouting.toggle(setOf("ol"), id))
         }
-        assertTrue(SearchRouting.automated(setOf("dm", "eh", "di", "mal", "nh")).isEmpty())
-        assertFalse(SearchRouting.hasAutomated(setOf("di", "mal", "nh")))
+        assertTrue(SearchRouting.automated(setOf("dm", "eh", "di", "mal", "nh", "tr")).isEmpty())
+        assertFalse(SearchRouting.hasAutomated(setOf("di", "mal", "nh", "tr")))
         assertEquals(
-            listOf("mb", "sy", "dm", "eh", "di", "mal", "nh"),
+            listOf("mb", "sy", "dm", "eh", "di", "mal", "nh", "tr"),
             SearchRouting.shortcuts().map { it.id },
         )
+    }
+
+    @Test fun toranoanaIsAShortcutOnlyAndNeverEnablesAnInAppSearch() {
+        // v2.2.4: Toranoana is browser-only - no documented public API, and an 18+ catalogue.
+        val toranoana = ProviderCatalog.TORANOANA
+
+        assertFalse("Toranoana must never be selectable", toranoana.selectable)
+        assertEquals(emptySet<String>(), SearchRouting.sanitize(listOf("tr")))
+        assertEquals(setOf("ol"), SearchRouting.toggle(setOf("ol"), "tr"))
+        assertTrue(SearchRouting.automated(setOf("tr")).isEmpty())
+        assertFalse("a shortcut must not enable an in-app search", SearchRouting.hasAutomated(setOf("tr")))
+        // It stays a visible card with its own verified link.
+        assertTrue(SearchRouting.shortcuts().any { it.id == "tr" })
+        assertTrue(toranoana.hasLink)
+        assertTrue(toranoana.searchUrl("Blue Archive").startsWith("https://ec.toranoana.jp/"))
     }
 
     @Test fun onlySelectedPlatformsAreRoutedToInAppSearch() {
@@ -125,9 +140,9 @@ class SearchRoutingTest {
         assertTrue(SearchRouting.key(setOf("ol")) != SearchRouting.key(setOf("ol", "gb")))
     }
 
-    @Test fun theRegistryDeclaresTenPlatformsOfWhichThreeAreSelectable() {
-        assertEquals(10, ProviderCatalog.ALL.size)
+    @Test fun theRegistryDeclaresElevenPlatformsOfWhichThreeAreSelectable() {
+        assertEquals(11, ProviderCatalog.ALL.size)
         assertEquals(3, ProviderCatalog.SELECTABLE.size)
-        assertEquals(7, ProviderCatalog.BROWSER_ONLY.size)
+        assertEquals(8, ProviderCatalog.BROWSER_ONLY.size)
     }
 }
