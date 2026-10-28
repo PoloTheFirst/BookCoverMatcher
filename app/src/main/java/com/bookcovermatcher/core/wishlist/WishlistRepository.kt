@@ -843,6 +843,77 @@ class WishlistRepository(
         return AddReport(folder.id, null, added, alreadyThere, ids)
     }
 
+    /** Copies a picked image into `thumbs/` now; it is only attached when the form is saved. */
+    fun stageThumb(bytes: ByteArray, extension: String = "jpg"): String {
+        root.mkdirs()
+        val safeExt = extension.lowercase().filter { it.isLetterOrDigit() }.ifEmpty { "jpg" }
+        val name = "bm_" + uuid(12) + "." + safeExt
+        return writeThumb(name, bytes)
+    }
+
+    /** Removes a staged image that no stored item references (cancel, or replaced before saving). */
+    fun discardThumb(name: String) {
+        if (readState().items.any { it.thumbName == name }) return
+        thumbFile(name).delete()
+    }
+
+    /**
+     * Updates an existing bookmark in place: the id, kind, fingerprint, creation time and every
+     * membership stay untouched. The image is replaced only when [thumbName] is given, kept when both
+     * arguments say nothing, and cleared when [clearThumb] is true. The old file is deleted only after
+     * the write succeeded and only when no other item still references it.
+     */
+    fun updateBookmark(
+        itemId: String,
+        draft: ItemDraft,
+        thumbName: String? = null,
+        clearThumb: Boolean = false,
+    ): Boolean {
+        val state = readState()
+        val item = state.items.firstOrNull { it.id == itemId } ?: return false
+        // Workbook comparison rows belong to their session and are not editable bookmarks.
+        if (item.kind == ItemKind.WORKBOOK_MATCH) return false
+        val title = draft.title.trim()
+        if (BookmarkRules.validate(title, draft.url.orEmpty()) != null) {
+            throw InvalidItemException(BookmarkRules.validate(title, draft.url.orEmpty())!!)
+        }
+        val link = draft.url?.trim()?.takeIf { it.isNotEmpty() }
+        val next = SavedItem(
+            id = item.id,
+            kind = item.kind,
+            title = title,
+            url = link,
+            sourceDomain = BookmarkRules.domainOf(link.orEmpty()),
+            provider = draft.provider?.trim()?.takeIf { it.isNotEmpty() } ?: item.provider,
+            description = draft.description?.trim()?.takeIf { it.isNotEmpty() },
+            authors = draft.authors.map { it.trim() }.filter { it.isNotEmpty() },
+            circle = draft.circle?.trim()?.takeIf { it.isNotEmpty() },
+            // The form no longer edits the identifier: keep the stored value instead of wiping it.
+            identifier = draft.identifier?.trim()?.takeIf { it.isNotEmpty() } ?: item.identifier,
+            price = draft.price?.trim()?.takeIf { it.isNotEmpty() },
+            availability = draft.availability?.trim()?.takeIf { it.isNotEmpty() } ?: item.availability,
+            matchType = draft.resolvedMatchType,
+            matchTypeVerified = draft.matchTypeVerified && draft.resolvedMatchType != MatchType.MANUAL,
+            cell = draft.cell ?: item.cell,
+            cosine = draft.cosine ?: item.cosine,
+            percent = draft.percent ?: item.percent,
+            thumbName = when {
+                thumbName != null -> thumbName
+                clearThumb -> null
+                else -> item.thumbName
+            },
+            createdAtMillis = item.createdAtMillis,
+            fingerprint = item.fingerprint,
+        )
+        state.items[state.items.indexOf(item)] = next
+        save(state)
+        val old = item.thumbName
+        if (old != null && old != next.thumbName && state.items.none { it.id != itemId && it.thumbName == old }) {
+            thumbFile(old).delete()
+        }
+        return true
+    }
+
     private fun materialise(draft: ItemDraft, title: String): SavedItem {
         val id = newItemId()
         val link = draft.url?.trim()?.takeIf { it.isNotEmpty() }
@@ -855,6 +926,8 @@ class WishlistRepository(
             provider = draft.provider?.trim()?.takeIf { it.isNotEmpty() },
             description = draft.description?.trim()?.takeIf { it.isNotEmpty() },
             authors = draft.authors.map { it.trim() }.filter { it.isNotEmpty() },
+            circle = draft.circle?.trim()?.takeIf { it.isNotEmpty() },
+            // The form no longer edits the identifier: keep the stored value instead of wiping it.
             identifier = draft.identifier?.trim()?.takeIf { it.isNotEmpty() },
             price = draft.price?.trim()?.takeIf { it.isNotEmpty() },
             availability = draft.availability?.trim()?.takeIf { it.isNotEmpty() },
@@ -944,6 +1017,7 @@ class WishlistRepository(
                         "provider" to i.provider,
                         "description" to i.description,
                         "authors" to i.authors,
+                "circle" to i.circle,
                         "identifier" to i.identifier,
                         "price" to i.price,
                         "availability" to i.availability,
@@ -1073,6 +1147,7 @@ class WishlistRepository(
                 description = map["description"] as? String,
                 authors = authors,
                 identifier = map["identifier"] as? String,
+            circle = map["circle"] as? String,
                 price = map["price"] as? String,
                 availability = map["availability"] as? String,
                 matchType = enumOr(map["matchType"], MatchType.TEXT_QUERY) ?: MatchType.TEXT_QUERY,

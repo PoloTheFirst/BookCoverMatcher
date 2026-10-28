@@ -1,10 +1,42 @@
 package com.bookcovermatcher.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import com.bookcovermatcher.core.wishlist.BookmarkForm
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import com.bookcovermatcher.core.wishlist.ArtistFields
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +59,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -95,7 +126,7 @@ fun ProfilePickerDialog(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (active) Palette.Accent.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.22f))
+                            .background(if (active) Palette.Accent.copy(alpha = 0.15f) else Palette.Navy900)
                             .border(1.dp, if (active) Palette.Accent else Palette.Line, RoundedCornerShape(10.dp))
                             .clickable(role = Role.Button) {
                                 selectedId = if (active) null else profile.id
@@ -155,42 +186,110 @@ fun ProfilePickerDialog(
  * `+ Create bookmark`: title and URL are the only required fields. Nothing is fetched — the app
  * stores exactly what was typed, and the URL must be `https` because that is all it may open.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CustomBookmarkDialog(
     state: CustomBookmarkUi?,
     onCancel: () -> Unit,
-    onCreate: (title: String, url: String, authors: String, description: String, identifier: String, price: String) -> Unit,
+    onSave: (title: String, url: String, artists: List<String>, circle: String, description: String, price: String) -> Unit,
+    onPickImage: (Uri) -> Unit,
+    onRemoveImage: () -> Unit,
 ) {
-    state ?: return
+    val target = state ?: return
     BackHandler(enabled = true) { onCancel() }
-    var title by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-    var authors by remember { mutableStateOf("") }
-    var identifier by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+
+    // Prefilled when editing, empty when creating. Keyed on the target so switching resets the fields.
+    var title by remember(target.editingId) { mutableStateOf(target.title) }
+    var url by remember(target.editingId) { mutableStateOf(target.url) }
+    var artists by remember(target.editingId) { mutableStateOf(ArtistFields.rows(target.artists)) }
+    var circle by remember(target.editingId) { mutableStateOf(target.circle) }
+    var price by remember(target.editingId) { mutableStateOf(target.price) }
+    var notes by remember(target.editingId) { mutableStateOf(target.notes) }
+
+    val titleRequester = remember { BringIntoViewRequester() }
+    val urlRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+
+    // Field errors sit under their fields; the topmost invalid field is scrolled into view (also when
+    // the keyboard is open) so the user never has to hunt for the warning.
+    val firstInvalid = BookmarkForm.firstInvalid(target.fieldErrors)
+    // After a failed submit every error stays visible, and each one clears as soon as its field becomes
+    // valid — errors for other fields are not hidden while the user fixes one.
+    val liveErrors: Map<String, String> =
+        if (target.fieldErrors.isEmpty()) emptyMap() else BookmarkForm.validate(title, url)
+    LaunchedEffect(firstInvalid, target.error) {
+        if (firstInvalid != null) {
+            scope.launch {
+                when (firstInvalid) {
+                    BookmarkForm.FIELD_TITLE -> titleRequester.bringIntoView()
+                    else -> urlRequester.bringIntoView()
+                }
+            }
+        }
+    }
+
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let(onPickImage)
+    }
 
     Scrim(Modifier.imePadding()) {
         DialogCard {
             Column(
                 Modifier
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 430.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("Create bookmark", color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    if (target.isEditing) "Edit bookmark" else "Create bookmark",
+                    color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                )
                 Text(
                     "Saved as-is. The app does not fetch the page, a cover, a price or a stock status.",
                     color = Palette.Muted,
                     fontSize = 10.5.sp,
                 )
-                FormField("Title (required)", title, { title = it }, "Title or product name")
-                FormField("URL (required, https)", url, { url = it }, "https://…")
-                FormField("Author / artist / circle / publisher", authors, { authors = it }, "Optional")
-                FormField("Product identifier", identifier, { identifier = it }, "Optional")
-                FormField("Price", price, { price = it }, "Optional")
-                FormField("Description / notes", notes, { notes = it }, "Optional")
-                state.error?.let { Text(it, color = Palette.Danger, fontSize = 11.sp) }
+                BookmarkField(
+                    label = "Title (Required)",
+                    value = title,
+                    onChange = { title = it },
+                    placeholder = BookmarkForm.TITLE_PLACEHOLDER,
+                    error = liveErrors[BookmarkForm.FIELD_TITLE],
+                    modifier = Modifier.bringIntoViewRequester(titleRequester),
+                )
+                BookmarkField(
+                    label = "URL (REQUIRED)",
+                    value = url,
+                    onChange = { url = it },
+                    placeholder = BookmarkForm.URL_PLACEHOLDER,
+                    error = liveErrors[BookmarkForm.FIELD_URL],
+                    modifier = Modifier.bringIntoViewRequester(urlRequester),
+                )
+                ArtistSection(artists) { artists = it }
+                BookmarkField(
+                    label = "Circle (Optional)",
+                    value = circle,
+                    onChange = { circle = it },
+                    placeholder = BookmarkForm.CIRCLE_PLACEHOLDER,
+                )
+                BookmarkField(
+                    label = "Price (Optional)",
+                    value = price,
+                    onChange = { price = it },
+                    placeholder = BookmarkForm.PRICE_PLACEHOLDER,
+                )
+                BookmarkField(
+                    label = "Notes (Optional)",
+                    value = notes,
+                    onChange = { notes = it },
+                    placeholder = BookmarkForm.NOTES_PLACEHOLDER,
+                )
+                BookmarkImageSection(
+                    imagePath = target.imagePath,
+                    onPick = { pickImage.launch("image/*") },
+                    onRemove = onRemoveImage,
+                )
+                target.error?.let { Text(it, color = Palette.Danger, fontSize = 11.sp) }
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -198,14 +297,228 @@ fun CustomBookmarkDialog(
                     ButtonLabel("Cancel", Color(0xFFEAEEF5))
                 }
                 GradientButton(
-                    onClick = { onCreate(title, url, authors, notes, identifier, price) },
+                    onClick = {
+                        if (!target.saving) onSave(title, url, artists, circle, notes, price)
+                    },
                     colors = Palette.AccentGradient,
                     contentColor = Palette.OnAccent2,
                     modifier = Modifier.weight(1f),
                     minHeight = 46.dp,
-                ) { ButtonLabel("Save", Palette.OnAccent2) }
+                    enabled = !target.saving,
+                ) {
+                    ButtonLabel(if (target.saving) "Saving…" else "Save", Palette.OnAccent2)
+                }
             }
         }
+    }
+}
+
+/** Artist rows: labelled section; the circular `+` stays on the first row, extras carry their own `×`. */
+@Composable
+private fun ArtistSection(artists: List<String>, onChange: (List<String>) -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        FieldLabel("Artist (Optional)")
+        artists.forEachIndexed { index, value ->
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // The input keeps all the width it is given; the button owns its own 48 dp box plus an
+                // 8 dp gap, so the two never overlap and every row's input has exactly the same width.
+                Box(Modifier.weight(1f)) {
+                    BookmarkField(
+                        label = null,
+                        value = value,
+                        onChange = { next ->
+                            onChange(artists.toMutableList().also { it[index] = next })
+                        },
+                        placeholder = BookmarkForm.ARTIST_PLACEHOLDER,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                // Fixed arrangement: row 0 keeps the `+` forever; every additional row has its own `×`.
+                when (ArtistFields.actionFor(index, artists.size)) {
+                    ArtistFields.RowAction.ADD -> CircleIconButton(
+                        icon = Icons.Filled.Add,
+                        description = "Add another artist",
+                        tint = Palette.Accent,
+                        onClick = { onChange(ArtistFields.add(artists)) },
+                    )
+                    ArtistFields.RowAction.REMOVE -> CircleIconButton(
+                        icon = Icons.Filled.Close,
+                        description = "Remove this artist",
+                        tint = Palette.Muted,
+                        onClick = { onChange(ArtistFields.removeAt(artists, index)) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A 48 dp touch target with a circular background and outline; the icon itself stays small. */
+@Composable
+private fun CircleIconButton(
+    icon: ImageVector,
+    description: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(Palette.Navy700)
+            .border(1.dp, tint.copy(alpha = 0.55f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
+            Icon(icon, contentDescription = description, tint = tint, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/**
+ * One labelled field: gray sample text while empty (a placeholder, never a value), a red border and the
+ * message directly underneath when the field is invalid.
+ */
+@Composable
+private fun BookmarkField(
+    label: String?,
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    error: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth()) {
+        if (label != null) FieldLabel(label)
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = TextStyle(color = Palette.Text, fontSize = 13.sp),
+            cursorBrush = SolidColor(Palette.Accent),
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { inner ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 42.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.Navy900)
+                        .border(
+                            1.dp,
+                            if (error != null) Palette.Danger else Palette.Line,
+                            RoundedCornerShape(10.dp),
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.weight(1f)) {
+                        if (value.isEmpty()) {
+                            Text(placeholder, color = Palette.Muted, fontSize = 13.sp, maxLines = 1)
+                        }
+                        inner()
+                    }
+                }
+            },
+        )
+        if (error != null) {
+            Text(error, color = Palette.Danger, fontSize = 10.5.sp, modifier = Modifier.padding(top = 3.dp))
+        }
+    }
+}
+
+/**
+ * A simple "photo" glyph built from a vector path locally: material-icons-core ships no image icon and
+ * this keeps the form dependency-free.
+ */
+private val PhotoGlyph: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "Photo",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).addPath(
+        pathData = addPathNodes(
+            "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2z" +
+                "M8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
+        ),
+        fill = SolidColor(Color.White),
+    ).build()
+}
+
+/** Optional local image: preview, choose/replace and remove. Nothing is written until Save. */
+@Composable
+private fun BookmarkImageSection(imagePath: String?, onPick: () -> Unit, onRemove: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        FieldLabel("Image (optional)")
+        val bitmap by produceState<Bitmap?>(initialValue = null, imagePath) {
+            value = if (imagePath == null) null else withContext(Dispatchers.IO) { BitmapFactory.decodeFile(imagePath) }
+        }
+        val preview = bitmap
+        if (preview != null) {
+            Image(
+                bitmap = preview.asImageBitmap(),
+                contentDescription = "Selected bookmark image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 150.dp)
+                    .clip(RoundedCornerShape(10.dp)),
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            GradientButton(
+                onClick = onPick,
+                colors = Palette.NavyGradient,
+                contentColor = Palette.Text,
+                // Intrinsic width in both states: a weighted share can be a few pixels narrower than
+                // the label, which clipped its final glyph.
+                modifier = Modifier.wrapContentWidth(),
+                minHeight = 44.dp,
+                // Intrinsic width, so the label's final glyph is never clipped by a weighted share
+                // that is a few pixels too small; the Remove button keeps the remaining space.
+                contentPadding = 16.dp,
+            ) {
+                Icon(
+                    PhotoGlyph,
+                    contentDescription = null,
+                    tint = Palette.Accent,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                ButtonLabel("Choose image", Palette.Text, 12f)
+            }
+            if (imagePath != null) {
+                GradientButton(
+                    onClick = onRemove,
+                    colors = Palette.GreyGradient,
+                    contentColor = Palette.Text,
+                    modifier = Modifier.weight(1f),
+                    minHeight = 44.dp,
+                    contentPadding = 14.dp,
+                ) {
+                    ButtonLabel("Remove image", Palette.Text, 12f)
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            if (imagePath == null) {
+                "Choose an image from your device. It is copied into the app's own storage; no storage permission is requested."
+            } else {
+                "This image is stored with the bookmark. Replace it or remove it above."
+            },
+            color = Palette.Muted, fontSize = 9.sp,
+        )
     }
 }
 
@@ -227,7 +540,7 @@ private fun FormField(label: String, value: String, onChange: (String) -> Unit, 
                         .fillMaxWidth()
                         .heightIn(min = 42.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color.Black.copy(alpha = 0.3f))
+                        .background(Palette.Navy900)
                         .border(1.dp, Palette.Line, RoundedCornerShape(10.dp))
                         .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,

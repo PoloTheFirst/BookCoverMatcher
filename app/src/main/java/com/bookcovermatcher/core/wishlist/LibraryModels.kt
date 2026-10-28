@@ -99,6 +99,8 @@ class SavedItem(
     val provider: String?,
     val description: String?,
     val authors: List<String>,
+    /** The circle shown on the bookmark form; distinct from the artist rows. */
+    val circle: String? = null,
     val identifier: String?,
     val price: String?,
     val availability: String?,
@@ -240,6 +242,8 @@ class ItemDraft(
     val identifier: String? = null,
     val description: String? = null,
     val authors: List<String> = emptyList(),
+    /** The circle of a manual bookmark; stored separately from [authors]. */
+    val circle: String? = null,
     val price: String? = null,
     val availability: String? = null,
     val matchType: MatchType? = null,

@@ -2,13 +2,17 @@ package com.bookcovermatcher.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -100,7 +106,7 @@ fun WishlistScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) 
                 else -> {
                     Header()
                     Spacer(Modifier.height(8.dp))
-                    Sections(ui.wishlistSection, vm::selectWishlistSection)
+                    Sections(ui, vm::selectWishlistSection)
                     Spacer(Modifier.height(8.dp))
                     when (ui.wishlistSection) {
                         WishlistSection.FOLDERS -> FolderList(ui, vm, selection)
@@ -135,12 +141,13 @@ private fun Header() {
 }
 
 @Composable
-private fun Sections(selected: WishlistSection, onSelect: (WishlistSection) -> Unit) {
+private fun Sections(ui: UiState, onSelect: (WishlistSection) -> Unit) {
+    val selected = ui.wishlistSection
     SegmentedTabRow {
-        SegmentedTab("Folders", selected == WishlistSection.FOLDERS, Modifier.weight(1f)) {
+        SegmentedTab("Folders (${ui.folders.size})", selected == WishlistSection.FOLDERS, Modifier.weight(1f)) {
             onSelect(WishlistSection.FOLDERS)
         }
-        SegmentedTab("Bookmarks", selected == WishlistSection.BOOKMARKS, Modifier.weight(1f)) {
+        SegmentedTab("Bookmarks (${ui.bookmarks.size})", selected == WishlistSection.BOOKMARKS, Modifier.weight(1f)) {
             onSelect(WishlistSection.BOOKMARKS)
         }
     }
@@ -552,6 +559,8 @@ private enum class BookmarkSort(val label: String) {
 private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit, selection: SelectionUi?) {
     var filter by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(BookmarkSort.ADDED) }
+    // The drawer state lives in the app state, so leaving the ribbon and coming back keeps it.
+    val panelOpen = ui.bookmarkPanelOpen
     val selecting = selection?.kind == BatchKind.BOOKMARKS
     val needle = filter.trim()
     val shown = ui.bookmarks
@@ -569,7 +578,7 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
             }
         }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().animateContentSize()) {
         GradientButton(
             onClick = vm::openCustomBookmark,
             colors = Palette.NavyGradient,
@@ -586,8 +595,11 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
             fontSize = 10.sp,
             modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
         )
-        BookmarkFilter(filter) { filter = it }
+        if (panelOpen) {
+            BookmarkFilter(filter) { filter = it }
         if (!selecting && ui.bookmarks.isNotEmpty()) {
+            // A modest gap keeps the filter and the selection entry visually separate.
+            Spacer(Modifier.height(8.dp))
             SelectEntry("Select bookmarks") { vm.startSelection(BatchKind.BOOKMARKS) }
             Spacer(Modifier.height(6.dp))
         }
@@ -601,6 +613,10 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
                 SortChip(option.label, sort == option) { sort = option }
             }
         }
+        }
+        Spacer(Modifier.height(6.dp))
+        BookmarkControlsHandle(panelOpen, vm::toggleBookmarkPanel)
+        Spacer(Modifier.height(6.dp))
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (shown.isEmpty()) {
                 item {
@@ -627,6 +643,8 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
                     selected = if (selecting) item.id in (selection?.ids ?: emptySet()) else null,
                     onToggleSelect = { vm.toggleSelected(item.id) },
                     onLongPress = { vm.startSelectionWith(BatchKind.BOOKMARKS, item.id) },
+                    // Inside the card, immediately left of the red delete icon.
+                    onEdit = { vm.openEditBookmark(item.id) },
                 )
             }
         }
@@ -684,7 +702,7 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
 // One saved non-comparison item
 // ---------------------------------------------------------------------------------------------
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SavedItemRow(
     item: SavedItemUi,
@@ -697,9 +715,13 @@ private fun SavedItemRow(
     onToggleSelect: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
     onBookmark: (() -> Unit)? = null,
+    /** Edit action for the bookmark card; drawn immediately left of the red delete icon. */
+    onEdit: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(14.dp)
     val selecting = selected != null
+    var descriptionOpen by rememberSaveable(item.id) { mutableStateOf(false) }
+    val chevron by animateFloatAsState(if (descriptionOpen) 180f else 0f, label = "bookmarkChevron")
     Column(
         Modifier
             .fillMaxWidth()
@@ -742,22 +764,58 @@ private fun SavedItemRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Chip(item.kindLabel, Palette.Accent2)
-                    item.domain?.let { Chip(it, Palette.Muted) }
-                    if (item.bookmarked) Chip("Bookmarked", Palette.Ok)
-                }
                 Text(item.addedText, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 3.dp))
             }
-            if (onRemove != null && !selecting) {
-                SquareIconButton(
-                    Icons.Filled.Delete,
-                    removeDescription,
-                    Palette.Danger,
-                    borderColor = Palette.Danger.copy(alpha = 0.45f),
-                    onClick = onRemove,
-                )
+            if ((onEdit != null || onRemove != null) && !selecting) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    run {
+                        // Always visible, like the search-result card: a bookmark without a description
+                        // still shows the control and explains itself when expanded.
+                        Icon(
+                            Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (descriptionOpen) "Collapse description" else "Expand description",
+                            tint = if (descriptionOpen) Palette.Accent else Palette.Text,
+                            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
+                                .clickable(role = Role.Button) { descriptionOpen = !descriptionOpen }
+                                .rotate(chevron).padding(7.dp),
+                        )
+                    }
+                    if (onEdit != null) {
+                        // Same white pen as the folder card's edit action: one visual convention.
+                        SquareIconButton(Icons.Filled.Edit, "Edit bookmark", Palette.Text, onClick = onEdit)
+                    }
+                    if (onRemove != null) {
+                        SquareIconButton(
+                            Icons.Filled.Delete,
+                            removeDescription,
+                            Palette.Danger,
+                            borderColor = Palette.Danger.copy(alpha = 0.45f),
+                            onClick = onRemove,
+                        )
+                    }
+                }
             }
+        }
+        // Tags get the whole card width and wrap onto as many lines as they need, so they can never
+        // run under the edit/delete buttons; the card's measured height grows with them.
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Chip(item.kindLabel, Palette.Accent2)
+            item.domain?.let { Chip(it, Palette.Muted) }
+            if (item.bookmarked) Chip("Bookmarked", Palette.Ok)
+        }
+        if (descriptionOpen) {
+            Text(
+                item.description ?: "No description",
+                color = if (item.description.isNullOrBlank()) Palette.Muted else Palette.Text,
+                fontSize = 11.sp, maxLines = 6, overflow = TextOverflow.Ellipsis,
+            )
         }
         if (!selecting) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -781,6 +839,24 @@ private fun SavedItemRow(
     }
 }
 
+/** Blue drawer handle for the bookmark control panel; the arrow points at where it will go. */
+@Composable
+private fun BookmarkControlsHandle(open: Boolean, onToggle: () -> Unit) {
+    val arrow by animateFloatAsState(if (open) 0f else 180f, label = "panelChevron")
+    Box(
+        Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(10.dp))
+            .background(Palette.Accent).clickable(role = Role.Button, onClick = onToggle)
+            .semantics { contentDescription = if (open) "Hide bookmark controls" else "Show bookmark controls" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            tint = Palette.OnAccent,
+            modifier = Modifier.size(20.dp).rotate(arrow),
+        )
+    }
+}
 @Composable
 private fun RowAction(label: String, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(

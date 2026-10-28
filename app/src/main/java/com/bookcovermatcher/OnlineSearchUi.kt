@@ -1,4 +1,7 @@
 package com.bookcovermatcher
+import com.bookcovermatcher.core.wishlist.ItemDraft
+import com.bookcovermatcher.core.wishlist.ItemKind
+import com.bookcovermatcher.core.wishlist.MatchType
 
 import com.bookcovermatcher.core.online.ProviderCatalog
 
@@ -139,6 +142,10 @@ data class ProductResultUi(
     val key: String,
     val title: String,
     val authors: String,
+    /** Circle (shop listing), kept apart from [authors]. */
+    val circle: String? = null,
+    /** Genuine artist names. Never the display line, which falls back to the circle for shop listings. */
+    val artistNames: List<String> = emptyList(),
     val meta: String,
     val languages: String,
     val coverJpeg: ByteArray?,
@@ -198,3 +205,26 @@ data class OnlineSearchUi(
     val answeredProviders: List<ProviderStatusUi>
         get() = providers.filter { it.state == ProviderState.RESULTS }
 }
+
+/**
+ * One online result as the store sees it.
+ *
+ * Authors come from the **parsed** artist names only: the display line (`authors`) falls back to the
+ * shop circle for marketplace listings, so it must never become an artist.
+ */
+internal fun ProductResultUi.toDraft(): ItemDraft = ItemDraft(
+    kind = ItemKind.ONLINE_RESULT,
+    title = title,
+    url = detailUrl,
+    provider = provider,
+    providerKey = key,
+    identifier = identifier,
+    description = description,
+    authors = artistNames.map { it.trim() }.filter { it.isNotEmpty() },
+    circle = circle,
+    price = price,
+    availability = availability,
+    matchType = MatchType.TEXT_QUERY,
+    matchTypeVerified = true,
+    thumbJpeg = coverJpeg,
+)

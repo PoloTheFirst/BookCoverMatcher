@@ -3,17 +3,17 @@ package com.bookcovermatcher.core.online
 import com.bookcovermatcher.core.wishlist.ItemIdentity
 
 /**
- * Reads a **DLsite** books search page (`https://www.dlsite.com/books/fsr/=/keyword/…`) into
+ * Reads a **DLsite** books search page (`https://www.dlsite.com/books/fsr/=/keyword/â€¦`) into
  * [ProductSearchResult]s.
  *
  * Why this provider: DLsite is where a large part of the Japanese doujinshi / digital-works
  * catalogue lives, which is exactly the use case the workbook workflow is built for. Its public
  * keyword search is a plain HTML page served to non-browser clients, so it can be read without
- * credentials, cookies or an API key — verified live (the page answers the app's own user agent).
+ * credentials, cookies or an API key â€” verified live (the page answers the app's own user agent).
  *
- * What is read, and only what the page really contains: the work id (`RJ…`), the title, the circle
+ * What is read, and only what the page really contains: the work id (`RJâ€¦`), the title, the circle
  * name and the shop price. There is **no** stock status, description or rating in the listing
- * markup, so those fields stay null and the card shows `—` rather than an invented value.
+ * markup, so those fields stay null and the card shows `â€”` rather than an invented value.
  *
  * Access constraints: `robots.txt` asks crawlers for a 10-second delay and disallows the paged
  * result URLs. The app therefore issues **one** request per user-initiated search, never paginates
@@ -45,17 +45,23 @@ object DlsiteResponseParser {
      */
     private val RESULTS_PAGE = Regex("id=\"search_result_(?:list|img_box)\"")
 
-    /** Start of one item: `<li … data-list_item_product_id="RJ01730150" …>`. */
+    /** Start of one item: `<li â€¦ data-list_item_product_id="RJ01730150" â€¦>`. */
     private val ITEM_START = Regex("<li\\b[^>]*data-list_item_product_id=\"([A-Za-z]{2}[0-9]{4,12})\"")
 
     private val NAME_BLOCK = Regex("<dd\\s+class=\"work_name\"[^>]*>([\\s\\S]{0,1200}?)</dd>")
     private val ANCHOR = Regex("<a\\b[^>]*href=\"([^\"]+)\"[^>]*>([\\s\\S]*?)</a>")
     private val TITLE_ATTR = Regex("\\btitle=\"([^\"]*)\"")
     private val MAKER_BLOCK = Regex("<dd\\s+class=\"maker_name\"[^>]*>([\\s\\S]{0,600}?)</dd>")
+
+    /** The work's author block, when a page carries one (`ä½œè€…`). Absent on ordinary listing pages. */
+    private val AUTHOR_BLOCK = Regex("""<dd\s+class="author_name"[^>]*>([\s\S]{0,600}?)</dd>""")
+
+    /** The author as a table row (`<th>ä½œè€…</th><td>â€¦</td>`), used by some DLsite layouts. */
+    private val AUTHOR_LABEL = Regex("""作者\s*</th>\s*<td[^>]*>([\s\S]{0,300}?)</td>""")
     private val PRICE_BASE = Regex("<span\\s+class=\"work_price_base\"[^>]*>\\s*([0-9][0-9,]*)\\s*</span>")
     private val PRICE_SUFFIX = Regex("<span\\s+class=\"work_price_suffix\"[^>]*>([^<]{0,12})</span>")
 
-    /** The listing carries a 240×240 JPEG of the real cover; the full-size one is the fallback. */
+    /** The listing carries a 240Ã—240 JPEG of the real cover; the full-size one is the fallback. */
     private val COVER_THUMB = Regex("(?:https?:)?//img\\.dlsite\\.jp/[^\"'\\s]+?_img_main_240x240\\.jpg")
     private val COVER_FULL = Regex("(?:https?:)?//img\\.dlsite\\.jp/[^\"'\\s]+?_img_main\\.jpg")
 
@@ -65,12 +71,12 @@ object DlsiteResponseParser {
      * The public search URL for [query].
      *
      * The keyword is a **path segment** on DLsite, and the site only accepts its own form encoding
-     * there: a space must be `+`. Measured 2026-10-23 with the app's user agent —
-     * `keyword/Blue+Archive` → 200 with 30 works, while `keyword/Blue%20Archive` → **403**. This used
+     * there: a space must be `+`. Measured 2026-10-23 with the app's user agent â€”
+     * `keyword/Blue+Archive` â†’ 200 with 30 works, while `keyword/Blue%20Archive` â†’ **403**. This used
      * to translate spaces to `%20`, which is why any multi-word query failed.
      *
-     * Characters that are not safe in a path are still percent-encoded by the encoder (`+` → `%2B`,
-     * `&` → `%26`, `#` → `%23`), so the `+` produced here only ever means "space".
+     * Characters that are not safe in a path are still percent-encoded by the encoder (`+` â†’ `%2B`,
+     * `&` â†’ `%26`, `#` â†’ `%23`), so the `+` produced here only ever means "space".
      */
     fun searchUrl(query: String): String {
         val encoded = ProviderLinks.encode(query.trim(), QueryForm.PLUS)
@@ -101,7 +107,25 @@ object DlsiteResponseParser {
         return out
     }
 
-    /** Null for a block without a usable work link, title or id — it cannot be shown honestly. */
+    /** Null for a block without a usable work link, title or id â€” it cannot be shown honestly. */
+    /**
+     * The work's author (`ä½œè€…`) when the fetched HTML really carries it.
+     *
+     * DLsite *listing* pages usually only print the circle, so this stays empty rather than borrowing
+     * the circle: an author is only ever reported when the page states one.
+     */
+    internal fun authorOf(block: String): List<String> {
+        val raw = AUTHOR_BLOCK.find(block)?.groupValues?.get(1)
+            ?: AUTHOR_LABEL.find(block)?.groupValues?.get(1)
+        return raw
+            ?.let { HtmlText.clean(it) }
+            ?.trim()
+            ?.take(MAX_MAKER_CHARS)
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { listOf(it) }
+            .orEmpty()
+    }
+
     private fun parseItem(id: String, block: String): ProductSearchResult? {
         val nameBlock = NAME_BLOCK.find(block)?.groupValues?.get(1) ?: return null
         val anchor = ANCHOR.find(nameBlock) ?: return null
@@ -121,8 +145,9 @@ object DlsiteResponseParser {
         return ProductSearchResult(
             id = id,
             title = title,
-            // A shop's circle name is the closest thing to an author a listing has.
-            authors = listOfNotNull(maker),
+            // The circle is its own field: a shop listing has no author, so authors stays empty.
+            authors = authorOf(block),
+            circle = maker,
             publishedYear = null,
             // The listing has no publisher field; the circle is not a publisher, so it is not copied.
             publishers = emptyList(),
@@ -152,7 +177,7 @@ object DlsiteResponseParser {
         return url.takeIf { it.startsWith("https://img.dlsite.jp/") }
     }
 
-    /** `924円` — the page's own digits and its own currency suffix, or null when it shows none. */
+    /** `924å††` â€” the page's own digits and its own currency suffix, or null when it shows none. */
     private fun priceOf(block: String): String? {
         val amount = PRICE_BASE.find(block)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val suffix = PRICE_SUFFIX.find(block)?.groupValues?.get(1)?.let { HtmlText.clean(it) }.orEmpty()

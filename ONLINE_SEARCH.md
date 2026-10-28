@@ -1,4 +1,4 @@
-# Online search, OCR and bookmarks — implementation notes (v2.2.3)
+# Online search, OCR and bookmarks — implementation notes (v2.3.0)
 
 This document describes what the online feature actually does. It deliberately separates four
 capabilities that are easy to confuse:
@@ -287,8 +287,8 @@ Schema details and the full migration rules are in `README.md` §3.
 
 | Item | Command / environment | Result |
 |---|---|---|
-| JVM suite | `.\gradlew.bat testDebugUnitTest` | 285 tests, 0 failures (4 live checks skipped by design) |
-| Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks` | 285 tests, 0 failures; **4/4 live checks ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED`. Melonbooks is not in the live suite any more |
+| JVM suite | `.\gradlew.bat testDebugUnitTest` | 329 tests, 0 failures (4 live checks skipped by design) |
+| Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks` | 329 tests, 0 failures; **4/4 live checks ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED`. Melonbooks is not in the live suite any more |
 | Compose UI tests | none | **not run**: no `ui-test-junit4` dependency and no emulator/device; selection rules, link independence, the cap and the batch repository calls are unit-tested (`SelectionLogicTest`, `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest`, `BatchOperationsTest`) |
 | DLsite live parse | `DlsiteSource().search("東方", 3)` | real `RJ…` works with Japanese titles, circles, `924円`-style prices, `img.dlsite.jp` covers and `dlsite.com` product URLs |
 | Provider access probe | `robots.txt` + search URL, app user agent (2026-10-23) | Melonbooks robots **404**, search **200** (not queried); Suruga-ya robots **200** with `Disallow: /search/`; DLsite robots **200**, paged URLs disallowed; E-Hentai robots **200**, `/s/` and `/codegen.php` disallowed; Doujin no Mori robots **200** with `Disallow: /comics/free-search`, search **200**; Doujinshi.info robots **200** but every page **403**; MyAnimeList `/topmanga` **404**, `/manga.php?q=` **200**; nhentai **403** everywhere |
