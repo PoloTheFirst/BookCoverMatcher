@@ -4,7 +4,7 @@
 chosen workbook can now be browsed, viewed and exported in the app. Nothing is sent anywhere, no macro is
 run, and the workbook is never written to.
 
-## v2.3.0 (2026-10-27)
+## v2.3.0 (2026-10-28)
 
 `records.json` is untouched, the comparison pipeline is unchanged, and the feature is read-only: it opens
 the staged copy of the workbook through the existing `ZipSource` and never writes to it.
