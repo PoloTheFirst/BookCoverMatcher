@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.2.3)
+# Architecture and developer notes (v2.3.0)
 
 ## Layers
 
@@ -9,14 +9,32 @@ AppScreen / bottom nav  ──▶ UiState (StateFlow)                   ┌─ C
 HomeScreen / SearchScreen    camera, workbook, results,            ├─ OrtClipEmbedder (ONNX)
 WishlistScreen               folders/sessions/bookmarks,            ├─ OnlineSearchController
 MoreScreen                   dialogs, prompt/toast                  │   ├─ OCR bridge (Chaquopy)
-ProductResultCard            │                                      │   └─ catalogues (JVM HTTP)
-OnlineSearchPanel            ├─ offline: CatalogBuilder +           └─ WishlistRepository (file store)
-dialogs                      │            CatalogIndex
+WorkbookCommentsScreen       │                                      │   └─ catalogues (JVM HTTP)
+ProductResultCard            │                                      ├─ WorkbookCommentsController
+OnlineSearchPanel            ├─ offline: CatalogBuilder +           │   (legacy note images, cache)
+dialogs                      │            CatalogIndex              └─ WishlistRepository (file store)
                              ├─ library: WishlistRepository
                              └─ online: OnlineSearchController.ui (mirrored)
 ```
 
 * `core/` is plain Kotlin/JVM: no `android.*` imports. It is covered by the desktop JVM suite.
+* `core/excel/comments/` (v2.3.0) reads the legacy note images of a package — relationship discovery,
+  comments XML, VML note shapes, media validation, diagnostics (`CommentImageScanner`) — and
+  `data/CommentImageCache` stores the result per workbook hash. `WorkbookCommentsController` runs it off
+  the main thread; `ui/WorkbookCommentsScreen` is the read-only surface.
+* `core/excel/comments/CatalogueTable` + `SheetCells` discover a catalogue table from its **own header
+  row** (no sheet name or column index is hardcoded) and `ImageIndex`/`WorkbookAnalyzer` join it with the
+  verified comment→media associations; `ui/WorkbookBrowserPanels` renders the search/filter/sort/export
+  UI and `core/export/ImageManifest` writes the CSV.
+* `data/WorkbookLibrary` owns the **Saved workbooks** copies (`files/workbooks/<id>.<ext>`) and their
+  `library.json` (display name, pin, recency, last parsed counts). Identity is the id/hash, never the
+  display name; `ui/WorkbookLibraryScreen` is its surface.
+* `core/excel/comments/WorkbookComparison` (v2.3.0) diffs two `WorkbookMetrics` by **worksheet name**
+  (never by position): presence, workbook order, visibility, declared used range (`SheetCells.dimension`
+  reads `<dimension>` without loading cells), comment/link/unresolved/media counts, and catalogue
+  record/header differences. Counts that cannot be established stay `null` and render as *unknown*.
+  `MainViewModel.runComparison` builds both sides on `Dispatchers.IO` reusing `CommentImageCache`, and
+  `ui/WorkbookComparisonScreen` shows the result. It is metadata-level only — no cell diff, no macros.
 * `MainViewModel` owns the single `UiState`; tab selection and dialog state live there. It never
   stores authoritative saved data in memory.
 * `SearchScreen` (in `MainScreen.kt`) is the workflow image's **Search Results** screen: three
@@ -47,7 +65,7 @@ ProviderCatalog (core/online)      eleven ProviderSpec rows: id, host, access, n
                 Doujinshi.info    (HTTP 403 to automated clients)
                 MyAnimeList       (no unauthenticated API; /topmanga is 404)
                 nhentai           (HTTP 403, adult)
-                Toranoana         (robots: Disallow /api/, /app/, /ec/app/; 18+ catalogue)
+                Toranoana         (undocumented storefront page; no documented API; 18+)
         MelonbooksSource -- MelonbooksResponseParser stays in the tree, unregistered, fixture-tested only
 ```
 
@@ -184,11 +202,17 @@ and optional `folderDetail`/`sessionDetail` model the drill-down. Back handling 
 the bookmark form; it never deletes data. `Scaffold` + custom bottom bar avoids a navigation
 dependency while keeping proper selected state and back behaviour.
 
+`WorkbookCommentsScreen` (v2.3.0) is deliberately **not** an `AppTab`: it is a full-surface preview owned
+by `UiState.comments.open`, opened from More with the staged workbook's hash, and its Back action closes
+it. It therefore cannot change the selected destination, the camera or the matching state.
+
 ## Testing
 
-* `app/src/test`: 165 JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
-  parsers/aggregator/cache in `OnlineSearchTest.kt`; the existing offline pipeline tests remain.
-  Two live catalogue tests are gated by `-DonlineCheck=1`.
+* `app/src/test`: **329** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
+  parsers/aggregator/cache in `OnlineSearchTest.kt`; legacy-comment parsing and its cache in
+  `LegacyCommentScanTest.kt`, `LegacyCommentEdgeCaseTest.kt`, `CommentImageCacheTest.kt` and
+  `WorkbookCommentsUiTest.kt`; the existing offline pipeline tests remain.
+  Four live catalogue tests are gated by `-DonlineCheck=1`.
 * `app/src/androidTest`: three tests on a device/emulator:
   * real OCR through Chaquopy on a bundled cover (`OcrDeviceTest`);
   * real catalogue sources;

@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.2.3)
+# BookCover Matcher - User Guide (v2.3.0)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -191,7 +191,63 @@ Manual check on a device (no emulator was available for this build):
 * Online switch, auto-search, OCR language and translation language.
 * A plain description of offline matching, OCR, catalogue search, visual search (not implemented),
   the browser-only providers and prices/stock (not supplied).
+* The **Workbook comments & images** entry (legacy note text and pictures, offline).
 * Storage counts and **Clear online session cache**.
+
+### Workbook comments & images
+
+**More → Open workbook comments** reads the legacy Excel notes of the workbook you chose on Home. It
+works completely offline and never changes the workbook.
+
+* **Comments** lists each commented cell. The marker says what it holds: **T** text only, **▣** one or
+  more images, **!** an image reference that could not be resolved. The sheet chips narrow the list; tap
+  a row for the author, the full note text and the pictures.
+* **All images** shows every picture stored in the workbook, including the ones no comment uses (marked
+  *No association found by this previewer*).
+* Tap a thumbnail for a full-screen view. **Export** saves the image's original bytes to a location you
+  choose; the workbook itself is never touched.
+* Reopening the same workbook reuses the cached result (it says *cached* next to the name); **Rescan**
+  reads it again.
+* Threaded comments are the newer kind and are not notes: the screen reports when they exist, but only
+  legacy note pictures are shown.
+
+### Saved workbooks (More → Saved workbooks)
+
+Importing a workbook here keeps a private copy inside the app, so it still opens if the original file
+moves or is deleted. The list shows the name you gave it, the original filename, its size, when it was
+last opened and (after the first open) how many sheets, comments and images it has.
+
+* Bookmarks: each card has *Edit bookmark* (white pen) left of the red delete icon; tags wrap onto their own
+  row, and an optional image can be chosen, replaced or removed in the form.
+* **Rename** changes your label only; the file is never renamed.
+* **Pin** keeps a workbook at the top; the rest are ordered by last opened.
+* **Remove** deletes the app's copy and that workbook's parsed cache. The original file you imported is
+  not touched.
+* **Storage** reports the copies and the regenerable caches separately. **Clear parsed caches** frees the
+  caches and keeps every saved workbook.
+* **Compare** on two rows (then **Compare** in the selection bar) opens a read-only comparison of the two
+  saved workbooks. It matches worksheets by **name**, so a renamed sheet is shown as one removal plus one
+  addition rather than silently paired. You get workbook order, per-sheet visibility, each sheet's
+  declared used range, comment counts, verified image links, unresolved references, media and unreferenced
+  media, plus catalogue record/header differences. Values the parser could not establish are shown as
+  *unknown* and never as `0`; if one side cannot be read, that side is marked as failed instead of showing
+  a comparison of zeros. Identical totals are not presented as proof that the workbooks are the same, and
+  this is not a cell-by-cell diff — the app never writes to either workbook and never runs macros.
+
+### Worksheet picker, images and catalogue
+
+* On **Home** and the **Search → Workbook** tab, *Saved* uses a workbook you already imported
+  (More → Saved workbooks) as the scan source; *Choose file* keeps the original external selection.
+* **Name** sorting in the Images view is natural: `image2.jpg` comes before `image10.jpg`, and the
+  association chips (*All* / *Linked* / *Unreferenced* / *Unresolved*) are mutually exclusive.
+* **Sheets** (in the preview header) lists every worksheet with a search box, hidden sheets labelled, so
+  you never have to swipe an overflowing tab strip.
+* **Images** has a search box (file name, sheet, cell, title, author, circle…), filter chips with counts
+  (linked / unreferenced / unresolved), sorting, grid (with S/M/L thumbnail size) or list, and multi-select → **Export…** into a
+  folder you pick. A `manifest.csv` is written next to the copies. Unresolved references are listed
+  separately and never called unreferenced.
+* **Catalogue** finds the workbook's own table from its header row and searches all of its columns; each
+  record says whether a verified image is linked to it.
 
 ## Three bookmark workflows
 
