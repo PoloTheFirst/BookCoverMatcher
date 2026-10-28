@@ -731,6 +731,7 @@ class OnlineSearchController(
         title = title,
         authors = authorLine,
         circle = circle,
+        artistNames = authors,
         meta = metaLine,
         languages = languages.joinToString(", "),
         coverJpeg = coverJpeg,

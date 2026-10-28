@@ -2,6 +2,7 @@
 
 package com.bookcovermatcher.core
 
+import com.bookcovermatcher.core.online.DlsiteResponseParser
 import com.bookcovermatcher.core.online.ProductSearchResult
 import com.bookcovermatcher.core.wishlist.ItemDraft
 import com.bookcovermatcher.core.wishlist.ItemKind
@@ -97,5 +98,19 @@ class DlsiteCircleMappingTest {
         val id = repo.bookmark(draft(circle = null)).itemIds.single()
 
         assertNull(repo.library().items.first { it.id == id }.circle)
+    }
+
+    @Test fun theAuthorIsOnlyReadWhenThePageReallyStatesOne() {
+        val withBlock = "<dd class=\"author_name\"><a>原作者</a></dd>"
+        val withLabel = "<tr><th>作者</th><td>原作者</td></tr>"
+        val without = "<dd class=\"maker_name\"><a>榎屋</a></dd>"
+
+        assertEquals(listOf("原作者"), DlsiteResponseParser.authorOf(withBlock))
+        assertEquals(listOf("原作者"), DlsiteResponseParser.authorOf(withLabel))
+        assertEquals(
+            "the circle is never borrowed as an author",
+            emptyList<String>(),
+            DlsiteResponseParser.authorOf(without),
+        )
     }
 }
