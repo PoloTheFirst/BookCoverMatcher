@@ -15,6 +15,12 @@ import com.bookcovermatcher.core.excel.CellRange
 import com.bookcovermatcher.core.excel.InvalidRangeException
 import com.bookcovermatcher.core.excel.JavaZipSource
 import com.bookcovermatcher.core.excel.WorkbookImageExtractor
+import com.bookcovermatcher.core.excel.comments.CommentImageScanner
+import com.bookcovermatcher.core.excel.comments.MediaBytes
+import com.bookcovermatcher.core.excel.comments.CommentScanResult
+import com.bookcovermatcher.core.excel.comments.WorkbookAnalyzer
+import com.bookcovermatcher.core.excel.comments.WorkbookComparison
+import com.bookcovermatcher.core.excel.comments.WorkbookMetrics
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.search.CatalogBuilder
 import com.bookcovermatcher.core.search.CatalogIndex
@@ -24,6 +30,8 @@ import com.bookcovermatcher.core.search.RankedMatch
 import com.bookcovermatcher.core.vision.ImageOps
 import com.bookcovermatcher.core.vision.PixelImage
 import com.bookcovermatcher.core.wishlist.BatchReport
+import com.bookcovermatcher.core.wishlist.ArtistFields
+import com.bookcovermatcher.core.wishlist.BookmarkForm
 import com.bookcovermatcher.core.wishlist.BookmarkRules
 import com.bookcovermatcher.core.wishlist.InvalidItemException
 import com.bookcovermatcher.core.wishlist.ItemDraft
@@ -35,12 +43,16 @@ import com.bookcovermatcher.core.wishlist.SearchSession
 import com.bookcovermatcher.core.wishlist.SessionDraft
 import com.bookcovermatcher.core.wishlist.SessionKind
 import com.bookcovermatcher.core.wishlist.WishlistFolder
+import com.bookcovermatcher.core.wishlist.FolderCreation
 import com.bookcovermatcher.core.wishlist.WishlistRepository
 import com.bookcovermatcher.data.ImageFiles
+import com.bookcovermatcher.data.CommentImageCache
+import com.bookcovermatcher.data.ImportResult
 import com.bookcovermatcher.data.ModelStore
 import com.bookcovermatcher.data.Prefs
 import com.bookcovermatcher.data.StagedWorkbook
 import com.bookcovermatcher.data.WorkbookFiles
+import com.bookcovermatcher.data.WorkbookLibrary
 import com.bookcovermatcher.online.OnlineSearchController
 import com.bookcovermatcher.vision.AndroidImageCodec
 import com.bookcovermatcher.vision.OrtClipEmbedder
@@ -62,6 +74,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,6 +108,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     val online = OnlineSearchController(app, viewModelScope, onMessage = ::showToast)
 
+    /**
+     * Offline preview of the workbook's legacy comment images (v2.3.0). Owned here so it can see the
+     * staged workbook, but it keeps its own state flow and only reads: no matching, no network.
+     */
+    val comments = WorkbookCommentsController(app, viewModelScope, onMessage = ::showToast)
+
+    /** Saved workbooks: app-managed copies under files/workbooks, with their own JSON index. */
+    private val library = WorkbookLibrary(File(app.filesDir, "workbooks"))
+    private val commentsCacheDir = File(app.filesDir, "comments")
+
     /** Fires once per accepted cover (flash + haptic in the UI). */
     private val _captureEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
     val captureEvents: SharedFlow<Unit> = _captureEvents.asSharedFlow()
@@ -104,6 +127,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     @Volatile private var targetEmbedding: FloatArray? = null
     @Volatile private var lastRanked: List<RankedMatch> = emptyList()
     private var staged: StagedWorkbook? = null
+
+    /**
+     * The single path that creates a user-named folder (v2.3.0 fix). `createFolder()` only opens the
+     * dialog; this is the only place the repository's `createFolder` is called from that flow, and it
+     * refuses blank names and repeated taps.
+     */
+    private val folderCreation = FolderCreation { name ->
+        withContext(wishlistDispatcher) { wishlist.createFolder(name) }
+        refreshLibrary()
+    }
     private var memo: Pair<String, CatalogIndex>? = null
 
     private var matchJob: Job? = null
@@ -135,6 +168,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             online.ui.collect { onlineState ->
                 _ui.update { state -> state.copy(online = onlineState) }
+            }
+        }
+        viewModelScope.launch {
+            comments.ui.collect { commentState ->
+                _ui.update { state -> state.copy(comments = commentState) }
             }
         }
     }
@@ -410,6 +448,298 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Opens the offline legacy-comment preview for the staged workbook (v2.3.0).
+     *
+     * Nothing is staged until a workbook has been chosen on Home, so this reports that instead of
+     * opening an empty screen. The preview itself only reads the staged copy.
+     */
+    fun openWorkbookComments() {
+        val wb = staged ?: run {
+            showToast("Choose a workbook on Home first.", ToastKind.INFO)
+            return
+        }
+        comments.open(wb.file, wb.sha256, wb.displayName)
+    }
+
+    fun closeWorkbookComments() = comments.close()
+
+    // =====================================================================================
+    // Saved workbooks (v2.3.0)
+    // =====================================================================================
+
+    fun openLibrary() {
+        _ui.update { it.copy(libraryOpen = true) }
+        refreshSavedWorkbooks()
+    }
+
+    fun closeLibrary() = _ui.update { it.copy(libraryOpen = false) }
+
+    // ---- Home/Search scan source: an already-imported saved workbook (v2.3.0) -------------------
+
+    fun openSavedWorkbookPicker() {
+        _ui.update { it.copy(savedPickerOpen = true) }
+        refreshSavedWorkbooks()
+    }
+
+    fun closeSavedWorkbookPicker() = _ui.update { it.copy(savedPickerOpen = false) }
+
+    /**
+     * Stages a saved workbook as the scan source. It produces exactly the [StagedWorkbook] the file
+     * picker produces, so Home and Search keep their existing scan path — nothing about scanning is
+     * duplicated. Identity is the library entry's hash, not its display name.
+     */
+    fun useSavedWorkbook(id: String) {
+        if (_ui.value.workbookLoading) return
+        val entry = library.byId(id) ?: run {
+            showToast("That workbook is no longer saved.", ToastKind.ERR)
+            refreshSavedWorkbooks()
+            return
+        }
+        val file = library.fileOf(entry)
+        if (!file.isFile) {
+            showToast("The saved copy is missing; import the workbook again.", ToastKind.ERR)
+            return
+        }
+        viewModelScope.launch {
+            _ui.update { it.copy(workbookLoading = true) }
+            try {
+                // Same fail-early validation as a picked file: a corrupt copy must not become the source.
+                withContext(Dispatchers.IO) { openWorkbook(file).close() }
+                val size = withContext(Dispatchers.IO) { file.length() }
+                staged = StagedWorkbook(file, entry.displayName, size, entry.sha256)
+                val duplicates = _ui.value.savedWorkbooks.count {
+                    it.displayName.equals(entry.displayName, ignoreCase = true)
+                } > 1
+                val label = if (duplicates) "${entry.displayName} (${entry.originalName})" else entry.displayName
+                _ui.update {
+                    it.copy(
+                        workbook = WorkbookUi(label, Formatting.fileSize(size)),
+                        workbookLoading = false,
+                        savedPickerOpen = false,
+                    )
+                }
+                showToast("Scanning source: \"$label\".", ToastKind.OK)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Never leave the previous workbook as the source: the user asked for this one.
+                staged = null
+                _ui.update { it.copy(workbook = null, workbookLoading = false) }
+                showToast("Error: " + (e.message ?: e.toString()), ToastKind.ERR)
+            }
+        }
+    }
+
+    fun refreshSavedWorkbooks() {
+        viewModelScope.launch {
+            val list = withContext(Dispatchers.IO) { library.list() }
+            val sizes = withContext(Dispatchers.IO) { library.bytes() to savedCacheBytes() }
+            _ui.update { it.copy(savedWorkbooks = list, libraryBytes = sizes.first, cacheBytes = sizes.second) }
+        }
+    }
+
+    /** Copies a picked workbook into app storage; the original file is never modified. */
+    fun importWorkbook(uri: Uri) {
+        if (_ui.value.libraryBusy) return
+        _ui.update { it.copy(libraryBusy = true) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val app = getApplication<Application>()
+                val name = WorkbookFiles.displayName(app, uri)
+                val input = app.contentResolver.openInputStream(uri)
+                if (input == null) ImportResult.Rejected("The selected file could not be opened.")
+                else library.import(input, name)
+            }
+            _ui.update { it.copy(libraryBusy = false) }
+            when (result) {
+                is ImportResult.Added -> showToast("Saved \"${result.workbook.displayName}\".", ToastKind.OK)
+                is ImportResult.AlreadySaved ->
+                    showToast("Already saved as \"${result.workbook.displayName}\".", ToastKind.INFO)
+                is ImportResult.Rejected -> showToast(result.message, ToastKind.ERR)
+            }
+            refreshSavedWorkbooks()
+        }
+    }
+
+    /** Opens a saved copy in the comment/image preview and records the recency. */
+    fun openSavedWorkbook(id: String) {
+        val entry = library.byId(id) ?: run {
+            showToast("That workbook is no longer saved.", ToastKind.ERR)
+            refreshSavedWorkbooks()
+            return
+        }
+        val file = library.fileOf(entry)
+        if (!file.isFile) {
+            showToast("The saved copy is missing; import the workbook again.", ToastKind.ERR)
+            return
+        }
+        library.touch(id)
+        comments.open(file, entry.sha256, entry.displayName)
+        watchSummary(id)
+        refreshSavedWorkbooks()
+    }
+
+    /** Waits for the first parse of an opened workbook and stores its counts in the library index. */
+    private fun watchSummary(id: String) {
+        viewModelScope.launch {
+            val state = comments.ui.first { !it.loading && (it.analysis != null || it.error != null) }
+            val analysis = state.analysis ?: return@launch
+            library.setSummary(id, analysis.sheets.size, state.comments.size, analysis.images.size)
+            refreshSavedWorkbooks()
+        }
+    }
+
+    fun renameSavedWorkbook(id: String, name: String) {
+        val renamed = library.rename(id, name)
+        showToast(if (renamed != null) "Renamed to \"${renamed.displayName}\"." else "The name cannot be empty.", ToastKind.INFO)
+        refreshSavedWorkbooks()
+    }
+
+    fun setSavedWorkbookPinned(id: String, pinned: Boolean) {
+        library.setPinned(id, pinned)
+        refreshSavedWorkbooks()
+    }
+
+    /** Removes the library entry, its app-managed copy and that workbook's cached parse. */
+    fun removeSavedWorkbook(id: String) {
+        val entry = library.byId(id) ?: return
+        val (entryRemoved, fileDeleted) = library.remove(id)
+        if (entryRemoved) CommentImageCache(commentsCacheDir).remove(entry.sha256)
+        val message = when {
+            !entryRemoved -> "The workbook was already gone."
+            fileDeleted -> "Removed \"${entry.displayName}\" and its saved copy."
+            else -> "Removed the entry, but its copy could not be deleted."
+        }
+        showToast(message, if (entryRemoved && fileDeleted) ToastKind.OK else ToastKind.INFO)
+        refreshSavedWorkbooks()
+    }
+
+    /** Clears regenerable caches only: saved workbook copies are untouched. */
+    fun clearParseCaches() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                CommentImageCache(commentsCacheDir).clear()
+                IndexCache(File(getApplication<Application>().cacheDir, "index")).clear()
+            }
+            showToast("Parsed caches cleared. Saved workbooks are untouched.", ToastKind.OK)
+            refreshSavedWorkbooks()
+        }
+    }
+
+    private fun savedCacheBytes(): Long {
+        val app = getApplication<Application>()
+        return dirSize(commentsCacheDir) + dirSize(File(app.cacheDir, "index"))
+    }
+
+    private fun dirSize(dir: File): Long {
+        val files = dir.listFiles() ?: return 0L
+        return files.sumOf { if (it.isFile) it.length() else dirSize(it) }
+    }
+
+    // =====================================================================================
+    // Workbook comparison (v2.3.0)
+    // =====================================================================================
+
+    /** Ticks/untis a workbook for comparison; at most two distinct ids are kept. */
+    fun toggleComparisonSelection(id: String) {
+        _ui.update { state ->
+            val current = state.comparison.selection
+            val next = when {
+                id in current -> current - id
+                current.size >= 2 -> listOf(current[1], id)
+                else -> current + id
+            }
+            state.copy(comparison = state.comparison.copy(selection = next, error = null))
+        }
+    }
+
+    fun clearComparisonSelection() = _ui.update {
+        it.copy(comparison = it.comparison.copy(selection = emptyList(), error = null, diff = null))
+    }
+
+    fun closeComparison() = _ui.update { it.copy(comparison = it.comparison.copy(open = false)) }
+
+    /**
+     * Parses both sides off the main thread (reusing each workbook's cached scan) and stores the diff.
+     * A side that cannot be read is reported as a failure, never as zero counts.
+     */
+    fun runComparison() {
+        val ids = _ui.value.comparison.selection
+        if (ids.size != 2) {
+            showToast("Pick two workbooks to compare.", ToastKind.INFO)
+            return
+        }
+        val left = library.byId(ids[0])
+        val right = library.byId(ids[1])
+        if (left == null || right == null) {
+            showToast("One of the selected workbooks is no longer saved.", ToastKind.ERR)
+            refreshSavedWorkbooks()
+            return
+        }
+        if (left.id == right.id) {
+            showToast("Pick two different workbooks.", ToastKind.INFO)
+            return
+        }
+        _ui.update {
+            it.copy(comparison = it.comparison.copy(open = true, loading = true, error = null, diff = null))
+        }
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                val leftMetrics = metricsOf(left)
+                val rightMetrics = metricsOf(right)
+                if (!leftMetrics.usable) {
+                    "Left workbook (${left.displayName}): ${leftMetrics.failure}" to null
+                } else if (!rightMetrics.usable) {
+                    "Right workbook (${right.displayName}): ${rightMetrics.failure}" to null
+                } else {
+                    null to WorkbookComparison.compare(leftMetrics, rightMetrics)
+                }
+            }
+            _ui.update { state ->
+                state.copy(
+                    comparison = state.comparison.copy(
+                        loading = false,
+                        error = outcome.first,
+                        diff = outcome.second,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Scan (or reuse the cached scan), analyse, and reduce to comparable metrics. */
+    private fun metricsOf(entry: com.bookcovermatcher.data.SavedWorkbook): WorkbookMetrics {
+        val file = library.fileOf(entry)
+        if (!file.isFile) {
+            return WorkbookComparison.failure(
+                entry.displayName, entry.originalName, entry.sha256,
+                "the saved copy is missing; import the workbook again",
+            )
+        }
+        return try {
+            JavaZipSource(ZipFile(file)).use { zip ->
+                val cache = CommentImageCache(commentsCacheDir)
+                val model = cache.read(entry.sha256) ?: when (
+                    val scanned = CommentImageScanner.scan(zip, entry.displayName, entry.sha256)
+                ) {
+                    is CommentScanResult.Success -> scanned.workbook.also { cache.write(it) }
+                    is CommentScanResult.Failure -> return WorkbookComparison.failure(
+                        entry.displayName, entry.originalName, entry.sha256, scanned.message,
+                    )
+                }
+                val analysis = WorkbookAnalyzer.analyze(zip, model)
+                val note = if (model.fromCache) "analysis reused from cache" else null
+                WorkbookComparison.metrics(entry.displayName, entry.originalName, entry.sha256, model, analysis, note)
+            }
+        } catch (e: Exception) {
+            WorkbookComparison.failure(
+                entry.displayName, entry.originalName, entry.sha256,
+                "could not be read: ${e.message ?: e.javaClass.simpleName}",
+            )
+        }
+    }
+
     fun cancelMatch() {
         matchJob?.cancel()
     }
@@ -604,17 +934,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun closeSession() = _ui.update { it.copy(sessionDetail = null, selection = null) }
 
-    /** `+ New folder`: a real, user-named folder; the rename dialog gives it a name immediately. */
+    /**
+     * `+ New folder`: opens the naming dialog **only**. The folder is created when the user saves a name
+     * (see [commitRename]); cancelling leaves no folder and no record behind.
+     */
     fun createFolder() {
+        folderCreation.begin()
+        if (!folderCreation.pending) return
+        _ui.update {
+            it.copy(renaming = RenameUi(recordId = "", currentName = "", title = "Name this folder", create = true))
+        }
+    }
+
+    /** Save on the "Name this folder" dialog: validates, creates exactly once, refreshes, then closes. */
+    private fun commitCreatedFolder(name: String) {
+        if (name.isBlank()) {
+            // Keep the dialog open: a nameless folder is never created.
+            showToast("Type a name for the folder.", ToastKind.ERR)
+            return
+        }
         viewModelScope.launch {
-            try {
-                val folder = withContext(wishlistDispatcher) { wishlist.createFolder("") }
-                refreshLibrary()
-                _ui.update { it.copy(renaming = RenameUi(folder.id, folder.name, "Name this folder")) }
+            val created = try {
+                folderCreation.confirm(name)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 showToast("Wishlist storage error \u2014 could not create the folder.", ToastKind.ERR)
+                false
+            }
+            if (created) {
+                _ui.update { it.copy(renaming = null) }
+                showToast("Created \"" + name.trim() + "\".", ToastKind.OK)
             }
         }
     }
@@ -636,14 +986,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(renaming = RenameUi(id, title, "Rename result profile", RenameKind.SESSION)) }
     }
 
-    fun cancelRename() = _ui.update { it.copy(renaming = null) }
+    fun cancelRename() {
+        if (_ui.value.renaming?.create == true) folderCreation.cancel()
+        _ui.update { it.copy(renaming = null) }
+    }
 
     /**
      * One commit path for both kinds, so validation and feedback cannot drift apart: the repository
      * trims the name and keeps the current one when the field is blank, exactly as it does for folders.
      */
     fun commitRename(id: String, name: String) {
-        val kind = _ui.value.renaming?.kind ?: RenameKind.FOLDER
+        val dialog = _ui.value.renaming ?: return
+        if (dialog.create) {
+            // "Name this folder": creation happens here, never when the dialog opens.
+            commitCreatedFolder(name)
+            return
+        }
+        val kind = dialog.kind
         _ui.update { it.copy(renaming = null) }
         viewModelScope.launch {
             try {
@@ -1059,53 +1418,177 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openCustomBookmark() = _ui.update { it.copy(customBookmark = CustomBookmarkUi()) }
 
-    fun closeCustomBookmark() = _ui.update { it.copy(customBookmark = null) }
+    /** Opens the same form for an existing bookmark, prefilled from the stored record. */
+    fun openEditBookmark(itemId: String) {
+        viewModelScope.launch {
+            val item = withContext(wishlistDispatcher) { wishlist.library().items.firstOrNull { it.id == itemId } }
+            if (item == null) {
+                showToast("That bookmark no longer exists.", ToastKind.ERR)
+                refreshLibrary()
+                return@launch
+            }
+            _ui.update {
+                it.copy(
+                    customBookmark = CustomBookmarkUi(
+                        editingId = item.id,
+                        title = item.title,
+                        url = item.url.orEmpty(),
+                        artists = ArtistFields.rows(item.authors),
+                        circle = item.circle.orEmpty(),
+                        price = item.price.orEmpty(),
+                        notes = item.description.orEmpty(),
+                        imageName = item.thumbName,
+                        originalImageName = item.thumbName,
+                        imagePath = item.thumbName
+                            ?.let { name -> wishlist.thumbFile(name) }
+                            ?.takeIf { file -> file.isFile }
+                            ?.absolutePath,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Cancel/dismiss: nothing is saved, and an image picked in this session is discarded. */
+    fun closeCustomBookmark() {
+        val form = _ui.value.customBookmark
+        _ui.update { it.copy(customBookmark = null) }
+        val staged = form?.imageName
+        if (staged != null && staged != form.originalImageName) {
+            viewModelScope.launch { withContext(Dispatchers.IO) { wishlist.discardThumb(staged) } }
+        }
+    }
 
     /**
-     * `+ Create bookmark`: stores exactly what was typed. No metadata, thumbnail or price is fetched,
-     * and the values that were typed are not marked as verified. The bookmark is independent of any
-     * scan, session or folder.
+     * Copies the picked image into app storage right away (so a temporary content URI is never relied
+     * on). It is attached to the bookmark only when the form is saved; cancelling deletes it.
      */
-    fun createCustomBookmark(
+    fun stageBookmarkImage(uri: Uri) {
+        val form = _ui.value.customBookmark ?: return
+        viewModelScope.launch {
+            val staged = withContext(Dispatchers.IO) {
+                val bytes = getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: return@withContext null
+                val format = MediaBytes.sniff(bytes) ?: return@withContext null
+                if (format !in setOf("png", "jpeg", "gif", "bmp", "webp")) return@withContext null
+                val name = wishlist.stageThumb(bytes, if (format == "jpeg") "jpg" else format)
+                Triple(name, format, wishlist.thumbFile(name).absolutePath)
+            }
+            if (staged == null) {
+                showToast("That image could not be read.", ToastKind.ERR)
+                return@launch
+            }
+            val previous = form.imageName
+            _ui.update { state ->
+                val current = state.customBookmark ?: return@update state
+                state.copy(
+                    customBookmark = current.copy(
+                        imageName = staged.first,
+                        imagePath = staged.third,
+                        clearImage = false,
+                    ),
+                )
+            }
+            if (previous != null && previous != form.originalImageName) {
+                withContext(Dispatchers.IO) { wishlist.discardThumb(previous) }
+            }
+        }
+    }
+
+    /** Removes the image from the form (a stored image is cleared only when the form is saved). */
+    fun clearBookmarkImage() {
+        val form = _ui.value.customBookmark ?: return
+        val staged = form.imageName?.takeIf { it != form.originalImageName }
+        _ui.update {
+            it.copy(
+                customBookmark = form.copy(
+                    imageName = null,
+                    imagePath = null,
+                    clearImage = form.originalImageName != null,
+                ),
+            )
+        }
+        if (staged != null) viewModelScope.launch { withContext(Dispatchers.IO) { wishlist.discardThumb(staged) } }
+    }
+
+    /**
+     * Save for both creation and editing. Validation is field-level and in visual order; a repeat tap
+     * while a save is running is ignored, and editing updates the existing record (same id).
+     */
+    fun saveCustomBookmark(
         title: String,
         url: String,
-        authors: String,
+        artists: List<String>,
+        circle: String,
         description: String,
-        identifier: String,
         price: String,
     ) {
-        val problem = BookmarkRules.validate(title, url)
-        if (problem != null) {
-            _ui.update { it.copy(customBookmark = CustomBookmarkUi(problem)) }
+        val form = _ui.value.customBookmark ?: return
+        if (form.saving) return
+        val errors = BookmarkForm.validate(title, url)
+        if (errors.isNotEmpty()) {
+            _ui.update { it.copy(customBookmark = form.copy(fieldErrors = errors, error = errors.values.first())) }
             return
         }
+        _ui.update { it.copy(customBookmark = form.copy(saving = true, fieldErrors = emptyMap(), error = null)) }
         viewModelScope.launch {
             try {
+                val draft = ItemDraft(
+                    kind = ItemKind.MANUAL_BOOKMARK,
+                    title = title.trim(),
+                    url = url.trim(),
+                    authors = ArtistFields.values(artists),
+                    circle = circle,
+                    description = description,
+                    price = price,
+                    matchType = MatchType.MANUAL,
+                    matchTypeVerified = false,
+                )
+                val editingId = form.editingId
+                val imageChanged = form.imageName != form.originalImageName
                 withContext(wishlistDispatcher) {
-                    wishlist.bookmark(
-                        ItemDraft(
-                            kind = ItemKind.MANUAL_BOOKMARK,
-                            title = title,
-                            url = url.trim(),
-                            authors = authors.split(',').map { it.trim() }.filter { it.isNotEmpty() },
-                            description = description,
-                            identifier = identifier,
-                            price = price,
-                            matchType = MatchType.MANUAL,
-                            matchTypeVerified = false,
-                        ),
-                    )
+                    if (editingId == null) {
+                        val report = wishlist.bookmark(draft)
+                        if (form.imageName != null) {
+                            report.itemIds.firstOrNull()?.let { id ->
+                                wishlist.updateBookmark(id, draft, thumbName = form.imageName)
+                            }
+                        }
+                    } else {
+                        wishlist.updateBookmark(
+                            itemId = editingId,
+                            draft = draft,
+                            thumbName = if (imageChanged) form.imageName else null,
+                            clearThumb = imageChanged && form.imageName == null,
+                        )
+                    }
                 }
                 _ui.update {
-                    it.copy(customBookmark = null, tab = AppTab.WISHLIST, wishlistSection = WishlistSection.BOOKMARKS)
+                    it.copy(
+                        customBookmark = null,
+                        tab = AppTab.WISHLIST,
+                        wishlistSection = WishlistSection.BOOKMARKS,
+                    )
                 }
                 refreshLibrary()
-                showToast("Bookmark created.", ToastKind.OK)
+                showToast(if (editingId == null) "Bookmark created." else "Bookmark updated.", ToastKind.OK)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: InvalidItemException) {
-                _ui.update { it.copy(customBookmark = CustomBookmarkUi(e.message)) }
+                val again = BookmarkForm.validate(title, url)
+                _ui.update {
+                    it.copy(
+                        customBookmark = form.copy(
+                            saving = false,
+                            fieldErrors = again,
+                            error = e.message ?: again.values.firstOrNull(),
+                        ),
+                    )
+                }
             } catch (e: Exception) {
+                _ui.update {
+                    it.copy(customBookmark = form.copy(saving = false, error = "Could not save the bookmark."))
+                }
                 showToast("Wishlist storage error - could not save.", ToastKind.ERR)
             }
         }
@@ -1606,7 +2089,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         url = url,
         domain = sourceDomain,
         provider = provider,
+        circle = circle,
         meta = listOfNotNull(
+            circle?.let { "circle $it" },
             authors.joinToString(", ").ifEmpty { null },
             identifier?.let { "id $it" },
             cell?.let { "cell $it" },
@@ -1637,6 +2122,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         identifier = identifier,
         description = description,
         authors = authors.split(',').map { it.trim() }.filter { it.isNotEmpty() && it != "Unknown author" },
+        circle = circle,
         price = price,
         availability = availability,
         matchType = MatchType.TEXT_QUERY,
@@ -1691,6 +2177,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         camera.shutdown()
         online.shutdown()
+        comments.close()
         embedder?.close()
         embedder = null
         wishlistExecutor.shutdown()

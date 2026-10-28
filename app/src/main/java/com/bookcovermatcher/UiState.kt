@@ -97,6 +97,8 @@ class SavedItemUi(
     val domain: String?,
     val provider: String?,
     val meta: String,
+    /** Circle, shown as its own value instead of being folded into the author metadata. */
+    val circle: String? = null,
     val kind: ItemKind,
     val kindLabel: String,
     val bookmarked: Boolean,
@@ -185,9 +187,41 @@ class RenameUi(
     val currentName: String,
     val title: String = "Rename folder",
     val kind: RenameKind = RenameKind.FOLDER,
+    /** True for the "Name this folder" dialog: nothing exists yet, so Save must create the folder. */
+    val create: Boolean = false,
 )
 /** State of the hand-typed bookmark form. [error] is a message the form shows verbatim. */
-class CustomBookmarkUi(val error: String? = null)
+/**
+ * The bookmark form. It is used for **creation** ([editingId] null) and for **editing** an existing
+ * bookmark, so both share the same fields, validation and image behaviour.
+ *
+ * [imageName] is what will be saved (a `thumbs/` file name); [originalImageName] is what the stored
+ * record had, so cancelling only deletes an image the user picked during this session.
+ */
+data class CustomBookmarkUi(
+    val editingId: String? = null,
+    val title: String = "",
+    val url: String = "",
+    /** Artist rows: at least one, any number of additional rows, all independently editable. */
+    val artists: List<String> = listOf(""),
+    /** Circle (single value). */
+    val circle: String = "",
+    val identifier: String = "",
+    val price: String = "",
+    val notes: String = "",
+    val imageName: String? = null,
+    val originalImageName: String? = null,
+    /** Absolute path of [imageName] for the preview; null when there is no image. */
+    val imagePath: String? = null,
+    val clearImage: Boolean = false,
+    /** Field id -> message, in visual order (see `BookmarkForm`). */
+    val fieldErrors: Map<String, String> = emptyMap(),
+    /** Form-level message (storage/validation failure). */
+    val error: String? = null,
+    val saving: Boolean = false,
+) {
+    val isEditing: Boolean get() = editingId != null
+}
 
 
 data class UiState(
@@ -215,6 +249,21 @@ data class UiState(
 
     // online results (Search > Online tab); the offline workflow above never reads it
     val online: OnlineSearchUi = OnlineSearchUi(),
+
+    /** Offline legacy-comment preview of the staged workbook (v2.3.0). */
+    val comments: WorkbookCommentsUi = WorkbookCommentsUi(),
+
+    /** The Saved workbooks library (v2.3.0): app-managed copies, pin/recency, storage sizes. */
+    val savedWorkbooks: List<com.bookcovermatcher.data.SavedWorkbook> = emptyList(),
+    val libraryOpen: Boolean = false,
+    /** Home/Search source picker: choose an already-imported workbook to scan (v2.3.0). */
+    val savedPickerOpen: Boolean = false,
+    val libraryBusy: Boolean = false,
+    val libraryBytes: Long = 0L,
+    val cacheBytes: Long = 0L,
+
+    /** Two-workbook metadata comparison (v2.3.0). */
+    val comparison: WorkbookComparisonUi = WorkbookComparisonUi(),
 
     // Phase 2 navigation
     val tab: AppTab = AppTab.HOME,

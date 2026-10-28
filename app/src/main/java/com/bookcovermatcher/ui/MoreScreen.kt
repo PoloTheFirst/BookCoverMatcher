@@ -88,6 +88,34 @@ fun MoreScreen(ui: UiState, vm: MainViewModel) {
         }
 
         Spacer(Modifier.height(14.dp))
+        Panel("Saved workbooks") {
+            InfoLine("Library", "An import is copied into app storage, so a saved workbook keeps working when the original file moves.")
+            InfoLine("Ordering", "Pinned workbooks come first, then the most recently opened.")
+            InfoLine("Storage", "Saved copies and regenerable caches are listed separately; clearing a cache never deletes a workbook.")
+            GradientButton(
+                onClick = vm::openLibrary,
+                colors = Palette.NavyGradient,
+                contentColor = Palette.Text,
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                minHeight = 42.dp,
+            ) { ButtonLabel("Open saved workbooks", Palette.Text, 12.5f) }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Panel("Workbook comments & images") {
+            InfoLine("Legacy notes", "Note text, author and the pictures stored with each note, read offline from the chosen workbook.")
+            InfoLine("All images", "Every file under xl/media, with the cell it belongs to when that can be determined.")
+            InfoLine("Export", "Copies the image's original bytes to a location you pick. The workbook is never modified.")
+            GradientButton(
+                onClick = vm::openWorkbookComments,
+                colors = Palette.NavyGradient,
+                contentColor = Palette.Text,
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                minHeight = 42.dp,
+            ) { ButtonLabel("Open workbook comments", Palette.Text, 12.5f) }
+        }
+
+        Spacer(Modifier.height(14.dp))
         Panel("Storage") {
             InfoLine("Folders", "${ui.folders.size}")
             InfoLine("Bookmarks", "${ui.bookmarks.size}")

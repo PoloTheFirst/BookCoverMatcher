@@ -14,6 +14,8 @@ class ProductSearchResult(
     val id: String,
     val title: String,
     val authors: List<String>,
+    /** A shop listing's circle (DLsite), kept separate from the author list. */
+    val circle: String? = null,
     val publishedYear: Int?,
     val publishers: List<String>,
     val pageCount: Int?,
@@ -42,7 +44,7 @@ class ProductSearchResult(
     val authorLine: String
         get() = when {
             authors.isNotEmpty() -> authors.joinToString(", ")
-            isMarketplace -> "circle not shown"
+            isMarketplace -> circle ?: "circle not shown"
             else -> "Unknown author"
         }
 

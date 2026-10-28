@@ -121,8 +121,9 @@ object DlsiteResponseParser {
         return ProductSearchResult(
             id = id,
             title = title,
-            // A shop's circle name is the closest thing to an author a listing has.
-            authors = listOfNotNull(maker),
+            // The circle is its own field: a shop listing has no author, so authors stays empty.
+            authors = emptyList(),
+            circle = maker,
             publishedYear = null,
             // The listing has no publisher field; the circle is not a publisher, so it is not copied.
             publishers = emptyList(),

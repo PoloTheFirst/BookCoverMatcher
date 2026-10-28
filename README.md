@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.2.3** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.3.0** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -24,7 +24,9 @@ a connection; every online feature is opt-in.
 > profile be bookmarked without leaving the profile. **2.2.4** adds **Toranoana** as an eighth
 > browser-only card (no documented public API; 18+ catalogue) and makes every card's `Open ↗` link
 > follow the query field immediately, so a browser-only shop can be opened without running a dummy
-> in-app search first.
+> in-app search first. **2.3.0** adds an offline preview of the workbook's legacy Excel comments: note
+> text, author, the pictures stored with each note, every file under `xl/media`, a full-screen viewer and
+> byte-for-byte export, all read-only.
 > Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in `ARCHITECTURE.md`.
 ---
 
@@ -37,6 +39,7 @@ a connection; every online feature is opt-in.
 | **Online platform search** | The OCR text (or text you type) is searched in the platforms you select. **Open Library**, **Google Books** and **DLsite** are queried in the app. **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**, **Doujinshi.info**, **MyAnimeList**, **nhentai** and **Toranoana** are browser-only cards with their own link and can never be selected: Melonbooks is a product decision, Suruga-ya and Doujin no Mori disallow their search route in `robots.txt`, E-Hentai/nhentai are adult sites that block automated access, Doujinshi.info answers HTTP 403, MyAnimeList has no unauthenticated API and Toranoana publishes no documented public API (its page is an undocumented storefront, 18+). Every card has its own `Open` link, the link always uses the text currently in the query field, and the result maximum is configurable (5-50) | Yes |
 | **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
+| **Workbook comments & images** | The legacy Excel notes of the chosen `.xlsx`/`.xlsm`: note text, author and the pictures stored with each note, plus every file under `xl/media`. Text-only, image-bearing and unresolved-image notes are marked differently; an image opens full-screen and exports byte-for-byte. Offline and read-only; `.xlsm` macros are never run | No |
 
 The offline matcher is the original one: `Config.TOP_MATCHES = 5`, the same OpenCLIP model, the same
 workbook extraction (`.xlsx`/`.xlsm`, cell-note pictures and floating pictures) and the same score
@@ -53,11 +56,33 @@ Bottom navigation has four destinations:
 | **Home** | Cover capture (CameraX), Auto Scan toggle, Scan / restart controls, workbook picker, cell range, image picker, "Link & Find Top 5", and a shortcut to the comparison results |
 | **Search** | **Search Results** with `Workbook (n) / Online (n) / Bookmarks (n)` tabs and live counts: the offline controls plus the top-5 comparison, the online panel (OCR status, query field, **platform picker with per-platform `Open ↗` links**, **result maximum 5–50**, provider results), and this search's bookmarked results with `Bookmark all results`. Offline and online results are never one mixed list |
 | **Wishlist** | **Folders** and **Bookmarks** sections. A folder opens to its sessions; a session opens to its results. Bookmarks are also reachable in their own section |
-| **More** | Online-search settings (toggle, auto-search, OCR/translation languages), a plain-language explanation of each capability, storage counts and "clear online session cache" |
+| **More** | Online-search settings (toggle, auto-search, OCR/translation languages), a plain-language explanation of each capability, the **workbook comments & images** preview, storage counts and "clear online session cache" |
 
 The wishlist is no longer a full-screen overlay and the header no longer has a star button; the
 Wishlist tab owns that data. Navigation is Compose state (`AppTab`) held by the ViewModel, so a tab
 switch or rotation never touches persisted data.
+
+### Workbook comments & images (v2.3.0)
+
+More → **Open workbook comments** shows the legacy notes of the staged workbook on their own surface, so
+nothing else on screen changes while it is open.
+
+* **Comments** lists every commented cell with a marker that does not rely on colour: `T` text only,
+  `▣` has images, `!` an image reference that could not be resolved. A sheet filter narrows the list.
+  Tapping a row shows the note's author, its full text (rich-text runs joined, line breaks kept), its
+  thumbnails and the exact reason for any unresolved reference.
+* **All images** lists every file under `xl/media` with its format and its associations
+  (`Sheet!Cell — comment preview`), or the honest label *No association found by this previewer* for a
+  file nothing in this previewer points at. Undecodable files keep a placeholder and a diagnostic.
+* An image opens full-screen with its associations and closes with Back. **Export** writes the
+  **original** package bytes to a destination you choose (Storage Access Framework); a thumbnail is never
+  exported, and success is reported only after the copy finished.
+* The result is cached per workbook hash in `files/comments/`, so reopening an unchanged workbook is
+  instant and shows *cached*; **Rescan** forces a fresh parse. Replacing the workbook produces a
+  different hash, so stale comments can never be shown.
+* Read-only: the workbook is opened through `ZipSource`, never written to; `.xlsm` macro projects
+  (`xl/vbaProject.bin`) are ignored completely and never executed. Threaded comments are detected and
+  reported, but are not legacy notes and are not shown as note images.
 
 ---
 
@@ -253,9 +278,55 @@ platform is selected; no other screen keeps its own list.
   box — rebuilt on every keystroke since v2.2.4, so no in-app search is needed first, and a search that
   finishes later cannot revert it. It is a separate click target, so it never toggles the selection and
   works whether the platform is selected or not.
+
+### Saved workbooks, worksheet picker and catalogue browsing (v2.3.0)
+
+* **More → Saved workbooks** imports a workbook by copying it into app storage (`files/workbooks/<id>`),
+  keeping the original filename as display metadata. Rename, pin, open and remove are all library actions;
+  renaming never touches the file, pinned books sort first, and removal deletes the private copy plus that
+  workbook's parsed cache (the original file you imported is untouched). The storage panel reports saved
+  copies and regenerable caches separately, and *Clear parsed caches* only clears caches.
+* Inside the preview, **Sheets** opens a searchable worksheet picker with hidden sheets labelled, so a
+  workbook with many tabs is fully reachable without swiping the strip.
+* **Images** now has a search field, association filters with counts (linked / unreferenced / unresolved),
+  sorting (name, size, cell, title; either direction, missing values last), grid and list modes with a
+  thumbnail size (S/M/L), and
+  multi-select → **Export…** into a folder you choose, with a UTF-8 `manifest.csv` beside the copies.
+* **Catalogue** discovers the workbook's own table from its header row, offers value filters built from its own categorical columns, searches every column, and says
+  for each record whether a verified image is linked to it. A coverage line reports records, records with
+  a verified image, unresolved references and unreferenced media.
 * **Selection does not change capability.** Open Library, Google Books and DLsite are queried in the
   app. The other eight cards are browser-only: they cannot be selected, and they are never counted as
   in-app providers.
+* **Compare two saved workbooks** (library → *Compare* on two rows → *Compare*): a read-only,
+  **metadata-level** comparison. Worksheets are matched by **name**, so a renamed sheet shows up as one
+  removal plus one addition instead of being silently paired. The screen lists workbook order changes,
+  per-sheet visibility (`visible` / `hidden` / `veryhidden`), each sheet's **declared** used range
+  (`<dimension>`, read from the worksheet part without loading cells), legacy comment counts, verified
+  image links, unresolved references, media files, unreferenced media and catalogue record/header
+  differences. Zero and *unknown* are kept apart: a side that cannot be read is marked failed and its
+  values stay unknown, and the screen states that matching totals do not prove two workbooks are
+  equivalent. It is **not** a cell-by-cell spreadsheet diff; no macro is read and neither saved copy is
+  written to.
+* **Catalogue filters and worksheet scoping (v2.3.0 fixes)**: *Filter…* lists every column of the selected
+  catalogue and every value of the chosen column (both searchable, nothing truncated), keyed by
+  (worksheet, column) so duplicate headers such as `数` / `%` stay independent; the worksheet selector
+  scrolls and reaches every sheet, and drives both the Images and the Catalogue view.
+* **Scan source (v2.3.0 fixes)**: Home and the Search workbook tab keep *Choose file* and add *Saved*, which
+  lists the app-managed library (display name **and** original filename, so duplicate names stay
+  distinguishable); the chosen copy becomes the scan source through the existing staged-workbook path, and
+  a copy that fails to open clears the source instead of silently scanning the previous workbook. Filename
+  sorting is natural — `image2.jpg` before `image10.jpg` — and the association chips are a single value, so
+  exactly one is highlighted and it always matches the list.
+* **Wishlist bookmarks (v2.3.0 fixes)**: each bookmark card carries *Edit* (white pen, same as the folder card)
+  directly left of the red delete icon; tags wrap on their own full-width row, so the card grows instead of
+  hiding them behind the actions.
+* **Known limitations (v2.3.0)**: image pixel size is not measured, so the gallery cannot sort by
+  dimensions; a corrupt image shows a placeholder without a distinct decode-failure count; catalogue
+  tables and the image inventory are re-derived on each open (only the comment scan is cached); a summary
+  sheet that carries a real header row (the `DATA` sheet of the reference workbook) is still listed as a
+  table; if one worksheet ever contained two catalogue tables they would be shown together. Pivot-table
+  sheets are excluded structurally.
 * The selection is persisted (`bookcover_online` → `online_providers`) and restored after a restart.
   Unknown ids are dropped on read, and so is every browser-only id, so a provider that became
   browser-only in a later build cannot linger in the selection.
@@ -354,9 +425,12 @@ publishable.
 
 ```
 app/src/main/java/com/bookcovermatcher/
-├── MainActivity.kt, MainViewModel.kt, UiState.kt, OnlineSearchUi.kt
+├── MainActivity.kt, MainViewModel.kt, UiState.kt, OnlineSearchUi.kt,
+│   WorkbookCommentsUi.kt, WorkbookCommentsController.kt, WorkbookComparisonUi.kt
 ├── core/                         plain Kotlin/JVM, unit-tested
-│   ├── excel/                    workbook and picture extraction
+│   ├── excel/                    workbook and picture extraction;
+│   │                             comments/ = legacy note text, VML images, media index,
+  (worksheet dimensions + WorkbookComparison.kt)
 │   ├── search/                   OpenCLIP index, ranking, cache
 │   ├── vision/                   image ops, preprocessing, interfaces
 │   ├── autoscan/                 auto-scan engine
@@ -367,7 +441,8 @@ app/src/main/java/com/bookcovermatcher/
 │                                 MelonbooksResponseParser, HtmlText, ProviderCatalog,
 │                                 ProviderLinks, SearchRouting, SearchLimits,
 │                                 OnlineAggregator, SessionCache
-├── data/                         Prefs, OnlineSearchPrefs, ModelStore, WorkbookFiles
+├── data/                         Prefs, OnlineSearchPrefs, ModelStore, WorkbookFiles,
+│                                 CommentImageCache
 ├── vision/                       AndroidImageCodec, OrtClipEmbedder
 ├── camera/                       CameraController (CameraX)
 ├── online/                       OnlineSearchController, ChromeLensPyBridge, PythonRuntime,
@@ -376,10 +451,11 @@ app/src/main/java/com/bookcovermatcher/
 │                                 HttpJsonClient, CoverImageLoader
 └── ui/                           AppScreen (bottom nav), MainScreen (Home/Search),
                                   WishlistScreen, MoreScreen, OnlineSearchPanel, PlatformPicker,
-                                  ProductResultCard, BookmarkDialogs, Overlays, CameraCard,
-                                  components/, theme/
+                                  WorkbookCommentsScreen, WorkbookLibraryScreen, WorkbookComparisonScreen,
+                                  ProductResultCard, BookmarkDialogs,
+                                  Overlays, CameraCard, components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        285 JVM tests (4 opt-in live provider checks)
+app/src/test/                        329 JVM tests (4 opt-in live provider checks)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
 
@@ -403,6 +479,10 @@ No step of this pipeline is online, and the online feature is never consulted by
 ---
 
 ## 10. What was broken and what changed (2.2.0 → 2.2.3)
+
+> This section records the 2.2.x corrections. Later releases live in `CHANGELOG.md`: **2.2.4** added the
+> Toranoana browser-only card and made every card link follow the query field; **2.3.0** added the
+> offline legacy-comment image preview.
 
 1. **Online search was unreachable.** `OnlineSearchController` kept its state in its own
    `StateFlow`, but `MainViewModel` never mirrored it into `UiState.online`. The panel therefore
@@ -438,11 +518,13 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 | Check | Command | Result |
 |---|---|---|
-| JVM unit tests | `.\gradlew.bat testDebugUnitTest` | **285 tests**, 0 failures (4 live checks skipped by design) |
-| JVM + live providers | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | **284 tests**, 0 failures; all three live checks ran: Open Library and **DLsite** returned real records, Google Books was found or correctly `RATE_LIMITED`. Melonbooks left the live suite with its registration, so the run makes no request to it |
+| JVM unit tests | `.\gradlew.bat testDebugUnitTest` | **329 tests**, 0 failures (4 live checks skipped by design) |
+| JVM + live providers | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1` | **329 tests**, 0 failures; all **four** live checks ran: Open Library and **DLsite** returned real records, Google Books was found or correctly `RATE_LIMITED`. Melonbooks left the live suite with its registration, so the run makes no request to it |
 | DLsite live query | `DlsiteSource().search("東方", 3)` inside the live suite | **real works returned**: `RJ…` ids, Japanese titles, circle names, prices (`924円`-style), `img.dlsite.jp` covers, `dlsite.com` product URLs |
 | Provider access probe | `GET robots.txt` and the search URL with the app's own UA (2026-10-23) | Melonbooks: robots **404** (no rules), search **200**; Suruga-ya: robots **200** with `Disallow: /search/`; DLsite: robots **200**, paged URLs disallowed |
 | Compose UI tests | none | **Not run**: the project has no `compose.ui:ui-test-junit4` dependency and no emulator/device was attached; platform selection, link independence, the count cap and the batch repository operations are covered by `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest` and `BatchOperationsTest` |
+| Real workbook (v2.3.0) | `.\gradlew.bat :app:testDebugUnitTest --tests "*RealWorkbookIntegrationTest"` | **3 tests**, 0 failures, run through the production parser on `test_excel/DoujinNew.xlsx` / `DoujinOld.xlsx` (skipped when the files are absent): 999 comments, 165/139 media, 124/103 verified links, 41/36 unreferenced, 24-field `LIST` with 124 records, 8/7 sheets; the version comparison detects `C109`, the hidden pivot sheet, the widened `LIST` range and media 139 → 165 |
+| Full JVM suite (v2.3.0) | `.\gradlew.bat :app:testDebugUnitTest` | **449 tests**, 0 failures, 4 skipped by design (`assembleDebug`: BUILD SUCCESSFUL, version 207 / 2.3.0) |
 | Debug build | `.\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
 | Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
 | Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |

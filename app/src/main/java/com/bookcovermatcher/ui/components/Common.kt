@@ -110,7 +110,7 @@ fun GradientButton(
 /** Label used inside [GradientButton]. */
 @Composable
 fun ButtonLabel(text: String, color: Color, fontSize: Float = 16f) {
-    Text(text, color = color, fontSize = fontSize.sp, fontWeight = FontWeight.ExtraBold)
+    Text(text, color = color, fontSize = fontSize.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
 }
 
 /** A bordered card with the small cyan upper-case heading (`.panel`). */

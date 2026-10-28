@@ -8,7 +8,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -100,7 +102,7 @@ fun WishlistScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) 
                 else -> {
                     Header()
                     Spacer(Modifier.height(8.dp))
-                    Sections(ui.wishlistSection, vm::selectWishlistSection)
+                    Sections(ui, vm::selectWishlistSection)
                     Spacer(Modifier.height(8.dp))
                     when (ui.wishlistSection) {
                         WishlistSection.FOLDERS -> FolderList(ui, vm, selection)
@@ -135,12 +137,13 @@ private fun Header() {
 }
 
 @Composable
-private fun Sections(selected: WishlistSection, onSelect: (WishlistSection) -> Unit) {
+private fun Sections(ui: UiState, onSelect: (WishlistSection) -> Unit) {
+    val selected = ui.wishlistSection
     SegmentedTabRow {
-        SegmentedTab("Folders", selected == WishlistSection.FOLDERS, Modifier.weight(1f)) {
+        SegmentedTab("Folders (${ui.folders.size})", selected == WishlistSection.FOLDERS, Modifier.weight(1f)) {
             onSelect(WishlistSection.FOLDERS)
         }
-        SegmentedTab("Bookmarks", selected == WishlistSection.BOOKMARKS, Modifier.weight(1f)) {
+        SegmentedTab("Bookmarks (${ui.bookmarks.size})", selected == WishlistSection.BOOKMARKS, Modifier.weight(1f)) {
             onSelect(WishlistSection.BOOKMARKS)
         }
     }
@@ -588,6 +591,8 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
         )
         BookmarkFilter(filter) { filter = it }
         if (!selecting && ui.bookmarks.isNotEmpty()) {
+            // A modest gap keeps the filter and the selection entry visually separate.
+            Spacer(Modifier.height(8.dp))
             SelectEntry("Select bookmarks") { vm.startSelection(BatchKind.BOOKMARKS) }
             Spacer(Modifier.height(6.dp))
         }
@@ -627,6 +632,8 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
                     selected = if (selecting) item.id in (selection?.ids ?: emptySet()) else null,
                     onToggleSelect = { vm.toggleSelected(item.id) },
                     onLongPress = { vm.startSelectionWith(BatchKind.BOOKMARKS, item.id) },
+                    // Inside the card, immediately left of the red delete icon.
+                    onEdit = { vm.openEditBookmark(item.id) },
                 )
             }
         }
@@ -684,7 +691,7 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
 // One saved non-comparison item
 // ---------------------------------------------------------------------------------------------
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SavedItemRow(
     item: SavedItemUi,
@@ -697,6 +704,8 @@ private fun SavedItemRow(
     onToggleSelect: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
     onBookmark: (() -> Unit)? = null,
+    /** Edit action for the bookmark card; drawn immediately left of the red delete icon. */
+    onEdit: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(14.dp)
     val selecting = selected != null
@@ -742,22 +751,39 @@ private fun SavedItemRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Chip(item.kindLabel, Palette.Accent2)
-                    item.domain?.let { Chip(it, Palette.Muted) }
-                    if (item.bookmarked) Chip("Bookmarked", Palette.Ok)
-                }
                 Text(item.addedText, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 3.dp))
             }
-            if (onRemove != null && !selecting) {
-                SquareIconButton(
-                    Icons.Filled.Delete,
-                    removeDescription,
-                    Palette.Danger,
-                    borderColor = Palette.Danger.copy(alpha = 0.45f),
-                    onClick = onRemove,
-                )
+            if ((onEdit != null || onRemove != null) && !selecting) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (onEdit != null) {
+                        // Same white pen as the folder card's edit action: one visual convention.
+                        SquareIconButton(Icons.Filled.Edit, "Edit bookmark", Palette.Text, onClick = onEdit)
+                    }
+                    if (onRemove != null) {
+                        SquareIconButton(
+                            Icons.Filled.Delete,
+                            removeDescription,
+                            Palette.Danger,
+                            borderColor = Palette.Danger.copy(alpha = 0.45f),
+                            onClick = onRemove,
+                        )
+                    }
+                }
             }
+        }
+        // Tags get the whole card width and wrap onto as many lines as they need, so they can never
+        // run under the edit/delete buttons; the card's measured height grows with them.
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Chip(item.kindLabel, Palette.Accent2)
+            item.domain?.let { Chip(it, Palette.Muted) }
+            if (item.bookmarked) Chip("Bookmarked", Palette.Ok)
         }
         if (!selecting) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

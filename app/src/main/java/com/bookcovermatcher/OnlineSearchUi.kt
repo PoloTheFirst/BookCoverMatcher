@@ -139,6 +139,8 @@ data class ProductResultUi(
     val key: String,
     val title: String,
     val authors: String,
+    /** Circle (shop listing), kept apart from [authors]. */
+    val circle: String? = null,
     val meta: String,
     val languages: String,
     val coverJpeg: ByteArray?,

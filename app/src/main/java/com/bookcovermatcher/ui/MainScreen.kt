@@ -471,6 +471,16 @@ private fun SpreadsheetPanel(ui: UiState, vm: MainViewModel, actions: ScreenActi
             loading = ui.workbookLoading,
             onClick = actions.onPickWorkbook,
         )
+        Spacer(Modifier.height(6.dp))
+        // Additional source, next to the unchanged external picker: an already-imported workbook.
+        PickerField(
+            label = "or reuse an imported workbook",
+            buttonText = "Saved",
+            value = null,
+            placeholder = "More \u2192 Saved workbooks",
+            loading = ui.workbookLoading,
+            onClick = vm::openSavedWorkbookPicker,
+        )
         Spacer(Modifier.height(12.dp))
 
         FieldLabel("Cell range to search")

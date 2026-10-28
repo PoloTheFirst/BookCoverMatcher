@@ -664,7 +664,10 @@ class OnlineSearchController(
             limit = limit,
             selectionKey = selectionKey,
         )
-        loadCovers(merged, token)
+        // `applyResults` stores the search and may select a new capture, which bumps the cache
+        // generation. Covers must carry the token *after* that write: a token captured before it is
+        // already stale, which is why the first search used to show no covers until a second click.
+        loadCovers(merged, session.token())
     }
 
     /** Draws [results], which is exactly the list the "N results" message counts. */
@@ -725,6 +728,7 @@ class OnlineSearchController(
         key = OnlineAggregator.itemKey(this),
         title = title,
         authors = authorLine,
+        circle = circle,
         meta = metaLine,
         languages = languages.joinToString(", "),
         coverJpeg = coverJpeg,

@@ -35,7 +35,10 @@ class DlsitePageParserTest {
         assertEquals(DlsiteResponseParser.SOURCE_NAME, first.source)
         assertTrue(first.isMarketplace)
         assertTrue("title was '${first.title}'", first.title.contains("ふしだら幻想郷"))
-        assertEquals(listOf("大アザラシ帝国"), first.authors)
+        // A shop listing has no author: the maker/circle name belongs in `circle`, and the card line
+        // shows it without claiming it is an author.
+        assertEquals(listOf("大アザラシ帝国"), listOf(first.circle))
+        assertTrue("the circle must not be stored as an author", first.authors.isEmpty())
         // The first price block on DLsite is the current price; the struck-through one is the old
         // price and is deliberately not the one shown.
         assertEquals("924円", first.priceText)

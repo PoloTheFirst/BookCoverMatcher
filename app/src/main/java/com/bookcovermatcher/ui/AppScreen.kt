@@ -75,6 +75,20 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    if (ui.comparison.open) {
+        WorkbookComparisonScreen(ui, vm)
+        return
+    }
+
+    // One precedence for every full-screen surface (see routeFor): a screen opened from the library
+    // must render immediately, with the library still underneath so Back returns to it.
+    when (routeFor(ui.comparison.open, ui.comments.open, ui.libraryOpen)) {
+        AppRoute.COMPARISON -> { WorkbookComparisonScreen(ui, vm); return }
+        AppRoute.COMMENTS -> { WorkbookCommentsScreen(ui, vm); return }
+        AppRoute.LIBRARY -> { WorkbookLibraryScreen(ui, vm); return }
+        AppRoute.MAIN -> Unit
+    }
+
     // ---- camera permission ----
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         vm.onCameraPermission(granted)
@@ -167,7 +181,9 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
 
             WishlistPrompt(ui.prompt, onRemove = vm::removePromptRecord, onClose = vm::dismissPrompt)
             ToastHost(ui.toast)
-            ConfirmDeleteDialog(
+            if (ui.savedPickerOpen) SavedWorkbookSourceDialog(ui, vm)
+
+    ConfirmDeleteDialog(
                 visible = ui.pendingDelete != null,
                 onCancel = vm::cancelDelete,
                 onConfirm = vm::confirmDelete,
@@ -177,7 +193,13 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
             ProfilePickerDialog(ui.picker, onCancel = vm::closePicker, onConfirm = vm::confirmPicker)
             BatchTargetDialog(ui.batchTarget, onCancel = vm::cancelBatchTarget, onPick = vm::confirmBatchTarget)
             BatchDeleteDialog(ui.batchDelete, onCancel = vm::cancelBatchDelete, onConfirm = vm::confirmBatchDelete)
-            CustomBookmarkDialog(ui.customBookmark, onCancel = vm::closeCustomBookmark, onCreate = vm::createCustomBookmark)
+            CustomBookmarkDialog(
+                state = ui.customBookmark,
+                onCancel = vm::closeCustomBookmark,
+                onSave = vm::saveCustomBookmark,
+                onPickImage = vm::stageBookmarkImage,
+                onRemoveImage = vm::clearBookmarkImage,
+            )
         }
     }
 }

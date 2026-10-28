@@ -58,6 +58,7 @@ import com.bookcovermatcher.ToastUi
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.rememberLastNonNull
+import com.bookcovermatcher.core.wishlist.BookmarkForm
 import com.bookcovermatcher.ui.theme.Palette
 
 /** The green "Record added to wishlist" bar at the top, with Remove and close. */
@@ -213,10 +214,20 @@ fun RenameDialog(renaming: RenameUi?, onCancel: () -> Unit, onSave: (id: String,
                         Modifier
                             .fillMaxWidth()
                             .clip(shape)
-                            .background(Color.Black.copy(alpha = 0.3f))
-                            .border(1.dp, Palette.Accent, shape)
+                            .background(Palette.Navy900)
+                            .border(1.dp, Palette.Line, shape)
                             .padding(horizontal = 14.dp, vertical = 14.dp),
-                    ) { inner() }
+                    ) {
+                        // A gray sample for the empty case (new folder); a real name is shown as-is.
+                        if (value.text.isEmpty()) {
+                            Text(
+                                BookmarkForm.FOLDER_NAME_PLACEHOLDER,
+                                color = Palette.Muted,
+                                fontSize = 16.sp,
+                            )
+                        }
+                        inner()
+                    }
                 },
             )
             Spacer(Modifier.height(16.dp))
