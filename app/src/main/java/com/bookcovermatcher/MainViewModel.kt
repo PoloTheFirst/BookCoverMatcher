@@ -1416,6 +1416,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // Custom bookmark form
     // -------------------------------------------------------------------------------------
 
+    /** The Bookmarks control drawer lives in the app state: switching ribbons keeps the choice. */
+    fun toggleBookmarkPanel() = _ui.update { it.toggleBookmarkPanel() }
+
     fun openCustomBookmark() = _ui.update { it.copy(customBookmark = CustomBookmarkUi()) }
 
     /** Opens the same form for an existing bookmark, prefilled from the stored record. */
@@ -2090,6 +2093,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         domain = sourceDomain,
         provider = provider,
         circle = circle,
+        description = description,
         meta = listOfNotNull(
             circle?.let { "circle $it" },
             authors.joinToString(", ").ifEmpty { null },
@@ -2110,24 +2114,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         addedText = Formatting.timestamp(createdAtMillis),
         cell = cell,
         percentText = percent?.let { Formatting.percent(it) + "%" },
-    )
-
-    /** An online result as the store sees it. Workbook-only fields stay null. */
-    private fun ProductResultUi.toDraft() = ItemDraft(
-        kind = ItemKind.ONLINE_RESULT,
-        title = title,
-        url = detailUrl,
-        provider = provider,
-        providerKey = key,
-        identifier = identifier,
-        description = description,
-        authors = authors.split(',').map { it.trim() }.filter { it.isNotEmpty() && it != "Unknown author" },
-        circle = circle,
-        price = price,
-        availability = availability,
-        matchType = MatchType.TEXT_QUERY,
-        matchTypeVerified = true,
-        thumbJpeg = coverJpeg,
     )
 
     /** One workbook match as the store sees it: cell, cosine and percent are real, the rest is not invented. */

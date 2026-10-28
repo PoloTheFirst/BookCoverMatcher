@@ -2,6 +2,8 @@ package com.bookcovermatcher.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -555,6 +559,8 @@ private enum class BookmarkSort(val label: String) {
 private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit, selection: SelectionUi?) {
     var filter by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(BookmarkSort.ADDED) }
+    // The drawer state lives in the app state, so leaving the ribbon and coming back keeps it.
+    val panelOpen = ui.bookmarkPanelOpen
     val selecting = selection?.kind == BatchKind.BOOKMARKS
     val needle = filter.trim()
     val shown = ui.bookmarks
@@ -572,7 +578,7 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
             }
         }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().animateContentSize()) {
         GradientButton(
             onClick = vm::openCustomBookmark,
             colors = Palette.NavyGradient,
@@ -589,7 +595,8 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
             fontSize = 10.sp,
             modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
         )
-        BookmarkFilter(filter) { filter = it }
+        if (panelOpen) {
+            BookmarkFilter(filter) { filter = it }
         if (!selecting && ui.bookmarks.isNotEmpty()) {
             // A modest gap keeps the filter and the selection entry visually separate.
             Spacer(Modifier.height(8.dp))
@@ -606,6 +613,10 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
                 SortChip(option.label, sort == option) { sort = option }
             }
         }
+        }
+        Spacer(Modifier.height(6.dp))
+        BookmarkControlsHandle(panelOpen, vm::toggleBookmarkPanel)
+        Spacer(Modifier.height(6.dp))
         LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (shown.isEmpty()) {
                 item {
@@ -709,6 +720,8 @@ private fun SavedItemRow(
 ) {
     val shape = RoundedCornerShape(14.dp)
     val selecting = selected != null
+    var descriptionOpen by rememberSaveable(item.id) { mutableStateOf(false) }
+    val chevron by animateFloatAsState(if (descriptionOpen) 180f else 0f, label = "bookmarkChevron")
     Column(
         Modifier
             .fillMaxWidth()
@@ -758,6 +771,18 @@ private fun SavedItemRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    run {
+                        // Always visible, like the search-result card: a bookmark without a description
+                        // still shows the control and explains itself when expanded.
+                        Icon(
+                            Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (descriptionOpen) "Collapse description" else "Expand description",
+                            tint = if (descriptionOpen) Palette.Accent else Palette.Text,
+                            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
+                                .clickable(role = Role.Button) { descriptionOpen = !descriptionOpen }
+                                .rotate(chevron).padding(7.dp),
+                        )
+                    }
                     if (onEdit != null) {
                         // Same white pen as the folder card's edit action: one visual convention.
                         SquareIconButton(Icons.Filled.Edit, "Edit bookmark", Palette.Text, onClick = onEdit)
@@ -785,6 +810,13 @@ private fun SavedItemRow(
             item.domain?.let { Chip(it, Palette.Muted) }
             if (item.bookmarked) Chip("Bookmarked", Palette.Ok)
         }
+        if (descriptionOpen) {
+            Text(
+                item.description ?: "No description",
+                color = if (item.description.isNullOrBlank()) Palette.Muted else Palette.Text,
+                fontSize = 11.sp, maxLines = 6, overflow = TextOverflow.Ellipsis,
+            )
+        }
         if (!selecting) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (onBookmark != null) {
@@ -807,6 +839,24 @@ private fun SavedItemRow(
     }
 }
 
+/** Blue drawer handle for the bookmark control panel; the arrow points at where it will go. */
+@Composable
+private fun BookmarkControlsHandle(open: Boolean, onToggle: () -> Unit) {
+    val arrow by animateFloatAsState(if (open) 0f else 180f, label = "panelChevron")
+    Box(
+        Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(10.dp))
+            .background(Palette.Accent).clickable(role = Role.Button, onClick = onToggle)
+            .semantics { contentDescription = if (open) "Hide bookmark controls" else "Show bookmark controls" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            tint = Palette.OnAccent,
+            modifier = Modifier.size(20.dp).rotate(arrow),
+        )
+    }
+}
 @Composable
 private fun RowAction(label: String, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(

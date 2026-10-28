@@ -163,6 +163,12 @@ the staged copy of the workbook through the existing `ZipSource` and never write
   author data, so they are left untouched (no speculative migration). The form label is now
   `Circle (Optional)`, the `Choose image` button sizes to its intrinsic width so its final glyph is never
   clipped, and the Wishlist ribbon shows `Folders (n)` / `Bookmarks (n)` like the online ribbon.
+* **DLsite author, bookmark descriptions, collapsible bookmark controls**: the shop's `作者` is now read into
+  `authors` **only when the page states it** (the circle is never borrowed as an author, so a listing without
+  an author stays empty); bookmark cards in Wishlist gain the same chevron expansion as the search-result
+  cards (left of the pen, hidden when a bookmark has no description), and the bookmark control area collapses
+  behind a full-width blue handle bar — with the filter, selection and sort values preserved — so the card
+  list can use the freed height.
 * Version code/name unchanged (`207 / 2.3.0`): this revision is part of the same release.
 
 ### How the package is read (and what is not guessed)

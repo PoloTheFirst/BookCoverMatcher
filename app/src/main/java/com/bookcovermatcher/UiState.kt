@@ -99,6 +99,8 @@ class SavedItemUi(
     val meta: String,
     /** Circle, shown as its own value instead of being folded into the author metadata. */
     val circle: String? = null,
+    /** Full description, expanded on demand like the online result card. */
+    val description: String? = null,
     val kind: ItemKind,
     val kindLabel: String,
     val bookmarked: Boolean,
@@ -268,6 +270,8 @@ data class UiState(
     // Phase 2 navigation
     val tab: AppTab = AppTab.HOME,
     val wishlistSection: WishlistSection = WishlistSection.FOLDERS,
+    /** The Bookmarks control drawer; lives in the app state so ribbon switches keep it. */
+    val bookmarkPanelOpen: Boolean = true,
 
     /** Which Search list is open. Navigation state only — it never decides what is persisted. */
     val searchTab: SearchResultsTab = SearchResultsTab.WORKBOOK,
@@ -303,3 +307,9 @@ data class UiState(
     val offlineMatches: List<ResultUi>
         get() = (results as? ResultsUi.Ranked)?.items.orEmpty()
 }
+
+/**
+ * The one place the Bookmarks drawer flips. The ViewModel calls it, so the rule itself is testable
+ * without Android and there is no second source of truth for the state.
+ */
+fun UiState.toggleBookmarkPanel(): UiState = copy(bookmarkPanelOpen = !bookmarkPanelOpen)
