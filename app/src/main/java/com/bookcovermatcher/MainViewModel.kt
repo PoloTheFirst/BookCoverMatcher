@@ -32,6 +32,7 @@ import com.bookcovermatcher.core.vision.PixelImage
 import com.bookcovermatcher.core.wishlist.BatchReport
 import com.bookcovermatcher.core.wishlist.ArtistFields
 import com.bookcovermatcher.core.wishlist.BookmarkForm
+import com.bookcovermatcher.core.wishlist.BookmarkPresentation
 import com.bookcovermatcher.core.wishlist.BookmarkRules
 import com.bookcovermatcher.core.wishlist.InvalidItemException
 import com.bookcovermatcher.core.wishlist.ItemDraft
@@ -2092,8 +2093,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         url = url,
         domain = sourceDomain,
         provider = provider,
-        circle = circle,
-        description = description,
         meta = listOfNotNull(
             circle?.let { "circle $it" },
             authors.joinToString(", ").ifEmpty { null },
@@ -2103,6 +2102,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             price,
             availability,
         ).joinToString(" \u00B7 "),
+        circle = circle,
+        description = description,
+        // The card's own lines, built from the stored fields rather than from `meta`, so a saved
+        // bookmark reads exactly like the same online result did on the Search tab.
+        authors = authors,
+        identifier = identifier,
+        price = price,
+        availability = availability,
+        matchType = BookmarkPresentation.matchTypeLabel(matchType, matchTypeVerified),
         kind = kind,
         kindLabel = when (kind) {
             ItemKind.WORKBOOK_MATCH -> "Workbook match"

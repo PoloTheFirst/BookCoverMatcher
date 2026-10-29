@@ -23,7 +23,7 @@ class BookmarkFormTest {
     @Test fun theArtistCircleAndPricePlaceholdersAreTheExactSamples() {
         assertEquals("eno", BookmarkForm.ARTIST_PLACEHOLDER)
         assertEquals("榎屋", BookmarkForm.CIRCLE_PLACEHOLDER)
-        assertEquals("¥770", BookmarkForm.PRICE_PLACEHOLDER)
+        assertEquals("770円", BookmarkForm.PRICE_PLACEHOLDER)
         assertEquals("先生がナギサ&サクラコとセックスします。", BookmarkForm.NOTES_PLACEHOLDER)
     }
 

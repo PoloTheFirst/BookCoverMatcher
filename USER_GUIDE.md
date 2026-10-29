@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.3.0)
+# BookCover Matcher - User Guide (v2.3.1)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -121,10 +121,18 @@ Tapping **★ Bookmarked** again removes only the bookmark.
 
 ### Bookmarks
 **Create bookmark** accepts a required title and an `https://` URL (other fields are optional and
-stored exactly as typed). Bookmarks:
+stored exactly as typed); an optional image can be chosen, replaced or removed in the same form.
+Bookmarks:
 
 * survive restarts and do not depend on the current image, OCR output or session cache;
-* can be filtered by title/domain and sorted by Added, Title or Domain (display only);
+* are filtered by title/domain and sorted by Added, Title or Domain from the drawer under the list
+  header. The strip itself is transparent; pull the blue grip (or tap the strip) to hide or show the
+  panel. It animates open and closed, remembers whether it was open, and the filter text, the sort
+  choice and any expanded card survive a tab switch;
+* are drawn with the same card as the Search results: cover, title, artist line, price or identifier,
+  source and match-type chips, and a chevron that expands the description, price, availability,
+  identifier, artist, circle, source and the original URL. The pencil (**Edit bookmark**) and the red
+  bin sit at the end of the tag row;
 * can be opened in the browser with **Open website**;
 * can join a folder with **+ Add to wishlist** at any time, including after a restart.
 
@@ -135,7 +143,7 @@ This is the "shopping app" workflow: select many rows, then apply one action.
 | Where | How to start selection |
 |---|---|
 | **Wishlist > Folders** | the **Select folders** button under *Create folder*, or long-press a folder card |
-| **Wishlist > Bookmarks** | the **Select bookmarks** button under the filter, or long-press a bookmark |
+| **Wishlist > Bookmarks** | the **Select bookmarks** button under the filter (open the drawer if it is closed), or long-press a bookmark |
 | **Inside a folder** | **Select sessions** / **Select items** above the list, or long-press that row |
 | **Inside a session** | **Select results** above the results, or long-press a result |
 
@@ -217,8 +225,6 @@ Importing a workbook here keeps a private copy inside the app, so it still opens
 moves or is deleted. The list shows the name you gave it, the original filename, its size, when it was
 last opened and (after the first open) how many sheets, comments and images it has.
 
-* Bookmarks: each card has *Edit bookmark* (white pen) left of the red delete icon; tags wrap onto their own
-  row, and an optional image can be chosen, replaced or removed in the form.
 * **Rename** changes your label only; the file is never renamed.
 * **Pin** keeps a workbook at the top; the rest are ordered by last opened.
 * **Remove** deletes the app's copy and that workbook's parsed cache. The original file you imported is

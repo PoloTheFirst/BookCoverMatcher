@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.3.0)
+# Architecture and developer notes (v2.3.1)
 
 ## Layers
 
@@ -43,6 +43,14 @@ dialogs                      │            CatalogIndex              └─ Wis
   the same state holders and repositories as before, so no persistence path exists in the UI layer.
   The tab track itself is `ui/components/SegmentedTabRow` + `SegmentedTab`, shared with the Wishlist
   sections.
+* The two result cards (**v2.3.1**) are one implementation. `ui/ResultCardParts`
+  (`ExpandChevronButton`, `DescriptionBlock`, `ResultDetails`, `DetailLine`, `ResultActionChip`) is
+  shared by the Search card (`ProductResultCard` over `ProductResultUi`) and the Wishlist bookmark card
+  (`SavedItemRow` over `SavedItemUi`), and `core/wishlist/BookmarkPresentation` derives the author line,
+  the price/identifier caption, the source chip and the match-type wording from the stored fields — the
+  circle is only a display fallback and never becomes an artist. `SavedItemRow` adds only what a saved
+  record has: selection, the tags row, edit/remove and the added-at caption. A new field therefore has
+  to be added to both mappings; the layout cannot drift again.
 * `OnlineSearchController` owns its own `StateFlow`; `MainViewModel.init` collects it into
   `UiState.online`. That mirror is required for the panel and the persisted switch to agree.
 * `WishlistRepository` is single-threaded via a dedicated executor and writes `records.json` with a
@@ -202,16 +210,23 @@ and optional `folderDetail`/`sessionDetail` model the drill-down. Back handling 
 the bookmark form; it never deletes data. `Scaffold` + custom bottom bar avoids a navigation
 dependency while keeping proper selected state and back behaviour.
 
+Tab content is wrapped in `rememberSaveableStateHolder().SaveableStateProvider(ui.tab)` (**v2.3.1**).
+A tab that leaves composition would otherwise discard its `rememberSaveable` values; the holder keeps
+each tab's transient state (the `Bookmarks` filter text and sort, expanded cards, scroll position)
+without moving any of it into `UiState`. Persisted state still belongs to the ViewModel only — the
+`Bookmarks` drawer's open flag is `UiState.bookmarkPanelOpen` because it must survive a tab switch too.
+
 `WorkbookCommentsScreen` (v2.3.0) is deliberately **not** an `AppTab`: it is a full-surface preview owned
 by `UiState.comments.open`, opened from More with the staged workbook's hash, and its Back action closes
 it. It therefore cannot change the selected destination, the camera or the matching state.
 
 ## Testing
 
-* `app/src/test`: **329** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
+* `app/src/test`: **470** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
   parsers/aggregator/cache in `OnlineSearchTest.kt`; legacy-comment parsing and its cache in
   `LegacyCommentScanTest.kt`, `LegacyCommentEdgeCaseTest.kt`, `CommentImageCacheTest.kt` and
-  `WorkbookCommentsUiTest.kt`; the existing offline pipeline tests remain.
+  `WorkbookCommentsUiTest.kt`; the shared card text in `BookmarkPresentationTest.kt` and the bookmark
+  form rules in `BookmarkFormTest.kt`; the existing offline pipeline tests remain.
   Four live catalogue tests are gated by `-DonlineCheck=1`.
 * `app/src/androidTest`: three tests on a device/emulator:
   * real OCR through Chaquopy on a bundled cover (`OcrDeviceTest`);
