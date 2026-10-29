@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.3.0** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.3.1** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -26,7 +26,9 @@ a connection; every online feature is opt-in.
 > follow the query field immediately, so a browser-only shop can be opened without running a dummy
 > in-app search first. **2.3.0** adds an offline preview of the workbook's legacy Excel comments: note
 > text, author, the pictures stored with each note, every file under `xl/media`, a full-screen viewer and
-> byte-for-byte export, all read-only.
+> byte-for-byte export, all read-only. **2.3.1** is a fix patch: the Wishlist `Bookmarks` list now draws
+> the Search result card, its control drawer has a transparent handle and animates, a tab switch keeps
+> the list state, and the bookmark form's price sample reads `770円`.
 > Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in `ARCHITECTURE.md`.
 ---
 
@@ -55,7 +57,7 @@ Bottom navigation has four destinations:
 |---|---|
 | **Home** | Cover capture (CameraX), Auto Scan toggle, Scan / restart controls, workbook picker, cell range, image picker, "Link & Find Top 5", and a shortcut to the comparison results |
 | **Search** | **Search Results** with `Workbook (n) / Online (n) / Bookmarks (n)` tabs and live counts: the offline controls plus the top-5 comparison, the online panel (OCR status, query field, **platform picker with per-platform `Open ↗` links**, **result maximum 5–50**, provider results), and this search's bookmarked results with `Bookmark all results`. Offline and online results are never one mixed list |
-| **Wishlist** | **Folders** and **Bookmarks** sections. A folder opens to its sessions; a session opens to its results. Bookmarks are also reachable in their own section |
+| **Wishlist** | **Folders** and **Bookmarks** sections. A folder opens to its sessions; a session opens to its results. Bookmarks have the same cards as the Search results (expand for the full record) and a filter/sort drawer with its own handle |
 | **More** | Online-search settings (toggle, auto-search, OCR/translation languages), a plain-language explanation of each capability, the **workbook comments & images** preview, storage counts and "clear online session cache" |
 
 The wishlist is no longer a full-screen overlay and the header no longer has a star button; the
@@ -165,8 +167,17 @@ thumbnails in `thumbs/`). Version 3 shape:
 * **Folders** → **Create folder** → name it. Open a folder to see its sessions and any directly
   saved items. Open a session to see its results.
 * **Bookmarks** → **Create bookmark** for a hand-typed link, or use **Bookmark** on a result.
-  Filter by title/domain and sort by Added, Title or Domain. Filter/sort are local UI state only.
-* Every saved item row can open its original `https://` page and can be added to a folder.
+* The filter field, the selection entry and the sort choice (Added, Title or Domain) live in a drawer
+  under the list header: the strip itself is transparent, a blue grip marks where to pull it, and the
+  panel opens and closes with an animation. Filter and sort are UI state only, and they survive a tab
+  switch, as do the expanded cards and the scroll position.
+* Every bookmark card is the Search result card: cover, title, author line, price/identifier caption,
+  source and match-type chips, and a chevron that expands the full record (description, price,
+  availability, identifier, artist, circle, source and the original URL) with **Open website**,
+  **★ Bookmark** and **+ Add to wishlist**. The **pencil** (edit) and the red bin sit at the end of the
+  tag row, so a long tag list never runs under them.
+* Every saved item card can open its original `https://` page and can be added to a folder; both
+  actions appear when the card is expanded.
 * Empty/loading/error states are explicit; no placeholder card pretends to be a result.
 
 ### More
@@ -319,8 +330,9 @@ platform is selected; no other screen keeps its own list.
   sorting is natural — `image2.jpg` before `image10.jpg` — and the association chips are a single value, so
   exactly one is highlighted and it always matches the list.
 * **Wishlist bookmarks (v2.3.0 fixes)**: each bookmark card carries *Edit* (white pen, same as the folder card)
-  directly left of the red delete icon; tags wrap on their own full-width row, so the card grows instead of
-  hiding them behind the actions.
+  next to the red delete icon; tags keep their own row, so the card grows instead of hiding them behind
+  the actions. **v2.3.1** moved both actions to the end of that row and replaced the card body with the
+  Search result card (§4).
 * **Known limitations (v2.3.0)**: image pixel size is not measured, so the gallery cannot sort by
   dimensions; a corrupt image shows a placeholder without a distinct decode-failure count; catalogue
   tables and the image inventory are re-derived on each open (only the comment scan is cached); a summary
@@ -435,7 +447,8 @@ app/src/main/java/com/bookcovermatcher/
 │   ├── vision/                   image ops, preprocessing, interfaces
 │   ├── autoscan/                 auto-scan engine
 │   ├── wishlist/                 LibraryModels (folders/sessions/items), repository,
-│   │                             MiniJson, identity and bookmark rules
+│   │                             MiniJson, identity, bookmark rules and
+│   │                             BookmarkPresentation (the card's own lines)
 │   └── online/                   OcrQueryExtractor, GoogleBooksResponseParser,
 │                                 OpenLibraryResponseParser, DlsiteResponseParser,
 │                                 MelonbooksResponseParser, HtmlText, ProviderCatalog,
@@ -452,10 +465,11 @@ app/src/main/java/com/bookcovermatcher/
 └── ui/                           AppScreen (bottom nav), MainScreen (Home/Search),
                                   WishlistScreen, MoreScreen, OnlineSearchPanel, PlatformPicker,
                                   WorkbookCommentsScreen, WorkbookLibraryScreen, WorkbookComparisonScreen,
-                                  ProductResultCard, BookmarkDialogs,
+                                  ProductResultCard, ResultCardParts (shared by both result cards),
+                                  BookmarkDialogs,
                                   Overlays, CameraCard, components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        329 JVM tests (4 opt-in live provider checks)
+app/src/test/                        470 JVM tests (4 opt-in live provider checks)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
 
@@ -482,7 +496,8 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 > This section records the 2.2.x corrections. Later releases live in `CHANGELOG.md`: **2.2.4** added the
 > Toranoana browser-only card and made every card link follow the query field; **2.3.0** added the
-> offline legacy-comment image preview.
+> offline legacy-comment image preview; **2.3.1** is a fix patch for the Wishlist bookmark card, its
+> control drawer and the bookmark form's price sample.
 
 1. **Online search was unreachable.** `OnlineSearchController` kept its state in its own
    `StateFlow`, but `MainViewModel` never mirrored it into `UiState.online`. The panel therefore
@@ -525,6 +540,7 @@ No step of this pipeline is online, and the online feature is never consulted by
 | Compose UI tests | none | **Not run**: the project has no `compose.ui:ui-test-junit4` dependency and no emulator/device was attached; platform selection, link independence, the count cap and the batch repository operations are covered by `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest` and `BatchOperationsTest` |
 | Real workbook (v2.3.0) | `.\gradlew.bat :app:testDebugUnitTest --tests "*RealWorkbookIntegrationTest"` | **3 tests**, 0 failures, run through the production parser on `test_excel/DoujinNew.xlsx` / `DoujinOld.xlsx` (skipped when the files are absent): 999 comments, 165/139 media, 124/103 verified links, 41/36 unreferenced, 24-field `LIST` with 124 records, 8/7 sheets; the version comparison detects `C109`, the hidden pivot sheet, the widened `LIST` range and media 139 → 165 |
 | Full JVM suite (v2.3.0) | `.\gradlew.bat :app:testDebugUnitTest` | **449 tests**, 0 failures, 4 skipped by design (`assembleDebug`: BUILD SUCCESSFUL, version 207 / 2.3.0) |
+| Full JVM suite (v2.3.1) | `.\gradlew.bat :app:testDebugUnitTest` | **470 tests**, 0 failures, 4 skipped by design, across 62 result classes (`BookmarkPresentationTest` 9, `BookmarkFormTest` 22); `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 194,768,801 bytes, version 208 / 2.3.1 |
 | Debug build | `.\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
 | Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
 | Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |
@@ -538,6 +554,10 @@ No step of this pipeline is online, and the online feature is never consulted by
 * Offline session save via the UI (the repository and its persistence are covered by tests).
 * Online result card expansion/bookmark actions via the UI (the catalogue/controller path is covered
   by device tests; the card itself was not driven end-to-end).
+* The v2.3.1 Wishlist `Bookmarks` drawer (its handle and animation) and the rebuilt bookmark card: no
+  device or emulator was available and the project has no Compose UI-test dependency, so they were not
+  driven through the UI. Their shared text rules are unit-tested (`BookmarkPresentationTest`) and both
+  builds pass.
 * Google Books with an API key (none is configured).
 * **Suruga-ya as an in-app search** — deliberately not implemented: its `robots.txt` disallows
   `/search/`. Only its generated browser link is verified.
