@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.3.1** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.4.0-dev.1 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -28,7 +28,10 @@ a connection; every online feature is opt-in.
 > text, author, the pictures stored with each note, every file under `xl/media`, a full-screen viewer and
 > byte-for-byte export, all read-only. **2.3.1** is a fix patch: the Wishlist `Bookmarks` list now draws
 > the Search result card, its control drawer has a transparent handle and animates, a tab switch keeps
-> the list state, and the bookmark form's price sample reads `770円`.
+> the list state, and the bookmark form's price sample reads `770円`. **2.4.0-dev.1** is the first
+> development build of 2.4.0: an image or a catalogue record whose source the workbook proves can be
+> opened at its worksheet cell, with the surrounding cells shown and every unproven case explained
+> instead of guessed (see §6).
 > Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in `ARCHITECTURE.md`.
 ---
 
@@ -42,6 +45,7 @@ a connection; every online feature is opt-in.
 | **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
 | **Workbook comments & images** | The legacy Excel notes of the chosen `.xlsx`/`.xlsm`: note text, author and the pictures stored with each note, plus every file under `xl/media`. Text-only, image-bearing and unresolved-image notes are marked differently; an image opens full-screen and exports byte-for-byte. Offline and read-only; `.xlsm` macros are never run | No |
+| **Source location** | An image or a catalogue record opens the worksheet cell (or row) the workbook itself proves it belongs to, with the neighbouring cells shown. Unreferenced, unresolved and stale sources are explained instead of guessed | No |
 
 The offline matcher is the original one: `Config.TOP_MATCHES = 5`, the same OpenCLIP model, the same
 workbook extraction (`.xlsx`/`.xlsm`, cell-note pictures and floating pictures) and the same score
@@ -85,6 +89,28 @@ nothing else on screen changes while it is open.
 * Read-only: the workbook is opened through `ZipSource`, never written to; `.xlsm` macro projects
   (`xl/vbaProject.bin`) are ignored completely and never executed. Threaded comments are detected and
   reported, but are not legacy notes and are not shown as note images.
+
+### Source location (v2.4.0-dev.1)
+
+The comments preview also answers "where does this picture come from?". The answer comes from the
+associations the parser already verified — a legacy note's own cell, or the worksheet row of a record the
+structural catalogue reader detected — never from image order, file names or list position.
+
+* **Entry points.** *Images* list rows and grid tiles, the full-screen image view and a comment's detail
+  offer **Go to source**; a *Catalogue* record offers **Go to row**; a comment offers **Go to this cell**.
+* **The view is real cells, not a label.** It reads the worksheet and shows the verified row highlighted,
+  the verified cell marked, Excel's column letters, the catalogue header when the sheet is a table, and six
+  rows of context either side. Selecting a cell is therefore something the screen actually does.
+* **Proven only.** An image nothing references, a note whose image is missing, a worksheet that is no longer
+  in the workbook, and a cell reference that does not parse all end in a readable explanation. A note that
+  states several locations lists all of them and the user chooses; the app never picks silently.
+* **Identity.** A location is resolved through the worksheet's package part (`xl/worksheets/sheetN.xml`);
+  the display name is matched exactly as the workbook spells it, so spaces, punctuation, Unicode and
+  trailing spaces stay intact.
+* **State.** The source view is an overlay: the section, worksheet filter, image search, association and
+  catalogue filters, sort order and selection are untouched, and closing it returns to the same list. Cells
+  read for one location are reused for the next in the same sheet; a read that finishes after switching
+  workbooks is discarded.
 
 ---
 
@@ -306,6 +332,9 @@ platform is selected; no other screen keeps its own list.
 * **Catalogue** discovers the workbook's own table from its header row, offers value filters built from its own categorical columns, searches every column, and says
   for each record whether a verified image is linked to it. A coverage line reports records, records with
   a verified image, unresolved references and unreferenced media.
+* **Source navigation (v2.4.0-dev.1)**: images and catalogue records carry a verified destination (see §2);
+  a record's **Go to row** opens the worksheet at that row, and an image's **Go to source** opens the cell
+  its note is attached to.
 * **Selection does not change capability.** Open Library, Google Books and DLsite are queried in the
   app. The other eight cards are browser-only: they cannot be selected, and they are never counted as
   in-app providers.
@@ -442,7 +471,8 @@ app/src/main/java/com/bookcovermatcher/
 ├── core/                         plain Kotlin/JVM, unit-tested
 │   ├── excel/                    workbook and picture extraction;
 │   │                             comments/ = legacy note text, VML images, media index,
-  (worksheet dimensions + WorkbookComparison.kt)
+│   │                             worksheet dimensions + WorkbookComparison.kt, and the source
+│   │                             navigation model (SourceLocation.kt, SheetWindow.kt)
 │   ├── search/                   OpenCLIP index, ranking, cache
 │   ├── vision/                   image ops, preprocessing, interfaces
 │   ├── autoscan/                 auto-scan engine
@@ -469,7 +499,7 @@ app/src/main/java/com/bookcovermatcher/
                                   BookmarkDialogs,
                                   Overlays, CameraCard, components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        470 JVM tests (4 opt-in live provider checks)
+app/src/test/                        487 JVM tests (4 opt-in live provider checks)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
 
@@ -541,6 +571,7 @@ No step of this pipeline is online, and the online feature is never consulted by
 | Real workbook (v2.3.0) | `.\gradlew.bat :app:testDebugUnitTest --tests "*RealWorkbookIntegrationTest"` | **3 tests**, 0 failures, run through the production parser on `test_excel/DoujinNew.xlsx` / `DoujinOld.xlsx` (skipped when the files are absent): 999 comments, 165/139 media, 124/103 verified links, 41/36 unreferenced, 24-field `LIST` with 124 records, 8/7 sheets; the version comparison detects `C109`, the hidden pivot sheet, the widened `LIST` range and media 139 → 165 |
 | Full JVM suite (v2.3.0) | `.\gradlew.bat :app:testDebugUnitTest` | **449 tests**, 0 failures, 4 skipped by design (`assembleDebug`: BUILD SUCCESSFUL, version 207 / 2.3.0) |
 | Full JVM suite (v2.3.1) | `.\gradlew.bat :app:testDebugUnitTest` | **470 tests**, 0 failures, 4 skipped by design, across 62 result classes (`BookmarkPresentationTest` 9, `BookmarkFormTest` 22); `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 194,768,801 bytes, version 208 / 2.3.1 |
+| Full JVM suite (v2.4.0-dev.1) | `.\gradlew.bat :app:testDebugUnitTest` | **487 tests**, 0 failures, 4 skipped by design, across 63 result classes; the new `SourceNavigationTest` (17 tests) covers verified image/comment/record locations, ambiguous notes, unreferenced and unresolved images, stale worksheets, trailing-space/Unicode sheet names, the worksheet window and the overlay state; `assembleDebug`: BUILD SUCCESSFUL, version 209 / 2.4.0-dev.1 |
 | Debug build | `.\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
 | Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
 | Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |
@@ -558,6 +589,10 @@ No step of this pipeline is online, and the online feature is never consulted by
   device or emulator was available and the project has no Compose UI-test dependency, so they were not
   driven through the UI. Their shared text rules are unit-tested (`BookmarkPresentationTest`) and both
   builds pass.
+* The v2.4.0-dev.1 source view — its buttons, the highlight and the scrolling — and the worksheet window:
+  no device or emulator was available and there is still no Compose UI-test dependency, so the screens
+  were not tapped through. The mapping, the window model and the overlay state are unit-tested
+  (`SourceNavigationTest`, 17 tests) and both builds pass.
 * Google Books with an API key (none is configured).
 * **Suruga-ya as an in-app search** — deliberately not implemented: its `robots.txt` disallows
   `/search/`. Only its generated browser link is verified.
@@ -577,6 +612,8 @@ No step of this pipeline is online, and the online feature is never consulted by
   is sent to `openlibrary.org`, `www.googleapis.com/books`, `www.melonbooks.co.jp` and
   `www.dlsite.com` — and only to the platforms you selected. No account, analytics or ads.
   Suruga-ya is never contacted by the app: its link opens in your browser.
+* The source view reads the staged workbook copy on the device only. Cell values, worksheet names and
+  locations are never uploaded, cached in a server or logged.
 * Bookmarks store only the URL/title/optional fields you provide; the app never fetches the page to
   enrich them.
 * The app refuses non-HTTPS links and never renders third-party pages in a WebView.

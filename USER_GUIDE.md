@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.3.1)
+# BookCover Matcher - User Guide (v2.4.0-dev.1)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -219,6 +219,33 @@ works completely offline and never changes the workbook.
 * Threaded comments are the newer kind and are not notes: the screen reports when they exist, but only
   legacy note pictures are shown.
 
+### Finding the worksheet cell of an image (v2.4.0-dev.1)
+
+Every picture and every catalogue record can be traced back to where it lives in the workbook, but only
+when the workbook itself proves the link.
+
+* **From an image.** In **All images**, a linked row shows **Go to source** (the list) or **Source ↗** (the
+  grid); the full-screen view has the same action. The app opens the worksheet at the cell the picture's
+  note is attached to.
+* **From a comment.** Open a comment and press **Go to this cell**.
+* **From the catalogue.** A record has **Go to row**; the worksheet opens at that row, with the row marked
+  as a row — the cell shown next to it is the row's first field, not a claim that the record is a cell.
+
+What the view shows: the worksheet's own column letters, the verified row highlighted, the verified cell
+marked, the catalogue header when the sheet is a table, and six rows of context either side. **Back to the
+list** (or the system Back) closes it and leaves the section, the worksheet filter, your search text, the
+filters, the sort order and any selection exactly as they were.
+
+When there is nothing honest to show, the app says so instead of inventing a place:
+
+* **No association found by this previewer** — the picture exists but no note points at it, so there is no
+  source location and no button.
+* **Unresolved reference** — a note points at a picture that is not in the workbook. The comment still
+  shows the note's cell, but the picture itself has no location.
+* **A note with several locations** lists all of them and lets you choose.
+* **The workbook is no longer available** — if the file was moved or deleted after the preview opened, the
+  view says so instead of drawing an empty grid.
+
 ### Saved workbooks (More → Saved workbooks)
 
 Importing a workbook here keeps a private copy inside the app, so it still opens if the original file
@@ -251,9 +278,10 @@ last opened and (after the first open) how many sheets, comments and images it h
 * **Images** has a search box (file name, sheet, cell, title, author, circle…), filter chips with counts
   (linked / unreferenced / unresolved), sorting, grid (with S/M/L thumbnail size) or list, and multi-select → **Export…** into a
   folder you pick. A `manifest.csv` is written next to the copies. Unresolved references are listed
-  separately and never called unreferenced.
+  separately and never called unreferenced. A linked image also offers **Go to source** (see *Finding the
+  worksheet cell of an image*).
 * **Catalogue** finds the workbook's own table from its header row and searches all of its columns; each
-  record says whether a verified image is linked to it.
+  record says whether a verified image is linked to it, and **Go to row** opens its worksheet row.
 
 ## Three bookmark workflows
 

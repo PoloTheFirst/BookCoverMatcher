@@ -7,6 +7,13 @@
 > and the source are authoritative. The Phase 1 panel numbering (`1 · ...`, `2.5 · ...`) described
 > below no longer exists in the UI: the Search destination now shows `Workbook (n) / Online (n) /
 > Bookmarks (n)` tabs, and the numbered panel titles were removed.
+>
+> **Current development build: `v2.4.0-dev.1` (2026-10-30).** Since this prompt was written, the
+> wishlist/bookmark model landed, v2.3.x added the offline workbook-comments preview, and v2.4.0-dev.1
+> added **verified source navigation** (image/catalogue record → worksheet cell or row, via
+> `core/excel/comments/SourceLocation` + `SheetWindow` and the `WorkbookCommentsUi.source` overlay). Do not
+> re-implement any of those as if they were missing; read `README.md`, `ARCHITECTURE.md`, `USER_GUIDE.md`
+> and `CHANGELOG.md` first. Real workbook fixtures live in `test_excel/` and are read-only.
 
 > **How to use this file.** Everything below is the prompt. Give it to the coding agent as the task
 > description, together with `workflow_image.png` if you have it. It is self-contained: it does not

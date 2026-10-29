@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.3.1)
+# Architecture and developer notes (v2.4.0-dev.1)
 
 ## Layers
 
@@ -51,6 +51,16 @@ dialogs                      │            CatalogIndex              └─ Wis
   circle is only a display fallback and never becomes an artist. `SavedItemRow` adds only what a saved
   record has: selection, the tags row, edit/remove and the added-at caption. A new field therefore has
   to be added to both mappings; the layout cannot drift again.
+* The source-location feature (**v2.4.0-dev.1**) is pure core plus a thin overlay:
+  `core/excel/comments/SourceLocation` turns the models the parser already produced (an `ImageRow`'s
+  verified `MediaAssociation`s, a `LegacyCommentEntry`'s own `ref`, a detected `CatalogueRecord`) into a
+  `Candidate(sheetName, sheetPath, cell, row, column)` — or into `Unreferenced`, `Unresolved` or `Unknown`
+  when nothing is proven. `SheetWindow`/`SheetWindows` turn the cells of one sheet into a small window
+  around a target row (nearest columns, the catalogue header carried separately). The controller reads a
+  sheet once into `sheetCells` (cleared on open/rescan/close) and guards the result with the workbook
+  hash, so a late read for another workbook is dropped. `WorkbookCommentsUi.source` holds the overlay and
+  its transitions are pure functions (`openSource`, `sourceLoading`, `sourceWindow`, `sourceFailed`,
+  `closeSource`), which is what the unit tests drive.
 * `OnlineSearchController` owns its own `StateFlow`; `MainViewModel.init` collects it into
   `UiState.online`. That mirror is required for the panel and the persisted switch to agree.
 * `WishlistRepository` is single-threaded via a dedicated executor and writes `records.json` with a
@@ -220,13 +230,21 @@ without moving any of it into `UiState`. Persisted state still belongs to the Vi
 by `UiState.comments.open`, opened from More with the staged workbook's hash, and its Back action closes
 it. It therefore cannot change the selected destination, the camera or the matching state.
 
+The source view (**v2.4.0-dev.1**) is an overlay inside that preview, not a screen of its own:
+`WorkbookCommentsUi.source` is opened from an image, a comment or a catalogue row and closed with Back or
+its own button, and it never touches `section`, `selectedSheet`, `imageSearch`, `imageFilter`,
+`catalogueFilters`, `imageSort` or `selectedImages`. Because it is not an `AppTab` and not a dialog stack,
+closing it returns to exactly the list the user left, and a workbook change (`open`/`reload`/`close`)
+always resets it — the hash guard in `sourceBelongsTo` drops a late read.
+
 ## Testing
 
-* `app/src/test`: **470** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
+* `app/src/test`: **487** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
   parsers/aggregator/cache in `OnlineSearchTest.kt`; legacy-comment parsing and its cache in
   `LegacyCommentScanTest.kt`, `LegacyCommentEdgeCaseTest.kt`, `CommentImageCacheTest.kt` and
-  `WorkbookCommentsUiTest.kt`; the shared card text in `BookmarkPresentationTest.kt` and the bookmark
-  form rules in `BookmarkFormTest.kt`; the existing offline pipeline tests remain.
+  `WorkbookCommentsUiTest.kt`; the source-location mapping, worksheet identity and worksheet window in
+  `SourceNavigationTest.kt`; the shared card text in `BookmarkPresentationTest.kt` and the bookmark form
+  rules in `BookmarkFormTest.kt`; the existing offline pipeline tests remain.
   Four live catalogue tests are gated by `-DonlineCheck=1`.
 * `app/src/androidTest`: three tests on a device/emulator:
   * real OCR through Chaquopy on a bundled cover (`OcrDeviceTest`);
@@ -240,5 +258,7 @@ it. It therefore cannot change the selected destination, the camera or the match
   answer can be discarded).
 * Workbooks sharing a cell share a workbook-item identity; documented limitation of `wb:<cell>`.
 * Online results are catalogue records, not shopping listings; no price/stock provider exists.
+* The source view is a window (six rows of context, the sixteen columns nearest the verified cell), not a
+  spreadsheet renderer: a location outside it is reached by opening that location, not by scrolling.
 * No database was introduced: the single JSON store keeps backup/migration simple and is adequate
   for the app's data volume; it is not intended for concurrent writers.
