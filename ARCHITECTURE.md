@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.4.0-dev.1)
+# Architecture and developer notes (v2.4.0-dev.2)
 
 ## Layers
 
@@ -61,6 +61,31 @@ dialogs                      │            CatalogIndex              └─ Wis
   hash, so a late read for another workbook is dropped. `WorkbookCommentsUi.source` holds the overlay and
   its transitions are pure functions (`openSource`, `sourceLoading`, `sourceWindow`, `sourceFailed`,
   `closeSource`), which is what the unit tests drive.
+* **v2.4.0-dev.2** adds one shared layer, `core/catalog/`, instead of five feature-specific pipelines:
+  * `CatalogField` is the canonical field list (Title, Circle, Artist, Product ID, URL, Price, Description,
+    Publication date, Tags). Circle and Artist are two fields and nothing merges them.
+  * `ColumnMappingProfile` maps a header **name** to a field; `ColumnMappings.resolve` turns it into a
+    `ResolvedMapping` per worksheet and reports `HEADER_MISSING`, `HEADER_AMBIGUOUS`, `SHARED_HEADER` and
+    `REQUIRED_UNMAPPED`. A field is resolved only when exactly one column carries the mapped header, so an
+    ambiguous mapping leaves the field **unmapped** rather than picking a column. `ColumnMappingCodec` is a
+    pure JSON codec over the existing `MiniJson`; `data/ColumnMappingStore` writes
+    `files/mappings/profiles.json` (temp file + rename, never overwritten on a read failure).
+  * `WorkbookCatalogBuilder.build(sha, sheets, tables, images, profile)` produces `CatalogEntry`s keyed by
+    **worksheet part path + row** (the same identity v2.4.0-dev.1 used for a source location) and attaches
+    the images the comment scanner already verified. It reads no file and infers nothing: a value is
+    `MAPPED`, `MISSING`, `UNMAPPED` or `AMBIGUOUS`, and a cover exists only when an association is verified.
+  * Four pure consumers read that catalog: `HealthReportBuilder` (findings with a stable id, severity,
+    evidence and a resolution class), `CollectionAnalyticsBuilder`, `CollectionTimelineBuilder` and
+    `GalleryView` (filtering/sorting). `CatalogDates` parses the date formats the app actually sees and
+    returns null for anything ambiguous, so a date is never guessed.
+  * `WorkbookCommentsController.refreshInsights` builds the catalog and all four results in one
+    `Dispatchers.IO` pass, guarded by the workbook hash (`insightsBelongTo`), and stores them together on
+    `WorkbookCommentsUi`. Applying a profile, saving one or rescanning rebuilds them; nothing is recomputed
+    per recomposition, and the UI converts nothing itself.
+* The five features are sub-tabs of `CommentsSection.INSIGHTS` (`InsightsTab.HEALTH`/`GALLERY`/
+  `ANALYTICS`/`TIMELINE`/`FIELDS`) rendered by `ui/WorkbookInsightsPanels`, not new top-level destinations.
+  A gallery card, a timeline entry and a finding with a record or an image open the row/cell through the
+  existing `openSource`/`openSourceCell` path, so there is one source-navigation implementation.
 * `OnlineSearchController` owns its own `StateFlow`; `MainViewModel.init` collects it into
   `UiState.online`. That mirror is required for the panel and the persisted switch to agree.
 * `WishlistRepository` is single-threaded via a dedicated executor and writes `records.json` with a
@@ -239,12 +264,16 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
 
 ## Testing
 
-* `app/src/test`: **487** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
+* `app/src/test`: **574** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
   parsers/aggregator/cache in `OnlineSearchTest.kt`; legacy-comment parsing and its cache in
   `LegacyCommentScanTest.kt`, `LegacyCommentEdgeCaseTest.kt`, `CommentImageCacheTest.kt` and
   `WorkbookCommentsUiTest.kt`; the source-location mapping, worksheet identity and worksheet window in
   `SourceNavigationTest.kt`; the shared card text in `BookmarkPresentationTest.kt` and the bookmark form
-  rules in `BookmarkFormTest.kt`; the existing offline pipeline tests remain.
+  rules in `BookmarkFormTest.kt`; the v2.4.0-dev.2 catalog layer in `ColumnMappingTest.kt`,
+  `ColumnMappingStoreTest.kt`, `WorkbookCatalogTest.kt`, `HealthReportTest.kt`,
+  `CollectionAnalyticsTest.kt`, `CollectionTimelineTest.kt`, `GalleryViewTest.kt` and
+  `WorkbookInsightsUiTest.kt` (87 tests, all against `CatalogFixtures` — no workbook file is staged);
+  the existing offline pipeline tests remain.
   Four live catalogue tests are gated by `-DonlineCheck=1`.
 * `app/src/androidTest`: three tests on a device/emulator:
   * real OCR through Chaquopy on a bundled cover (`OcrDeviceTest`);
@@ -260,5 +289,10 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
 * Online results are catalogue records, not shopping listings; no price/stock provider exists.
 * The source view is a window (six rows of context, the sixteen columns nearest the verified cell), not a
   spreadsheet renderer: a location outside it is reached by opening that location, not by scrolling.
+* The health report, analytics and timeline analyse **one workbook** at a time and only what the parser can
+  see. There is no cross-workbook aggregate, no month-level timeline grouping, and no acquisition-date
+  timeline, because the app never records an acquisition date.
+* A mapping profile stores header names, so a *renamed* column is reported as `HEADER_MISSING` rather than
+  re-matched by position. That is deliberate: a wrong guess is worse than an unmapped field.
 * No database was introduced: the single JSON store keeps backup/migration simple and is adequate
   for the app's data volume; it is not intended for concurrent writers.

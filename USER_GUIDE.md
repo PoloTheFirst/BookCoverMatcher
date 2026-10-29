@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.4.0-dev.1)
+# BookCover Matcher - User Guide (v2.4.0-dev.2)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -245,6 +245,38 @@ When there is nothing honest to show, the app says so instead of inventing a pla
 * **A note with several locations** lists all of them and lets you choose.
 * **The workbook is no longer available** — if the file was moved or deleted after the preview opened, the
   view says so instead of drawing an empty grid.
+
+### Checking a workbook: Insights (v2.4.0-dev.2)
+
+The preview has a fourth tab, **Insights**, with five sub-tabs. All of them read the same records, so a
+problem you see in *Health* is the same record you see in *Gallery* and on the *Timeline*. Nothing here
+changes your workbook, and everything works offline.
+
+* **Health** checks the workbook and lists what is wrong: worksheets that could not be read, records with no
+  title, missing optional values, a URL or a date that cannot be read, the same product ID twice, rows that
+  look duplicated, a note that points at a picture the workbook does not contain, pictures nothing points
+  at, and records with no verified cover. Each card says which worksheet row or picture it is about, why,
+  and what to do. **Errors** and **Warnings** are confirmed problems; **Info** is missing optional data or a
+  coverage note. The chips filter by severity and by area, and **Go to source** opens the row through the
+  source view from the previous release. The report never repairs anything.
+* **Gallery** shows one card per record with its cover, title, Circle, Artist, product ID and source row.
+  Filter for *With cover*, *No cover*, *Missing title* or *Missing metadata*, search the text, and sort by
+  title, Circle, Artist, source order or cover. A record with no cover shows *No cover* — nothing is filled
+  in to make the card look complete. **Open** shows the cover full screen; **Source** opens the row.
+* **Analytics** counts records, worksheets, covers, missing values, duplicate IDs and possible duplicates,
+  and groups them by Circle, Artist, tag, worksheet and publication year. The rules are printed on the
+  screen: one record is one row of the sheet, a blank cell counts as *missing* and never as zero, and
+  possible duplicates are shown but not subtracted from the totals.
+* **Timeline** groups records by publication year, newest or oldest first, and keeps records whose date is
+  absent or unreadable in **No date known** — they never disappear. **Acquired** says it is unavailable
+  because the app does not record when a work was bought, and **Imported** uses the date the saved copy was
+  imported. **Go to row** opens the source view for that record.
+* **Fields** maps the worksheet's own columns to the app's fields: Title, Circle, Artist, Product ID, URL,
+  Price, Description, Publication date and Tags. Tap a field, pick the column, and the preview under the
+  list shows what the records will look like. Orange issues mean a column is missing, appears twice, or is
+  used by two fields. **Apply mapping** uses it for the reports; **Save profile…** stores it by name so the
+  same layout can be reused on another workbook. A profile remembers column *names*, so inserting a column
+  in Excel does not break it, and Circle and Artist stay two different fields.
 
 ### Saved workbooks (More → Saved workbooks)
 
