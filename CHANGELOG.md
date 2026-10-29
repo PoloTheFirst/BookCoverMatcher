@@ -1,3 +1,88 @@
+# Bookmark card parity, price sample and the bookmark drawer
+
+**v2.3.1 is a fix release**: the `Bookmarks` list on the Wishlist tab now draws the same card as the
+Search results, its control drawer has a real handle and animates, and the bookmark form's price sample
+reads `770円`. Nothing is sent anywhere, no saved record changes shape, and no provider, workbook or
+comparison code is touched.
+
+## v2.3.1 (2026-10-30)
+
+`records.json`, its schema and every stored field are unchanged; a bookmark saved by 2.3.0 is read back
+exactly as before, and this patch writes no new field.
+
+### Fixed
+
+* **The bookmark form's price sample read `¥770`.** It now reads `770円`, the way the shop prints a
+  price. It is sample text only: `BookmarkForm.PRICE_PLACEHOLDER` is never written to storage, the field
+  still starts empty, and no validation rule reads it.
+* **The Wishlist `Bookmarks` drawer had a solid bar for a handle and no expand/collapse animation.**
+  `BookmarkControlsHandle` painted the whole 26 dp strip in the accent colour, so the handle read as a
+  button that was already pressed; the panel was drawn by `if (panelOpen)` inside a full-height column
+  whose `animateContentSize` therefore had no size change to animate, so the filter, the selection entry
+  and the sort row appeared and disappeared in one frame. The strip is transparent now, with a centred
+  40 × 4 dp accent grip and an accent chevron, and the panel opens and closes through
+  `AnimatedVisibility` (`expandVertically`/`shrinkVertically` + fade, `tween(220)`); the chevron turns
+  with the same `animateFloatAsState` the Search result card uses. The open/closed state stays in
+  `UiState.bookmarkPanelOpen`, so a tab switch keeps it.
+* **Wishlist bookmark cards did not follow the Search result card.** Two causes. `SavedItem.toUi()`
+  folded the circle, the artists, the identifier, the price and the availability into one `meta` string,
+  and `SavedItemRow` drew only the title, that string and the timestamp — so the same record could not
+  show what its live card showed. The expand control was also composed inside the edit/remove branch,
+  with its own icon, so a card without those actions (a session result) had no way to expand at all, and
+  selection mode removed it. `SavedItemUi` now carries `authors`, `identifier`, `price`, `availability`
+  and `matchType` as their own values, and `SavedItemRow` is assembled from the same
+  `ui/ResultCardParts` as `ProductResultCard`: the 52 × 74 cover with its `?` placeholder, the 14 sp
+  title, the 12 sp accent author line, the price/identifier caption, the source and match-type chips,
+  `—` for a field the source never sent, the shared expanded block and `animateContentSize`. The chevron
+  is part of the header, so it is drawn on every bookmark card, in selection mode too. Edit/Delete,
+  selection, the tags row and the added-at caption stay; a saved workbook row keeps its `cell … · %`
+  caption, because it has no price or identifier.
+* **`core/wishlist/BookmarkPresentation`** now builds the card's two lines and the match chip from the
+  stored fields: the artists are joined the way the Search card joins them, the circle is only a display
+  fallback when no artist was parsed (never an artist, never merged into `authors`), the caption is the
+  price and then the identifier, and a record the app could not verify says `Unverified match` instead
+  of claiming a text match.
+* **A tab switch reset the `Bookmarks` list.** The filter text, the sort choice and every expanded card
+  were `rememberSaveable` values inside the tab branch, and a branch that leaves composition discards
+  them. `AppScreen` now wraps the tab content in
+  `rememberSaveableStateHolder().SaveableStateProvider(ui.tab)`, so switching to Search and back
+  restores the filter, the sort, the expanded cards and the scroll position. The drawer state and the
+  selection were already in `UiState` and are unchanged.
+
+### Changed
+
+* The Search result card is now assembled from the same `ui/ResultCardParts`; its output is unchanged
+  (same sizes, colours, order of the detail rows and action labels). Its chevron turns with an explicit
+  `tween(220)` instead of the default spring — the same animation the Wishlist card uses.
+* On a saved-item card the **Open website** / **★ Bookmark** / **+ Add to wishlist** chips are drawn
+  when the card is expanded, like the Search card, instead of under the collapsed summary. **Edit** and
+  delete stay visible without expanding.
+* The expanded block of a bookmark adds `Artist` and `Circle` as two separate rows; the Search card
+  passes neither, so its block is the same as before.
+
+### Verified
+
+* `.\gradlew.bat :app:testDebugUnitTest` — **470 tests, 0 failures** (4 opt-in live catalogue checks
+  skipped by design), across 62 result classes. The new `BookmarkPresentationTest` (9 tests) covers the
+  artist/circle split, the circle display fallback, the price → identifier → `—` caption, the source
+  chip fallback and the match-type wording; `BookmarkFormTest` (22 tests) pins the `770円` sample.
+* `.\gradlew.bat :app:assembleDebug` — BUILD SUCCESSFUL; `app-debug.apk` is 194,768,801 bytes (the
+  bundle is dominated by the bundled OpenCLIP model).
+* Version code/name: **208 / 2.3.1** (`app/build.gradle.kts`; `app/release/output-metadata.json`
+  carries the same pair).
+
+### Known limitations
+
+* **No device or emulator was available**: the drawer animation, the transparent handle and the rebuilt
+  bookmark card compile, and the shared text rules are unit-tested, but they were not driven on
+  hardware. The project still has no Compose UI-test dependency, so there are no instrumentation tests
+  for them.
+* The card is shared, not merged: a bookmark and a live result still come from two models
+  (`SavedItemUi`, `ProductResultUi`) and two call sites, so a new field has to be added to both. The
+  shared composables remove the layout drift, not the two sources.
+* Worksheet → source row/cell navigation is **not** part of this patch; it stays deferred to 2.4.0.
+---
+
 # Offline legacy-comment image preview
 
 **v2.3.0 adds one offline feature**: the note text and the pictures stored in legacy Excel comments of the
