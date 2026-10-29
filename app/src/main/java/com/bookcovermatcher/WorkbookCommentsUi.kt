@@ -1,7 +1,24 @@
 package com.bookcovermatcher
 
+import com.bookcovermatcher.core.catalog.CatalogEntry
+import com.bookcovermatcher.core.catalog.CatalogField
+import com.bookcovermatcher.core.catalog.CollectionAnalytics
+import com.bookcovermatcher.core.catalog.CollectionTimeline
+import com.bookcovermatcher.core.catalog.ColumnMappingProfile
+import com.bookcovermatcher.core.catalog.GalleryFilter
+import com.bookcovermatcher.core.catalog.GallerySort
+import com.bookcovermatcher.core.catalog.GalleryView
+import com.bookcovermatcher.core.catalog.HealthCategory
+import com.bookcovermatcher.core.catalog.HealthFinding
+import com.bookcovermatcher.core.catalog.HealthReport
+import com.bookcovermatcher.core.catalog.HealthSeverity
+import com.bookcovermatcher.core.catalog.MappingIssue
+import com.bookcovermatcher.core.catalog.TimelineMode
+import com.bookcovermatcher.core.catalog.WorkbookCatalog
 import com.bookcovermatcher.core.excel.comments.CatalogueFilter
 import com.bookcovermatcher.core.excel.comments.CatalogueFiltering
+import com.bookcovermatcher.core.excel.comments.CatalogueRecord
+import com.bookcovermatcher.core.excel.comments.CatalogueTable
 import com.bookcovermatcher.core.excel.comments.FilterField
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
@@ -14,7 +31,21 @@ import com.bookcovermatcher.core.excel.comments.WorkbookCommentImages
 import com.bookcovermatcher.core.excel.comments.ImageIndex
 
 /** The two lists of the workbook preview: legacy comments, and every media file in the package. */
-enum class CommentsSection { COMMENTS, MEDIA, CATALOGUE }
+enum class CommentsSection { COMMENTS, MEDIA, CATALOGUE, INSIGHTS }
+
+/**
+ * The five v2.4.0 features that share one canonical catalog, in the order the screen lists them.
+ *
+ * They are sub-tabs of the existing preview instead of new top-level destinations: the workbook stays
+ * open, and the filters underneath are untouched.
+ */
+enum class InsightsTab(val label: String) {
+    HEALTH("Health"),
+    GALLERY("Gallery"),
+    ANALYTICS("Analytics"),
+    TIMELINE("Timeline"),
+    FIELDS("Fields"),
+}
 
 /** What the full-screen viewer is showing. */
 data class CommentViewerUi(
@@ -98,6 +129,39 @@ data class WorkbookCommentsUi(
     val filterValueSearch: String = "",
     /** The source-location overlay ("go to worksheet/cell"); null when it is closed. */
     val source: SourceViewUi? = null,
+    /** Which Insights screen is showing. */
+    val insightsTab: InsightsTab = InsightsTab.HEALTH,
+    /** The shared catalog for this workbook and mapping; null until it has been built. */
+    val catalog: WorkbookCatalog? = null,
+    val insightsBusy: Boolean = false,
+    val insightsError: String? = null,
+    val health: HealthReport? = null,
+    val analytics: CollectionAnalytics? = null,
+    val publicationTimeline: CollectionTimeline? = null,
+    val acquisitionTimeline: CollectionTimeline? = null,
+    val importTimeline: CollectionTimeline? = null,
+    val timelineMode: TimelineMode = TimelineMode.PUBLICATION,
+    val timelineAscending: Boolean = false,
+    val healthSeverity: HealthSeverity? = null,
+    val healthCategory: HealthCategory? = null,
+    val galleryFilter: GalleryFilter = GalleryFilter(),
+    val gallerySort: GallerySort = GallerySort.TITLE,
+    val galleryAscending: Boolean = true,
+    /** Saved mapping profiles of the app; empty until the store was read. */
+    val profiles: List<ColumnMappingProfile> = emptyList(),
+    /** Name of the saved profile the user picked, or null for the auto-detected mapping. */
+    val activeProfile: String? = null,
+    /** The mapping being edited on the Fields screen: field -> header, null meaning "not mapped". */
+    val mappingDraft: Map<CatalogField, String?> = emptyMap(),
+    /** Headers of the worksheet being mapped, in the workbook's own order. */
+    val mappingHeaders: List<String> = emptyList(),
+    val mappingSheet: String? = null,
+    /** Records as the draft mapping reads them — the preview before anything is applied. */
+    val mappingPreview: List<CatalogEntry> = emptyList(),
+    val mappingIssues: List<MappingIssue> = emptyList(),
+    val mappingDirty: Boolean = false,
+    /** When the saved copy was imported, from the workload library; 0 when it is not known. */
+    val importedAt: Long = 0L,
 ) {
     val comments get() = model?.comments.orEmpty()
     val media get() = model?.media.orEmpty()
@@ -180,6 +244,27 @@ data class WorkbookCommentsUi(
 
     /** Worksheets of the picker, hidden ones included and labelled. */
     val filteredSheets get() = sheets.filter { it.name.contains(sheetSearch.trim(), ignoreCase = true) }
+
+    // ---- Insights (v2.4.0) -----------------------------------------------------------------
+
+    /** Gallery cards as the user sees them: the shared catalog, filtered and ordered. */
+    val visibleCatalog: List<CatalogEntry>
+        get() = GalleryView.rows(catalog?.entries.orEmpty(), galleryFilter, gallerySort, galleryAscending)
+
+    /** The timeline of the selected date meaning. */
+    val timeline: CollectionTimeline?
+        get() = when (timelineMode) {
+            TimelineMode.PUBLICATION -> publicationTimeline
+            TimelineMode.ACQUISITION -> acquisitionTimeline
+            TimelineMode.IMPORT -> importTimeline
+        }
+
+    /** Findings left after the severity and category chips. */
+    val visibleFindings: List<HealthFinding>
+        get() = health?.matching(healthSeverity, healthCategory).orEmpty()
+
+    /** The number on the Insights tab: the confirmed problems the user can act on. */
+    val insightErrors: Int get() = health?.summary?.errors ?: 0
 
     /** Grid cell target for the current [thumbSize]; the thumbnail box is slightly smaller. */
     val thumbCellDp: Int get() = when (thumbSize) { 0 -> 84; 2 -> 168; else -> 112 }
@@ -301,4 +386,85 @@ data class SheetSummary(
     val dimension: String? = null,
 ) {
     val hidden: Boolean get() = !visibility.equals("visible", ignoreCase = true)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Insights (v2.4.0): health, gallery, analytics, timeline and column mapping
+// ---------------------------------------------------------------------------------------------
+
+/** Switches the Insights sub-tab. The catalog behind it is built once, by the controller. */
+fun WorkbookCommentsUi.showInsights(tab: InsightsTab): WorkbookCommentsUi = copy(insightsTab = tab)
+
+/**
+ * The catalog and every derived result, built in one pass so the four screens cannot disagree.
+ *
+ * They are stored together on purpose: the health report, the gallery, the analytics and the timeline
+ * all read the same records and the same image associations.
+ */
+fun WorkbookCommentsUi.insightsLoaded(
+    catalog: WorkbookCatalog,
+    health: HealthReport,
+    analytics: CollectionAnalytics,
+    publication: CollectionTimeline,
+    acquisition: CollectionTimeline,
+    imported: CollectionTimeline,
+): WorkbookCommentsUi = copy(
+    catalog = catalog,
+    health = health,
+    analytics = analytics,
+    publicationTimeline = publication,
+    acquisitionTimeline = acquisition,
+    importTimeline = imported,
+    insightsBusy = false,
+    insightsError = null,
+)
+
+fun WorkbookCommentsUi.insightsStarted(): WorkbookCommentsUi = copy(insightsBusy = true, insightsError = null)
+
+/** The build failed or there is nothing to build from; the screen says which instead of showing zeros. */
+fun WorkbookCommentsUi.insightsFailed(message: String): WorkbookCommentsUi =
+    copy(insightsBusy = false, insightsError = message)
+
+/** True when a finished build still belongs to the open workbook, so a late one is dropped. */
+fun WorkbookCommentsUi.insightsBelongTo(sha256: String): Boolean = this.sha256 == sha256
+
+fun WorkbookCommentsUi.selectTimeline(mode: TimelineMode): WorkbookCommentsUi = copy(timelineMode = mode)
+
+fun WorkbookCommentsUi.toggleTimelineOrder(): WorkbookCommentsUi = copy(timelineAscending = !timelineAscending)
+
+fun WorkbookCommentsUi.filterHealth(
+    severity: HealthSeverity?,
+    category: HealthCategory? = null,
+): WorkbookCommentsUi = copy(healthSeverity = severity, healthCategory = category)
+
+fun WorkbookCommentsUi.filterGallery(filter: GalleryFilter): WorkbookCommentsUi = copy(galleryFilter = filter)
+
+fun WorkbookCommentsUi.sortGallery(sort: GallerySort): WorkbookCommentsUi = copy(gallerySort = sort)
+
+fun WorkbookCommentsUi.toggleGalleryOrder(): WorkbookCommentsUi = copy(galleryAscending = !galleryAscending)
+
+/**
+ * The editing state of the Fields screen: the draft mapping, the headers it was drawn against, the
+ * records it reads and the issues it found. Nothing here changes the applied mapping.
+ */
+fun WorkbookCommentsUi.mappingEdited(
+    draft: Map<CatalogField, String?>,
+    sheetName: String?,
+    headers: List<String>,
+    preview: List<CatalogEntry>,
+    issues: List<MappingIssue>,
+): WorkbookCommentsUi = copy(
+    mappingDraft = draft,
+    mappingSheet = sheetName,
+    mappingHeaders = headers,
+    mappingPreview = preview,
+    mappingIssues = issues,
+    mappingDirty = true,
+)
+
+/** The table and record behind a catalog entry, when this workbook still has both. */
+fun WorkbookCommentsUi.recordOf(entry: CatalogEntry): Pair<CatalogueTable, CatalogueRecord>? {
+    val table = catalog?.tables?.get(entry.sheetName) ?: return null
+    val record = table.records.firstOrNull { it.row == entry.row } ?: return null
+    return table to record
 }

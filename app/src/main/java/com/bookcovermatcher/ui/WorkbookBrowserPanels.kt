@@ -465,7 +465,7 @@ private fun rememberMediaBytes(path: String?, controller: WorkbookCommentsContro
 }
 
 @Composable
-private fun SearchField(value: String, onChange: (String) -> Unit, hint: String) {
+internal fun SearchField(value: String, onChange: (String) -> Unit, hint: String) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -486,7 +486,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit, hint: String)
 }
 
 @Composable
-private fun ChoiceChip(label: String, active: Boolean, onClick: () -> Unit) {
+internal fun ChoiceChip(label: String, active: Boolean, onClick: () -> Unit) {
     Text(
         label,
         color = if (active) Palette.OnAccent else Palette.Muted,

@@ -8,10 +8,13 @@
 > below no longer exists in the UI: the Search destination now shows `Workbook (n) / Online (n) /
 > Bookmarks (n)` tabs, and the numbered panel titles were removed.
 >
-> **Current development build: `v2.4.0-dev.1` (2026-10-30).** Since this prompt was written, the
-> wishlist/bookmark model landed, v2.3.x added the offline workbook-comments preview, and v2.4.0-dev.1
+> **Current development build: `v2.4.0-dev.2` (2026-10-30).** Since this prompt was written, the
+> wishlist/bookmark model landed, v2.3.x added the offline workbook-comments preview, v2.4.0-dev.1
 > added **verified source navigation** (image/catalogue record → worksheet cell or row, via
-> `core/excel/comments/SourceLocation` + `SheetWindow` and the `WorkbookCommentsUi.source` overlay). Do not
+> `core/excel/comments/SourceLocation` + `SheetWindow` and the `WorkbookCommentsUi.source` overlay), and
+> v2.4.0-dev.2 added the **workbook insights** built on one shared `core/catalog/` layer (`WorkbookCatalog`,
+> `ColumnMappingProfile`, `HealthReportBuilder`, `CollectionAnalyticsBuilder`, `CollectionTimelineBuilder`,
+> `GalleryView`) shown as the `InsightsTab` sub-tabs of the existing preview. Do not
 > re-implement any of those as if they were missing; read `README.md`, `ARCHITECTURE.md`, `USER_GUIDE.md`
 > and `CHANGELOG.md` first. Real workbook fixtures live in `test_excel/` and are read-only.
 

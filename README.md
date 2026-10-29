@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.4.0-dev.1 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.4.0-dev.2 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -111,6 +111,34 @@ structural catalogue reader detected — never from image order, file names or l
   catalogue filters, sort order and selection are untouched, and closing it returns to the same list. Cells
   read for one location are reused for the next in the same sheet; a read that finishes after switching
   workbooks is discarded.
+
+### Workbook insights (v2.4.0-dev.2)
+
+A fourth tab, **Insights**, checks and browses the records of the open workbook. It is not a new screen:
+the workbook, the parsed analysis and the verified image associations are the ones the preview already
+has, and the five sub-tabs read **one** canonical catalog.
+
+* **Health.** Worksheets that could not be read, records with no title, missing optional values, URLs and
+  dates that cannot be read, duplicate product IDs, rows that look duplicated, note references that point
+  at an image the package does not contain, media nothing points at, and records without a verified cover.
+  Each finding names the worksheet row or image, states the evidence, suggests a next step, and is either a
+  confirmed problem or information. Filterable by severity and category; nothing is repaired.
+* **Gallery.** One card per record with its cover, title, Circle, Artist, product ID and source row;
+  filters for cover state, missing title, missing metadata and free text; sorting by title, Circle, Artist,
+  source order or cover. A record without a cover shows a placeholder, never a padded card.
+* **Analytics.** Records, worksheets, verified covers, missing metadata, duplicate IDs and possible
+  duplicates, grouped by Circle, Artist, tag, worksheet and publication year. The rules are on the screen:
+  one record is one source row, a blank cell is *missing* not zero, and potential duplicates are reported
+  rather than subtracted.
+* **Timeline.** Publication year groups, newest or oldest first, with a separate *No date known* group.
+  **Acquired** is reported as unavailable because the app does not record an acquisition date, and
+  **Imported** uses the saved-workbook library's import time.
+* **Fields.** Maps a worksheet's own headers to the app's fields, previews the records before applying,
+  reports headers that are missing, duplicated or shared, and saves the mapping as **header names** (not
+  column positions) in `files/mappings/profiles.json` for reuse on another workbook.
+
+Source navigation from v2.4.0-dev.1 is reused rather than re-implemented: a gallery card, a timeline entry
+and a finding with a record or image all open the verified worksheet row through the same overlay.
 
 ---
 
@@ -335,6 +363,9 @@ platform is selected; no other screen keeps its own list.
 * **Source navigation (v2.4.0-dev.1)**: images and catalogue records carry a verified destination (see §2);
   a record's **Go to row** opens the worksheet at that row, and an image's **Go to source** opens the cell
   its note is attached to.
+* **Insights (v2.4.0-dev.2)**: the same records drive a health report, a visual gallery, analytics, a
+  publication timeline and the column mapping, all built from one catalog (see §2); a finding, a card and a
+  timeline entry open the verified worksheet row through the source overlay.
 * **Selection does not change capability.** Open Library, Google Books and DLsite are queried in the
   app. The other eight cards are browser-only: they cannot be selected, and they are never counted as
   in-app providers.
@@ -499,7 +530,7 @@ app/src/main/java/com/bookcovermatcher/
                                   BookmarkDialogs,
                                   Overlays, CameraCard, components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        487 JVM tests (4 opt-in live provider checks)
+app/src/test/                        574 JVM tests (4 opt-in live provider checks)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
 
@@ -572,6 +603,7 @@ No step of this pipeline is online, and the online feature is never consulted by
 | Full JVM suite (v2.3.0) | `.\gradlew.bat :app:testDebugUnitTest` | **449 tests**, 0 failures, 4 skipped by design (`assembleDebug`: BUILD SUCCESSFUL, version 207 / 2.3.0) |
 | Full JVM suite (v2.3.1) | `.\gradlew.bat :app:testDebugUnitTest` | **470 tests**, 0 failures, 4 skipped by design, across 62 result classes (`BookmarkPresentationTest` 9, `BookmarkFormTest` 22); `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 194,768,801 bytes, version 208 / 2.3.1 |
 | Full JVM suite (v2.4.0-dev.1) | `.\gradlew.bat :app:testDebugUnitTest` | **487 tests**, 0 failures, 4 skipped by design, across 63 result classes; the new `SourceNavigationTest` (17 tests) covers verified image/comment/record locations, ambiguous notes, unreferenced and unresolved images, stale worksheets, trailing-space/Unicode sheet names, the worksheet window and the overlay state; `assembleDebug`: BUILD SUCCESSFUL, version 209 / 2.4.0-dev.1 |
+| Full JVM suite (v2.4.0-dev.2) | `.\gradlew.bat :app:testDebugUnitTest` | **574 tests**, 0 failures, 4 skipped by design, across 71 result classes; 87 of them new: `ColumnMappingTest` 14, `ColumnMappingStoreTest` 5, `WorkbookCatalogTest` 9, `HealthReportTest` 18, `CollectionAnalyticsTest` 9, `CollectionTimelineTest` 12, `GalleryViewTest` 10, `WorkbookInsightsUiTest` 10; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,015,505 bytes, version 210 / 2.4.0-dev.2 |
 | Debug build | `.\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
 | Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
 | Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |
@@ -593,6 +625,11 @@ No step of this pipeline is online, and the online feature is never consulted by
   no device or emulator was available and there is still no Compose UI-test dependency, so the screens
   were not tapped through. The mapping, the window model and the overlay state are unit-tested
   (`SourceNavigationTest`, 17 tests) and both builds pass.
+* The v2.4.0-dev.2 Insights screens — Health, Gallery, Analytics, Timeline and Fields, their chips, the
+  header picker and the save-profile dialog: compiled and unit-tested (`HealthReportTest`,
+  `GalleryViewTest`, `WorkbookInsightsUiTest` and the other catalog tests, 87 in all), not tapped through
+  on a device. The report and the analytics only see what the parser can see, so a drawing-anchored picture
+  makes its record look cover-less rather than broken.
 * Google Books with an API key (none is configured).
 * **Suruga-ya as an in-app search** — deliberately not implemented: its `robots.txt` disallows
   `/search/`. Only its generated browser link is verified.

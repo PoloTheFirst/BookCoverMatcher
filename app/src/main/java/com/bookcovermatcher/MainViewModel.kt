@@ -576,7 +576,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         library.touch(id)
-        comments.open(file, entry.sha256, entry.displayName)
+        comments.open(file, entry.sha256, entry.displayName, importedAt = entry.importedAt)
         watchSummary(id)
         refreshSavedWorkbooks()
     }

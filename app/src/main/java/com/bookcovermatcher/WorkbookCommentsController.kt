@@ -3,7 +3,27 @@ package com.bookcovermatcher
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import com.bookcovermatcher.core.catalog.CatalogEntry
+import com.bookcovermatcher.core.catalog.CatalogField
+import com.bookcovermatcher.core.catalog.CollectionAnalytics
+import com.bookcovermatcher.core.catalog.CollectionAnalyticsBuilder
+import com.bookcovermatcher.core.catalog.CollectionTimeline
+import com.bookcovermatcher.core.catalog.CollectionTimelineBuilder
+import com.bookcovermatcher.core.catalog.ColumnMappingProfile
+import com.bookcovermatcher.core.catalog.ColumnMappings
+import com.bookcovermatcher.core.catalog.GalleryFilter
+import com.bookcovermatcher.core.catalog.GallerySort
+import com.bookcovermatcher.core.catalog.HealthCategory
+import com.bookcovermatcher.core.catalog.HealthFinding
+import com.bookcovermatcher.core.catalog.HealthReport
+import com.bookcovermatcher.core.catalog.HealthReportBuilder
+import com.bookcovermatcher.core.catalog.HealthSeverity
+import com.bookcovermatcher.core.catalog.TimelineEntry
+import com.bookcovermatcher.core.catalog.TimelineMode
+import com.bookcovermatcher.core.catalog.WorkbookCatalog
+import com.bookcovermatcher.core.catalog.WorkbookCatalogBuilder
 import com.bookcovermatcher.core.excel.JavaZipSource
+import com.bookcovermatcher.core.excel.comments.CatalogueTable
 import com.bookcovermatcher.core.excel.comments.CellValue
 import com.bookcovermatcher.core.excel.comments.CommentImageScanner
 import com.bookcovermatcher.core.excel.comments.CommentScanLimits
@@ -16,10 +36,12 @@ import com.bookcovermatcher.core.excel.comments.SheetCells
 import com.bookcovermatcher.core.excel.comments.SheetWindow
 import com.bookcovermatcher.core.excel.comments.SheetWindows
 import com.bookcovermatcher.core.excel.comments.SourceLocation
+import com.bookcovermatcher.core.excel.comments.SourceLocations
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalysis
 import com.bookcovermatcher.core.excel.comments.WorkbookCommentImages
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalyzer
 import com.bookcovermatcher.core.export.ImageManifest
+import com.bookcovermatcher.data.ColumnMappingStore
 import com.bookcovermatcher.data.CommentImageCache
 import java.io.File
 import java.util.zip.ZipFile
@@ -63,16 +85,29 @@ class WorkbookCommentsController(
      */
     private val sheetCells = HashMap<String, List<CellValue>>()
 
+    /** The saved column-mapping profiles; small JSON file, read once per open. */
+    private val mappingStore = ColumnMappingStore(File(appContext.filesDir, "mappings"))
+
     /** Opens the preview for [file], using the cache when the workbook hash is unchanged. */
-    fun open(file: File, sha256: String, displayName: String) {
+    fun open(file: File, sha256: String, displayName: String, importedAt: Long = 0L) {
         // Already open on these bytes: keep the parsed result (and the user's filters) instead of
         // starting a second scan. A different workbook always reloads.
         if (_ui.value.open && _ui.value.sha256 == sha256 && !_ui.value.loading) return
         job?.cancel()
         sheetCells.clear()
         source = file
-        _ui.update { WorkbookCommentsUi(open = true, workbookName = displayName, sha256 = sha256, loading = true) }
+        _ui.update {
+            WorkbookCommentsUi(
+                open = true,
+                workbookName = displayName,
+                sha256 = sha256,
+                loading = true,
+                importedAt = importedAt,
+            )
+        }
         job = scope.launch {
+            val profiles = withContext(Dispatchers.IO) { mappingStore.load() }
+            _ui.update { if (it.sha256 == sha256) it.copy(profiles = profiles) else it }
             val cached = withContext(Dispatchers.IO) { cache.read(sha256) }
             if (cached != null) {
                 val analysis = withContext(Dispatchers.IO) { analyze(file, cached) }
@@ -99,7 +134,23 @@ class WorkbookCommentsController(
         if (state.sha256.isBlank()) return
         job?.cancel()
         sheetCells.clear()
-        _ui.update { it.copy(loading = true, error = null, source = null) }
+        _ui.update {
+            it.copy(
+                loading = true,
+                error = null,
+                source = null,
+                // The parsed data is about to change: every derived result is dropped, not kept stale.
+                catalog = null,
+                health = null,
+                analytics = null,
+                publicationTimeline = null,
+                acquisitionTimeline = null,
+                importTimeline = null,
+                insightsError = null,
+                mappingPreview = emptyList(),
+                mappingIssues = emptyList(),
+            )
+        }
         job = scope.launch {
             apply(withContext(Dispatchers.IO) { scan(file, state.sha256, state.workbookName) }, state.sha256)
         }
@@ -125,7 +176,15 @@ class WorkbookCommentsController(
         }
     }
 
-    fun showSection(section: CommentsSection) = _ui.update { it.copy(section = section) }
+    fun showSection(section: CommentsSection) {
+        _ui.update { it.copy(section = section) }
+        if (section == CommentsSection.INSIGHTS) {
+            // The catalog is built on first use, not on open: a workbook the user only skims never pays
+            // for the four reports.
+            if (_ui.value.catalog == null && !_ui.value.insightsBusy) refreshInsights()
+            if (_ui.value.mappingDraft.isEmpty()) startMapping()
+        }
+    }
 
     fun selectSheet(sheet: String?) = _ui.update { state ->
         // Catalogue filters belong to a worksheet: a filter whose table is no longer in scope is dropped
@@ -445,5 +504,290 @@ class WorkbookCommentsController(
         "bmp" -> "image/bmp"
         "webp" -> "image/webp"
         else -> "application/octet-stream"
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Insights (v2.4.0): health, gallery, analytics, timeline and column mapping
+    // ---------------------------------------------------------------------------------------------
+
+    /** Everything one build produces, kept together so the four screens share one set of results. */
+    private data class InsightsBundle(
+        val catalog: WorkbookCatalog,
+        val health: HealthReport,
+        val analytics: CollectionAnalytics,
+        val publication: CollectionTimeline,
+        val acquisition: CollectionTimeline,
+        val imported: CollectionTimeline,
+    )
+
+    /**
+     * Builds the canonical catalog and everything derived from it, off the main thread.
+     *
+     * The parsed analysis and the scan result are reused — nothing is re-read from the workbook — and a
+     * build that finishes after the user switched workbooks is dropped.
+     */
+    fun refreshInsights(profile: ColumnMappingProfile? = null) {
+        val state = _ui.value
+        val analysis = state.analysis
+        val model = state.model
+        if (analysis == null || model == null) {
+            _ui.update { it.insightsFailed("The workbook is still being read. The reports open as soon as it is ready.") }
+            return
+        }
+        val sha256 = state.sha256
+        val chosen = profile
+            ?: state.profiles.firstOrNull { it.name == state.activeProfile }
+            ?: detectedProfile(analysis)
+        _ui.update { it.insightsStarted() }
+        scope.launch {
+            val bundle = withContext(Dispatchers.IO) {
+                buildInsights(sha256, analysis, model, chosen, state.importedAt)
+            }
+            _ui.update { current ->
+                if (!current.insightsBelongTo(sha256)) {
+                    current
+                } else {
+                    current.insightsLoaded(
+                        catalog = bundle.catalog,
+                        health = bundle.health,
+                        analytics = bundle.analytics,
+                        publication = bundle.publication,
+                        acquisition = bundle.acquisition,
+                        imported = bundle.imported,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun buildInsights(
+        sha256: String,
+        analysis: WorkbookAnalysis,
+        model: WorkbookCommentImages,
+        profile: ColumnMappingProfile,
+        importedAt: Long,
+    ): InsightsBundle {
+        val catalog = WorkbookCatalogBuilder.build(
+            workbookSha256 = sha256,
+            sheets = analysis.sheets,
+            tables = analysis.tables,
+            images = analysis.images,
+            profile = profile,
+        )
+        return InsightsBundle(
+            catalog = catalog,
+            health = HealthReportBuilder.build(catalog, analysis, model),
+            analytics = CollectionAnalyticsBuilder.build(catalog),
+            publication = CollectionTimelineBuilder.publication(catalog),
+            acquisition = CollectionTimelineBuilder.acquisition(catalog),
+            imported = CollectionTimelineBuilder.imported(catalog, importedAt.takeIf { it > 0L }),
+        )
+    }
+
+    /** The mapping the workbook suggests for its own headers. */
+    private fun detectedProfile(analysis: WorkbookAnalysis?): ColumnMappingProfile {
+        val table = analysis?.tables?.firstOrNull()
+            ?: return ColumnMappingProfile(ColumnMappingProfile.DETECTED_NAME, emptyMap())
+        return ColumnMappings.detectedProfile(table)
+    }
+
+    fun showInsights(tab: InsightsTab) = _ui.update { it.showInsights(tab) }
+
+    // ---- mapping profiles ---------------------------------------------------------------------
+
+    /** Applies a saved profile (null = the auto-detected mapping) and rebuilds every report. */
+    fun selectProfile(name: String?) {
+        val state = _ui.value
+        val saved = state.profiles.firstOrNull { it.name == name }
+        _ui.update { it.copy(activeProfile = saved?.name, mappingDirty = false) }
+        refreshInsights(saved)
+        startMapping(base = saved)
+    }
+
+    /** Saves the draft under [name] and applies it. The workbook itself is never modified. */
+    fun saveProfile(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) {
+            onMessage("Give the profile a name first.", ToastKind.INFO)
+            return
+        }
+        val columns = mappedColumns(_ui.value.mappingDraft)
+        if (columns.isEmpty()) {
+            onMessage("Map at least one column before saving a profile.", ToastKind.INFO)
+            return
+        }
+        scope.launch {
+            val profiles = withContext(Dispatchers.IO) { mappingStore.save(ColumnMappingProfile(trimmed, columns)) }
+            _ui.update { it.copy(profiles = profiles, activeProfile = trimmed, mappingDirty = false) }
+            refreshInsights(ColumnMappingProfile(trimmed, columns))
+            onMessage("Saved the profile \u201C$trimmed\u201D.", ToastKind.OK)
+        }
+    }
+
+    fun deleteProfile(name: String) {
+        scope.launch {
+            val profiles = withContext(Dispatchers.IO) { mappingStore.delete(name) }
+            val stillActive = _ui.value.activeProfile == name
+            _ui.update { it.copy(profiles = profiles, activeProfile = if (stillActive) null else it.activeProfile) }
+            if (stillActive) refreshInsights(null)
+            onMessage("Deleted the profile \u201C$name\u201D.", ToastKind.OK)
+        }
+    }
+
+    // ---- Fields: drafting a mapping ------------------------------------------------------------
+
+    fun selectMappingSheet(sheetName: String) = startMapping(sheetName)
+
+    /**
+     * Starts (or restarts) the draft for [sheetName] from the applied profile, and previews it.
+     *
+     * The preview is computed by the same builder the reports use, so what the user confirms is what the
+     * other screens will read.
+     */
+    fun startMapping(sheetName: String? = null, base: ColumnMappingProfile? = null) {
+        val state = _ui.value
+        val tables = state.analysis?.tables.orEmpty()
+        val target = sheetName ?: state.mappingSheet ?: tables.firstOrNull()?.sheetName
+        val table = tables.firstOrNull { it.sheetName == target }
+        if (table == null) {
+            _ui.update {
+                it.copy(
+                    mappingSheet = null,
+                    mappingHeaders = emptyList(),
+                    mappingDraft = emptyMap(),
+                    mappingPreview = emptyList(),
+                    mappingIssues = emptyList(),
+                    mappingDirty = false,
+                )
+            }
+            return
+        }
+        val profile = base
+            ?: state.profiles.firstOrNull { it.name == state.activeProfile }
+            ?: ColumnMappings.detectedProfile(table)
+        previewDraft(CatalogField.ordered.associateWith { profile.columns[it] }, table)
+    }
+
+    /** Maps one canonical field to [header] (null = leave it unmapped) and re-previews. */
+    fun mapField(field: CatalogField, header: String?) {
+        val state = _ui.value
+        val table = state.analysis?.tables?.firstOrNull { it.sheetName == state.mappingSheet } ?: return
+        val draft = LinkedHashMap(state.mappingDraft)
+        draft[field] = header
+        previewDraft(draft, table)
+    }
+
+    private fun previewDraft(draft: Map<CatalogField, String?>, table: CatalogueTable) {
+        val profile = ColumnMappingProfile(DRAFT_NAME, mappedColumns(draft))
+        val analysis = _ui.value.analysis
+        val preview = if (analysis == null) {
+            emptyList()
+        } else {
+            WorkbookCatalogBuilder.build(
+                workbookSha256 = _ui.value.sha256,
+                sheets = analysis.sheets,
+                tables = listOf(table),
+                images = analysis.images,
+                profile = profile,
+            ).entries
+        }
+        _ui.update {
+            it.mappingEdited(
+                draft = draft,
+                sheetName = table.sheetName,
+                headers = table.fields.map { field -> field.name },
+                preview = preview.take(MAPPING_PREVIEW),
+                issues = ColumnMappings.resolve(table, profile).issues,
+            )
+        }
+    }    /** Applies the draft to every worksheet and rebuilds the reports. Nothing is written to the file. */
+    fun applyMapping() {
+        val state = _ui.value
+        val columns = mappedColumns(state.mappingDraft)
+        if (columns.isEmpty()) {
+            onMessage("Map at least one column first.", ToastKind.INFO)
+            return
+        }
+        val saved = state.profiles.firstOrNull { it.columns == columns }
+        val profile = saved ?: ColumnMappingProfile("Mapping on ${state.mappingSheet ?: "workbook"}", columns)
+        _ui.update { it.copy(activeProfile = saved?.name, mappingDirty = false) }
+        refreshInsights(profile)
+        onMessage("Applied the mapping to this workbook. The file itself is unchanged.", ToastKind.OK)
+    }
+
+    fun resetMapping() = startMapping(_ui.value.mappingSheet)
+
+    private fun mappedColumns(draft: Map<CatalogField, String?>): Map<CatalogField, String> =
+        CatalogField.ordered.mapNotNull { field -> draft[field]?.let { field to it } }.toMap()
+
+    // ---- filters and navigation ---------------------------------------------------------------
+
+    fun setTimelineMode(mode: TimelineMode) = _ui.update { it.selectTimeline(mode) }
+
+    fun toggleTimelineOrder() = _ui.update { it.toggleTimelineOrder() }
+
+    fun setHealthFilter(severity: HealthSeverity?, category: HealthCategory? = null) =
+        _ui.update { it.filterHealth(severity, category) }
+
+    fun setGalleryFilter(filter: GalleryFilter) = _ui.update { it.filterGallery(filter) }
+
+    fun setGallerySort(sort: GallerySort) = _ui.update { it.sortGallery(sort) }
+
+    fun toggleGalleryOrder() = _ui.update { it.toggleGalleryOrder() }
+
+    fun setGallerySheet(sheet: String?) = _ui.update { it.copy(galleryFilter = it.galleryFilter.copy(sheetName = sheet)) }
+
+    fun setGalleryQuery(text: String) = _ui.update { it.copy(galleryFilter = it.galleryFilter.copy(query = text)) }
+
+    /** Opens the worksheet row behind a catalog entry, through the verified source navigation. */
+    fun openRecordSource(entry: CatalogEntry) {
+        val state = _ui.value
+        val pair = state.recordOf(entry)
+        if (pair == null) {
+            _ui.update { it.openSource(entry.locationLabel, SourceLocation.Unknown) }
+            return
+        }
+        _ui.update { it.openSource(entry.locationLabel, SourceLocations.ofRecord(pair.first, pair.second, state.sheets)) }
+        val candidates = _ui.value.source?.candidates.orEmpty()
+        if (candidates.size == 1) openSourceCell(candidates.first())
+    }
+
+    /** Opens the cell an image finding came from, or the row a record finding came from. */
+    fun openFindingSource(finding: HealthFinding) {
+        val state = _ui.value
+        val path = finding.imagePath
+        if (path != null) {
+            val row = state.allImages.firstOrNull { it.mediaPath == path || it.fileName == path || it.key == path }
+            if (row != null) {
+                _ui.update { it.openSource(row.fileName, SourceLocations.ofImage(row, state.sheets)) }
+                val candidates = _ui.value.source?.candidates.orEmpty()
+                if (candidates.size == 1) openSourceCell(candidates.first())
+                return
+            }
+        }
+        val entry = finding.recordId?.let { id -> state.catalog?.entries?.firstOrNull { it.id == id } }
+        if (entry != null) {
+            openRecordSource(entry)
+        } else {
+            onMessage("This finding has no worksheet location.", ToastKind.INFO)
+        }
+    }
+
+    /** Opens the row behind a timeline entry, through the verified source navigation. */
+    fun openTimelineEntry(entry: TimelineEntry) {
+        val catalogEntry = _ui.value.catalog?.entries?.firstOrNull { it.id == entry.recordId }
+        if (catalogEntry == null) {
+            onMessage("That record is no longer in this workbook's catalog.", ToastKind.INFO)
+            return
+        }
+        openRecordSource(catalogEntry)
+    }
+
+    private companion object {
+        /** Records shown on the mapping preview; the full catalog is still built on apply. */
+        const val MAPPING_PREVIEW = 12
+
+        /** The name of a draft mapping that has not been saved yet. */
+        const val DRAFT_NAME = "Draft"
     }
 }

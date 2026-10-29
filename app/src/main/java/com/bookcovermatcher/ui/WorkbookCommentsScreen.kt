@@ -105,6 +105,13 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
                 SegmentedTab("Catalogue (${state.tables.sumOf { it.records.size }})", state.section == CommentsSection.CATALOGUE, Modifier.weight(1f)) {
                     controller.showSection(CommentsSection.CATALOGUE)
                 }
+                SegmentedTab(
+                    if (state.insightErrors > 0) "Insights (${state.insightErrors})" else "Insights",
+                    state.section == CommentsSection.INSIGHTS,
+                    Modifier.weight(1f),
+                ) {
+                    controller.showSection(CommentsSection.INSIGHTS)
+                }
             }
             Spacer(Modifier.height(8.dp))
 
@@ -119,6 +126,7 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
                     onOpen = { path -> controller.openViewer(path) },
                     onExportSelected = { exportTreeLauncher.launch(null) },
                 )
+                state.section == CommentsSection.INSIGHTS -> InsightsPanel(state, controller, Modifier.fillMaxSize())
                 else -> CatalogueBrowser(state, controller, Modifier.fillMaxSize())
             }
         }
