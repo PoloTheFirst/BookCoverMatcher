@@ -89,6 +89,12 @@ enum class PickerMode {
 /**
  * One saved item, ready to draw. Cell/percent are workbook-only and stay null for online and
  * manual items. [kind] lets a row know whether it is comparison output (no per-item actions).
+ *
+ * The author/identifier/price/availability/circle/description values are the same ones the Search
+ * result card draws (`ProductResultUi`). They are kept as separate values, not folded into [meta]:
+ * the Wishlist card and the Search card must show one record the same way, and the circle must never
+ * become an artist (see `BookmarkPresentation`). [meta] is still the one-line summary the read-only
+ * workbook comparison rows use.
  */
 class SavedItemUi(
     val id: String,
@@ -101,6 +107,14 @@ class SavedItemUi(
     val circle: String? = null,
     /** Full description, expanded on demand like the online result card. */
     val description: String? = null,
+    /** Genuine artist names, exactly as stored. The circle is never mixed in here. */
+    val authors: List<String> = emptyList(),
+    val identifier: String? = null,
+    /** The price the source printed, or the value the user typed. Never invented. */
+    val price: String? = null,
+    val availability: String? = null,
+    /** `Text match` / `Workbook match` / `Manual`, worded like the Search card's chip. */
+    val matchType: String = "",
     val kind: ItemKind,
     val kindLabel: String,
     val bookmarked: Boolean,

@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -143,6 +144,12 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
         if (ui.online.enabled) vm.online.checkBridge()
     }
 
+    // Each tab keeps its own transient UI state while another one is shown: the Wishlist filter text,
+    // its sort choice, which cards are expanded and the scroll position all survive a tab switch.
+    // Persisted data is still owned by the ViewModel; this only stops a tab switch from silently
+    // resetting a list the user had already set up.
+    val tabStates = rememberSaveableStateHolder()
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val background = Palette.pageBackground(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
         Box(Modifier.fillMaxSize().background(background)) {
@@ -152,28 +159,30 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
             ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     val ready = ui.model is ModelUi.Ready
-                    when (ui.tab) {
-                        AppTab.HOME -> ScreenScroll {
-                            if (ready) HomeScreen(ui, vm, lifecycleOwner, actions)
-                            else SetupScreen(ui.model, onImport = { pickModel.launch(arrayOf("*/*")) })
-                        }
-                        AppTab.SEARCH -> ScreenScroll {
-                            if (ready) SearchScreen(ui, vm, actions)
-                            else SetupScreen(ui.model, onImport = { pickModel.launch(arrayOf("*/*")) })
-                        }
-                        AppTab.WISHLIST -> Box(
-                            Modifier
-                                .fillMaxSize()
-                                .statusBarsPadding()
-                                .padding(start = 14.dp, end = 14.dp, top = 16.dp, bottom = 8.dp),
-                            contentAlignment = Alignment.TopCenter,
-                        ) {
-                            Column(Modifier.widthIn(max = 620.dp).fillMaxSize()) {
-                                WishlistScreen(ui, vm, actions.onOpenUrl)
+                    tabStates.SaveableStateProvider(ui.tab) {
+                        when (ui.tab) {
+                            AppTab.HOME -> ScreenScroll {
+                                if (ready) HomeScreen(ui, vm, lifecycleOwner, actions)
+                                else SetupScreen(ui.model, onImport = { pickModel.launch(arrayOf("*/*")) })
                             }
-                        }
-                        AppTab.MORE -> ScreenScroll {
-                            MoreScreen(ui, vm)
+                            AppTab.SEARCH -> ScreenScroll {
+                                if (ready) SearchScreen(ui, vm, actions)
+                                else SetupScreen(ui.model, onImport = { pickModel.launch(arrayOf("*/*")) })
+                            }
+                            AppTab.WISHLIST -> Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                                    .padding(start = 14.dp, end = 14.dp, top = 16.dp, bottom = 8.dp),
+                                contentAlignment = Alignment.TopCenter,
+                            ) {
+                                Column(Modifier.widthIn(max = 620.dp).fillMaxSize()) {
+                                    WishlistScreen(ui, vm, actions.onOpenUrl)
+                                }
+                            }
+                            AppTab.MORE -> ScreenScroll {
+                                MoreScreen(ui, vm)
+                            }
                         }
                     }
                 }

@@ -2,8 +2,14 @@ package com.bookcovermatcher.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +21,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -64,6 +71,7 @@ import com.bookcovermatcher.SessionDetailUi
 import com.bookcovermatcher.SessionUi
 import com.bookcovermatcher.UiState
 import com.bookcovermatcher.WishlistSection
+import com.bookcovermatcher.core.wishlist.BookmarkPresentation
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.FileImage
 import com.bookcovermatcher.ui.components.GradientButton
@@ -555,6 +563,9 @@ private enum class BookmarkSort(val label: String) {
     DOMAIN("Domain"),
 }
 
+/** Drawer expand/collapse duration, in milliseconds. Matches the Search card's `tween(220)`. */
+private const val DRAWER_ANIM_MS = 220
+
 @Composable
 private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit, selection: SelectionUi?) {
     var filter by rememberSaveable { mutableStateOf("") }
@@ -595,24 +606,36 @@ private fun BookmarkList(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> 
             fontSize = 10.sp,
             modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
         )
-        if (panelOpen) {
-            BookmarkFilter(filter) { filter = it }
-        if (!selecting && ui.bookmarks.isNotEmpty()) {
-            // A modest gap keeps the filter and the selection entry visually separate.
-            Spacer(Modifier.height(8.dp))
-            SelectEntry("Select bookmarks") { vm.startSelection(BatchKind.BOOKMARKS) }
-            Spacer(Modifier.height(6.dp))
-        }
-        Row(
-            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        // The drawer: the filter, the selection entry and the sort row open and close together. The
+        // animation is the Search tab's card animation (a size change plus a turning chevron), so a
+        // drawer and a result card expand the same way. The filter text and the sort choice live
+        // outside it, so opening or closing the drawer never resets either of them.
+        AnimatedVisibility(
+            visible = panelOpen,
+            enter = expandVertically(animationSpec = tween(DRAWER_ANIM_MS)) +
+                fadeIn(animationSpec = tween(DRAWER_ANIM_MS)),
+            exit = shrinkVertically(animationSpec = tween(DRAWER_ANIM_MS)) +
+                fadeOut(animationSpec = tween(DRAWER_ANIM_MS)),
         ) {
-            Text("Sort", color = Palette.Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            BookmarkSort.values().forEach { option ->
-                SortChip(option.label, sort == option) { sort = option }
+            Column(Modifier.fillMaxWidth()) {
+                BookmarkFilter(filter) { filter = it }
+                if (!selecting && ui.bookmarks.isNotEmpty()) {
+                    // A modest gap keeps the filter and the selection entry visually separate.
+                    Spacer(Modifier.height(8.dp))
+                    SelectEntry("Select bookmarks") { vm.startSelection(BatchKind.BOOKMARKS) }
+                    Spacer(Modifier.height(6.dp))
+                }
+                Row(
+                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("Sort", color = Palette.Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    BookmarkSort.values().forEach { option ->
+                        SortChip(option.label, sort == option) { sort = option }
+                    }
+                }
             }
-        }
         }
         Spacer(Modifier.height(6.dp))
         BookmarkControlsHandle(panelOpen, vm::toggleBookmarkPanel)
@@ -702,6 +725,14 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
 // One saved non-comparison item
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * One saved result, drawn as the Search tab's result card.
+ *
+ * The cover, title, author line, meta line, chips, the expand control and the expanded details block
+ * come from the same shared pieces as `ProductResultCard`, so a bookmarked online result and its live
+ * card cannot drift apart again. What only a saved record has — selection, the tags row, the added-at
+ * caption, and the edit/remove actions — is added around that shared body.
+ */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SavedItemRow(
@@ -715,13 +746,15 @@ private fun SavedItemRow(
     onToggleSelect: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
     onBookmark: (() -> Unit)? = null,
-    /** Edit action for the bookmark card; drawn immediately left of the red delete icon. */
+    /** Edit action for the bookmark card; drawn next to the red delete icon. */
     onEdit: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(14.dp)
     val selecting = selected != null
-    var descriptionOpen by rememberSaveable(item.id) { mutableStateOf(false) }
-    val chevron by animateFloatAsState(if (descriptionOpen) 180f else 0f, label = "bookmarkChevron")
+    var expanded by rememberSaveable(item.id) { mutableStateOf(false) }
+    // An online or hand-typed bookmark gets the Search card's price/identifier caption. A saved
+    // workbook row has neither, so it keeps its own `cell … · 87.0%` summary instead of a bare `—`.
+    val caption = if (item.comparisonOnly) item.meta else BookmarkPresentation.metaLine(item.price, item.identifier)
     Column(
         Modifier
             .fillMaxWidth()
@@ -735,54 +768,94 @@ private fun SavedItemRow(
                 onClick = { if (selecting) onToggleSelect?.invoke() },
                 onLongClick = { onLongPress?.invoke() },
             )
-            .padding(10.dp),
+            .padding(10.dp)
+            .animateContentSize(),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+        // The header is the Search result card's header, value for value: cover, title, author line,
+        // meta line, chips and the expand control as its own tap target. The only difference is the
+        // cover: a saved thumbnail file instead of response bytes.
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
             if (selecting) BatchCheck(selected == true, "Select ${item.title}")
-            FileImage(
-                item.thumb,
-                Modifier.size(44.dp, 60.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, Palette.Line, RoundedCornerShape(8.dp)),
-                item.title,
-            )
+            Box(
+                Modifier.size(52.dp, 74.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, Palette.Line, RoundedCornerShape(8.dp)),
+            ) {
+                if (item.thumb != null) {
+                    FileImage(item.thumb, Modifier.fillMaxWidth().fillMaxHeight(), "Cover of ${item.title}")
+                } else {
+                    Box(
+                        Modifier.fillMaxWidth().fillMaxHeight().background(Palette.Navy650),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("?", color = Palette.Muted, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
             Column(Modifier.weight(1f)) {
                 Text(
                     item.title,
                     color = Palette.Text,
-                    fontSize = 13.5.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (item.meta.isNotEmpty()) {
-                    Text(
-                        item.meta,
-                        modifier = Modifier.padding(top = 2.dp),
-                        color = Palette.Muted,
-                        fontSize = 10.5.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                // Artist line, price/identifier caption and the two chips come from
+                // BookmarkPresentation, so a bookmark reads exactly like the live result did.
+                Text(
+                    BookmarkPresentation.authorLine(item.authors, item.circle),
+                    modifier = Modifier.padding(top = 2.dp),
+                    color = Palette.Accent,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    caption,
+                    modifier = Modifier.padding(top = 2.dp),
+                    color = Palette.Muted,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    modifier = Modifier.padding(top = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Chip(BookmarkPresentation.sourceLabel(item.provider, item.domain, item.kindLabel), Palette.Accent)
+                    if (item.matchType.isNotEmpty()) Chip(item.matchType, Palette.Accent2)
                 }
-                Text(item.addedText, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 3.dp))
+                Text(item.addedText, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 4.dp))
             }
-            if ((onEdit != null || onRemove != null) && !selecting) {
+            // Part of the header, not of the edit/remove group: the expand control is drawn on every
+            // bookmark card and stays usable in selection mode.
+            ExpandChevronButton(
+                expanded = expanded,
+                expandLabel = "Expand bookmark",
+                collapseLabel = "Collapse bookmark",
+                onToggle = { expanded = !expanded },
+            )
+        }
+        // Tags keep the remaining width and the edit/remove controls sit at its end, so a long tag
+        // list can never run under them.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(
+                Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Chip(item.kindLabel, Palette.Accent2)
+                item.domain?.let { Chip(it, Palette.Muted) }
+                if (item.bookmarked) Chip("Bookmarked", Palette.Ok)
+            }
+            if (!selecting && (onEdit != null || onRemove != null)) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    run {
-                        // Always visible, like the search-result card: a bookmark without a description
-                        // still shows the control and explains itself when expanded.
-                        Icon(
-                            Icons.Filled.KeyboardArrowDown,
-                            contentDescription = if (descriptionOpen) "Collapse description" else "Expand description",
-                            tint = if (descriptionOpen) Palette.Accent else Palette.Text,
-                            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp))
-                                .clickable(role = Role.Button) { descriptionOpen = !descriptionOpen }
-                                .rotate(chevron).padding(7.dp),
-                        )
-                    }
                     if (onEdit != null) {
                         // Same white pen as the folder card's edit action: one visual convention.
                         SquareIconButton(Icons.Filled.Edit, "Edit bookmark", Palette.Text, onClick = onEdit)
@@ -799,76 +872,86 @@ private fun SavedItemRow(
                 }
             }
         }
-        // Tags get the whole card width and wrap onto as many lines as they need, so they can never
-        // run under the edit/delete buttons; the card's measured height grows with them.
-        FlowRow(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Chip(item.kindLabel, Palette.Accent2)
-            item.domain?.let { Chip(it, Palette.Muted) }
-            if (item.bookmarked) Chip("Bookmarked", Palette.Ok)
-        }
-        if (descriptionOpen) {
-            Text(
-                item.description ?: "No description",
-                color = if (item.description.isNullOrBlank()) Palette.Muted else Palette.Text,
-                fontSize = 11.sp, maxLines = 6, overflow = TextOverflow.Ellipsis,
+
+        if (expanded) {
+            // The very block the Search card expands into, including the `—` for a field a source
+            // never sent. Artist and Circle are two rows, never one merged line.
+            ResultDetails(
+                description = item.description,
+                price = item.price,
+                availability = item.availability,
+                identifier = item.identifier,
+                source = listOfNotNull(item.provider, item.domain).joinToString(" \u00B7 ").ifEmpty { null },
+                url = item.url,
+                artistLine = BookmarkPresentation.artistLine(item.authors),
+                circle = item.circle,
             )
-        }
-        if (!selecting) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (onBookmark != null) {
-                    // Same label and state colour as the live online-result card: one convention.
-                    RowAction(
-                        if (item.bookmarked) "\u2605 Bookmarked" else "\u2605 Bookmark",
-                        if (item.bookmarked) Palette.Ok else Palette.Accent2,
-                        Modifier.weight(1f),
-                        onBookmark,
-                    )
+            if (!selecting) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (item.url != null) {
+                        ResultActionChip("Open website \u2197", Palette.Accent, Modifier.weight(1f), onOpen)
+                    }
+                    if (onBookmark != null) {
+                        // Same label and state colour as the live online-result card: one convention.
+                        ResultActionChip(
+                            if (item.bookmarked) "\u2605 Bookmarked" else "\u2605 Bookmark",
+                            if (item.bookmarked) Palette.Ok else Palette.Text,
+                            Modifier.weight(1f),
+                            onBookmark,
+                        )
+                    }
+                    if (allowWishlist) {
+                        ResultActionChip("+ Add to wishlist", Palette.Accent2, Modifier.weight(1f), onWishlist)
+                    }
                 }
-                if (item.url != null) {
-                    RowAction("Open website", Palette.Accent, Modifier.weight(1f), onOpen)
-                }
-                if (allowWishlist) {
-                    RowAction("+ Add to wishlist", Palette.Accent2, Modifier.weight(1f), onWishlist)
-                }
+                Text(
+                    "Add to wishlist opens a picker and saves this one item only.",
+                    color = Palette.Muted,
+                    fontSize = 9.5.sp,
+                )
             }
         }
     }
 }
 
-/** Blue drawer handle for the bookmark control panel; the arrow points at where it will go. */
+/**
+ * The handle of the bookmark-control drawer.
+ *
+ * The strip is transparent: only the grip is coloured, so the handle reads as something to pull
+ * instead of as a button that is already pressed (the previous version painted the whole bar in the
+ * accent colour). The chevron turns with the panel using the same `animateFloatAsState` the Search
+ * result card uses for its expand chevron, and the panel itself slides with [AnimatedVisibility].
+ */
 @Composable
 private fun BookmarkControlsHandle(open: Boolean, onToggle: () -> Unit) {
-    val arrow by animateFloatAsState(if (open) 0f else 180f, label = "panelChevron")
+    val arrow by animateFloatAsState(
+        targetValue = if (open) 0f else 180f,
+        animationSpec = tween(DRAWER_ANIM_MS),
+        label = "panelChevron",
+    )
     Box(
-        Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(10.dp))
-            .background(Palette.Accent).clickable(role = Role.Button, onClick = onToggle)
+        Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(10.dp))
+            .background(Color.Transparent).clickable(role = Role.Button, onClick = onToggle)
             .semantics { contentDescription = if (open) "Hide bookmark controls" else "Show bookmark controls" },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            Icons.Filled.KeyboardArrowDown,
-            contentDescription = null,
-            tint = Palette.OnAccent,
-            modifier = Modifier.size(20.dp).rotate(arrow),
-        )
-    }
-}
-@Composable
-private fun RowAction(label: String, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(
-        modifier
-            .clip(RoundedCornerShape(9.dp))
-            .background(color.copy(alpha = 0.14f))
-            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(9.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, color = color, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            // The grip: the only coloured part of the handle, centred on the strip.
+            Box(
+                Modifier.size(width = 40.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Palette.Accent),
+            )
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = Palette.Accent,
+                modifier = Modifier.size(18.dp).rotate(arrow),
+            )
+        }
     }
 }
 

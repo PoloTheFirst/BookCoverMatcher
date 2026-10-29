@@ -1,4 +1,4 @@
-# Online search, OCR and bookmarks — implementation notes (v2.3.0)
+# Online search, OCR and bookmarks — implementation notes (v2.3.1)
 
 This document describes what the online feature actually does. It deliberately separates four
 capabilities that are easy to confuse:
@@ -276,6 +276,12 @@ the wrong title candidate.
 * Individual `+ Wishlist` adds one item as a direct folder membership; it does not create a session.
 * Session results are ordered with bookmarked items first. Removing a bookmark leaves folder
   memberships intact; removing a folder membership leaves the bookmark intact.
+* A saved bookmark is drawn with the Search result card (**v2.3.1**): `ui/ResultCardParts` supplies the
+  expand control, the description block, the detail rows and the action chips, and
+  `core/wishlist/BookmarkPresentation` derives the author line, the price/identifier caption, the source
+  chip and the match-type wording from the stored fields (`—` for a value the source never sent; the
+  circle never becomes an artist). The `Bookmarks` drawer's open flag is `UiState.bookmarkPanelOpen`,
+  and the filter text, sort and expanded cards are kept per tab by `rememberSaveableStateHolder`.
 * All three workflows (wishlist→bookmark, bookmark→wishlist, bookmark→restart→wishlist) are covered
   by JVM tests and were exercised manually for the custom-bookmark case.
 
@@ -287,7 +293,7 @@ Schema details and the full migration rules are in `README.md` §3.
 
 | Item | Command / environment | Result |
 |---|---|---|
-| JVM suite | `.\gradlew.bat testDebugUnitTest` | 329 tests, 0 failures (4 live checks skipped by design) |
+| JVM suite | `.\gradlew.bat testDebugUnitTest` | 470 tests, 0 failures (4 live checks skipped by design) — measured 2026-10-30 |
 | Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks` | 329 tests, 0 failures; **4/4 live checks ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED`. Melonbooks is not in the live suite any more |
 | Compose UI tests | none | **not run**: no `ui-test-junit4` dependency and no emulator/device; selection rules, link independence, the cap and the batch repository calls are unit-tested (`SelectionLogicTest`, `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest`, `BatchOperationsTest`) |
 | DLsite live parse | `DlsiteSource().search("東方", 3)` | real `RJ…` works with Japanese titles, circles, `924円`-style prices, `img.dlsite.jp` covers and `dlsite.com` product URLs |
