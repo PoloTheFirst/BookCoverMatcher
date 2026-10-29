@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.bookcovermatcher.core.excel.JavaZipSource
+import com.bookcovermatcher.core.excel.comments.CellValue
 import com.bookcovermatcher.core.excel.comments.CommentImageScanner
 import com.bookcovermatcher.core.excel.comments.CommentScanLimits
 import com.bookcovermatcher.core.excel.comments.CommentScanResult
@@ -11,6 +12,10 @@ import com.bookcovermatcher.core.excel.comments.FilterField
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
 import com.bookcovermatcher.core.excel.comments.ImageState
+import com.bookcovermatcher.core.excel.comments.SheetCells
+import com.bookcovermatcher.core.excel.comments.SheetWindow
+import com.bookcovermatcher.core.excel.comments.SheetWindows
+import com.bookcovermatcher.core.excel.comments.SourceLocation
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalysis
 import com.bookcovermatcher.core.excel.comments.WorkbookCommentImages
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalyzer
@@ -49,12 +54,22 @@ class WorkbookCommentsController(
     private var job: Job? = null
     private var source: File? = null
 
+    /**
+     * Worksheet cells already read for the source view, keyed by sheet part.
+     *
+     * A navigation reads its sheet once and reuses the result for every later location in the same
+     * sheet; the cache is cleared whenever the workbook is opened, rescanned or closed, so cells from
+     * another workbook can never be shown.
+     */
+    private val sheetCells = HashMap<String, List<CellValue>>()
+
     /** Opens the preview for [file], using the cache when the workbook hash is unchanged. */
     fun open(file: File, sha256: String, displayName: String) {
         // Already open on these bytes: keep the parsed result (and the user's filters) instead of
         // starting a second scan. A different workbook always reloads.
         if (_ui.value.open && _ui.value.sha256 == sha256 && !_ui.value.loading) return
         job?.cancel()
+        sheetCells.clear()
         source = file
         _ui.update { WorkbookCommentsUi(open = true, workbookName = displayName, sha256 = sha256, loading = true) }
         job = scope.launch {
@@ -73,6 +88,7 @@ class WorkbookCommentsController(
         job?.cancel()
         job = null
         source = null
+        sheetCells.clear()
         _ui.value = WorkbookCommentsUi()
     }
 
@@ -82,7 +98,8 @@ class WorkbookCommentsController(
         val state = _ui.value
         if (state.sha256.isBlank()) return
         job?.cancel()
-        _ui.update { it.copy(loading = true, error = null) }
+        sheetCells.clear()
+        _ui.update { it.copy(loading = true, error = null, source = null) }
         job = scope.launch {
             apply(withContext(Dispatchers.IO) { scan(file, state.sha256, state.workbookName) }, state.sha256)
         }
@@ -144,6 +161,70 @@ class WorkbookCommentsController(
     }
 
     fun closeViewer() = _ui.update { it.copy(viewer = null) }
+
+    // ---------------------------------------------------------------------------------------------
+    // Source location: "go to the worksheet cell"
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Opens the source overlay for [location] and, when the parser proved exactly one destination,
+     * starts reading that worksheet at once. Several destinations stay a list: the app never picks one
+     * for the user.
+     */
+    fun openSource(heading: String, location: SourceLocation) {
+        _ui.update { it.openSource(heading, location) }
+        val candidates = _ui.value.source?.candidates.orEmpty()
+        if (candidates.size == 1) openSourceCell(candidates.first())
+    }
+
+    /**
+     * Reads the worksheet cells around [candidate] and shows them.
+     *
+     * The workbook is re-opened read-only for the first navigation in a sheet and the parsed cells are
+     * reused afterwards. A workbook that has been removed, or a sheet that cannot be read, ends in a
+     * readable message — never in an empty grid that would look like an empty row.
+     */
+    fun openSourceCell(candidate: SourceLocation.Candidate) {
+        val file = source
+        if (file == null || !file.isFile) {
+            _ui.update { it.sourceFailed("The workbook is no longer available. Open it again to look up its cells.") }
+            return
+        }
+        val state = _ui.value
+        val sha256 = state.sha256
+        _ui.update { it.sourceLoading(candidate) }
+        scope.launch {
+            val window = withContext(Dispatchers.IO) { buildWindow(file, candidate, state.analysis) }
+            _ui.update { current ->
+                // A different workbook (or a closed overlay) won the race: drop this late result.
+                if (!current.sourceBelongsTo(sha256) || current.source?.chosen != candidate) current
+                else current.sourceWindow(candidate, window)
+            }
+        }
+    }
+
+    fun closeSource() = _ui.update { it.closeSource() }
+
+    private fun buildWindow(
+        file: File,
+        candidate: SourceLocation.Candidate,
+        analysis: WorkbookAnalysis?,
+    ): SheetWindow? = try {
+        JavaZipSource(ZipFile(file)).use { zip ->
+            val cells = sheetCells.getOrPut(candidate.sheetPath) { SheetCells.read(zip, candidate.sheetPath) }
+            val headerRow = analysis?.tables?.firstOrNull { it.sheetName == candidate.sheetName }?.headerRow
+            SheetWindows.build(
+                sheetName = candidate.sheetName,
+                sheetPath = candidate.sheetPath,
+                cells = cells,
+                targetRow = candidate.row,
+                targetColumn = candidate.column,
+                headerRow = headerRow,
+            )
+        }
+    } catch (e: Exception) {
+        null
+    }
 
     /**
      * Copies the **original** media bytes of [path] to [target]. No re-encoding: the package entry is

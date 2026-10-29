@@ -2,13 +2,22 @@ package com.bookcovermatcher.core.excel.comments
 
 import com.bookcovermatcher.core.excel.ZipSource
 
-/** One worksheet as the previewer shows it: display name, workbook order and Excel's own visibility. */
+/**
+ * One worksheet as the previewer shows it: display name, workbook order and Excel's own visibility.
+ *
+ * [partPath] is the worksheet's stable identity inside the package (`xl/worksheets/sheet3.xml`). The
+ * display name is exactly the workbook's spelling — it is never trimmed, so a name with a trailing
+ * space keeps the identity it has in the file. Two worksheets can never share a name in Excel, but the
+ * path is what a saved location is resolved against.
+ */
 data class SheetInfo(
     val name: String,
     /** `visible`, `hidden` or `veryhidden` — exactly what `xl/workbook.xml` declares. */
     val visibility: String,
     /** The worksheet's declared used range (`A1:P120`), or null when the part declares none. */
     val dimension: String? = null,
+    /** The package part this worksheet lives in, when the analysis could read it. */
+    val partPath: String = "",
 ) {
     val hidden: Boolean get() = !visibility.equals("visible", ignoreCase = true)
     val label: String get() = when (visibility.lowercase()) {
@@ -59,7 +68,12 @@ object WorkbookAnalyzer {
         val images = ImageIndex.build(model, tables)
         return WorkbookAnalysis(
             sheets = sheetRefs.map { sheet ->
-                SheetInfo(sheet.name, sheet.visibility, SheetCells.dimension(zip, sheet.partPath))
+                SheetInfo(
+                    name = sheet.name,
+                    visibility = sheet.visibility,
+                    dimension = SheetCells.dimension(zip, sheet.partPath),
+                    partPath = sheet.partPath,
+                )
             },
             tables = tables,
             images = images,

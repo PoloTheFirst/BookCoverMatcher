@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,15 +38,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.bookcovermatcher.CommentsSection
+import com.bookcovermatcher.SourceViewUi
 import com.bookcovermatcher.core.excel.comments.CommentImageState
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.excel.comments.LegacyCommentEntry
+import com.bookcovermatcher.core.excel.comments.SheetWindow
+import com.bookcovermatcher.core.excel.comments.SourceLocation
+import com.bookcovermatcher.core.excel.comments.SourceLocations
 import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.UiState
 import com.bookcovermatcher.WorkbookCommentsController
@@ -117,19 +124,40 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
         }
 
         state.selected?.let { comment ->
-            CommentDetailDialog(comment, controller, controller::dismissComment, controller::openViewer, ::export)
+            CommentDetailDialog(
+                comment = comment,
+                controller = controller,
+                onDismiss = controller::dismissComment,
+                onOpen = controller::openViewer,
+                onExport = ::export,
+                onGoToSource = {
+                    val heading = "${comment.sheetName}!${comment.cell}"
+                    val location = SourceLocations.ofComment(comment, state.sheets)
+                    controller.dismissComment()
+                    controller.openSource(heading, location)
+                },
+            )
         }
 
         state.viewer?.let { viewer ->
+            val viewerRow = state.allImages.firstOrNull { it.mediaPath == viewer.mediaPath }
+            val viewerSource = viewerRow?.let { row -> SourceLocations.ofImage(row, state.sheets) }
             ViewerOverlay(
-                row = state.allImages.firstOrNull { it.mediaPath == viewer.mediaPath },
+                row = viewerRow,
                 mediaPath = viewer.mediaPath,
                 title = viewer.title,
                 associations = viewer.associations,
                 controller = controller,
                 onClose = controller::closeViewer,
                 onExport = ::export,
+                onGoToSource = viewerSource
+                    ?.takeIf { it.candidates.isNotEmpty() }
+                    ?.let { location -> { controller.openSource(viewer.title, location) } },
             )
+        }
+
+        state.source?.let { source ->
+            SourceOverlay(source, controller, controller::closeSource)
         }
 
         SheetPickerDialog(state, controller)
@@ -340,6 +368,7 @@ private fun CommentDetailDialog(
     onDismiss: () -> Unit,
     onOpen: (String) -> Unit,
     onExport: (String) -> Unit,
+    onGoToSource: (() -> Unit)? = null,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -392,6 +421,16 @@ private fun CommentDetailDialog(
                 }
             }
             Spacer(Modifier.height(12.dp))
+            if (onGoToSource != null) {
+                GradientButton(
+                    onClick = onGoToSource,
+                    colors = Palette.NavyGradient,
+                    contentColor = Palette.Text,
+                    modifier = Modifier.fillMaxWidth(),
+                    minHeight = 40.dp,
+                ) { ButtonLabel("Go to this cell", Palette.Text, 12f) }
+                Spacer(Modifier.height(6.dp))
+            }
             GradientButton(
                 onClick = onDismiss,
                 colors = Palette.GreyGradient,
@@ -412,6 +451,7 @@ private fun ViewerOverlay(
     controller: WorkbookCommentsController,
     onClose: () -> Unit,
     onExport: (String) -> Unit,
+    onGoToSource: (() -> Unit)? = null,
 ) {
     BackHandler { onClose() }
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xF00B121C))) {
@@ -446,6 +486,10 @@ private fun ViewerOverlay(
                             }
                         }
                     }
+                }
+                if (onGoToSource != null) {
+                    SmallAction("Go to source") { onGoToSource() }
+                    Spacer(Modifier.width(14.dp))
                 }
                 SmallAction("Export") { onExport(mediaPath) }
                 Spacer(Modifier.width(14.dp))
@@ -501,6 +545,209 @@ private fun MediaThumb(
         } else {
             Text("?", color = Palette.Muted, fontSize = 15.sp)
         }
+    }
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Source location ("go to the worksheet cell")
+// ---------------------------------------------------------------------------------------------
+
+private val ROW_LABEL_WIDTH = 40.dp
+private val CELL_WIDTH = 96.dp
+
+/**
+ * The "go to source" overlay.
+ *
+ * It is an overlay on purpose: the comments section, the worksheet filter, the image search, the sort
+ * order and the catalogue filters underneath stay exactly as the user left them, so closing this view
+ * returns to the same list. It never shows a destination the parser did not prove — an unlocatable
+ * image, a missing workbook or an unreadable sheet end in a readable explanation instead.
+ */
+@Composable
+private fun SourceOverlay(
+    source: SourceViewUi,
+    controller: WorkbookCommentsController,
+    onClose: () -> Unit,
+) {
+    BackHandler { onClose() }
+    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xF00B121C))) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Source location", color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(source.heading, color = Palette.Muted, fontSize = 10.sp, maxLines = 2)
+                }
+                SmallAction("Back to the list") { onClose() }
+            }
+            Spacer(Modifier.height(10.dp))
+            val window = source.window
+            when {
+                source.error != null -> {
+                    Text(source.error, color = Palette.Warn, fontSize = 11.5.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "The previewer never guesses a row: a destination is shown only when the workbook's " +
+                            "own legacy comments or a detected catalogue table prove it.",
+                        color = Palette.Muted, fontSize = 10.sp,
+                    )
+                }
+                source.loading -> Text("Reading the worksheet\u2026", color = Palette.Muted, fontSize = 11.5.sp)
+                window != null -> SheetWindowView(window, source.chosen)
+                else -> SourceCandidateList(source.candidates, controller::openSourceCell)
+            }
+        }
+    }
+}
+
+
+/** The verified destinations of an image the workbook associates with more than one cell. */
+@Composable
+private fun SourceCandidateList(
+    candidates: List<SourceLocation.Candidate>,
+    onChoose: (SourceLocation.Candidate) -> Unit,
+) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Text(
+            "This workbook states ${candidates.size} verified locations. Choose one \u2014 nothing is picked for you:",
+            color = Palette.Muted, fontSize = 10.5.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        candidates.forEach { candidate ->
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Palette.Navy700)
+                    .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
+                    .clickable(role = Role.Button) { onChoose(candidate) }
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "${candidate.sheetName}!${candidate.cell}",
+                        color = Palette.Text, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        if (candidate.rowAnchor) {
+                            "record row ${candidate.row + 1} \u00B7 ${candidate.cell} is that row's first field"
+                        } else {
+                            "verified legacy comment cell"
+                        },
+                        color = Palette.Muted, fontSize = 9.5.sp,
+                    )
+                }
+                Text("Open", color = Palette.Accent, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+
+/** The worksheet cells around the verified row, with the verified cell highlighted. */
+@Composable
+private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidate?) {
+    val vertical = rememberScrollState()
+    val horizontal = rememberScrollState()
+    Column(Modifier.fillMaxSize()) {
+        Text(
+            "${window.sheetName} \u00B7 ${window.targetCell} \u00B7 rows ${window.rowRangeLabel}",
+            color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+        )
+        Text(
+            if (chosen?.rowAnchor == true) {
+                "The verified row is highlighted; ${window.targetCell} is that row's first field."
+            } else {
+                "The verified comment cell is highlighted."
+            },
+            color = Palette.Muted, fontSize = 9.5.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxSize().verticalScroll(vertical)) {
+            Row(Modifier.horizontalScroll(horizontal)) {
+                Column {
+                    // Excel's own column letters, so a value can be read as a cell reference.
+                    Row(Modifier.padding(bottom = 2.dp)) {
+                        Box(Modifier.width(ROW_LABEL_WIDTH)) {
+                            Text("row", color = Palette.Muted, fontSize = 8.5.sp)
+                        }
+                        window.columns.forEach { column ->
+                            Box(Modifier.width(CELL_WIDTH).padding(horizontal = 3.dp)) {
+                                Text(
+                                    column.letter,
+                                    color = Palette.Muted, fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+                    val header = window.headerValues
+                    val headerRow = window.headerRow
+                    if (header != null && headerRow != null) {
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .background(Palette.Accent.copy(alpha = 0.06f))
+                                .padding(vertical = 3.dp),
+                        ) {
+                            Box(Modifier.width(ROW_LABEL_WIDTH)) {
+                                Text("${headerRow + 1}", color = Palette.Muted, fontSize = 8.5.sp)
+                            }
+                            header.forEach { value -> WindowCell(value, highlight = false) }
+                        }
+                    }
+                    window.rows.forEach { row ->
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .background(
+                                    if (row.row == window.targetRow) Palette.Accent.copy(alpha = 0.10f)
+                                    else androidx.compose.ui.graphics.Color.Transparent,
+                                )
+                                .padding(vertical = 3.dp),
+                        ) {
+                            Box(Modifier.width(ROW_LABEL_WIDTH)) {
+                                Text("${row.row + 1}", color = Palette.Muted, fontSize = 8.5.sp)
+                            }
+                            row.values.forEachIndexed { index, value ->
+                                val column = window.columns[index]
+                                WindowCell(
+                                    value = value,
+                                    highlight = row.row == window.targetRow && column.column == window.targetColumn,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One fixed-width cell; a blank value stays blank instead of pretending to be a value. */
+@Composable
+private fun WindowCell(value: String?, highlight: Boolean) {
+    Box(
+        Modifier
+            .width(CELL_WIDTH)
+            .padding(horizontal = 3.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .then(
+                if (highlight) {
+                    Modifier
+                        .background(Palette.Accent.copy(alpha = 0.35f))
+                        .border(1.dp, Palette.Accent, RoundedCornerShape(4.dp))
+                } else {
+                    Modifier
+                },
+            )
+            .padding(horizontal = 3.dp, vertical = 2.dp),
+    ) {
+        Text(
+            value.orEmpty(),
+            color = if (value.isNullOrEmpty()) Palette.Muted else Palette.Text,
+            fontSize = 9.sp,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

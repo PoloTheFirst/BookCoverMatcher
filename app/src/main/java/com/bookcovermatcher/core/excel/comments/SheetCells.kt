@@ -32,6 +32,15 @@ object SheetCells {
         return row.toInt() to CellRange.columnLettersToIndex(letters)
     }
 
+    /**
+     * Zero-based (row, col) -> the reference Excel itself would print: (0, 0) -> `A1`, (127, 3) -> `D128`.
+     *
+     * The inverse of [refToCell], used to label a verified location. Negative input is clamped to the
+     * first row/column instead of producing a reference no worksheet has.
+     */
+    fun cellRef(row: Int, col: Int): String =
+        CellRange.indexToColumnLetters(col.coerceAtLeast(0)) + (row.coerceAtLeast(0) + 1)
+
     /** Shared-string table (`xl/sharedStrings.xml`), index -> text. Empty when the part is absent. */
     fun sharedStrings(zip: ZipSource): List<String> {
         val xml = zip.readText("xl/sharedStrings.xml") ?: return emptyList()

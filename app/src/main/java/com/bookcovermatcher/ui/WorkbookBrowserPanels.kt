@@ -54,6 +54,7 @@ import com.bookcovermatcher.WorkbookCommentsUi
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
 import com.bookcovermatcher.core.excel.comments.ImageState
+import com.bookcovermatcher.core.excel.comments.SourceLocations
 import com.bookcovermatcher.ui.theme.Palette
 
 /**
@@ -340,6 +341,20 @@ private fun ImageGrid(state: WorkbookCommentsUi, controller: WorkbookCommentsCon
                     modifier = Modifier.padding(top = 3.dp),
                 )
                 Text(StateLabel.of(row), color = StateLabel.colour(row), fontSize = 8.5.sp, maxLines = 1)
+                // Only an image whose association the parser verified offers a destination.
+                val location = SourceLocations.ofImage(row, state.sheets)
+                if (location.candidates.isNotEmpty()) {
+                    Text(
+                        "Source \u2197",
+                        color = Palette.Accent,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .clickable(role = Role.Button) { controller.openSource(row.fileName, location) }
+                            .padding(vertical = 1.dp),
+                    )
+                }
             }
         }
     }
@@ -379,6 +394,13 @@ private fun ImageList(state: WorkbookCommentsUi, controller: WorkbookCommentsCon
                     val place = listOfNotNull(row.sheetName, row.cell).joinToString("!")
                     if (place.isNotEmpty()) {
                         Text(place, color = Palette.Muted, fontSize = 8.5.sp, maxLines = 1)
+                    }
+                    // A verified destination is offered only when the parser proved one.
+                    val location = SourceLocations.ofImage(row, state.sheets)
+                    if (location.candidates.isNotEmpty()) {
+                        Row(Modifier.padding(top = 2.dp)) {
+                            SmallAction("Go to source") { controller.openSource(row.fileName, location) }
+                        }
                     }
                 }
                 if (row.key in state.selectedImages) {
@@ -596,6 +618,13 @@ fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsCont
                         color = if (hasImage) Palette.Ok else Palette.Muted,
                         fontSize = 9.sp,
                     )
+                    // The record's row is a verified location; the app labels it as a row, not a cell.
+                    SmallAction("Go to row") {
+                        controller.openSource(
+                            "${table.sheetName} row ${record.row + 1}",
+                            SourceLocations.ofRecord(table, record, state.sheets),
+                        )
+                    }
                 }
             }
         }

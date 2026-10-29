@@ -6,6 +6,9 @@ import com.bookcovermatcher.core.excel.comments.FilterField
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
 import com.bookcovermatcher.core.excel.comments.ImageState
+import com.bookcovermatcher.core.excel.comments.SheetInfo
+import com.bookcovermatcher.core.excel.comments.SheetWindow
+import com.bookcovermatcher.core.excel.comments.SourceLocation
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalysis
 import com.bookcovermatcher.core.excel.comments.WorkbookCommentImages
 import com.bookcovermatcher.core.excel.comments.ImageIndex
@@ -20,6 +23,28 @@ data class CommentViewerUi(
     /** Worksheet / cell / comment association, when one is known. */
     val associations: List<String>,
 )
+
+/**
+ * The open source-location view.
+ *
+ * [candidates] are the destinations the parser verified. One candidate opens straight away; several
+ * are listed so the user chooses, never the app. [window] is the worksheet snippet once the cells were
+ * read; [error] explains why no window can be shown (workbook gone, unreadable sheet, no association).
+ *
+ * The view is deliberately an overlay: opening it does not touch the section, the worksheet filter,
+ * the image search, the sort order or the catalogue filters underneath.
+ */
+data class SourceViewUi(
+    /** What the user asked to locate, e.g. `image3.png` or `LIST row 128`. */
+    val heading: String,
+    val candidates: List<SourceLocation.Candidate>,
+    val chosen: SourceLocation.Candidate? = null,
+    val window: SheetWindow? = null,
+    val loading: Boolean = false,
+    val error: String? = null,
+) {
+    val hasDestination: Boolean get() = candidates.isNotEmpty()
+}
 
 /**
  * State of the offline "workbook comments & images" preview.
@@ -71,6 +96,8 @@ data class WorkbookCommentsUi(
     val filterFieldKey: String? = null,
     val filterSearch: String = "",
     val filterValueSearch: String = "",
+    /** The source-location overlay ("go to worksheet/cell"); null when it is closed. */
+    val source: SourceViewUi? = null,
 ) {
     val comments get() = model?.comments.orEmpty()
     val media get() = model?.media.orEmpty()
@@ -174,6 +201,86 @@ data class WorkbookCommentsUi(
             )
         }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Source location ("go to the worksheet cell")
+// ---------------------------------------------------------------------------------------------
+
+/** The worksheet with exactly this name (the workbook's spelling, trailing spaces included), or null. */
+fun WorkbookCommentsUi.sheet(name: String?): SheetInfo? =
+    if (name == null) null else sheets.firstOrNull { it.name == name }
+
+/**
+ * Opens the source overlay for [location].
+ *
+ * A verified location is offered as its parser-proven destination(s) — one opens straight away, several
+ * are listed for the user to choose. Every other case opens the overlay with an explicit explanation
+ * instead of a destination, because there is nothing honest to navigate to.
+ */
+fun WorkbookCommentsUi.openSource(heading: String, location: SourceLocation): WorkbookCommentsUi {
+    val view = when (location) {
+        is SourceLocation.Verified ->
+            if (location.destinations.isEmpty()) {
+                SourceViewUi(heading, emptyList(), error = NO_STALE_LOCATION)
+            } else {
+                SourceViewUi(heading, location.destinations)
+            }
+        is SourceLocation.Unresolved -> SourceViewUi(
+            heading = heading,
+            candidates = emptyList(),
+            error = "No source location: the note references an image that is not in the workbook" +
+                (location.detail?.let { " ($it)" } ?: "") + ".",
+        )
+        SourceLocation.Unreferenced -> SourceViewUi(
+            heading = heading,
+            candidates = emptyList(),
+            error = "No source location: nothing in this workbook's supported pipeline points at this image.",
+        )
+        SourceLocation.Unknown -> SourceViewUi(heading, emptyList(), error = NO_STALE_LOCATION)
+    }
+    return copy(source = view)
+}
+
+/** Marks [candidate] as being read; a no-op when the overlay was closed in the meantime. */
+fun WorkbookCommentsUi.sourceLoading(candidate: SourceLocation.Candidate): WorkbookCommentsUi {
+    val current = source ?: return this
+    return copy(source = current.copy(chosen = candidate, window = null, loading = true, error = null))
+}
+
+/** Shows the cells read for [candidate]; a no-op when the overlay was closed in the meantime. */
+fun WorkbookCommentsUi.sourceWindow(
+    candidate: SourceLocation.Candidate,
+    window: SheetWindow?,
+): WorkbookCommentsUi {
+    val current = source ?: return this
+    return copy(
+        source = current.copy(
+            chosen = candidate,
+            window = window,
+            loading = false,
+            error = if (window == null) "This worksheet could not be read, so its cells cannot be shown." else null,
+        ),
+    )
+}
+
+/** Reports why no cells could be shown (workbook gone, unreadable part). */
+fun WorkbookCommentsUi.sourceFailed(message: String): WorkbookCommentsUi {
+    val current = source ?: return this
+    return copy(source = current.copy(loading = false, window = null, error = message))
+}
+
+/** Closes the overlay and leaves every list state underneath exactly as it was. */
+fun WorkbookCommentsUi.closeSource(): WorkbookCommentsUi = if (source == null) this else copy(source = null)
+
+/**
+ * True when the open overlay belongs to the workbook with [sha256]. A scan that finishes for another
+ * workbook must never paint its cells over this one.
+ */
+fun WorkbookCommentsUi.sourceBelongsTo(sha256: String): Boolean = source != null && this.sha256 == sha256
+
+private const val NO_STALE_LOCATION =
+    "No source location: the worksheet or cell this refers to is not in this workbook."
+
 
 /** One row of the Catalogue tab: the record, its table, and whether a verified image is linked to it. */
 data class CatalogueRow(
