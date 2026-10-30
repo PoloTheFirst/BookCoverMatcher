@@ -22,3 +22,9 @@ sample_covers/
 # Android build outputs
 app/release/
 *.apk
+
+# Historical Prompt
+historical_prompt
+
+# Sample Excel Files
+test_excel
