@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.4.0-dev.3)
+# BookCover Matcher - User Guide (v2.4.0-dev.4)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -248,9 +248,13 @@ When there is nothing honest to show, the app says so instead of inventing a pla
 
 ### Checking a workbook: Insights (v2.4.0-dev.2)
 
-The preview has a fourth tab, **Insights**, with five sub-tabs. All of them read the same records, so a
-problem you see in *Health* is the same record you see in *Gallery* and on the *Timeline*. Nothing here
-changes your workbook, and everything works offline.
+The preview has a fourth tab, **Insights**, with five screens, in this order: **Health, Analytics, Gallery,
+Timeline, Fields**. All of them read the same records, so a problem you see in *Health* is the same record you
+see in *Gallery* and on the *Timeline*. Nothing here changes your workbook, and everything works offline.
+
+The **Insights** entry in the tab row shows two lines: the name, and the number of confirmed problems
+underneath (`3 errors`, `0 errors`, `reading…` while the report is being built, `—` before it exists). The
+count never disappears, so you can always tell whether a workbook has been checked.
 
 * **Health** checks the workbook and lists what is wrong: worksheets that could not be read, records with no
   title, missing optional values, a URL or a date that cannot be read, the same product ID twice, rows that
@@ -258,25 +262,47 @@ changes your workbook, and everything works offline.
   at, and records with no verified cover. Each card says which worksheet row or picture it is about, why,
   and what to do. **Errors** and **Warnings** are confirmed problems; **Info** is missing optional data or a
   coverage note. The chips filter by severity and by area, and **Go to source** opens the row through the
-  source view from the previous release. The report never repairs anything.
-* **Gallery** shows one card per record with its cover, title, Circle, Artist, product ID and source row.
-  Filter for *With cover*, *No cover*, *Missing title* or *Missing metadata*, search the text, and sort by
-  title, Circle, Artist, source order or cover. A record with no cover shows *No cover* — nothing is filled
-  in to make the card look complete. **Open** shows the cover full screen; **Source** opens the row.
+  source view from an earlier release. The report never repairs anything.
 * **Analytics** counts records, worksheets, covers, missing values, duplicate IDs and possible duplicates,
   and groups them by Circle, Artist, tag, worksheet and publication year. The rules are printed on the
   screen: one record is one row of the sheet, a blank cell counts as *missing* and never as zero, and
   possible duplicates are shown but not subtracted from the totals.
+* **Gallery** shows one card per record with its cover, title, Circle, Artist, product ID and source row.
+  Filter for *With cover*, *No cover*, *Missing title* or *Missing metadata*, search the text, and sort by
+  title, Circle, Artist, source order or cover. A record with no cover shows *No cover* — nothing is filled
+  in to make the card look complete. **Open** shows the cover full screen; **Source** opens the row. The
+  search bar sits in its own band above the filter chips, separated by a hairline.
 * **Timeline** groups records by year, newest or oldest first, and keeps records whose date is absent or
   unreadable in **No date known** — they never disappear. **Published** and **Acquired** read the two columns
   you assigned (see below) and never borrow each other's; **Imported** uses the date the saved copy was
-  imported. **Go to row** opens the source view for that record.
+  imported. **Go to row** opens the source view for that record. It can be searched and limited to a year
+  range, and it starts at the top when you switch between Published and Acquired.
 * **Fields** maps the worksheet's own columns to the app's fields: Title, Circle, Artist, Product ID, URL,
   Price, Description, Publication date and Tags. Tap a field, pick the column, and the preview under the
   list shows what the records will look like. Orange issues mean a column is missing, appears twice, or is
   used by two fields. **Apply mapping** uses it for the reports; **Save profile…** stores it by name so the
   same layout can be reused on another workbook. A profile remembers column *names*, so inserting a column
   in Excel does not break it, and Circle and Artist stay two different fields.
+
+### Filtering Health, Analytics and the Timeline (v2.4.0-dev.4)
+
+**Which worksheets a report covers.** *Health* and *Analytics* each begin with a **Worksheets:** bar — *All
+worksheets*, a single name such as *LIST*, or *2 of 3 worksheets*. Tap it to open the picker: every worksheet
+of the open workbook is listed with its record count (and marked hidden or "no catalogue table" where that
+applies). Tick any combination and press **Use these worksheets**; **All worksheets** clears the selection.
+The numbers are then recalculated for that selection — tiles, error/warning/info counts, category chips,
+duplicate groups, the distributions, the year breakdown and the cover totals — not just filtered on screen.
+Health and Analytics keep separate selections, and a worksheet that no longer exists is dropped from the
+selection (if nothing is left, the report goes back to *All worksheets*).
+
+**Searching the timeline.** In *Insights → Timeline*, the search field matches a record's title, Circle,
+Artist, product ID and worksheet row. **Years: …** opens a list of the years that timeline actually has, and
+you can set a *from* year and a *to* year independently (*Any year* clears one). While a filter is active the
+row shows *x of y record(s)* and a **Clear filters** action; if nothing matches you get "No record matches
+this filter" and the same reset. Each date meaning keeps its own filter, so a search you typed for
+*Published* does not narrow *Acquired*. Records whose own date is unknown are never given a year to fit a
+range: they are left out and the screen says how many.
+
 
 ### Every column, and the two date columns (v2.4.0-dev.3)
 

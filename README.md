@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.4.0-dev.3 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.4.0-dev.4 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -172,6 +172,33 @@ and a finding with a record or image all open the verified worksheet row through
 * **The gallery starts at the top of a new order.** Changing the sort, the direction or a filter moves the
   Insights grid back to the first card of the new order; opening a card and coming back, or a thumbnail
   finishing its decode, leaves the scroll exactly where it was.
+
+### Timeline filters, worksheet scopes and a stable directory (v2.4.0-dev.4)
+
+* **The directory order is Health, Analytics, Gallery, Timeline, Fields.** The two screens that analyse the
+  collection sit together, the two that browse individual records sit together, and Fields stays last because
+  it configures the data the others read.
+* **Each directory entry is two lines: the name, then its count.** The count used to be part of the name
+  (`Insights (3)`) and disappeared at zero and while a report was being built. Now the count is its own line
+  and always exists — `0 errors`, `2 errors`, `reading…` while a build runs, `—` when no report exists yet —
+  so opening or reloading a workbook cannot make the entry look count-less.
+* **The timeline can be searched and narrowed to a year range.** *Timeline → Search* matches the record's own
+  title, circle, artist, product ID and worksheet row; *Years: …* sets a from/to range using only years the
+  timeline actually has, and **Clear filters** restores the whole eligible set. The count line reads *x of y
+  records*, and the two date meanings keep separate filters — a search typed for Published does not narrow
+  Acquired. A record whose own date is unknown is **not** given a year to fit the range: it is excluded and
+  counted in an explicit line.
+* **Switching Published ↔ Acquired starts at the top.** The list owns its scroll state and resets it when the
+  meaning (or the ordering, or the filter) changes — never for an unrelated recomposition.
+* **Health and Analytics can be limited to any set of worksheets.** A single bar reports the current scope
+  (*All worksheets*, *LIST*, *2 of 3 worksheets*) and opens a picker of the workbook's own worksheets with
+  their record counts. The scope changes the **calculation**: the report and the analytics are recomputed from
+  the canonical catalog for exactly those records, so the tiles, the severity/category counts, the duplicate
+  groups, distributions, the year breakdown and the cover totals all come from the same scoped list. The two
+  screens keep independent scopes, a selection that no longer matches anything falls back to *All worksheets*,
+  and another workbook starts from *All worksheets*.
+* **The gallery's search bar and filters are separated.** The bar has its own margins and a hairline in the
+  palette's line colour above the chip rows; no font size changed and no filter behaves differently.
 
 ---
 
@@ -547,7 +574,9 @@ app/src/main/java/com/bookcovermatcher/
 │   ├── catalog/                  one WorkbookCatalog behind the five Insights screens:
 │   │                             fields, dates (incl. Excel serials), column mapping +
 │   │                             codec, health report, analytics, timeline, gallery view,
-│   │                             and TimelineDates (the date columns the user chose)
+│   │                             TimelineDates (the date columns the user chose), and the
+│   │                             v2.4.0-dev.4 SheetScope + TimelineFilter (what a report
+│   │                             covers and what the timeline shows)
 │   ├── wishlist/                 LibraryModels (folders/sessions/items), repository,
 │   │                             MiniJson, identity, bookmark rules and
 │   │                             BookmarkPresentation (the card's own lines)
@@ -571,7 +600,7 @@ app/src/main/java/com/bookcovermatcher/
                                   BookmarkDialogs,
                                   Overlays, CameraCard, components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        621 JVM tests (7 opt-in: 4 live provider checks and the
+app/src/test/                        658 JVM tests (7 opt-in: 4 live provider checks and the
                                      3 real-workbook tests whose 40 MB files are not committed)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
@@ -646,6 +675,7 @@ No step of this pipeline is online, and the online feature is never consulted by
 | Full JVM suite (v2.3.1) | `.\gradlew.bat :app:testDebugUnitTest` | **470 tests**, 0 failures, 4 skipped by design, across 62 result classes (`BookmarkPresentationTest` 9, `BookmarkFormTest` 22); `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 194,768,801 bytes, version 208 / 2.3.1 |
 | Full JVM suite (v2.4.0-dev.1) | `.\gradlew.bat :app:testDebugUnitTest` | **487 tests**, 0 failures, 4 skipped by design, across 63 result classes; the new `SourceNavigationTest` (17 tests) covers verified image/comment/record locations, ambiguous notes, unreferenced and unresolved images, stale worksheets, trailing-space/Unicode sheet names, the worksheet window and the overlay state; `assembleDebug`: BUILD SUCCESSFUL, version 209 / 2.4.0-dev.1 |
 | Full JVM suite (v2.4.0-dev.2) | `.\gradlew.bat :app:testDebugUnitTest` | **574 tests**, 0 failures, 4 skipped by design, across 71 result classes; 87 of them new: `ColumnMappingTest` 14, `ColumnMappingStoreTest` 5, `WorkbookCatalogTest` 9, `HealthReportTest` 18, `CollectionAnalyticsTest` 9, `CollectionTimelineTest` 12, `GalleryViewTest` 10, `WorkbookInsightsUiTest` 10; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,015,505 bytes, version 210 / 2.4.0-dev.2 |
+| Full JVM suite (v2.4.0-dev.4) | `.\gradlew.bat :app:testDebugUnitTest` | **658 tests**, 0 failures, 7 skipped by design, across 81 result classes; 37 of them new: `TimelineFilterTest` 10, `SheetScopeTest` 5, `ScopedReportsTest` 8, `InsightsFilterUiTest` 11, `InsightsOrderTest` 3; `assembleDebug`: BUILD SUCCESSFUL, version 212 / 2.4.0-dev.4 |
 | Full JVM suite (v2.4.0-dev.3) | `.\gradlew.bat :app:testDebugUnitTest` | **621 tests**, 0 failures, 7 skipped by design, across 76 result classes; 47 of them new: `WorksheetColumnsTest` 7, `TimelineDatesTest` 17, `TimelineDateUiTest` 9, `GalleryScrollTest` 6, `SampleWorkbookColumnsTest` 5 and 3 more timeline cases; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,064,657 bytes, version 211 / 2.4.0-dev.3 |
 | Sample workbook (v2.4.0-dev.3) | `.\gradlew.bat :app:testDebugUnitTest --tests "*SampleWorkbookColumnsTest"` | **5 tests**, 0 failures, run through the production reader on `test_excel/doujin.xlsx` (skipped when absent): `LIST` reads as **24 columns A–X** with 24 values on every record, `ツイッター`/`ツイッター (ユーザー名)`/`ミスキー`/`ミスキー (ユーザー名)` resolve to S/T/U/V, `出版日付` (G) and `購入日` (R) are readable date columns (serial numbers), the source window draws all 24 columns, and the worksheet inventory is unchanged |
 | Debug build | `.\\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
@@ -680,6 +710,12 @@ No step of this pipeline is online, and the online feature is never consulted by
   `GalleryScrollTest`, `SampleWorkbookColumnsTest`, 47 tests in all), but not tapped through on a device or
   measured at a specific screen width. The clipping fix and the scroll reset are layout behaviour, so they
   are reasoned and built, not photographed.
+* The v2.4.0-dev.4 surface — the two-line directory entries and their count line, the gallery divider, the
+  timeline search/year-range bar, the mode-switch scroll reset and the worksheet-scope picker: compiled and
+  covered by state and calculation tests (`TimelineFilterTest`, `SheetScopeTest`, `ScopedReportsTest`,
+  `InsightsFilterUiTest`, `InsightsOrderTest`, 37 tests in all), but not tapped through on a device. The
+  scroll reset, the two-line layout and the divider are layout behaviour, so they are reasoned and built,
+  not photographed.
 * Google Books with an API key (none is configured).
 * **Suruga-ya as an in-app search** — deliberately not implemented: its `robots.txt` disallows
   `/search/`. Only its generated browser link is verified.
