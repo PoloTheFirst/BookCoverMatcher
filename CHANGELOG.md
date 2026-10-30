@@ -8,7 +8,7 @@ its order changes.
 
 This is a beta. The layout and the wording may still change before 2.4.0 is released.
 
-## v2.4.0-dev.3 (2026-10-30)
+## v2.4.0-dev.3 (2026-10-31)
 
 ### Fixed
 
