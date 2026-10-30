@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.1"
+agp = "9.5.0"
 chaquopy = "17.1.0"
 kotlin = "2.2.10"
 composeBom = "2024.10.01"
