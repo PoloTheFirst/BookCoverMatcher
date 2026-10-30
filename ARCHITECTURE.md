@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.4.0-dev.2)
+# Architecture and developer notes (v2.4.0-dev.3)
 
 ## Layers
 
@@ -82,6 +82,28 @@ dialogs                      │            CatalogIndex              └─ Wis
     `Dispatchers.IO` pass, guarded by the workbook hash (`insightsBelongTo`), and stores them together on
     `WorkbookCommentsUi`. Applying a profile, saving one or rescanning rebuilds them; nothing is recomputed
     per recomposition, and the UI converts nothing itself.
+* **v2.4.0-dev.3** completes the column and date model instead of patching the screens:
+  * `CatalogueReader.fromCells` now keeps every column between the first and the last header, including one
+    whose header cell is blank when it carries data, so a blank header can no longer shift every value to its
+    right by one. `CatalogueField` keeps `index` (position in a record's `values`) and `column` (source
+    column) apart, and `label` names an unnamed column by its letter.
+  * `SheetWindows.MAX_COLUMNS` went from 16 to 96: the source view draws every column a real worksheet uses
+    instead of the sixteen nearest the target, and `SheetWindow.hiddenColumns` reports the remainder when a
+    sheet is wider than the bound, so a wide sheet is never silently shortened.
+  * `TimelineDates` holds the date-column model: `SheetDateChoice` (published/acquired header per worksheet),
+    `TimelineDateSettings` (per workbook SHA-256, so a shared mapping profile cannot carry a date choice into
+    another workbook), and `DateColumnReport`/`DateColumnState` (READY, NOT_SET, HEADER_MISSING,
+    HEADER_AMBIGUOUS, NO_READABLE_DATES) computed by a pure `inspect`. `TimelineDateCodec` +
+    `data/TimelineDateStore` persist it as header names in `files/mappings/dates.json`.
+  * `CollectionTimelineBuilder.published`/`acquired` read **only** the chosen column (never the mapped
+    `PUBLISHED` field, never each other's column), and `CatalogDates.parse(raw, allowSerial = true)` reads an
+    Excel serial in exactly those columns. `CollectionTimeline.dateColumns` carries the per-worksheet evidence
+    into the UI.
+  * The gallery grid owns a `LazyGridState` and resets it from `WorkbookCommentsUi.galleryOrderKey`
+    (workbook + sort + direction + filters), so a dataset/order change returns to the first card while a
+    thumbnail decode or a dialog does not move the user.
+  * `CatalogueView.CARDS`/`TABLE` on `WorkbookCommentsUi` picks the record cards or the worksheet table; the
+    table shares one `ScrollState` between its header row and every data row and keeps its rows lazy.
 * The five features are sub-tabs of `CommentsSection.INSIGHTS` (`InsightsTab.HEALTH`/`GALLERY`/
   `ANALYTICS`/`TIMELINE`/`FIELDS`) rendered by `ui/WorkbookInsightsPanels`, not new top-level destinations.
   A gallery card, a timeline entry and a finding with a record or an image open the row/cell through the
@@ -264,7 +286,7 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
 
 ## Testing
 
-* `app/src/test`: **574** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
+* `app/src/test`: **621** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
   parsers/aggregator/cache in `OnlineSearchTest.kt`; legacy-comment parsing and its cache in
   `LegacyCommentScanTest.kt`, `LegacyCommentEdgeCaseTest.kt`, `CommentImageCacheTest.kt` and
   `WorkbookCommentsUiTest.kt`; the source-location mapping, worksheet identity and worksheet window in
@@ -273,8 +295,12 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
   `ColumnMappingStoreTest.kt`, `WorkbookCatalogTest.kt`, `HealthReportTest.kt`,
   `CollectionAnalyticsTest.kt`, `CollectionTimelineTest.kt`, `GalleryViewTest.kt` and
   `WorkbookInsightsUiTest.kt` (87 tests, all against `CatalogFixtures` — no workbook file is staged);
+  the v2.4.0-dev.3 column and date work in `WorksheetColumnsTest.kt` (7), `TimelineDatesTest.kt` (17),
+  `TimelineDateUiTest.kt` (9) and `GalleryScrollTest.kt` (6), plus `SampleWorkbookColumnsTest.kt` (5), which
+  runs through the production reader on `test_excel/doujin.xlsx` and is skipped when that 40 MB file is
+  absent, exactly like `RealWorkbookIntegrationTest.kt`;
   the existing offline pipeline tests remain.
-  Four live catalogue tests are gated by `-DonlineCheck=1`.
+  Seven tests are opt-in: four live catalogue checks (`-DonlineCheck=1`) and the three real-workbook tests.
 * `app/src/androidTest`: three tests on a device/emulator:
   * real OCR through Chaquopy on a bundled cover (`OcrDeviceTest`);
   * real catalogue sources;
