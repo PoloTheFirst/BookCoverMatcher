@@ -1,11 +1,98 @@
-# Check a workbook before trusting it, and browse it without a spreadsheet
+# Read every column of a worksheet, and choose the dates yourself
 
-**v2.4.0-dev.2 is a development build** of 2.4.0: the workbook preview grows an **Insights** area that checks the
-workbook it already parsed, shows the records as a gallery, counts them, puts them on a timeline, and lets you
-map its columns to the app's own fields. All five screens read one catalog, so a finding and a gallery card
-never disagree, and nothing is written to the workbook.
+**v2.4.0-dev.3 is a development build** of 2.4.0: the workbook preview now shows **every column** of a
+worksheet instead of the sixteen nearest the verified cell, can draw the worksheet itself instead of only
+cards, and lets **you** assign the Published and the Acquired date columns — the app never guesses one from a
+header name. The four section labels are readable in full, and the Insights gallery returns to the top when
+its order changes.
 
 This is a beta. The layout and the wording may still change before 2.4.0 is released.
+
+## v2.4.0-dev.3 (2026-10-30)
+
+### Fixed
+
+* **Incomplete worksheet column display.** A worksheet was drawn as the sixteen columns nearest the verified
+  cell, so a wide sheet (the sample `LIST` has 24, A–X) silently ended at column P: `ツイッター`,
+  `ツイッター (ユーザー名)`, `ミスキー` and `ミスキー (ユーザー名)` were unreachable. The source view now draws
+  every column the worksheet uses, at a hard bound far above any real catalogue, and says how many columns it
+  left out when a sheet is wider than that instead of pretending it ended. The view keeps Excel's own column
+  letters, so a value can still be read as a cell reference.
+* **A blank header no longer shifts a column.** The reader built its column list from the header cells that
+  had text, so a blank header cell between two named columns dropped that column and moved every value to its
+  right one position to the left. The columns between the first and the last header are kept, a gap column is
+  kept when it carries data, and one without a header is labelled by its letter (`Column C`) — never printed
+  as an empty name, and never mapped to a field by guesswork.
+* **Directory labels are readable in full.** The four sections of the workbook preview — *Comments, Images,
+  Catalogue, Insights* — were each given a quarter of one line, so their labels were truncated to
+  `Catalogue (5…`. They now wrap onto a second line at the same font size: nothing is shrunk, no card inside
+  the sections changes, and the tab, its count and the selected state stay where they were.
+* **The Insights gallery starts at the top of a new order.** The grid kept the old scroll offset after a sort
+  or filter changed the displayed order, so the first card of the new order could be off screen. The grid now
+  owns its scroll state and returns to the first item when — and only when — the ordering or the filtered
+  dataset actually changes. A thumbnail finishing its decode, a dialog opening or a report being rebuilt
+  leaves the scroll untouched.
+
+### Added
+
+* **Cards or the whole worksheet.** The Catalogue tab has a **Cards / Table** switch. *Table* draws the
+  worksheet: every column in the workbook's own order, Excel's letter above each header, the row number frozen
+  on the left, one horizontal scroll shared by the header row and every data row so a header can never sit
+  above another column's values, lazy rows for long sheets, and a row number that opens that row in the
+  verified source view. Switching worksheet switches the columns to that worksheet's own structure.
+* **Published and Acquired date columns, chosen by you.** *Insights → Timeline → Choose date columns…* assigns
+  two independent columns per worksheet. The dialog names the workbook and the worksheet, lists the
+  worksheet's own columns with their letters, previews a few real values (`43465 → 2018-12-31`), reports how
+  many of them can be read and how many cells are blank, and marks a column whose header has vanished or
+  become duplicated instead of reading it. Nothing is pre-selected from a header name, and a workbook with no
+  assignment shows a setup state that says how to configure it. The choice is scoped to the workbook (its
+  SHA-256) **and** the worksheet, stored as `files/mappings/dates.json` — header names, not positions — so it
+  survives a restart, a rescan and a profile change, and never follows a shared profile into another workbook.
+  The two timelines never borrow each other's column.
+* **Excel date serials are read in the columns you chose.** A bare number is still not a date on its own; in a
+  configured date column it is an Excel serial (1927 onwards, with Excel's 1900-leap-year base), so a workbook
+  that stores `43465` gets a real date. A four-digit value remains a year.
+
+### Changed
+
+* **The Published timeline no longer comes from the mapped "Publication date" field.** It reads only the
+  column you assigned, so a workbook whose header merely looks like a date has no timeline until you say which
+  column it is. Selected-record health checks and the year distribution still use the mapped field, where an
+  Excel serial is now accepted as a date too.
+* **Acquired is a real timeline when it is configured,** instead of a permanent "unavailable": the reason it
+  was unavailable was that the app does not record an acquisition date, and now the workbook supplies one if
+  you point at it. *Imported* is unchanged and still comes from the saved-workbook library.
+* **A wide worksheet is no longer shortened by the source view** — the window's cap went from 16 columns to a
+  bound no real catalogue reaches, and the number of undrawn columns is reported rather than implied.
+
+### Verified
+
+* 621 JVM tests, 0 failures, 7 skipped by design (4 opt-in live provider checks and the 3 real-workbook tests
+  whose 40 MB files are not committed), across 76 result classes. 47 of them are new: worksheet columns 7,
+  date columns 17, the date dialog state 9, the gallery scroll key 6, the sample workbook 5, and 3 more
+  timeline cases.
+* The supplied sample workbook `test_excel/doujin.xlsx` (40 MB, not committed) is used by
+  `SampleWorkbookColumnsTest`: `LIST` reads as 24 columns A–X with 24 values on every record, the Twitter and
+  Misskey columns resolve to S/T/U/V, `出版日付` (G) and `購入日` (R) are readable date columns, and the source
+  window draws the whole width.
+* Debug build: BUILD SUCCESSFUL, version 211 / 2.4.0-dev.3.
+
+### Known limitations
+
+* The date-column dialog is per worksheet: a workbook with four catalogue worksheets needs four assignments
+  (the dialog switches between them, and each keeps its own two columns).
+* A column whose header cell is blank is visible and readable in *Table*, but it cannot be *mapped* to a field:
+  a profile stores header names, and an unnamed column has no name to store.
+* The hard column bound of the source window (96) is not reachable by any real catalogue, but a sheet wider
+  than that still reports the columns it did not draw instead of drawing all of them.
+* Opening a card in the gallery and returning keeps the scroll, but leaving the Insights sub-tab and coming
+  back rebuilds the panel and starts at the top.
+* The five Insights screens still cover one workbook at a time, group the timeline by year, and do not split
+  Artist values on separators.
+* None of the new layout — the two-line section labels, the worksheet table, the date dialog — was driven on a
+  device or an emulator, and no screen width was measured.
+
+**Version code/name: 211 / 2.4.0-dev.3.**
 
 ## v2.4.0-dev.2 (2026-10-30)
 

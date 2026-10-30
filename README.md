@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.4.0-dev.2 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.4.0-dev.3 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -131,14 +131,47 @@ has, and the five sub-tabs read **one** canonical catalog.
   one record is one source row, a blank cell is *missing* not zero, and potential duplicates are reported
   rather than subtracted.
 * **Timeline.** Publication year groups, newest or oldest first, with a separate *No date known* group.
-  **Acquired** is reported as unavailable because the app does not record an acquisition date, and
-  **Imported** uses the saved-workbook library's import time.
+  Since v2.4.0-dev.3 **you choose** the column each timeline reads (see below); **Imported** uses the
+  saved-workbook library's import time.
 * **Fields.** Maps a worksheet's own headers to the app's fields, previews the records before applying,
   reports headers that are missing, duplicated or shared, and saves the mapping as **header names** (not
   column positions) in `files/mappings/profiles.json` for reuse on another workbook.
 
 Source navigation from v2.4.0-dev.1 is reused rather than re-implemented: a gallery card, a timeline entry
 and a finding with a record or image all open the verified worksheet row through the same overlay.
+
+### Every worksheet column, and dates you choose (v2.4.0-dev.3)
+
+* **No column is cut off.** The worksheet used to be drawn as the sixteen columns nearest the verified
+  cell, so a wide sheet (the sample `LIST` has 24: A–X) silently ended at P and `ツイッター`,
+  `ツイッター (ユーザー名)`, `ミスキー` and `ミスキー (ユーザー名)` could not be reached. Every column the
+  worksheet uses is now drawn, the header scrolls together with its own values, and a sheet wider than the
+  app's hard bound says how many columns it did not draw instead of pretending it ended.
+* **A blank header is still a column.** The reader used to take its column list from the *named* header
+  cells only, so a blank header cell silently shifted every value to its right one column to the left. The
+  columns between the first and last header are kept, and one with no header is labelled by its letter
+  (`Column C`) rather than printed as an empty name.
+* **Cards or the whole worksheet.** The Catalogue tab has a **Cards / Table** switch. *Table* draws the
+  worksheet itself — every column, Excel's letter above each header, the row number frozen on the left,
+  one horizontal scroll shared by the header row and every data row — and lazy rows, so a 5 000-record
+  sheet renders only what is on screen. Tapping a row number opens that row in the source view.
+* **Published and Acquired columns, chosen by you.** *Insights → Timeline → Choose date columns…* assigns
+  two independent columns, per worksheet: the one that holds the publication date and the one that holds
+  the acquisition date. The dialog lists the worksheet's own columns with their letters, previews a few
+  real values (`43465 → 2018-12-31`), counts how many of them can be read, and refuses to read a
+  duplicated or vanished header. Nothing is assigned from a header name: `出版日付` is not picked because it
+  *looks* like a date, and a workbook with no assignment shows a setup state instead of an empty timeline.
+  The choice is stored per workbook **and** worksheet (`files/mappings/dates.json`, header names, not
+  positions), so it survives a restart, a rescan and a different mapping profile, and cannot leak into
+  another workbook.
+* **Excel date serials are read where you say the column holds dates.** A bare number is never a date on
+  its own; in the one column you chose it is an Excel serial (1927 onwards), so a workbook that stores
+  `43465` instead of `2018/12/31` still gets a real timeline. A four-digit value stays a year.
+* **The four section labels are readable in full.** *Comments / Images / Catalogue / Insights* wrap onto
+  a second line inside their own tab at the same font size, instead of being truncated to `Catalogue (5…)`.
+* **The gallery starts at the top of a new order.** Changing the sort, the direction or a filter moves the
+  Insights grid back to the first card of the new order; opening a card and coming back, or a thumbnail
+  finishing its decode, leaves the scroll exactly where it was.
 
 ---
 
@@ -366,6 +399,10 @@ platform is selected; no other screen keeps its own list.
 * **Insights (v2.4.0-dev.2)**: the same records drive a health report, a visual gallery, analytics, a
   publication timeline and the column mapping, all built from one catalog (see §2); a finding, a card and a
   timeline entry open the verified worksheet row through the source overlay.
+* **Every column, and dates you choose (v2.4.0-dev.3)**: the Catalogue tab switches between cards and the
+  whole worksheet table (all 24 columns of the sample `LIST`, one shared horizontal scroll, lazy rows); the
+  Published and Acquired timelines read the two columns you assigned in *Choose date columns…*, stored per
+  workbook and worksheet.
 * **Selection does not change capability.** Open Library, Google Books and DLsite are queried in the
   app. The other eight cards are browser-only: they cannot be selected, and they are never counted as
   in-app providers.
@@ -507,6 +544,10 @@ app/src/main/java/com/bookcovermatcher/
 │   ├── search/                   OpenCLIP index, ranking, cache
 │   ├── vision/                   image ops, preprocessing, interfaces
 │   ├── autoscan/                 auto-scan engine
+│   ├── catalog/                  one WorkbookCatalog behind the five Insights screens:
+│   │                             fields, dates (incl. Excel serials), column mapping +
+│   │                             codec, health report, analytics, timeline, gallery view,
+│   │                             and TimelineDates (the date columns the user chose)
 │   ├── wishlist/                 LibraryModels (folders/sessions/items), repository,
 │   │                             MiniJson, identity, bookmark rules and
 │   │                             BookmarkPresentation (the card's own lines)
@@ -516,7 +557,7 @@ app/src/main/java/com/bookcovermatcher/
 │                                 ProviderLinks, SearchRouting, SearchLimits,
 │                                 OnlineAggregator, SessionCache
 ├── data/                         Prefs, OnlineSearchPrefs, ModelStore, WorkbookFiles,
-│                                 CommentImageCache
+│                                 CommentImageCache, ColumnMappingStore, TimelineDateStore
 ├── vision/                       AndroidImageCodec, OrtClipEmbedder
 ├── camera/                       CameraController (CameraX)
 ├── online/                       OnlineSearchController, ChromeLensPyBridge, PythonRuntime,
@@ -530,7 +571,8 @@ app/src/main/java/com/bookcovermatcher/
                                   BookmarkDialogs,
                                   Overlays, CameraCard, components/, theme/
 app/src/main/python/lens_bridge.py   the only Python; wraps chrome-lens-py
-app/src/test/                        574 JVM tests (4 opt-in live provider checks)
+app/src/test/                        621 JVM tests (7 opt-in: 4 live provider checks and the
+                                     3 real-workbook tests whose 40 MB files are not committed)
 app/src/androidTest/                 3 instrumented tests (OCR, catalogues, controller)
 ```
 
@@ -604,7 +646,9 @@ No step of this pipeline is online, and the online feature is never consulted by
 | Full JVM suite (v2.3.1) | `.\gradlew.bat :app:testDebugUnitTest` | **470 tests**, 0 failures, 4 skipped by design, across 62 result classes (`BookmarkPresentationTest` 9, `BookmarkFormTest` 22); `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 194,768,801 bytes, version 208 / 2.3.1 |
 | Full JVM suite (v2.4.0-dev.1) | `.\gradlew.bat :app:testDebugUnitTest` | **487 tests**, 0 failures, 4 skipped by design, across 63 result classes; the new `SourceNavigationTest` (17 tests) covers verified image/comment/record locations, ambiguous notes, unreferenced and unresolved images, stale worksheets, trailing-space/Unicode sheet names, the worksheet window and the overlay state; `assembleDebug`: BUILD SUCCESSFUL, version 209 / 2.4.0-dev.1 |
 | Full JVM suite (v2.4.0-dev.2) | `.\gradlew.bat :app:testDebugUnitTest` | **574 tests**, 0 failures, 4 skipped by design, across 71 result classes; 87 of them new: `ColumnMappingTest` 14, `ColumnMappingStoreTest` 5, `WorkbookCatalogTest` 9, `HealthReportTest` 18, `CollectionAnalyticsTest` 9, `CollectionTimelineTest` 12, `GalleryViewTest` 10, `WorkbookInsightsUiTest` 10; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,015,505 bytes, version 210 / 2.4.0-dev.2 |
-| Debug build | `.\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
+| Full JVM suite (v2.4.0-dev.3) | `.\gradlew.bat :app:testDebugUnitTest` | **621 tests**, 0 failures, 7 skipped by design, across 76 result classes; 47 of them new: `WorksheetColumnsTest` 7, `TimelineDatesTest` 17, `TimelineDateUiTest` 9, `GalleryScrollTest` 6, `SampleWorkbookColumnsTest` 5 and 3 more timeline cases; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,064,657 bytes, version 211 / 2.4.0-dev.3 |
+| Sample workbook (v2.4.0-dev.3) | `.\gradlew.bat :app:testDebugUnitTest --tests "*SampleWorkbookColumnsTest"` | **5 tests**, 0 failures, run through the production reader on `test_excel/doujin.xlsx` (skipped when absent): `LIST` reads as **24 columns A–X** with 24 values on every record, `ツイッター`/`ツイッター (ユーザー名)`/`ミスキー`/`ミスキー (ユーザー名)` resolve to S/T/U/V, `出版日付` (G) and `購入日` (R) are readable date columns (serial numbers), the source window draws all 24 columns, and the worksheet inventory is unchanged |
+| Debug build | `.\\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
 | Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
 | Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |
 | Device tests | `.\gradlew.bat connectedDebugAndroidTest` on `Medium_Phone_API_37.0` (x86_64) | **3/3 pass**: real OCR reads the bundled Hobbit cover; both catalogue sources answer or are correctly classified; the controller publishes merged results |
@@ -630,6 +674,12 @@ No step of this pipeline is online, and the online feature is never consulted by
   `GalleryViewTest`, `WorkbookInsightsUiTest` and the other catalog tests, 87 in all), not tapped through
   on a device. The report and the analytics only see what the parser can see, so a drawing-anchored picture
   makes its record look cover-less rather than broken.
+* The v2.4.0-dev.3 surface — the Cards/Table switch and the worksheet table's shared horizontal scroll, the
+  two-line section labels, the *Choose date columns* dialog and the gallery's scroll reset: compiled and
+  covered by state tests (`WorksheetColumnsTest`, `TimelineDatesTest`, `TimelineDateUiTest`,
+  `GalleryScrollTest`, `SampleWorkbookColumnsTest`, 47 tests in all), but not tapped through on a device or
+  measured at a specific screen width. The clipping fix and the scroll reset are layout behaviour, so they
+  are reasoned and built, not photographed.
 * Google Books with an API key (none is configured).
 * **Suruga-ya as an in-app search** — deliberately not implemented: its `robots.txt` disallows
   `/search/`. Only its generated browser link is verified.

@@ -95,20 +95,38 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
     Box(Modifier.fillMaxSize().background(Palette.Navy800)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             CommentsHeader(state, controller)
+            // Four sections in one row: a two-line label keeps every name readable at its own size, which
+            // one line cannot do at phone widths (`Catalogue (5000)` is wider than a quarter of the row).
             SegmentedTabRow(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-                SegmentedTab("Comments (${state.comments.size})", state.section == CommentsSection.COMMENTS, Modifier.weight(1f)) {
+                SegmentedTab(
+                    "Comments (${state.comments.size})",
+                    state.section == CommentsSection.COMMENTS,
+                    Modifier.weight(1f),
+                    maxLines = 2,
+                ) {
                     controller.showSection(CommentsSection.COMMENTS)
                 }
-                SegmentedTab("Images (${state.allImages.size})", state.section == CommentsSection.MEDIA, Modifier.weight(1f)) {
+                SegmentedTab(
+                    "Images (${state.allImages.size})",
+                    state.section == CommentsSection.MEDIA,
+                    Modifier.weight(1f),
+                    maxLines = 2,
+                ) {
                     controller.showSection(CommentsSection.MEDIA)
                 }
-                SegmentedTab("Catalogue (${state.tables.sumOf { it.records.size }})", state.section == CommentsSection.CATALOGUE, Modifier.weight(1f)) {
+                SegmentedTab(
+                    "Catalogue (${state.tables.sumOf { it.records.size }})",
+                    state.section == CommentsSection.CATALOGUE,
+                    Modifier.weight(1f),
+                    maxLines = 2,
+                ) {
                     controller.showSection(CommentsSection.CATALOGUE)
                 }
                 SegmentedTab(
                     if (state.insightErrors > 0) "Insights (${state.insightErrors})" else "Insights",
                     state.section == CommentsSection.INSIGHTS,
                     Modifier.weight(1f),
+                    maxLines = 2,
                 ) {
                     controller.showSection(CommentsSection.INSIGHTS)
                 }
@@ -659,17 +677,27 @@ private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidat
     val horizontal = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
         Text(
-            "${window.sheetName} \u00B7 ${window.targetCell} \u00B7 rows ${window.rowRangeLabel}",
+            "${window.sheetName} \u00B7 ${window.targetCell} \u00B7 rows ${window.rowRangeLabel} \u00B7 " +
+                "${window.columns.size} of ${window.totalColumns} column(s)",
             color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold,
         )
         Text(
             if (chosen?.rowAnchor == true) {
-                "The verified row is highlighted; ${window.targetCell} is that row's first field."
+                "The verified row is highlighted; ${window.targetCell} is that row's first field. " +
+                    "Every column this worksheet uses is drawn \u2014 scroll sideways for the rest."
             } else {
-                "The verified comment cell is highlighted."
+                "The verified comment cell is highlighted. Every column this worksheet uses is drawn \u2014 " +
+                    "scroll sideways for the rest."
             },
             color = Palette.Muted, fontSize = 9.5.sp,
         )
+        if (window.hiddenColumns > 0) {
+            Text(
+                "${window.hiddenColumns} more column(s) are wider than this window can draw; the worksheet has " +
+                    "${window.totalColumns}.",
+                color = Palette.Warn, fontSize = 9.5.sp,
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Column(Modifier.fillMaxSize().verticalScroll(vertical)) {
             Row(Modifier.horizontalScroll(horizontal)) {

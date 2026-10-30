@@ -5,6 +5,7 @@ import com.bookcovermatcher.core.catalog.CatalogField
 import com.bookcovermatcher.core.catalog.CollectionAnalytics
 import com.bookcovermatcher.core.catalog.CollectionTimeline
 import com.bookcovermatcher.core.catalog.ColumnMappingProfile
+import com.bookcovermatcher.core.catalog.DateColumnReport
 import com.bookcovermatcher.core.catalog.GalleryFilter
 import com.bookcovermatcher.core.catalog.GallerySort
 import com.bookcovermatcher.core.catalog.GalleryView
@@ -13,8 +14,12 @@ import com.bookcovermatcher.core.catalog.HealthFinding
 import com.bookcovermatcher.core.catalog.HealthReport
 import com.bookcovermatcher.core.catalog.HealthSeverity
 import com.bookcovermatcher.core.catalog.MappingIssue
+import com.bookcovermatcher.core.catalog.SheetDateChoice
+import com.bookcovermatcher.core.catalog.TimelineDateSettings
+import com.bookcovermatcher.core.catalog.TimelineDates
 import com.bookcovermatcher.core.catalog.TimelineMode
 import com.bookcovermatcher.core.catalog.WorkbookCatalog
+import com.bookcovermatcher.core.excel.comments.CatalogueField
 import com.bookcovermatcher.core.excel.comments.CatalogueFilter
 import com.bookcovermatcher.core.excel.comments.CatalogueFiltering
 import com.bookcovermatcher.core.excel.comments.CatalogueRecord
@@ -32,6 +37,19 @@ import com.bookcovermatcher.core.excel.comments.ImageIndex
 
 /** The two lists of the workbook preview: legacy comments, and every media file in the package. */
 enum class CommentsSection { COMMENTS, MEDIA, CATALOGUE, INSIGHTS }
+
+/**
+ * How the Catalogue tab draws a worksheet.
+ *
+ * [CARDS] is the compact record list; [TABLE] is the worksheet itself, with every column the parser
+ * found and a shared horizontal scroll, so a wide sheet (the sample `LIST` has 24 columns) can be read
+ * to its right edge instead of ending at the columns a card happens to show.
+ */
+enum class CatalogueView(val label: String) {
+    CARDS("Cards"),
+    TABLE("Table"),
+}
+
 
 /**
  * The five v2.4.0 features that share one canonical catalog, in the order the screen lists them.
@@ -160,6 +178,16 @@ data class WorkbookCommentsUi(
     val mappingPreview: List<CatalogEntry> = emptyList(),
     val mappingIssues: List<MappingIssue> = emptyList(),
     val mappingDirty: Boolean = false,
+    /** Catalogue tab: compact record cards, or the whole worksheet table with every column. */
+    val catalogueView: CatalogueView = CatalogueView.CARDS,
+    /** The date columns the user chose for this workbook, per worksheet. Never assigned automatically. */
+    val dateSettings: TimelineDateSettings = TimelineDateSettings(),
+    /** The "Choose date columns" dialog: open state, worksheet, the two drafts, and the slot being chosen. */
+    val dateSetupOpen: Boolean = false,
+    val dateSetupSheet: String? = null,
+    val dateSetupPublished: String? = null,
+    val dateSetupAcquired: String? = null,
+    val dateSetupTarget: TimelineMode = TimelineMode.PUBLICATION,
     /** When the saved copy was imported, from the workload library; 0 when it is not known. */
     val importedAt: Long = 0L,
 ) {
@@ -252,12 +280,14 @@ data class WorkbookCommentsUi(
         get() = GalleryView.rows(catalog?.entries.orEmpty(), galleryFilter, gallerySort, galleryAscending)
 
     /** The timeline of the selected date meaning. */
-    val timeline: CollectionTimeline?
-        get() = when (timelineMode) {
-            TimelineMode.PUBLICATION -> publicationTimeline
-            TimelineMode.ACQUISITION -> acquisitionTimeline
-            TimelineMode.IMPORT -> importTimeline
-        }
+    val timeline: CollectionTimeline? get() = timelineOf(timelineMode)
+
+    /** Any of the three timelines by meaning, whether or not it is the one on screen. */
+    fun timelineOf(mode: TimelineMode): CollectionTimeline? = when (mode) {
+        TimelineMode.PUBLICATION -> publicationTimeline
+        TimelineMode.ACQUISITION -> acquisitionTimeline
+        TimelineMode.IMPORT -> importTimeline
+    }
 
     /** Findings left after the severity and category chips. */
     val visibleFindings: List<HealthFinding>
@@ -265,6 +295,48 @@ data class WorkbookCommentsUi(
 
     /** The number on the Insights tab: the confirmed problems the user can act on. */
     val insightErrors: Int get() = health?.summary?.errors ?: 0
+
+    /** The worksheet the "Choose date columns" dialog is configuring, when it is open. */
+    val dateSetupTable: CatalogueTable?
+        get() = catalog?.tables?.let { tables -> dateSetupSheet?.let { tables[it] } ?: tables.values.firstOrNull() }
+
+    /** Every column of that worksheet, in workbook order — the list the dialog offers. */
+    val dateSetupColumns: List<CatalogueField> get() = dateSetupTable?.fields.orEmpty()
+
+    /**
+     * The state of one of the dialog's two drafts: how many values of the chosen column can be read.
+     *
+     * Computed from the worksheet the dialog is on, so switching worksheet switches the evidence too.
+     */
+    fun dateSetupReport(mode: TimelineMode): DateColumnReport? {
+        val table = dateSetupTable ?: return null
+        val header = if (mode == TimelineMode.PUBLICATION) dateSetupPublished else dateSetupAcquired
+        return TimelineDates.inspect(table, mode, header)
+    }
+
+    /** The choice already saved for this workbook and worksheet (before any draft is applied). */
+    val dateSetupSavedChoice: SheetDateChoice
+        get() = dateSetupSheet?.let { dateSettings.choiceOf(it) } ?: SheetDateChoice()
+
+    /**
+     * Identity of what the gallery is showing, in the order it is showing it.
+     *
+     * The grid watches this: when it changes the scroll goes back to the top, because the first card of a
+     * new order is the thing to look at. Anything else (a thumbnail finishing, a dialog opening, a health
+     * finding expanding) leaves it alone, so the user is never moved while reading.
+     */
+    val galleryOrderKey: String
+        get() = listOf(
+            catalog?.workbookSha256.orEmpty(),
+            gallerySort.name,
+            if (galleryAscending) "asc" else "desc",
+            galleryFilter.sheetName ?: "-",
+            galleryFilter.query.trim(),
+            if (galleryFilter.onlyWithCover) "with" else "",
+            if (galleryFilter.onlyWithoutCover) "without" else "",
+            if (galleryFilter.onlyMissingTitle) "notitle" else "",
+            if (galleryFilter.onlyMissingMetadata) "nometa" else "",
+        ).joinToString("|")
 
     /** Grid cell target for the current [thumbSize]; the thumbnail box is slightly smaller. */
     val thumbCellDp: Int get() = when (thumbSize) { 0 -> 84; 2 -> 168; else -> 112 }
@@ -467,4 +539,86 @@ fun WorkbookCommentsUi.recordOf(entry: CatalogEntry): Pair<CatalogueTable, Catal
     val table = catalog?.tables?.get(entry.sheetName) ?: return null
     val record = table.records.firstOrNull { it.row == entry.row } ?: return null
     return table to record
+}
+
+// ---------------------------------------------------------------------------------------------
+// Catalogue view (v2.4.0-dev.3): compact cards, or the whole worksheet with every column
+// ---------------------------------------------------------------------------------------------
+
+/** Switches the Catalogue tab between the compact cards and the full worksheet table. */
+fun WorkbookCommentsUi.showCatalogueView(view: CatalogueView): WorkbookCommentsUi =
+    if (catalogueView == view) this else copy(catalogueView = view)
+
+// ---------------------------------------------------------------------------------------------
+// Date columns (v2.4.0-dev.3): Published and Acquired are chosen by the user, never guessed
+// ---------------------------------------------------------------------------------------------
+
+/** Loads the choices stored for the open workbook. */
+fun WorkbookCommentsUi.dateSettingsLoaded(settings: TimelineDateSettings): WorkbookCommentsUi =
+    copy(dateSettings = settings)
+
+/**
+ * Opens the date-column dialog on [sheetName] (or the last one, or the first worksheet) with the saved
+ * choice as the draft.
+ *
+ * No header is ever pre-selected by name: an unconfigured workbook opens with both slots empty, even when
+ * a column is called `出版日付`.
+ */
+fun WorkbookCommentsUi.openDateSetup(sheetName: String? = null): WorkbookCommentsUi {
+    val tables = catalog?.tables.orEmpty()
+    val target = listOfNotNull(sheetName, dateSetupSheet).firstOrNull { tables.containsKey(it) }
+        ?: tables.keys.firstOrNull()
+        ?: return this
+    val choice = dateSettings.choiceOf(target)
+    return copy(
+        dateSetupOpen = true,
+        dateSetupSheet = target,
+        dateSetupPublished = choice.publishedHeader,
+        dateSetupAcquired = choice.acquiredHeader,
+        dateSetupTarget = TimelineMode.PUBLICATION,
+    )
+}
+
+fun WorkbookCommentsUi.closeDateSetup(): WorkbookCommentsUi =
+    if (!dateSetupOpen) this else copy(dateSetupOpen = false)
+
+/** Switches the dialog to another worksheet; the drafts become that worksheet's own saved choice. */
+fun WorkbookCommentsUi.dateSetupOn(sheetName: String): WorkbookCommentsUi {
+    val tables = catalog?.tables.orEmpty()
+    if (!dateSetupOpen || !tables.containsKey(sheetName)) return this
+    val choice = dateSettings.choiceOf(sheetName)
+    return copy(
+        dateSetupSheet = sheetName,
+        dateSetupPublished = choice.publishedHeader,
+        dateSetupAcquired = choice.acquiredHeader,
+    )
+}
+
+/** Which timeline the next column tap assigns. The import timeline has no worksheet column. */
+fun WorkbookCommentsUi.dateSetupAssignTo(mode: TimelineMode): WorkbookCommentsUi =
+    if (mode == TimelineMode.IMPORT || !dateSetupOpen) this else copy(dateSetupTarget = mode)
+
+/** Puts [header] (null = none) in the open slot. Nothing is saved until [dateSetupCommitted]. */
+fun WorkbookCommentsUi.dateSetupAssign(header: String?): WorkbookCommentsUi {
+    if (!dateSetupOpen) return this
+    val cleaned = header?.trim()?.takeIf { it.isNotEmpty() }
+    return when (dateSetupTarget) {
+        TimelineMode.PUBLICATION -> copy(dateSetupPublished = cleaned)
+        TimelineMode.ACQUISITION -> copy(dateSetupAcquired = cleaned)
+        TimelineMode.IMPORT -> this
+    }
+}
+
+/** Empties both slots of the open worksheet in the dialog (still not saved). */
+fun WorkbookCommentsUi.dateSetupCleared(): WorkbookCommentsUi =
+    if (!dateSetupOpen) this else copy(dateSetupPublished = null, dateSetupAcquired = null)
+
+/** Writes the two drafts into [dateSettings] and closes; the caller persists and rebuilds. */
+fun WorkbookCommentsUi.dateSetupCommitted(): WorkbookCommentsUi {
+    if (!dateSetupOpen) return this
+    val sheet = dateSetupSheet ?: return copy(dateSetupOpen = false)
+    return copy(
+        dateSettings = dateSettings.withChoice(sheet, SheetDateChoice(dateSetupPublished, dateSetupAcquired)),
+        dateSetupOpen = false,
+    )
 }

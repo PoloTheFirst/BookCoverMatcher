@@ -15,8 +15,9 @@ data class SheetWindowRow(val row: Int, val values: List<String?>)
  *
  * This is what the "go to source" view draws: real cell values from the worksheet part, the row that
  * was verified, and (when the worksheet is a detected catalogue) its header row. It is a window, not a
- * spreadsheet: a fixed number of rows around the target and the columns nearest to it, so a sheet with
- * thousands of columns stays readable.
+ * spreadsheet: a fixed number of rows around the target. Every column the worksheet uses is included —
+ * a wide worksheet is never cut down to the columns nearest the target — and [hiddenColumns] reports the
+ * remainder only if a sheet is wider than the hard bound.
  */
 data class SheetWindow(
     val sheetName: String,
@@ -32,9 +33,17 @@ data class SheetWindow(
     val headerRow: Int? = null,
     /** Values of [headerRow] for the same columns; null when the header is inside the window already. */
     val headerValues: List<String?>? = null,
+    /**
+     * Columns of the worksheet this window does not draw, when the sheet is wider than [maxColumns].
+     * Reported so a wide worksheet is never silently shortened; 0 in the normal case.
+     */
+    val hiddenColumns: Int = 0,
 ) {
     val targetCell: String get() = SheetCells.cellRef(targetRow, targetColumn)
     val targetColumnShown: Boolean get() = columns.any { it.column == targetColumn }
+
+    /** Every column the worksheet actually uses, drawn or not. */
+    val totalColumns: Int get() = columns.size + hiddenColumns
 
     /** `122–134` — the row range as a person reads it (one-based), for the header line. */
     val rowRangeLabel: String get() = "${firstRow + 1}\u2013${lastRow + 1}"
@@ -52,8 +61,12 @@ object SheetWindows {
     /** Rows shown above and below the target row. */
     const val CONTEXT_ROWS = 6
 
-    /** Columns shown at most; when the sheet is wider, the ones nearest the target win. */
-    const val MAX_COLUMNS = 16
+    /**
+     * Columns drawn at most. Well above any real catalogue (the sample `LIST` sheet has 24), so the whole
+     * width is shown and the view scrolls horizontally; only an extreme sheet is bounded, and the window
+     * then says how many columns it left out instead of pretending the sheet ended.
+     */
+    const val MAX_COLUMNS = 96
 
     fun build(
         sheetName: String,
@@ -83,9 +96,11 @@ object SheetWindows {
         val chosen = if (usedColumns.size <= maxColumns.coerceAtLeast(1)) {
             usedColumns
         } else {
-            // Nearest to the verified cell first, so a wide sheet still shows what is around it.
-            usedColumns.sortedBy { abs(it - column) }.take(maxColumns.coerceAtLeast(1)).sorted()
+            // A sheet wider than the hard bound: keep the verified cell visible and say what was left out.
+            listOf(column).plus(usedColumns.sortedBy { abs(it - column) }).distinct()
+                .take(maxColumns.coerceAtLeast(1)).sorted()
         }
+        val hidden = (usedColumns.size - chosen.size).coerceAtLeast(0)
         val columns = chosen.map { SheetWindowColumn(it, CatalogueFiltering.columnLetter(it)) }
 
         val windowRows = visibleRows.map { rowIndex ->
@@ -112,6 +127,7 @@ object SheetWindows {
             targetColumn = column,
             headerRow = headerRow,
             headerValues = headerValues,
+            hiddenColumns = hidden,
         )
     }
 }

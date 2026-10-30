@@ -60,8 +60,8 @@ class WorkbookInsightsUiTest {
             catalog = catalog,
             health = HealthReportBuilder.build(catalog, analysis, null),
             analytics = CollectionAnalyticsBuilder.build(catalog),
-            publication = CollectionTimelineBuilder.publication(catalog),
-            acquisition = CollectionTimelineBuilder.acquisition(catalog),
+            publication = CollectionTimelineBuilder.published(catalog, CatalogFixtures.dates()),
+            acquisition = CollectionTimelineBuilder.acquired(catalog, CatalogFixtures.dates()),
             imported = CollectionTimelineBuilder.imported(catalog, null),
         )
     }

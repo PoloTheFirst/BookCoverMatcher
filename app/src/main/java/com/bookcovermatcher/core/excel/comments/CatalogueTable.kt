@@ -2,8 +2,28 @@ package com.bookcovermatcher.core.excel.comments
 
 import com.bookcovermatcher.core.excel.ZipSource
 
-/** One header column of a catalogue table, as the workbook spells it. [index] is its position. */
-data class CatalogueField(val name: String, val index: Int, val column: Int = index)
+/**
+ * One column of a catalogue table, as the workbook spells it.
+ *
+ * [index] is the column's position in [CatalogueTable.fields] and therefore in every record's
+ * [CatalogueRecord.values]; [column] is its zero-based source column. The two are only equal while no
+ * column is skipped, so nothing may use one as the other.
+ *
+ * A column can exist **without** a header: a blank header cell between two named columns is still a
+ * column of the table, and dropping it would shift every value to its right by one. [name] is then empty
+ * and [label] falls back to the column letter, so nothing in the UI prints an unnamed blank.
+ */
+data class CatalogueField(val name: String, val index: Int, val column: Int = index) {
+
+    /** False when the workbook left this column's header cell blank. The column is still real. */
+    val hasHeader: Boolean get() = name.trim().isNotEmpty()
+
+    /** What the UI prints: the workbook's own header, or `Column F` when the header cell is blank. */
+    val label: String get() = if (hasHeader) name.trim() else "Column " + CatalogueFiltering.columnLetter(column)
+
+    /** Excel's letter for this column, so a header can be read as a cell reference. */
+    val letter: String get() = CatalogueFiltering.columnLetter(column)
+}
 
 /** One catalogue row: the values of [CatalogueTable.fields], in field order. */
 data class CatalogueRecord(val row: Int, val values: List<String>) {
@@ -99,10 +119,25 @@ object CatalogueReader {
         val headerCells = byRow[headerRow].orEmpty().sortedBy { it.col }
         if (headerCells.size < MIN_HEADER_CELLS) return null
 
-        val fields = headerCells.mapIndexed { index, cell -> CatalogueField(cell.text, index, cell.col) }
-        val columns = headerCells.map { it.col }
+        // Every column between the first and the last header belongs to the table. A blank header cell is
+        // still a column: dropping it would shift every value to its right one column to the left, which
+        // is exactly how the columns at the right edge of a wide worksheet end up unreadable. A gap column
+        // is kept when it has a header or carries data; a completely empty one adds nothing and is skipped.
+        val firstColumn = headerCells.first().col
+        val lastColumn = headerCells.last().col
+        val dataColumns = cells.asSequence()
+            .filter { it.row > headerRow && it.col in firstColumn..lastColumn }
+            .map { it.col }
+            .toSet()
+        val columns = (firstColumn..lastColumn).filter { col ->
+            headerCells.any { it.col == col } || col in dataColumns
+        }
+        val headerByColumn = headerCells.associateBy { it.col }
+        val fields = columns.mapIndexed { index, col ->
+            CatalogueField(headerByColumn[col]?.text.orEmpty(), index, col)
+        }
         val byRowCol = cells.associateBy { it.row * 100_000L + it.col }
-        val headerTexts = headerCells.map { it.text.trim() }
+        val headerTexts = columns.map { col -> headerByColumn[col]?.text?.trim().orEmpty() }
 
         val records = ArrayList<CatalogueRecord>()
         for (row in (headerRow + 1)..(headerRow + maxRecords)) {

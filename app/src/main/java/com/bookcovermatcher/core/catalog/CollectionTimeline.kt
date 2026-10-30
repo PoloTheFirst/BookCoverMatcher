@@ -5,10 +5,10 @@ import java.time.ZoneId
 
 /** The three date meanings, kept apart on purpose. */
 enum class TimelineMode(val label: String) {
-    /** When the work was published, from the mapped publication column. */
+    /** When the work was published, from the column the user chose for it. */
     PUBLICATION("Published"),
 
-    /** When the user acquired the work. The app does not record this, so the mode is unavailable. */
+    /** When the user acquired the work, from the column the user chose for it. */
     ACQUISITION("Acquired"),
 
     /** When the workbook copy was imported into the app, from the saved-workbook library. */
@@ -41,8 +41,9 @@ data class TimelineSection(val year: Int, val entries: List<TimelineEntry>)
  * A timeline for one date meaning.
  *
  * Records whose date is absent or unreadable are **never dropped**: they are listed in [unknown] so the
- * collection stays complete and the gap stays visible. A mode the app cannot substantiate is reported as
- * unavailable with a reason instead of showing an empty timeline.
+ * collection stays complete and the gap stays visible. A mode with no usable date column is reported as
+ * unavailable with a reason instead of showing an empty timeline; [dateColumns] is the evidence — the
+ * state of every worksheet's chosen column, including one that has since been renamed.
  */
 data class CollectionTimeline(
     val mode: TimelineMode,
@@ -51,6 +52,8 @@ data class CollectionTimeline(
     val sections: List<TimelineSection> = emptyList(),
     val unknown: List<TimelineEntry> = emptyList(),
     val ascending: Boolean = false,
+    /** Per-worksheet state of the chosen date column; empty for the import timeline. */
+    val dateColumns: List<DateColumnReport> = emptyList(),
 ) {
     val datedCount: Int get() = sections.sumOf { it.entries.size }
     val unknownCount: Int get() = unknown.size
@@ -59,47 +62,80 @@ data class CollectionTimeline(
 
 object CollectionTimelineBuilder {
 
-    /** Publication dates come from the mapped publication column, at the precision it has. */
-    fun publication(catalog: WorkbookCatalog, ascending: Boolean = false): CollectionTimeline {
-        val mapped = catalog.entries.any { it.state(CatalogField.PUBLISHED) != FieldState.UNMAPPED }
+    /**
+     * The Published timeline, read from the column the user chose for each worksheet.
+     *
+     * Nothing is assigned automatically: an unconfigured workbook gets a setup message instead of a
+     * timeline built from whichever header happens to look like a date.
+     */
+    fun published(
+        catalog: WorkbookCatalog,
+        settings: TimelineDateSettings,
+        ascending: Boolean = false,
+    ): CollectionTimeline = dated(catalog, TimelineMode.PUBLICATION, settings, ascending)
+
+    /**
+     * The Acquired timeline, from its own column choice.
+     *
+     * It never borrows the publication date, and the publication timeline never borrows this one: the two
+     * columns are chosen separately, and a workbook with only one of them configured gets one timeline.
+     */
+    fun acquired(
+        catalog: WorkbookCatalog,
+        settings: TimelineDateSettings,
+        ascending: Boolean = false,
+    ): CollectionTimeline = dated(catalog, TimelineMode.ACQUISITION, settings, ascending)
+
+    private fun dated(
+        catalog: WorkbookCatalog,
+        mode: TimelineMode,
+        settings: TimelineDateSettings,
+        ascending: Boolean,
+    ): CollectionTimeline {
+        val reports = TimelineDates.inspectAll(catalog, settings, mode)
+        val bySheet = reports.associateBy { it.sheetName }
+
         val dated = ArrayList<Pair<CatalogDate, TimelineEntry>>()
         val unknown = ArrayList<TimelineEntry>()
         for (entry in catalog.entries) {
-            val base = entryOf(entry, CatalogDates.parse(entry.text(CatalogField.PUBLISHED)))
+            val table = catalog.tables[entry.sheetName]
+            val column = bySheet[entry.sheetName]?.column
+            val raw = if (table != null && column != null) TimelineDates.valueAt(table, entry.row, column) else null
+            val base = entryOf(entry, CatalogDates.parse(raw, allowSerial = true))
             val date = base.date
             if (date == null) unknown.add(base) else dated.add(date to base)
         }
+
         val ordered = dated.sortedWith(
             compareBy<Pair<CatalogDate, TimelineEntry>> { it.first.sortKey }.thenBy { it.second.recordId },
         ).let { if (ascending) it else it.reversed() }
+        val available = dated.isNotEmpty()
         return CollectionTimeline(
-            mode = TimelineMode.PUBLICATION,
-            available = mapped && dated.isNotEmpty(),
-            unavailableReason = if (!mapped) {
-                "No publication column is mapped for this workbook, so records cannot be placed on a timeline " +
-                    "by publication date. Map a date column in Fields, or use the unknown-date list below."
-            } else if (dated.isEmpty()) {
-                "The mapped publication column has no readable dates, so every record is in the unknown bucket."
-            } else {
-                null
-            },
+            mode = mode,
+            available = available,
+            unavailableReason = if (available) null else unavailableReason(mode, reports),
             sections = sectionsOf(ordered.map { it.second }),
-            unknown = unknown.sortedBy { it.recordId },
+            unknown = unknown.sortedWith(compareBy({ it.sheetName.lowercase() }, { it.row }, { it.recordId })),
             ascending = ascending,
+            dateColumns = reports,
         )
     }
 
-    /**
-     * Acquisition dates are not part of the data model: the app records when a *bookmark* was created,
-     * not when a physical work was acquired, so this mode says so instead of substituting another date.
-     */
-    fun acquisition(catalog: WorkbookCatalog): CollectionTimeline = CollectionTimeline(
-        mode = TimelineMode.ACQUISITION,
-        available = false,
-        unavailableReason = "The app does not record an acquisition date for workbook records, and an import " +
-            "date is not an acquisition date. Nothing is substituted.",
-        unknown = catalog.entries.map { entryOf(it, null) }.sortedBy { it.recordId },
-    )
+    /** Why a timeline has nothing to show — the setup case, the stale case, or an unreadable column. */
+    private fun unavailableReason(mode: TimelineMode, reports: List<DateColumnReport>): String {
+        val label = mode.label.lowercase()
+        val chosen = reports.filter { it.hasChoice }
+        return when {
+            chosen.isEmpty() ->
+                "No column is assigned to the $label date yet. Choose the column that holds it in " +
+                    "Configure date columns \u2014 the app does not guess it from a header name."
+            chosen.none { it.isUsable } ->
+                "The column(s) assigned to the $label date cannot be used. " +
+                    chosen.joinToString(" ") { "${it.sheetName}: ${it.message}" }
+            else ->
+                "The $label column is assigned, but no record has a value in it that can be read as a date."
+        }
+    }
 
     /**
      * Import dates come from the saved-workbook library (`importedAt`). A workbook that was only staged,

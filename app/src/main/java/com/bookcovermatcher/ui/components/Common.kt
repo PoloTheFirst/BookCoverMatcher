@@ -232,9 +232,19 @@ fun SegmentedTabRow(modifier: Modifier = Modifier, content: @Composable RowScope
 /**
  * One tab of a [SegmentedTabRow]. The label carries its own count (`Workbook (5)`) so the user can
  * see where results are without visiting every tab.
+ *
+ * [maxLines] exists for rows with four short sections on a narrow screen: the label wraps onto a second
+ * line at its normal size instead of being cut to `Catalogue (5\u2026)`. Shrinking the font is not an option —
+ * the section name is what the user reads.
  */
 @Composable
-fun SegmentedTab(label: String, active: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun SegmentedTab(
+    label: String,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 1,
+    onClick: () -> Unit,
+) {
     Box(
         modifier
             .clip(RoundedCornerShape(8.dp))
@@ -249,7 +259,7 @@ fun SegmentedTab(label: String, active: Boolean, modifier: Modifier = Modifier, 
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
         )
     }

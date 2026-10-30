@@ -18,6 +18,7 @@ import com.bookcovermatcher.core.catalog.HealthFinding
 import com.bookcovermatcher.core.catalog.HealthReport
 import com.bookcovermatcher.core.catalog.HealthReportBuilder
 import com.bookcovermatcher.core.catalog.HealthSeverity
+import com.bookcovermatcher.core.catalog.TimelineDateSettings
 import com.bookcovermatcher.core.catalog.TimelineEntry
 import com.bookcovermatcher.core.catalog.TimelineMode
 import com.bookcovermatcher.core.catalog.WorkbookCatalog
@@ -43,6 +44,7 @@ import com.bookcovermatcher.core.excel.comments.WorkbookAnalyzer
 import com.bookcovermatcher.core.export.ImageManifest
 import com.bookcovermatcher.data.ColumnMappingStore
 import com.bookcovermatcher.data.CommentImageCache
+import com.bookcovermatcher.data.TimelineDateStore
 import java.io.File
 import java.util.zip.ZipFile
 import kotlinx.coroutines.CoroutineScope
@@ -87,6 +89,8 @@ class WorkbookCommentsController(
 
     /** The saved column-mapping profiles; small JSON file, read once per open. */
     private val mappingStore = ColumnMappingStore(File(appContext.filesDir, "mappings"))
+    /** The user's date-column choices, stored beside the mapping profiles but scoped per workbook. */
+    private val dateStore = TimelineDateStore(File(appContext.filesDir, "mappings"))
 
     /** Opens the preview for [file], using the cache when the workbook hash is unchanged. */
     fun open(file: File, sha256: String, displayName: String, importedAt: Long = 0L) {
@@ -107,7 +111,11 @@ class WorkbookCommentsController(
         }
         job = scope.launch {
             val profiles = withContext(Dispatchers.IO) { mappingStore.load() }
-            _ui.update { if (it.sha256 == sha256) it.copy(profiles = profiles) else it }
+            // The date-column choices belong to this workbook, so they load with it and not with a profile.
+            val dates = withContext(Dispatchers.IO) { dateStore.load(sha256) }
+            _ui.update {
+                if (it.sha256 == sha256) it.copy(profiles = profiles, dateSettings = dates) else it
+            }
             val cached = withContext(Dispatchers.IO) { cache.read(sha256) }
             if (cached != null) {
                 val analysis = withContext(Dispatchers.IO) { analyze(file, cached) }
@@ -538,10 +546,11 @@ class WorkbookCommentsController(
         val chosen = profile
             ?: state.profiles.firstOrNull { it.name == state.activeProfile }
             ?: detectedProfile(analysis)
+        val dates = state.dateSettings
         _ui.update { it.insightsStarted() }
         scope.launch {
             val bundle = withContext(Dispatchers.IO) {
-                buildInsights(sha256, analysis, model, chosen, state.importedAt)
+                buildInsights(sha256, analysis, model, chosen, state.importedAt, dates)
             }
             _ui.update { current ->
                 if (!current.insightsBelongTo(sha256)) {
@@ -566,6 +575,7 @@ class WorkbookCommentsController(
         model: WorkbookCommentImages,
         profile: ColumnMappingProfile,
         importedAt: Long,
+        dates: TimelineDateSettings,
     ): InsightsBundle {
         val catalog = WorkbookCatalogBuilder.build(
             workbookSha256 = sha256,
@@ -578,8 +588,9 @@ class WorkbookCommentsController(
             catalog = catalog,
             health = HealthReportBuilder.build(catalog, analysis, model),
             analytics = CollectionAnalyticsBuilder.build(catalog),
-            publication = CollectionTimelineBuilder.publication(catalog),
-            acquisition = CollectionTimelineBuilder.acquisition(catalog),
+            // Both timelines read the columns the user chose for this workbook — never a guessed header.
+            publication = CollectionTimelineBuilder.published(catalog, dates),
+            acquisition = CollectionTimelineBuilder.acquired(catalog, dates),
             imported = CollectionTimelineBuilder.imported(catalog, importedAt.takeIf { it > 0L }),
         )
     }
@@ -695,7 +706,9 @@ class WorkbookCommentsController(
             it.mappingEdited(
                 draft = draft,
                 sheetName = table.sheetName,
-                headers = table.fields.map { field -> field.name },
+                // A profile maps headers by name, so a column whose header cell is blank cannot be named
+                // and is left out of the picker instead of appearing as an empty row.
+                headers = table.fields.filter { field -> field.hasHeader }.map { field -> field.name },
                 preview = preview.take(MAPPING_PREVIEW),
                 issues = ColumnMappings.resolve(table, profile).issues,
             )
@@ -725,6 +738,57 @@ class WorkbookCommentsController(
     fun setTimelineMode(mode: TimelineMode) = _ui.update { it.selectTimeline(mode) }
 
     fun toggleTimelineOrder() = _ui.update { it.toggleTimelineOrder() }
+
+    // ---- date columns (v2.4.0-dev.3) ----------------------------------------------------------
+
+    /** Opens the "Choose date columns" dialog; nothing is assigned until the user saves. */
+    fun openDateSetup(sheetName: String? = null) = _ui.update { it.openDateSetup(sheetName) }
+
+    fun closeDateSetup() = _ui.update { it.closeDateSetup() }
+
+    fun selectDateSetupSheet(sheetName: String) = _ui.update { it.dateSetupOn(sheetName) }
+
+    /** Switches the dialog between the Published and the Acquired slot. */
+    fun setDateSetupTarget(mode: TimelineMode) = _ui.update { it.dateSetupAssignTo(mode) }
+
+    /** Assigns a column to the open slot of the dialog (null clears it). */
+    fun assignDateColumn(header: String?) = _ui.update { it.dateSetupAssign(header) }
+
+    /** Empties both draft slots of the open worksheet; still nothing saved. */
+    fun clearDateColumns() = _ui.update { it.dateSetupCleared() }
+
+    /**
+     * Saves the dialog's two choices for this workbook and rebuilds the timelines with them.
+     *
+     * The choice is stored per workbook and worksheet, so another workbook's dates are untouched, and the
+     * rebuild goes through the same build every other report uses, so the Published and Acquired screens
+     * cannot disagree about a record.
+     */
+    fun saveDateSetup() {
+        val state = _ui.value
+        if (!state.dateSetupOpen) return
+        val committed = state.dateSetupCommitted()
+        val sha256 = committed.sha256
+        _ui.value = committed
+        scope.launch {
+            val stored = withContext(Dispatchers.IO) { dateStore.save(committed.dateSettings) }
+            // Read back what the store kept: an empty choice removes the workbook's entry entirely.
+            val saved = stored.firstOrNull { it.workbookSha256 == sha256 } ?: TimelineDateSettings(sha256)
+            _ui.update { if (it.sha256 == sha256) it.copy(dateSettings = saved) else it }
+            refreshInsights()
+            onMessage(
+                if (saved.isConfigured) {
+                    "Saved the date columns for this workbook."
+                } else {
+                    "Cleared the date columns for this workbook."
+                },
+                ToastKind.OK,
+            )
+        }
+    }
+
+    /** Catalogue tab: compact cards, or the whole worksheet with every column. */
+    fun setCatalogueView(view: CatalogueView) = _ui.update { it.showCatalogueView(view) }
 
     fun setHealthFilter(severity: HealthSeverity?, category: HealthCategory? = null) =
         _ui.update { it.filterHealth(severity, category) }

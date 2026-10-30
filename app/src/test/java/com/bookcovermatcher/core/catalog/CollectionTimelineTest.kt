@@ -14,8 +14,10 @@ class CollectionTimelineTest {
     private fun timeline(
         records: List<CatalogueRecord>,
         ascending: Boolean = false,
-    ): CollectionTimeline = CollectionTimelineBuilder.publication(
+        dates: TimelineDateSettings = CatalogFixtures.dates(),
+    ): CollectionTimeline = CollectionTimelineBuilder.published(
         CatalogFixtures.catalog(records = records),
+        dates,
         ascending = ascending,
     )
 
@@ -120,16 +122,62 @@ class CollectionTimelineTest {
         val result = timeline(records = listOf(CatalogFixtures.catalogueRecord(1, published = "")))
         assertFalse(result.available)
         assertEquals(1, result.unknownCount)
-        assertTrue(result.unavailableReason!!.contains("unknown bucket"))
+        assertTrue(result.unavailableReason!!.contains("cannot be used"))
+        assertEquals(DateColumnState.NO_READABLE_DATES, result.dateColumns.single().state)
     }
 
     @Test
-    fun `acquisition is unavailable and says why`() {
-        val result = CollectionTimelineBuilder.acquisition(CatalogFixtures.catalog())
+    fun `an unconfigured workbook asks for a column instead of guessing one`() {
+        // The fixture's 発行日 column holds 2024-05-17, and the alias list would happily pick it. The app
+        // must not: without a choice there is no publication timeline at all.
+        val result = timeline(records = listOf(CatalogFixtures.catalogueRecord(1)), dates = CatalogFixtures.dates(published = null))
         assertFalse(result.available)
-        assertEquals(TimelineMode.ACQUISITION, result.mode)
-        assertTrue(result.unavailableReason!!.contains("acquisition date"))
-        assertEquals(2, result.unknownCount)
+        assertEquals(1, result.unknownCount)
+        assertTrue(result.unavailableReason!!.contains("No column is assigned"))
+        assertEquals(DateColumnState.NOT_SET, result.dateColumns.single().state)
+    }
+
+    @Test
+    fun `acquisition reads its own column and never the publication one`() {
+        val catalog = CatalogFixtures.catalog(
+            records = listOf(
+                CatalogFixtures.catalogueRecord(1, published = "2021-04-02"),
+                CatalogFixtures.catalogueRecord(2, published = "2024"),
+            ),
+        )
+        val onlyPublished = CollectionTimelineBuilder.acquired(catalog, CatalogFixtures.dates())
+        assertFalse("acquisition must not borrow the publication column", onlyPublished.available)
+        assertEquals(2, onlyPublished.unknownCount)
+
+        val both = CatalogFixtures.dates(published = "発行日", acquired = "発行日")
+        val acquired = CollectionTimelineBuilder.acquired(catalog, both)
+        assertTrue(acquired.available)
+        assertEquals(TimelineMode.ACQUISITION, acquired.mode)
+        assertEquals(listOf(2024, 2021), acquired.sections.map { it.year })
+    }
+
+    @Test
+    fun `an acquisition date that is a serial number is read when the user chose the column`() {
+        val record = CatalogFixtures.record(
+            1, "Book", "Circle", "Artist", "43465", "ID", "url", "1200", "tag", "note",
+        )
+        val result = CollectionTimelineBuilder.acquired(
+            CatalogFixtures.catalog(records = listOf(record)),
+            CatalogFixtures.dates(published = null, acquired = "発行日"),
+        )
+        assertTrue(result.available)
+        assertEquals("2018-12-31", result.sections.single().entries.single().dateLabel)
+    }
+
+    @Test
+    fun `a renamed date column leaves the timeline in its setup state`() {
+        val result = timeline(
+            records = listOf(CatalogFixtures.catalogueRecord(1)),
+            dates = CatalogFixtures.dates(published = "公開日"),
+        )
+        assertFalse(result.available)
+        assertEquals(DateColumnState.HEADER_MISSING, result.dateColumns.single().state)
+        assertTrue(result.unavailableReason!!.contains("not in this worksheet"))
     }
 
     @Test
@@ -159,7 +207,7 @@ class CollectionTimelineTest {
     @Test
     fun `a timeline entry carries the record it came from`() {
         val catalog = CatalogFixtures.catalog(images = listOf(CatalogFixtures.linked("xl/media/image1.png", row = 1)))
-        val entry = CollectionTimelineBuilder.publication(catalog).sections.single().entries
+        val entry = CollectionTimelineBuilder.published(catalog, CatalogFixtures.dates()).sections.single().entries
             .first { it.row == 1 }
         assertEquals("xl/worksheets/sheet1.xml#1", entry.recordId)
         assertEquals("LIST!2", entry.locationLabel)

@@ -74,6 +74,17 @@ object CatalogFixtures {
         ),
     )
 
+    /**
+     * Date columns a *test* chose — the app never chooses them. Passing null leaves that timeline
+     * unconfigured, which is the state an untouched workbook is in.
+     */
+    fun dates(
+        published: String? = "発行日",
+        acquired: String? = null,
+        sheetName: String = "LIST",
+        sha256: String = SHA,
+    ): TimelineDateSettings = TimelineDateSettings(sha256, mapOf(sheetName to SheetDateChoice(published, acquired)))
+
     fun hit(sheetName: String, row: Int, title: String? = null): CatalogueHit =
         CatalogueHit(sheetName, row, title, null, null, emptyMap())
 

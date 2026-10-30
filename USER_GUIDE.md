@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.4.0-dev.2)
+# BookCover Matcher - User Guide (v2.4.0-dev.3)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -267,9 +267,9 @@ changes your workbook, and everything works offline.
   and groups them by Circle, Artist, tag, worksheet and publication year. The rules are printed on the
   screen: one record is one row of the sheet, a blank cell counts as *missing* and never as zero, and
   possible duplicates are shown but not subtracted from the totals.
-* **Timeline** groups records by publication year, newest or oldest first, and keeps records whose date is
-  absent or unreadable in **No date known** — they never disappear. **Acquired** says it is unavailable
-  because the app does not record when a work was bought, and **Imported** uses the date the saved copy was
+* **Timeline** groups records by year, newest or oldest first, and keeps records whose date is absent or
+  unreadable in **No date known** — they never disappear. **Published** and **Acquired** read the two columns
+  you assigned (see below) and never borrow each other's; **Imported** uses the date the saved copy was
   imported. **Go to row** opens the source view for that record.
 * **Fields** maps the worksheet's own columns to the app's fields: Title, Circle, Artist, Product ID, URL,
   Price, Description, Publication date and Tags. Tap a field, pick the column, and the preview under the
@@ -277,6 +277,31 @@ changes your workbook, and everything works offline.
   used by two fields. **Apply mapping** uses it for the reports; **Save profile…** stores it by name so the
   same layout can be reused on another workbook. A profile remembers column *names*, so inserting a column
   in Excel does not break it, and Circle and Artist stay two different fields.
+
+### Every column, and the two date columns (v2.4.0-dev.3)
+
+**Seeing all columns.** The *Catalogue* tab now has a **Cards / Table** switch. *Cards* is the record list you
+already know. *Table* draws the worksheet itself: every column the sheet uses, in the workbook's own order,
+with Excel's column letter above each header, the row number held still on the left, and one sideways scroll
+that moves the header row and the values together — so `ツイッター`, `ツイッター (ユーザー名)`, `ミスキー` and
+`ミスキー (ユーザー名)` at the right edge of a wide sheet are reachable instead of cut off. Tap a row number to
+open that row in the source view. A column whose header cell is blank still appears, labelled with its letter
+(*Column C*), because the values below it belong to it.
+
+**Choosing the date columns.** In *Insights → Timeline*, press **Choose date columns…**:
+
+1. Pick the worksheet (only shown when the workbook has more than one catalogue sheet).
+2. Choose the row **Published timeline** or **Acquired timeline** — they are independent.
+3. Tap the column that holds that date. The dialog shows how many of its values can be read and a few real
+   examples (`43465 → 2018-12-31`), and it never chooses a column for you, even when a header says
+   `出版日付`.
+4. **Save** keeps it for this workbook and this worksheet; **Clear both** removes both; **Cancel** changes
+   nothing.
+
+The assignment is remembered for that workbook only, and it survives closing the app. If the column is later
+renamed or deleted, the timeline says the column is gone and asks you to choose again instead of reading a
+neighbouring column. Excel date serial numbers (a cell that shows a date but stores `43465`) are read as dates
+in the columns you picked.
 
 ### Saved workbooks (More → Saved workbooks)
 

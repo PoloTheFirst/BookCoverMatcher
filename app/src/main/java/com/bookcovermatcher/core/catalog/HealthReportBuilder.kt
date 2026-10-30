@@ -228,7 +228,8 @@ object HealthReportBuilder {
                 }
             }
             entry.text(CatalogField.PUBLISHED)?.let { raw ->
-                if (CatalogDates.isMalformed(raw)) {
+                // The publication field is a date column by definition, so an Excel serial is readable here.
+                if (CatalogDates.isMalformed(raw, allowSerial = true)) {
                     out.putIfAbsent(
                         "record:date:${entry.id}",
                         recordFinding(

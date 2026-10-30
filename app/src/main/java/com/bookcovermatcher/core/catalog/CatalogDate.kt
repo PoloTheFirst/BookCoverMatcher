@@ -38,8 +38,13 @@ data class CatalogDate(val year: Int, val month: Int? = null, val day: Int? = nu
  *  * `2024-05`, `2024/5`, `2024.05`, `2024年5月` -> month
  *  * `2024-05-17`, `2024/5/17`, `2024.5.17`, `2024年5月17日` -> day
  *
- * Everything else is null: `17/05/2024` (ambiguous day/month order), an Excel serial number, a range or
- * free text. The caller groups those records as unknown instead of inventing a date.
+ * An Excel serial number (`45292` = 2024-01-01) is read only when the caller says the column is a date
+ * column ([allowSerial]): outside a date column a bare number is just a number, and reading it as a day
+ * in 1900 would invent a date. Serials below 1927 are not read at all, because a four-digit value there
+ * is far more likely a year than a serial.
+ *
+ * Everything else is null: `17/05/2024` (ambiguous day/month order), a range or free text. The caller
+ * groups those records as unknown instead of inventing a date.
  */
 object CatalogDates {
 
@@ -47,7 +52,20 @@ object CatalogDates {
     private val MONTH = Regex("^(\\d{4})\\s*[-/.年]\\s*(\\d{1,2})\\s*月?$")
     private val DAY = Regex("^(\\d{4})\\s*[-/.年]\\s*(\\d{1,2})\\s*[-/.月]\\s*(\\d{1,2})\\s*日?$")
 
-    fun parse(raw: String?): CatalogDate? {
+    /** A serial number, with Excel's optional time fraction (`45292.5`) which is ignored. */
+    private val SERIAL = Regex("^(\\d{5,7})(?:\\.\\d+)?$")
+
+    /** 1927-05-18; a smaller value is treated as a year rather than as a 1900s serial. */
+    const val MIN_SERIAL = 10_000
+
+    /** 9999-12-31, the largest serial Excel can store. */
+    const val MAX_SERIAL = 2_958_465
+
+    /**
+     * @param allowSerial read a bare number as an Excel serial date. Only pass true for a column the
+     * caller knows holds dates (the timeline's configured date columns).
+     */
+    fun parse(raw: String?, allowSerial: Boolean = false): CatalogDate? {
         val text = raw?.trim().orEmpty()
         if (text.isEmpty()) return null
         YEAR.matchEntire(text)?.let { match ->
@@ -68,13 +86,28 @@ object CatalogDates {
             if (month !in 1..12 || day < 1 || day > daysIn(year, month)) return null
             return CatalogDate(year, month, day)
         }
-        return null
+        return if (allowSerial) serial(text) else null
+    }
+
+    /**
+     * An Excel serial number as a date.
+     *
+     * Excel counts days from 1899-12-30 for serials of 60 and above (serial 60 is its non-existent
+     * 1900-02-29), so that is the base used here; nothing is rounded or padded.
+     */
+    fun serial(raw: String?): CatalogDate? {
+        val match = SERIAL.matchEntire(raw?.trim().orEmpty()) ?: return null
+        val days = match.groupValues[1].toLongOrNull() ?: return null
+        if (days < MIN_SERIAL || days > MAX_SERIAL) return null
+        val date = runCatching { java.time.LocalDate.of(1899, 12, 30).plusDays(days) }.getOrNull() ?: return null
+        if (date.year !in CatalogDate.MIN_YEAR..CatalogDate.MAX_YEAR) return null
+        return CatalogDate(date.year, date.monthValue, date.dayOfMonth)
     }
 
     /** True when the text is non-blank and cannot be read as a date — the health report says so. */
-    fun isMalformed(raw: String?): Boolean {
+    fun isMalformed(raw: String?, allowSerial: Boolean = false): Boolean {
         val text = raw?.trim().orEmpty()
-        return text.isNotEmpty() && parse(text) == null
+        return text.isNotEmpty() && parse(text, allowSerial) == null
     }
 
     private fun daysIn(year: Int, month: Int): Int = when (month) {

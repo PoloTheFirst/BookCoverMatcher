@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -51,6 +53,8 @@ import com.bookcovermatcher.core.catalog.CatalogField
 import com.bookcovermatcher.core.catalog.CollectionTimeline
 import com.bookcovermatcher.core.catalog.FieldState
 import com.bookcovermatcher.core.catalog.GalleryFilter
+import com.bookcovermatcher.core.catalog.DateColumnReport
+import com.bookcovermatcher.core.catalog.DateColumnState
 import com.bookcovermatcher.core.catalog.GallerySort
 import com.bookcovermatcher.core.catalog.HealthCategory
 import com.bookcovermatcher.core.catalog.HealthFinding
@@ -81,7 +85,7 @@ fun InsightsPanel(
         Box(Modifier.fillMaxWidth().weight(1f)) {
             val catalog = state.catalog
             when {
-                catalog == null && state.insightsBusy -> InsightNote("Reading the workbook's records…")
+                catalog == null && state.insightsBusy -> InsightNote("Reading the workbook's records\u2026")
                 catalog == null && state.insightsError != null -> Column(Modifier.fillMaxSize()) {
                     InsightNote(state.insightsError)
                     InsightAction("Try again") { controller.refreshInsights() }
@@ -97,6 +101,9 @@ fun InsightsPanel(
             }
         }
     }
+    // The date-column dialog belongs to the timeline but is opened from it, so it lives outside the
+    // tab branch: switching tabs must not silently drop a half-made choice.
+    DateColumnsDialog(state, controller)
 }
 
 @Composable
@@ -335,6 +342,15 @@ private fun FindingCard(finding: HealthFinding, controller: WorkbookCommentsCont
 private fun GalleryPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
     val catalog = state.catalog ?: return
     val filter = state.galleryFilter
+    // The grid owns its scroll state so it can be moved deliberately: when the order (or the filtered
+    // dataset) changes, the first card of the new order is what the user needs to see. A thumbnail that
+    // finishes decoding, a dialog opening or a report rebuilding leaves the key — and the scroll — alone.
+    val gridState = rememberLazyGridState()
+    LaunchedEffect(state.galleryOrderKey) {
+        if (gridState.firstVisibleItemIndex != 0 || gridState.firstVisibleItemScrollOffset != 0) {
+            gridState.scrollToItem(0)
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         SearchField(filter.query, { controller.setGalleryQuery(it) }, "Search title, circle, artist, ID or cell")
         Row(
@@ -380,6 +396,7 @@ private fun GalleryPanel(state: WorkbookCommentsUi, controller: WorkbookComments
         }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(150.dp),
+            state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -595,14 +612,14 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             for (mode in TimelineMode.entries) {
-                val available = when (mode) {
-                    TimelineMode.PUBLICATION -> state.publicationTimeline?.available == true
-                    TimelineMode.ACQUISITION -> false
-                    TimelineMode.IMPORT -> state.importTimeline?.available == true
-                }
-                ChoiceChip(if (available) mode.label else mode.label + " \u00B7 n/a", state.timelineMode == mode) {
+                val available = state.timelineOf(mode)?.available == true
+                ChoiceChip(if (available) mode.label else mode.label + " \u00B7 setup", state.timelineMode == mode) {
                     controller.setTimelineMode(mode)
                 }
+            }
+            // The Published and Acquired columns are the user's to choose; the import date is not.
+            if (state.timelineMode != TimelineMode.IMPORT) {
+                InsightAction("Choose date columns\u2026") { controller.openDateSetup() }
             }
         }
         if (timeline == null) {
@@ -623,14 +640,21 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
                 controller.toggleTimelineOrder()
             }
         }
+        // What each worksheet's chosen column holds, so a wrong or renamed column is visible here.
+        for (report in timeline.dateColumns) DateColumnLine(report)
         if (!timeline.available && timeline.unavailableReason != null) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(8.dp)).background(Palette.Navy800)
                     .border(1.dp, Palette.Line, RoundedCornerShape(8.dp)).padding(10.dp),
             ) {
-                Text("This timeline is not available", color = Palette.Warn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("This timeline needs a date column", color = Palette.Warn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 Text(timeline.unavailableReason, color = Palette.Text.copy(alpha = 0.85f), fontSize = 10.5.sp, modifier = Modifier.padding(top = 3.dp))
+                if (timeline.mode != TimelineMode.IMPORT) {
+                    InsightAction("Choose the ${timeline.mode.label.lowercase()} column\u2026") {
+                        controller.openDateSetup()
+                    }
+                }
             }
         }
         val sections = if (state.timelineAscending) {
@@ -658,6 +682,197 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
             if (timeline.sections.isEmpty() && timeline.unknown.isEmpty()) {
                 item { InsightNote("No records to place on a timeline.") }
             }
+        }
+    }
+}
+
+/** One line per worksheet: the chosen column, its letter, and what it actually contains. */
+@Composable
+private fun DateColumnLine(report: DateColumnReport) {
+    val ready = report.isUsable
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            report.sheetName,
+            color = Palette.Text, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.widthIn(min = 44.dp),
+        )
+        Text(
+            if (report.hasChoice) " \u00B7 ${report.columnLabel}" else " \u00B7 no column chosen",
+            color = if (ready) Palette.Accent else Palette.Warn,
+            fontSize = 9.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            report.state.label,
+            color = if (ready) Palette.Ok else Palette.Warn,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/**
+ * Choosing the Published and the Acquired column: two slots, one list of the worksheet's own columns.
+ *
+ * Nothing is pre-selected from a header name, and nothing is saved until Save: the drafts live in the UI
+ * state, so closing the dialog leaves the stored assignment exactly as it was. Each slot reports how many
+ * values of its column can be read before the user commits to it.
+ */
+@Composable
+private fun DateColumnsDialog(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    if (!state.dateSetupOpen) return
+    val table = state.dateSetupTable
+    val target = state.dateSetupTarget
+    val current = if (target == TimelineMode.PUBLICATION) state.dateSetupPublished else state.dateSetupAcquired
+    Dialog(onDismissRequest = controller::closeDateSetup) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp)).padding(12.dp),
+        ) {
+            Text("Date columns", color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                "${state.workbookName} \u00B7 ${table?.sheetName ?: "no worksheet"}. " +
+                    "The app never picks these columns for you.",
+                color = Palette.Muted, fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 3.dp),
+            )
+            val sheets = state.catalog?.sheetNames.orEmpty()
+            if (sheets.size > 1) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    for (sheet in sheets) {
+                        ChoiceChip(sheet, state.dateSetupSheet == sheet) { controller.selectDateSetupSheet(sheet) }
+                    }
+                }
+            }
+            DateSlot(
+                TimelineMode.PUBLICATION,
+                state.dateSetupPublished,
+                state.dateSetupReport(TimelineMode.PUBLICATION),
+                target == TimelineMode.PUBLICATION,
+            ) { controller.setDateSetupTarget(TimelineMode.PUBLICATION) }
+            DateSlot(
+                TimelineMode.ACQUISITION,
+                state.dateSetupAcquired,
+                state.dateSetupReport(TimelineMode.ACQUISITION),
+                target == TimelineMode.ACQUISITION,
+            ) { controller.setDateSetupTarget(TimelineMode.ACQUISITION) }
+            Text(
+                "Choose the ${target.label.lowercase()} column:",
+                color = Palette.Text, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+            )
+            LazyColumn(
+                Modifier.fillMaxWidth().heightIn(max = 208.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                item(key = "none") {
+                    PickRow("Not set", current == null) { controller.assignDateColumn(null) }
+                }
+                items(state.dateSetupColumns, key = { it.column }) { field ->
+                    val selected = current != null && field.name == current
+                    PickRow("${field.letter} \u00B7 ${field.label}", selected) {
+                        // Tapping the chosen column again clears the slot instead of leaving a stale name.
+                        controller.assignDateColumn(if (selected) null else field.name)
+                    }
+                }
+            }
+            state.dateSetupReport(target)?.let { report -> DatePreview(report) }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                InsightAction("Save") { controller.saveDateSetup() }
+                InsightAction("Clear both") { controller.clearDateColumns() }
+                InsightAction("Cancel") { controller.closeDateSetup() }
+            }
+        }
+    }
+}
+
+/** One of the dialog's two slots: its name, its column, and the state of that column. */
+@Composable
+private fun DateSlot(
+    mode: TimelineMode,
+    header: String?,
+    report: DateColumnReport?,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    val ready = report?.isUsable == true
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (active) Palette.Accent.copy(alpha = 0.16f) else Palette.Navy700)
+            .border(1.dp, if (active) Palette.Accent else Palette.Line, RoundedCornerShape(8.dp))
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "${mode.label} timeline",
+                color = Palette.Text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                when {
+                    header == null -> "Not set"
+                    report?.column != null -> report.columnLabel
+                    else -> header
+                },
+                color = if (header == null) Palette.Muted else Palette.Accent,
+                fontSize = 9.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            report?.state?.label ?: DateColumnState.NOT_SET.label,
+            color = if (ready) Palette.Ok else Palette.Warn,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/** What the chosen column holds: the counts as a sentence, and a few real values as stored. */
+@Composable
+private fun DatePreview(report: DateColumnReport) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 4.dp)
+            .clip(RoundedCornerShape(8.dp)).background(Palette.Navy700).padding(8.dp),
+    ) {
+        Text(
+            report.message,
+            color = if (report.isUsable) Palette.Text.copy(alpha = 0.9f) else Palette.Warn,
+            fontSize = 9.5.sp,
+        )
+        if (report.samples.isNotEmpty()) {
+            Text(
+                report.samples.joinToString("   ") { sample -> "${sample.raw} \u2192 ${sample.label}" },
+                color = Palette.Muted,
+                fontSize = 9.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        if (report.state == DateColumnState.HEADER_MISSING || report.state == DateColumnState.HEADER_AMBIGUOUS) {
+            Text(
+                "That column is no longer usable in this worksheet, so the timeline stays in its setup state " +
+                    "until another one is chosen.",
+                color = Palette.Warn,
+                fontSize = 9.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
     }
 }

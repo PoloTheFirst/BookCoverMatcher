@@ -66,7 +66,8 @@ object CollectionAnalyticsBuilder {
         val years = HashMap<Int, Int>()
         var unknownYear = 0
         for (entry in entries) {
-            val date = CatalogDates.parse(entry.text(CatalogField.PUBLISHED))
+            // The publication field is a date column by definition: an Excel serial is a real date here.
+            val date = CatalogDates.parse(entry.text(CatalogField.PUBLISHED), allowSerial = true)
             if (date == null) unknownYear++ else years[date.year] = (years[date.year] ?: 0) + 1
         }
 

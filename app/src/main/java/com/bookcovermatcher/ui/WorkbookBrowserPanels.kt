@@ -1,6 +1,7 @@
 package com.bookcovermatcher.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,8 +50,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.bookcovermatcher.CatalogueRow
+import com.bookcovermatcher.CatalogueView
 import com.bookcovermatcher.WorkbookCommentsController
 import com.bookcovermatcher.WorkbookCommentsUi
+import com.bookcovermatcher.core.excel.comments.CatalogueRecord
+import com.bookcovermatcher.core.excel.comments.CatalogueTable
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
 import com.bookcovermatcher.core.excel.comments.ImageState
@@ -552,6 +557,10 @@ private fun decodeThumbnail(bytes: ByteArray, maxEdge: Int): android.graphics.Bi
 /**
  * Catalogue search: the workbook's own tables, a free-text search over their columns, and how many
  * records have a verified image. A record without one is still listed and said to have none.
+ *
+ * Two views, and the second one exists because a card cannot show a wide worksheet: [CatalogueView.CARDS]
+ * shows the identifying columns, [CatalogueView.TABLE] draws **every** column the parser found, in the
+ * workbook's own order, with one shared horizontal scroll so the header travels with its values.
  */
 @Composable
 fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsController, modifier: Modifier = Modifier) {
@@ -580,6 +589,27 @@ fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsCont
         Spacer(Modifier.height(6.dp))
         SearchField(state.catalogueQuery, controller::setCatalogueQuery, "Search title, author, circle, any column\u2026")
         Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            for (view in CatalogueView.entries) {
+                ChoiceChip(view.label, state.catalogueView == view) { controller.setCatalogueView(view) }
+            }
+        }
+        val tables = state.scopedTables
+        val columnCount = tables.sumOf { it.fields.size }
+        Text(
+            if (state.catalogueView == CatalogueView.TABLE) {
+                "$columnCount column(s) on ${tables.size} worksheet(s) \u2014 all of them are drawn; " +
+                    "scroll sideways to reach the last one. Tap a row number to open that row."
+            } else {
+                "$columnCount column(s) on ${tables.size} worksheet(s); a card shows the identifying ones. " +
+                    "Switch to Table to see every column."
+            },
+            color = Palette.Muted, fontSize = 9.5.sp,
+            modifier = Modifier.padding(vertical = 3.dp),
+        )
 
         val records = state.visibleRecords
         Text(
@@ -587,49 +617,205 @@ fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsCont
             color = Palette.Muted, fontSize = 9.5.sp,
         )
         Spacer(Modifier.height(4.dp))
-        LazyColumn(Modifier.fillMaxSize()) {
-            items(records.size) { index ->
-                val row = records[index]
-                val table = row.table
-                val record = row.record
-                val hasImage = row.hasImage
-                Column(
-                    Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(Palette.Navy700)
-                        .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
-                        .padding(8.dp),
-                ) {
-                    Text("${table.sheetName}!${record.row + 1}", color = Palette.Muted, fontSize = 8.5.sp)
-                    table.identifyingFields.forEach { field ->
-                        val value = record.value(field)
-                        if (value.isNotEmpty()) {
-                            Text(
-                                if (field == table.titleField) value else "${field.name}: $value",
-                                color = if (field == table.titleField) Palette.Text else Palette.Muted,
-                                fontSize = if (field == table.titleField) 11.5.sp else 9.5.sp,
-                                fontWeight = if (field == table.titleField) FontWeight.Bold else FontWeight.Normal,
-                                maxLines = 2,
-                            )
-                        }
-                    }
-                    Text(
-                        if (hasImage) "Verified image" else "No image linked",
-                        color = if (hasImage) Palette.Ok else Palette.Muted,
-                        fontSize = 9.sp,
-                    )
-                    // The record's row is a verified location; the app labels it as a row, not a cell.
-                    SmallAction("Go to row") {
-                        controller.openSource(
-                            "${table.sheetName} row ${record.row + 1}",
-                            SourceLocations.ofRecord(table, record, state.sheets),
+        when (state.catalogueView) {
+            CatalogueView.CARDS -> RecordCards(records, state, controller)
+            CatalogueView.TABLE -> WorksheetTables(tables, records) { table, record ->
+                controller.openSource(
+                    "${table.sheetName} row ${record.row + 1}",
+                    SourceLocations.ofRecord(table, record, state.sheets),
+                )
+            }
+        }
+    }
+}
+
+/** The compact record list: the identifying columns, one card per record. */
+@Composable
+private fun RecordCards(
+    records: List<CatalogueRow>,
+    state: WorkbookCommentsUi,
+    controller: WorkbookCommentsController,
+) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        items(records.size) { index ->
+            val row = records[index]
+            val table = row.table
+            val record = row.record
+            val hasImage = row.hasImage
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Palette.Navy700)
+                    .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
+                    .padding(8.dp),
+            ) {
+                Text("${table.sheetName}!${record.row + 1}", color = Palette.Muted, fontSize = 8.5.sp)
+                table.identifyingFields.forEach { field ->
+                    val value = record.value(field)
+                    if (value.isNotEmpty()) {
+                        Text(
+                            // A column without a header is labelled by its letter, never left blank.
+                            if (field == table.titleField) value else "${field.label}: $value",
+                            color = if (field == table.titleField) Palette.Text else Palette.Muted,
+                            fontSize = if (field == table.titleField) 11.5.sp else 9.5.sp,
+                            fontWeight = if (field == table.titleField) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 2,
                         )
                     }
+                }
+                Text(
+                    if (hasImage) "Verified image" else "No image linked",
+                    color = if (hasImage) Palette.Ok else Palette.Muted,
+                    fontSize = 9.sp,
+                )
+                // The record's row is a verified location; the app labels it as a row, not a cell.
+                SmallAction("Go to row") {
+                    controller.openSource(
+                        "${table.sheetName} row ${record.row + 1}",
+                        SourceLocations.ofRecord(table, record, state.sheets),
+                    )
                 }
             }
         }
     }
 }
+
+/** Width of one worksheet cell in the table view; wide enough for a Japanese header to be read. */
+private val TABLE_CELL_WIDTH = 104.dp
+
+/** Width of the frozen row-number column, so it stays visible while the cells scroll sideways. */
+private val TABLE_ROW_LABEL_WIDTH = 40.dp
+
+/**
+ * Every column of every worksheet in scope, in the workbook's own order.
+ *
+ * The header row and the data rows share one [ScrollState], so a column's header can never be read above
+ * another column's values. The row-number column is frozen outside the scroll, and each row number opens
+ * that row in the verified source view. Rows stay lazy: a worksheet with thousands of records renders only
+ * what is on screen.
+ */
+@Composable
+private fun WorksheetTables(
+    tables: List<CatalogueTable>,
+    records: List<CatalogueRow>,
+    onGoToRow: (CatalogueTable, CatalogueRecord) -> Unit,
+) {
+    val horizontal = rememberScrollState()
+    LazyColumn(Modifier.fillMaxSize()) {
+        for (table in tables) {
+            val rows = records
+                .filter { it.table.sheetName == table.sheetName && it.table.headerRow == table.headerRow }
+                .map { it.record }
+            item(key = "sheet-${table.sheetName}") { TableSheetHeader(table, rows.size) }
+            item(key = "head-${table.sheetName}") { TableHeaderRow(table, horizontal) }
+            items(count = rows.size, key = { index -> "${table.sheetName}#${rows[index].row}" }) { index ->
+                val record = rows[index]
+                TableDataRow(record, table, horizontal) { onGoToRow(table, record) }
+            }
+            if (rows.isEmpty()) {
+                item(key = "empty-${table.sheetName}") {
+                    Text(
+                        "No record of this worksheet matches the search.",
+                        color = Palette.Muted, fontSize = 9.5.sp,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One worksheet's title line: its name, its column span and how many of its rows are shown. */
+@Composable
+private fun TableSheetHeader(table: CatalogueTable, shown: Int) {
+    val first = table.fields.firstOrNull()
+    val last = table.fields.lastOrNull()
+    val span = if (first != null && last != null) {
+        "${first.letter}\u2013${last.letter}"
+    } else {
+        "\u2014"
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp)) {
+        Text(
+            "${table.sheetName} \u00B7 ${table.fields.size} column(s) ($span) \u00B7 header row ${table.headerRow + 1}",
+            color = Palette.Text, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "$shown of ${table.records.size} record(s) shown",
+            color = Palette.Muted, fontSize = 9.sp,
+        )
+    }
+}
+
+/** The worksheet's header row: every column, its letter and the workbook's own header text. */
+@Composable
+private fun TableHeaderRow(table: CatalogueTable, horizontal: ScrollState) {
+    Row(Modifier.fillMaxWidth().background(Palette.Navy700)) {
+        Box(Modifier.width(TABLE_ROW_LABEL_WIDTH).padding(horizontal = 3.dp, vertical = 4.dp)) {
+            Text("row", color = Palette.Muted, fontSize = 8.5.sp)
+        }
+        Row(Modifier.horizontalScroll(horizontal)) {
+            for (field in table.fields) {
+                Column(
+                    Modifier.width(TABLE_CELL_WIDTH)
+                        .padding(horizontal = 4.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        field.letter,
+                        color = Palette.Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        field.label,
+                        color = if (field.hasHeader) Palette.Text else Palette.Muted,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One worksheet record, aligned cell by cell with [table]'s header row. */
+@Composable
+private fun TableDataRow(
+    record: CatalogueRecord,
+    table: CatalogueTable,
+    horizontal: ScrollState,
+    onClick: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier.width(TABLE_ROW_LABEL_WIDTH)
+                .clickable(role = Role.Button, onClick = onClick)
+                .padding(horizontal = 3.dp, vertical = 4.dp),
+        ) {
+            Text(
+                "${record.row + 1}",
+                color = Palette.Accent, fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+            )
+        }
+        Row(Modifier.horizontalScroll(horizontal)) {
+            // One cell per column of the table, in the table's own order: values are aligned with
+            // [table].fields by index, so a cell can never sit under its neighbour's header.
+            record.values.forEach { value ->
+                Text(
+                    value,
+                    color = if (value.isEmpty()) Palette.Muted else Palette.Text,
+                    fontSize = 9.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .width(TABLE_CELL_WIDTH)
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                )
+            }
+        }
+    }
+}
+
 
 /** Searchable worksheet picker: every sheet, in workbook order, hidden ones labelled. */
 @Composable
