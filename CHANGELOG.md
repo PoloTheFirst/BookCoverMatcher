@@ -1,12 +1,83 @@
-# Read every column of a worksheet, and choose the dates yourself
+# Search a timeline, scope a report, and read a stable count
 
-**v2.4.0-dev.3 is a development build** of 2.4.0: the workbook preview now shows **every column** of a
-worksheet instead of the sixteen nearest the verified cell, can draw the worksheet itself instead of only
-cards, and lets **you** assign the Published and the Acquired date columns — the app never guesses one from a
-header name. The four section labels are readable in full, and the Insights gallery returns to the top when
-its order changes.
+**v2.4.0-dev.4 is a development build** of 2.4.0: the Insights directory is now ordered **Health, Analytics,
+Gallery, Timeline** (analysis first, browsing second), its entries show the section name above the count
+instead of squeezing both onto one line, the timeline can be **searched and narrowed to a year range** and
+returns to the top when you switch between Published and Acquired, the gallery's search bar no longer sits on
+top of its filter chips, and the Health report and the analytics can be limited to **any set of worksheets**
+with every number and breakdown recalculated for that selection.
 
 This is a beta. The layout and the wording may still change before 2.4.0 is released.
+
+## v2.4.0-dev.4 (2026-10-31)
+
+### Fixed
+
+* **The timeline kept the previous mode's scroll position.** Switching from Published to Acquired (or back)
+  left the list where the other dataset had been scrolled to. The list now owns its `LazyListState` and
+  returns to the first item when the meaning, the ordering or the filter actually changes — and only then,
+  so a rebuilt report, a thumbnail or any other recomposition no longer moves the user.
+* **The Insights count disappeared when a spreadsheet was opened.** The section entry rendered its count
+  inline (`Insights (3)`) and dropped it entirely at zero or while the report was being (re)built, and one
+  line could not hold the name and the count together. Each directory entry now has two lines — the name on
+  top, the count underneath — and the count is never hidden: `0 errors`, `1 error`, `2 errors`, `reading…`
+  while a build runs, `—` when no report exists yet. It is a separate `Text`, so opening, reloading or
+  replacing a workbook cannot push it out of the entry.
+* **The gallery's search bar was crowded against its filters.** The bar now has its own margins, a hairline
+  in the palette's line colour separates it from the chip rows, and the chips keep their own spacing. No
+  font size changed and no filter behaves differently.
+
+### Added
+
+* **Timeline filtering.** A text search over the record's own fields (title, circle, artist, product ID and
+  the worksheet row) and a year range chosen from *Years: …* (from/to, either bound may be open, and
+  `Any year` clears it). The filter bar shows how many records are shown out of how many, a **Clear filters**
+  action appears only while a filter is active, an empty result says "No record matches this filter", and the
+  two date meanings keep **separate** filters, so a search typed for Published cannot silently narrow
+  Acquired. A date range never judges a record whose own date is unknown: those records are excluded from
+  the range and counted in an explicit line, never given a year that fits.
+* **Worksheet filters for Health and Analytics.** A single bar on each report — *Worksheets: All worksheets /
+  LIST / 2 of 3 worksheets* — opens a picker of the workbook's own worksheets (with each one's record count
+  and hidden state). All, one, or any combination can be selected, "All worksheets" is always one tap away,
+  and the picker edits a draft until **Use these worksheets** is pressed.
+  The scope is a filter on the **calculation**, not on the rendering: the report and the analytics are
+  recomputed from the canonical catalog for exactly those worksheets, so summary tiles, error/warning/info
+  counts, category chips, duplicate groups, distributions, the year breakdown and the record/cover totals all
+  come from the same scoped record list. Health and Analytics each keep their **own** scope; changing one
+  never changes the other. A selection stored for a worksheet that no longer exists is reconciled (the
+  surviving sheets are kept, and a selection that matches nothing falls back to *All worksheets*), and a
+  different workbook starts from *All worksheets*.
+* **The Insights directory order** is now **Health → Analytics → Gallery → Timeline → Fields**: the two
+  analysis screens sit together and the two browsing screens sit together, with the mapping screen last
+  because it configures the data the others read.
+
+### Changed
+
+* **The directory count is textual for Insights** (`3 errors`, `0 errors`) because it counts confirmed
+  problems rather than rows; the other three entries keep their plain item counts. The meaning of the count
+  did not change.
+* **The year picker offers only years the timeline really has**, so a range cannot be set to a year that
+  would produce an empty result by construction.
+
+### Verified
+
+* 658 JVM tests, 0 failures, 7 skipped by design (4 opt-in live provider checks and the 3 real-workbook tests
+  whose 40 MB files are not committed), across 81 result classes. 37 of them are new: the timeline filter 10,
+  worksheet scope 5, the scoped reports 8, the filter/scope/count state 11, and the directory order 3.
+* Debug build: BUILD SUCCESSFUL, version 212 / 2.4.0-dev.4.
+
+### Known limitations
+
+* The timeline filter is a text search plus a year range; there is no per-column filter and no month-level
+  range, because the timeline is grouped by year and a record's date may only be known to the year.
+* A worksheet that carries no catalogue table can be selected, but it contributes no records — the picker
+  says so ("no catalogue table") instead of hiding it.
+* Health and Analytics do not share a stored preference: opening the app again starts both at *All
+  worksheets*, and the choice is not persisted per workbook.
+* None of the new layout — the two-line directory entries, the gallery divider, the timeline filter bar, the
+  worksheet picker — was driven on a device or an emulator, and no screen width was measured.
+
+**Version code/name: 212 / 2.4.0-dev.4.**
 
 ## v2.4.0-dev.3 (2026-10-31)
 

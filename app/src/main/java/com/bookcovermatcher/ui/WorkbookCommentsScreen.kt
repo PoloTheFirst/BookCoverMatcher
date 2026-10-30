@@ -95,38 +95,39 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
     Box(Modifier.fillMaxSize().background(Palette.Navy800)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             CommentsHeader(state, controller)
-            // Four sections in one row: a two-line label keeps every name readable at its own size, which
-            // one line cannot do at phone widths (`Catalogue (5000)` is wider than a quarter of the row).
+            // Two lines per directory entry: the name on top, its count underneath. The count is a
+            // separate Text, so opening or reloading a spreadsheet cannot push it out of the entry, and a
+            // zero is still shown (`0 errors`) instead of disappearing.
             SegmentedTabRow(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                 SegmentedTab(
-                    "Comments (${state.comments.size})",
+                    "Comments",
                     state.section == CommentsSection.COMMENTS,
                     Modifier.weight(1f),
-                    maxLines = 2,
+                    count = state.comments.size.toString(),
                 ) {
                     controller.showSection(CommentsSection.COMMENTS)
                 }
                 SegmentedTab(
-                    "Images (${state.allImages.size})",
+                    "Images",
                     state.section == CommentsSection.MEDIA,
                     Modifier.weight(1f),
-                    maxLines = 2,
+                    count = state.allImages.size.toString(),
                 ) {
                     controller.showSection(CommentsSection.MEDIA)
                 }
                 SegmentedTab(
-                    "Catalogue (${state.tables.sumOf { it.records.size }})",
+                    "Catalogue",
                     state.section == CommentsSection.CATALOGUE,
                     Modifier.weight(1f),
-                    maxLines = 2,
+                    count = state.tables.sumOf { it.records.size }.toString(),
                 ) {
                     controller.showSection(CommentsSection.CATALOGUE)
                 }
                 SegmentedTab(
-                    if (state.insightErrors > 0) "Insights (${state.insightErrors})" else "Insights",
+                    "Insights",
                     state.section == CommentsSection.INSIGHTS,
                     Modifier.weight(1f),
-                    maxLines = 2,
+                    count = state.insightCountLabel,
                 ) {
                     controller.showSection(CommentsSection.INSIGHTS)
                 }

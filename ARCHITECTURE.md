@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.4.0-dev.3)
+# Architecture and developer notes (v2.4.0-dev.4)
 
 ## Layers
 
@@ -104,8 +104,33 @@ dialogs                      │            CatalogIndex              └─ Wis
     thumbnail decode or a dialog does not move the user.
   * `CatalogueView.CARDS`/`TABLE` on `WorkbookCommentsUi` picks the record cards or the worksheet table; the
     table shares one `ScrollState` between its header row and every data row and keeps its rows lazy.
-* The five features are sub-tabs of `CommentsSection.INSIGHTS` (`InsightsTab.HEALTH`/`GALLERY`/
-  `ANALYTICS`/`TIMELINE`/`FIELDS`) rendered by `ui/WorkbookInsightsPanels`, not new top-level destinations.
+* **v2.4.0-dev.4** makes the two reports scopeable and the timeline filterable, without duplicating a
+  pipeline:
+  * `SheetScope` is the selection model: a set of worksheet **identities** (`SheetScope.keyOf(path, name)` —
+    the package part path, or `name:<display>` when the analysis could not read the path) where an empty set
+    means every worksheet. `WorkbookCatalog.sheetChoices`/`sheetKeys` expose the selectable worksheets and
+    the identities to reconcile against; `SheetScope.reconciled` drops identities the workbook no longer
+    has, and falls back to *all* when nothing survives.
+  * `HealthReportBuilder.build(catalog, analysis, model, scope)` and
+    `CollectionAnalyticsBuilder.build(catalog, scope)` **calculate** for the scope: scoped entries/tables/
+    mappings/issues feed the same code paths, so every summary count, chip, breakdown and cover total comes
+    from the scoped record list. Worksheet-specific findings are filtered by scope; package-wide ones (scan
+    limit, parsing diagnostics, unreferenced media) are reported for the whole-workbook scope only.
+  * `WorkbookCommentsUi.healthScope`/`analyticsScope` are independent, edited through a draft
+    (`ScopeDialogUi`) so a mis-tap costs nothing until it is applied. `WorkbookCommentsController`
+    recalculates both reports off the main thread from the catalog already in memory
+    (`rebuildScopedReports`, guarded by a monotonic `scopeRevision` plus the workbook hash and catalog
+    identity), and reconciles the selection before every full rebuild.
+  * `TimelineFilter` (query + from/to year) with `TimelineFiltering.apply` producing a `TimelineView`
+    (filtered timeline + the count of undated records the range could not judge). Filters are stored per
+    `TimelineMode` (`WorkbookCommentsUi.timelineFilters`), so Published and Acquired never share one.
+  * `WorkbookCommentsUi.timelineOrderKey` (workbook + mode + direction + filter) drives the timeline's owned
+    `LazyListState`, exactly as `galleryOrderKey` drives the grid: the mode switch, an ordering change and a
+    filter change return to the top, and nothing else moves the list.
+  * `InsightsTab` order is HEALTH, ANALYTICS, GALLERY, TIMELINE, FIELDS — the displayed order **is** the
+    enum order, so there is no second list to keep in sync (pinned by `InsightsOrderTest`).
+* The five features are sub-tabs of `CommentsSection.INSIGHTS` (`InsightsTab.HEALTH`/`ANALYTICS`/`GALLERY`/
+  `TIMELINE`/`FIELDS`) rendered by `ui/WorkbookInsightsPanels`, not new top-level destinations.
   A gallery card, a timeline entry and a finding with a record or an image open the row/cell through the
   existing `openSource`/`openSourceCell` path, so there is one source-navigation implementation.
 * `OnlineSearchController` owns its own `StateFlow`; `MainViewModel.init` collects it into
@@ -286,7 +311,7 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
 
 ## Testing
 
-* `app/src/test`: **621** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
+* `app/src/test`: **658** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
   parsers/aggregator/cache in `OnlineSearchTest.kt`; legacy-comment parsing and its cache in
   `LegacyCommentScanTest.kt`, `LegacyCommentEdgeCaseTest.kt`, `CommentImageCacheTest.kt` and
   `WorkbookCommentsUiTest.kt`; the source-location mapping, worksheet identity and worksheet window in
@@ -299,6 +324,8 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
   `TimelineDateUiTest.kt` (9) and `GalleryScrollTest.kt` (6), plus `SampleWorkbookColumnsTest.kt` (5), which
   runs through the production reader on `test_excel/doujin.xlsx` and is skipped when that 40 MB file is
   absent, exactly like `RealWorkbookIntegrationTest.kt`;
+  the v2.4.0-dev.4 filters and scopes in `TimelineFilterTest.kt` (10), `SheetScopeTest.kt` (5),
+  `ScopedReportsTest.kt` (8), `InsightsFilterUiTest.kt` (11) and `InsightsOrderTest.kt` (3);
   the existing offline pipeline tests remain.
   Seven tests are opt-in: four live catalogue checks (`-DonlineCheck=1`) and the three real-workbook tests.
 * `app/src/androidTest`: three tests on a device/emulator:

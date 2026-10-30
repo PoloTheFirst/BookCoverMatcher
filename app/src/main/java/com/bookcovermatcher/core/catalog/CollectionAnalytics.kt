@@ -42,9 +42,14 @@ object CollectionAnalyticsBuilder {
     /** How many values of a grouped metric are shown; the rest stay in the workbook, not in the chart. */
     const val TOP_VALUES = 50
 
-    fun build(catalog: WorkbookCatalog): CollectionAnalytics {
-        val entries = catalog.entries
-        val mappedFields = CatalogField.ordered.filter { field -> catalog.mappings.values.any { it.isMapped(field) } }
+    fun build(catalog: WorkbookCatalog, scope: SheetScope = SheetScope.ALL): CollectionAnalytics {
+        val entries = catalog.entries.filter { scope.allows(it.sheetPath, it.sheetName) }
+        val tables = catalog.tables.values.filter { table ->
+            val path = catalog.sheets.firstOrNull { it.name == table.sheetName }?.partPath.orEmpty()
+            scope.allows(path, table.sheetName)
+        }
+        val mappings = tables.mapNotNull { table -> catalog.mappings[table.sheetName] }
+        val mappedFields = CatalogField.ordered.filter { field -> mappings.any { it.isMapped(field) } }
 
         val identifiers = entries
             .mapNotNull { entry -> entry.text(CatalogField.IDENTIFIER)?.trim()?.takeIf { it.isNotEmpty() }?.lowercase() }
@@ -73,9 +78,9 @@ object CollectionAnalyticsBuilder {
 
         return CollectionAnalytics(
             records = entries.size,
-            sheets = catalog.tables.size,
-            withVerifiedCover = catalog.withVerifiedCover,
-            withoutVerifiedCover = catalog.withoutVerifiedCover,
+            sheets = tables.size,
+            withVerifiedCover = entries.count { it.hasVerifiedCover },
+            withoutVerifiedCover = entries.count { !it.hasVerifiedCover },
             missingTitle = entries.count { it.state(CatalogField.TITLE) == FieldState.MISSING },
             missingCircle = entries.count { it.state(CatalogField.CIRCLE) == FieldState.MISSING },
             missingArtist = entries.count { it.state(CatalogField.ARTIST) == FieldState.MISSING },

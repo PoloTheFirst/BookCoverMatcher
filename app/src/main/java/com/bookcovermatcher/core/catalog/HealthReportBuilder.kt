@@ -1,5 +1,6 @@
 package com.bookcovermatcher.core.catalog
 
+import com.bookcovermatcher.core.excel.comments.CatalogueTable
 import com.bookcovermatcher.core.excel.comments.DiagnosticLevel
 import com.bookcovermatcher.core.excel.comments.ImageState
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalysis
@@ -33,12 +34,21 @@ object HealthReportBuilder {
         catalog: WorkbookCatalog,
         analysis: WorkbookAnalysis,
         model: WorkbookCommentImages?,
+        scope: SheetScope = SheetScope.ALL,
     ): HealthReport {
+        val entries = catalog.entries.filter { scope.allows(it.sheetPath, it.sheetName) }
+        val tables = catalog.tables.values.filter { table ->
+            val path = catalog.sheets.firstOrNull { it.name == table.sheetName }?.partPath.orEmpty()
+            scope.allows(path, table.sheetName)
+        }
+        val issues = catalog.issues.filter { issue ->
+            issue.sheetName == null || tables.any { it.sheetName == issue.sheetName }
+        }
         val findings = LinkedHashMap<String, HealthFinding>()
-        structure(findings, catalog, analysis, model)
-        records(findings, catalog)
-        images(findings, catalog, analysis)
-        consistency(findings, catalog)
+        structure(findings, analysis, model, tables, scope)
+        records(findings, entries)
+        images(findings, entries, analysis, scope)
+        consistency(findings, entries, issues)
 
         val ordered = findings.values.sortedWith(
             compareBy<HealthFinding> { it.severity.ordinal }
@@ -57,11 +67,11 @@ object HealthReportBuilder {
         return HealthReport(
             findings = ordered,
             summary = summary,
-            records = catalog.entries.size,
-            sheets = catalog.sheetNames.size,
-            withCover = catalog.withVerifiedCover,
-            withoutCover = catalog.withoutVerifiedCover,
-            unmappedFields = unmappedFields(catalog),
+            records = entries.size,
+            sheets = tables.size,
+            withCover = entries.count { it.hasVerifiedCover },
+            withoutCover = entries.count { !it.hasVerifiedCover },
+            unmappedFields = unmappedFields(tables.mapNotNull { catalog.mappings[it.sheetName] }),
         )
     }
 
@@ -69,11 +79,14 @@ object HealthReportBuilder {
 
     private fun structure(
         out: MutableMap<String, HealthFinding>,
-        catalog: WorkbookCatalog,
         analysis: WorkbookAnalysis,
         model: WorkbookCommentImages?,
+        tables: List<CatalogueTable>,
+        scope: SheetScope,
     ) {
         for (sheet in analysis.unreadableSheets) {
+            // Only a worksheet the report is about can be reported as unreadable.
+            if (!scope.allows(pathOf(analysis, sheet), sheet)) continue
             out.putIfAbsent(
                 "structure:unreadable:$sheet",
                 HealthFinding(
@@ -90,7 +103,9 @@ object HealthReportBuilder {
             )
         }
 
-        if (model?.truncated == true) {
+        // A scan limit and parsing diagnostics are facts about the package, not about one worksheet, so
+        // they belong to the whole-workbook report only.
+        if (scope.isAll && model?.truncated == true) {
             out.putIfAbsent(
                 "structure:truncated",
                 HealthFinding(
@@ -107,48 +122,55 @@ object HealthReportBuilder {
         }
 
         val diagnostics = model?.diagnostics.orEmpty()
-        diagnostics.take(MAX_DIAGNOSTICS).forEachIndexed { index, diagnostic ->
-            if (diagnostic.level != DiagnosticLevel.WARNING) return@forEachIndexed
-            val id = "structure:diagnostic:$index"
-            out.putIfAbsent(
-                id,
-                HealthFinding(
-                    id = id,
-                    category = HealthCategory.STRUCTURE,
-                    severity = HealthSeverity.WARNING,
-                    title = "Parsing problem in ${diagnostic.part ?: "the workbook"}",
-                    detail = diagnostic.message,
-                    action = "Check that part in Excel; the rest of the workbook was still read.",
-                    resolution = HealthResolution.INFORMATIONAL,
-                ),
-            )
-        }
-        if (diagnostics.size > MAX_DIAGNOSTICS) {
-            out.putIfAbsent(
-                "structure:diagnostic:more",
-                HealthFinding(
-                    id = "structure:diagnostic:more",
-                    category = HealthCategory.STRUCTURE,
-                    severity = HealthSeverity.INFO,
-                    title = "More parsing diagnostics were not listed",
-                    detail = "${diagnostics.size - MAX_DIAGNOSTICS} further diagnostic message(s) were recorded.",
-                    action = "Open the Comments tab to see the full diagnostic list.",
-                    resolution = HealthResolution.INFORMATIONAL,
-                    count = diagnostics.size - MAX_DIAGNOSTICS,
-                ),
-            )
+        if (scope.isAll) {
+            diagnostics.take(MAX_DIAGNOSTICS).forEachIndexed { index, diagnostic ->
+                if (diagnostic.level != DiagnosticLevel.WARNING) return@forEachIndexed
+                val id = "structure:diagnostic:$index"
+                out.putIfAbsent(
+                    id,
+                    HealthFinding(
+                        id = id,
+                        category = HealthCategory.STRUCTURE,
+                        severity = HealthSeverity.WARNING,
+                        title = "Parsing problem in ${diagnostic.part ?: "the workbook"}",
+                        detail = diagnostic.message,
+                        action = "Check that part in Excel; the rest of the workbook was still read.",
+                        resolution = HealthResolution.INFORMATIONAL,
+                    ),
+                )
+            }
+            if (diagnostics.size > MAX_DIAGNOSTICS) {
+                out.putIfAbsent(
+                    "structure:diagnostic:more",
+                    HealthFinding(
+                        id = "structure:diagnostic:more",
+                        category = HealthCategory.STRUCTURE,
+                        severity = HealthSeverity.INFO,
+                        title = "More parsing diagnostics were not listed",
+                        detail = "${diagnostics.size - MAX_DIAGNOSTICS} further diagnostic message(s) were recorded.",
+                        action = "Open the Comments tab to see the full diagnostic list.",
+                        resolution = HealthResolution.INFORMATIONAL,
+                        count = diagnostics.size - MAX_DIAGNOSTICS,
+                    ),
+                )
+            }
         }
 
-        if (catalog.tables.isEmpty()) {
+        if (tables.isEmpty()) {
             out.putIfAbsent(
                 "structure:no-table",
                 HealthFinding(
                     id = "structure:no-table",
                     category = HealthCategory.STRUCTURE,
                     severity = HealthSeverity.INFO,
-                    title = "No catalogue table was detected",
-                    detail = "No worksheet here has a header row with at least three columns and rows under it, so " +
-                        "there are no records to check.",
+                    title = if (scope.isAll) "No catalogue table was detected" else "No catalogue table on these worksheets",
+                    detail = if (scope.isAll) {
+                        "No worksheet here has a header row with at least three columns and rows under it, so " +
+                            "there are no records to check."
+                    } else {
+                        "None of the selected worksheets has a header row with at least three columns and rows " +
+                            "under it, so there are no records to check here."
+                    },
                     action = "If this workbook does contain a catalogue, check that its header row is near the top of " +
                         "the sheet.",
                     resolution = HealthResolution.INFORMATIONAL,
@@ -158,10 +180,10 @@ object HealthReportBuilder {
     }
     // ---- records ----------------------------------------------------------------------------
 
-    private fun records(out: MutableMap<String, HealthFinding>, catalog: WorkbookCatalog) {
+    private fun records(out: MutableMap<String, HealthFinding>, entries: List<CatalogEntry>) {
         var listed = 0
         var omitted = 0
-        for (entry in catalog.entries) {
+        for (entry in entries) {
             when (entry.state(CatalogField.TITLE)) {
                 FieldState.MAPPED -> Unit
                 FieldState.MISSING -> out.putIfAbsent(
@@ -306,10 +328,15 @@ object HealthReportBuilder {
 
     private fun images(
         out: MutableMap<String, HealthFinding>,
-        catalog: WorkbookCatalog,
+        entries: List<CatalogEntry>,
         analysis: WorkbookAnalysis,
+        scope: SheetScope,
     ) {
         for (row in analysis.images.filter { it.state == ImageState.UNRESOLVED }) {
+            // An unresolved reference is reported for the worksheet the note that made it is on.
+            if (!scope.isAll && !row.associations.any { place -> scope.allows(pathOf(analysis, place.sheetName), place.sheetName) }) {
+                continue
+            }
             val place = row.associations.firstOrNull()
             val id = "image:unresolved:${row.key}"
             out.putIfAbsent(
@@ -331,7 +358,9 @@ object HealthReportBuilder {
             )
         }
 
-        val unreferenced = analysis.images.filter { it.state == ImageState.UNREFERENCED }
+        // Unreferenced media belong to the package, not to a worksheet, so they are listed in the
+        // whole-workbook report only.
+        val unreferenced = if (scope.isAll) analysis.images.filter { it.state == ImageState.UNREFERENCED } else emptyList()
         unreferenced.take(MAX_UNREFERENCED).forEach { row ->
             val id = "image:unreferenced:${row.key}"
             out.putIfAbsent(
@@ -366,8 +395,8 @@ object HealthReportBuilder {
             )
         }
 
-        for ((sheet, entries) in catalog.entriesBySheet) {
-            val missing = entries.count { !it.hasVerifiedCover }
+        for ((sheet, sheetEntries) in entries.groupBy { it.sheetName }) {
+            val missing = sheetEntries.count { !it.hasVerifiedCover }
             if (missing == 0) continue
             val id = "image:no-cover:$sheet"
             out.putIfAbsent(
@@ -389,8 +418,12 @@ object HealthReportBuilder {
     }
     // ---- consistency ------------------------------------------------------------------------
 
-    private fun consistency(out: MutableMap<String, HealthFinding>, catalog: WorkbookCatalog) {
-        val identifiers = catalog.entries
+    private fun consistency(
+        out: MutableMap<String, HealthFinding>,
+        entries: List<CatalogEntry>,
+        issues: List<MappingIssue>,
+    ) {
+        val identifiers = entries
             .mapNotNull { entry ->
                 entry.text(CatalogField.IDENTIFIER)?.trim()?.takeIf { it.isNotEmpty() }?.let { it to entry }
             }
@@ -416,7 +449,7 @@ object HealthReportBuilder {
             )
         }
 
-        val duplicates = catalog.entries
+        val duplicates = entries
             .filter { !it.title.isNullOrBlank() }
             .groupBy { entry ->
                 listOf(
@@ -446,7 +479,7 @@ object HealthReportBuilder {
             )
         }
 
-        for (issue in catalog.issues) {
+        for (issue in issues) {
             val severity = when (issue.kind) {
                 MappingIssueKind.REQUIRED_UNMAPPED -> HealthSeverity.ERROR
                 MappingIssueKind.HEADER_MISSING -> HealthSeverity.WARNING
@@ -477,10 +510,13 @@ object HealthReportBuilder {
         }
     }
 
-    /** Fields the current mapping leaves unmapped on every worksheet it covers. */
-    private fun unmappedFields(catalog: WorkbookCatalog): List<CatalogField> {
-        val mappings = catalog.mappings.values
+    /** Fields the current mapping leaves unmapped on every worksheet the report covers. */
+    private fun unmappedFields(mappings: List<ResolvedMapping>): List<CatalogField> {
         if (mappings.isEmpty()) return emptyList()
         return CatalogField.ordered.filter { field -> mappings.none { it.isMapped(field) } }
     }
+
+    /** The part path of [sheetName], so a scope can match by identity rather than by display name. */
+    private fun pathOf(analysis: WorkbookAnalysis, sheetName: String): String =
+        analysis.sheets.firstOrNull { it.name == sheetName }?.partPath.orEmpty()
 }

@@ -233,6 +233,10 @@ fun SegmentedTabRow(modifier: Modifier = Modifier, content: @Composable RowScope
  * One tab of a [SegmentedTabRow]. The label carries its own count (`Workbook (5)`) so the user can
  * see where results are without visiting every tab.
  *
+ * [count] puts that number on its **own line** under the title, which is what keeps a directory entry
+ * readable when the row is shared between four sections: the title never has to make room for the count,
+ * and the count is shown even when it is zero or still unknown (the caller decides what "unknown" says).
+ *
  * [maxLines] exists for rows with four short sections on a narrow screen: the label wraps onto a second
  * line at its normal size instead of being cut to `Catalogue (5\u2026)`. Shrinking the font is not an option —
  * the section name is what the user reads.
@@ -242,6 +246,7 @@ fun SegmentedTab(
     label: String,
     active: Boolean,
     modifier: Modifier = Modifier,
+    count: String? = null,
     maxLines: Int = 1,
     onClick: () -> Unit,
 ) {
@@ -253,15 +258,29 @@ fun SegmentedTab(
             .padding(horizontal = 2.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            color = if (active) Palette.Accent else Palette.Muted,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            maxLines = maxLines,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                label,
+                color = if (active) Palette.Accent else Palette.Muted,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (count != null) {
+                Text(
+                    count,
+                    color = if (active) Palette.Accent else Palette.Muted,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 1.dp),
+                )
+            }
+        }
     }
 }
 

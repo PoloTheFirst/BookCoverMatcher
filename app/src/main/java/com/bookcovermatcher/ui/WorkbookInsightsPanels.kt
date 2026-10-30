@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -46,6 +47,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.bookcovermatcher.InsightsTab
+import com.bookcovermatcher.ScopeDialogUi
+import com.bookcovermatcher.ScopeTarget
+import com.bookcovermatcher.TimelineYearEndpoint
 import com.bookcovermatcher.WorkbookCommentsController
 import com.bookcovermatcher.WorkbookCommentsUi
 import com.bookcovermatcher.core.catalog.CatalogEntry
@@ -63,13 +67,109 @@ import com.bookcovermatcher.core.catalog.HealthSeverity
 import com.bookcovermatcher.core.catalog.MappingIssue
 import com.bookcovermatcher.core.catalog.MappingIssueKind
 import com.bookcovermatcher.core.catalog.MetricCount
+import com.bookcovermatcher.core.catalog.SheetChoice
+import com.bookcovermatcher.core.catalog.SheetScope
 import com.bookcovermatcher.core.catalog.TimelineEntry
 import com.bookcovermatcher.core.catalog.TimelineMode
 import com.bookcovermatcher.core.catalog.WorkbookCatalog
 import com.bookcovermatcher.ui.theme.Palette
 
 /**
- * The Insights surface of the workbook preview: health, gallery, analytics, timeline and mapping.
+ * The worksheet filter of one report: a single bar that says what the report currently covers.
+ *
+ * The same bar is used by Health and by the analytics, but each owns its own [SheetScope], so narrowing one
+ * report never narrows the other. It shows a summary rather than a row of names, so a workbook with forty
+ * worksheets cannot grow the header.
+ */
+@Composable
+private fun SheetScopeBar(
+    label: String,
+    scopeLabel: String,
+    filtered: Boolean,
+    onOpen: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ChoiceChip("$label: $scopeLabel", filtered, onOpen)
+        if (filtered) {
+            InsightAction("All worksheets") { onClear() }
+        }
+    }
+}
+
+/**
+ * Choosing which worksheets a report covers: all of them, one, or any combination.
+ *
+ * The list is the workbook's own worksheets (with how many records each one contributes), identified by
+ * package path rather than display name, and the dialog edits a draft — a mis-tap costs nothing until
+ * **Use these worksheets** is pressed.
+ */
+@Composable
+private fun SheetScopeDialog(
+    dialog: ScopeDialogUi,
+    choices: List<SheetChoice>,
+    onToggle: (String) -> Unit,
+    onAll: () -> Unit,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp)).padding(12.dp),
+        ) {
+            Text(
+                "Worksheets in the ${dialog.target.label} report",
+                color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                "The calculations use the selected worksheets only, summary counts and breakdowns included. " +
+                    "Nothing is written to the workbook.",
+                color = Palette.Muted, fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 3.dp),
+            )
+            if (choices.isEmpty()) {
+                InsightNote("This workbook has no worksheet to choose.")
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxWidth().heightIn(max = 300.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    item(key = "all") {
+                        PickRow("All worksheets", dialog.draft.isEmpty()) { onAll() }
+                    }
+                    items(choices, key = { it.key }) { choice ->
+                        val selected = choice.key in dialog.draft
+                        val detail = buildString {
+                            append(if (selected) "\u2713 " else "\u25CB ")
+                            append(choice.name)
+                            if (choice.hidden) append(" (hidden)")
+                            append(" \u00B7 ")
+                            append(if (choice.isTable) "${choice.records} record(s)" else "no catalogue table")
+                        }
+                        PickRow(detail, selected) { onToggle(choice.key) }
+                    }
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                InsightAction("Use these worksheets") { onApply() }
+                InsightAction("All worksheets") { onAll() }
+                InsightAction("Cancel", onDismiss)
+            }
+        }
+    }
+}
+
+/**
+ * The Insights surface of the workbook preview: health, analytics, gallery, timeline and mapping.
  *
  * Every panel reads the one catalog the controller built, so a record looks the same in all of them.
  * Nothing here parses a workbook or computes a statistic: the panels display results.
@@ -104,6 +204,18 @@ fun InsightsPanel(
     // The date-column dialog belongs to the timeline but is opened from it, so it lives outside the
     // tab branch: switching tabs must not silently drop a half-made choice.
     DateColumnsDialog(state, controller)
+    // The worksheet scope belongs to whichever report opened it; the dialog says which one.
+    val scopeDialog = state.scopeDialog
+    if (scopeDialog != null) {
+        SheetScopeDialog(
+            dialog = scopeDialog,
+            choices = state.sheetChoices,
+            onToggle = controller::toggleScopeSheet,
+            onAll = controller::selectAllScopeSheets,
+            onApply = controller::applyScopeDialog,
+            onDismiss = controller::closeScopeDialog,
+        )
+    }
 }
 
 @Composable
@@ -182,6 +294,17 @@ private fun HealthPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsC
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item {
+            // The report is recalculated for these worksheets, so this bar changes the numbers below it,
+            // not just their visibility.
+            SheetScopeBar(
+                label = "Worksheets",
+                scopeLabel = state.scopeLabel(state.healthScope),
+                filtered = !state.healthScope.isAll,
+                onOpen = { controller.openScopeDialog(ScopeTarget.HEALTH) },
+                onClear = { controller.setScope(ScopeTarget.HEALTH, SheetScope.ALL) },
+            )
+        }
         item { HealthSummary(report) }
         item {
             Row(
@@ -352,7 +475,14 @@ private fun GalleryPanel(state: WorkbookCommentsUi, controller: WorkbookComments
         }
     }
     Column(Modifier.fillMaxSize()) {
-        SearchField(filter.query, { controller.setGalleryQuery(it) }, "Search title, circle, artist, ID or cell")
+        // The search bar and the filter chips are two different controls: the bar gets its own margins and
+        // a hairline separates it from the chips, so neither reads as part of the other.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            SearchField(filter.query, { controller.setGalleryQuery(it) }, "Search title, circle, artist, ID or cell")
+        }
+        Spacer(Modifier.height(8.dp))
+        GalleryDivider()
+        Spacer(Modifier.height(6.dp))
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -405,6 +535,17 @@ private fun GalleryPanel(state: WorkbookCommentsUi, controller: WorkbookComments
             items(state.visibleCatalog, key = { it.id }) { entry -> GalleryCard(entry, controller) }
         }
     }
+}
+
+/** A hairline that groups the gallery's search bar apart from its filter chips, in the palette's line colour. */
+@Composable
+private fun GalleryDivider() {
+    Box(
+        Modifier.fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .height(1.dp)
+            .background(Palette.Line),
+    )
 }
 
 /**
@@ -514,6 +655,16 @@ private fun AnalyticsPanel(state: WorkbookCommentsUi, controller: WorkbookCommen
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
+            // Every number and chart below is calculated for these worksheets only.
+            SheetScopeBar(
+                label = "Worksheets",
+                scopeLabel = state.scopeLabel(state.analyticsScope),
+                filtered = !state.analyticsScope.isAll,
+                onOpen = { controller.openScopeDialog(ScopeTarget.ANALYTICS) },
+                onClear = { controller.setScope(ScopeTarget.ANALYTICS, SheetScope.ALL) },
+            )
+        }
+        item {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatTile("Records", analytics.records.toString(), Modifier.weight(1f))
                 StatTile("Worksheets", analytics.sheets.toString(), Modifier.weight(1f))
@@ -605,7 +756,17 @@ private fun YearBreakdown(values: List<MetricCount>, unknown: Int) {
 
 @Composable
 private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
-    val timeline = state.timeline
+    // The list owns its scroll state so it can be moved deliberately: Published and Acquired are different
+    // chronological datasets, so switching between them (or changing the filter) starts at the top. A
+    // recomposition, a rebuilt report or an item update leaves the key — and the position — alone.
+    val listState = rememberLazyListState()
+    LaunchedEffect(state.timelineOrderKey) {
+        if (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0) {
+            listState.scrollToItem(0)
+        }
+    }
+    val view = state.timelineView
+    val filter = state.currentTimelineFilter
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
@@ -622,16 +783,40 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
                 InsightAction("Choose date columns\u2026") { controller.openDateSetup() }
             }
         }
-        if (timeline == null) {
+        if (view == null) {
             InsightNote("The timeline is still being built.")
             return
         }
+        // Filter bar: a text search over the record's own fields, and a year range. Two compact rows, because
+        // the timeline header already carries the modes, the date-column state and the ordering action.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            SearchField(filter.query, controller::setTimelineQuery, "Search title, circle, artist, ID or row")
+        }
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ChoiceChip("Years: ${filter.rangeLabel}", filter.hasRange) {
+                controller.openTimelineYearPicker(TimelineYearEndpoint.FROM)
+            }
+            if (filter.isActive) {
+                InsightAction("Clear filters") { controller.clearTimelineFilters() }
+            }
+        }
+        val timeline = view.timeline
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val total = state.unfilteredTimeline?.let { it.datedCount + it.unknownCount } ?: view.shown
             Text(
-                "${timeline.datedCount} dated \u00B7 ${timeline.unknownCount} without a usable date",
+                if (filter.isActive) {
+                    "${view.shown} of $total record(s) \u00B7 ${timeline.datedCount} dated \u00B7 " +
+                        "${timeline.unknownCount} without a usable date"
+                } else {
+                    "${timeline.datedCount} dated \u00B7 ${timeline.unknownCount} without a usable date"
+                },
                 color = Palette.Muted,
                 fontSize = 9.5.sp,
                 modifier = Modifier.weight(1f),
@@ -657,6 +842,17 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
                 }
             }
         }
+        if (view.withoutDateExcluded > 0) {
+            // Never silent: a date range cannot judge a record whose own date is unknown, so those records
+            // are left out and counted here instead of being given a year that happens to fit.
+            Text(
+                "${view.withoutDateExcluded} record(s) without a usable date are not shown while a year range " +
+                    "is active. Clear the range to see them again.",
+                color = Palette.Warn,
+                fontSize = 9.5.sp,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+            )
+        }
         val sections = if (state.timelineAscending) {
             timeline.sections.reversed().map { section -> section.copy(entries = section.entries.reversed()) }
         } else {
@@ -664,9 +860,27 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
         }
         LazyColumn(
             Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            if (view.isEmpty) {
+                item(key = "timeline-empty") {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        InsightNote(
+                            when {
+                                !timeline.available && filter.isActive ->
+                                    "This timeline needs a date column before it can be filtered."
+                                filter.isActive -> "No record matches this filter."
+                                else -> "No record to place on a timeline."
+                            },
+                        )
+                        if (filter.isActive) {
+                            InsightAction("Clear filters") { controller.clearTimelineFilters() }
+                        }
+                    }
+                }
+            }
             for (section in sections) {
                 item(key = "year-${section.year}") { YearHeader(section.year.toString(), section.entries.size) }
                 items(section.entries, key = { "entry-${it.recordId}" }) { entry ->
@@ -679,9 +893,61 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
                     TimelineRow(entry, controller)
                 }
             }
-            if (timeline.sections.isEmpty() && timeline.unknown.isEmpty()) {
-                item { InsightNote("No records to place on a timeline.") }
+        }
+    }
+    // The year range is chosen in a dialog: two rows of chips would crowd a header that already carries the
+    // modes, the date-column state and the ordering action.
+    val endpoint = state.timelineYearPicker
+    if (endpoint != null) {
+        TimelineYearPickerDialog(
+            endpoint = endpoint,
+            years = state.timelineYears,
+            current = if (endpoint == TimelineYearEndpoint.FROM) filter.fromYear else filter.toYear,
+            onPick = { year -> controller.pickTimelineYear(endpoint, year) },
+            onDismiss = controller::closeTimelineYearPicker,
+        )
+    }
+}
+
+/**
+ * Choosing one end of the timeline's year range.
+ *
+ * Only years the selected timeline actually has are offered, so a range can never be set to a year that
+ * would produce an empty result by construction; "Any year" clears the bound.
+ */
+@Composable
+private fun TimelineYearPickerDialog(
+    endpoint: TimelineYearEndpoint,
+    years: List<Int>,
+    current: Int?,
+    onPick: (Int?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp)).padding(12.dp),
+        ) {
+            Text(
+                if (endpoint == TimelineYearEndpoint.FROM) "From year" else "To year",
+                color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                "Years that exist on this timeline: ${years.size}. Only a year the workbook really has is " +
+                    "listed; a record without a usable date is never given one.",
+                color = Palette.Muted, fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 3.dp),
+            )
+            LazyColumn(
+                Modifier.fillMaxWidth().heightIn(max = 260.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                item(key = "any") { PickRow("Any year", current == null) { onPick(null) } }
+                items(years, key = { "year-$it" }) { year ->
+                    PickRow(year.toString(), current == year) { onPick(year) }
+                }
             }
+            InsightAction("Cancel", onDismiss)
         }
     }
 }

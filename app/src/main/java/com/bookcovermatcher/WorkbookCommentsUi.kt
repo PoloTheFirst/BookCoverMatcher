@@ -14,11 +14,18 @@ import com.bookcovermatcher.core.catalog.HealthFinding
 import com.bookcovermatcher.core.catalog.HealthReport
 import com.bookcovermatcher.core.catalog.HealthSeverity
 import com.bookcovermatcher.core.catalog.MappingIssue
+import com.bookcovermatcher.core.catalog.SheetChoice
 import com.bookcovermatcher.core.catalog.SheetDateChoice
+import com.bookcovermatcher.core.catalog.SheetScope
 import com.bookcovermatcher.core.catalog.TimelineDateSettings
 import com.bookcovermatcher.core.catalog.TimelineDates
+import com.bookcovermatcher.core.catalog.TimelineFilter
+import com.bookcovermatcher.core.catalog.TimelineFiltering
 import com.bookcovermatcher.core.catalog.TimelineMode
+import com.bookcovermatcher.core.catalog.TimelineView
 import com.bookcovermatcher.core.catalog.WorkbookCatalog
+import com.bookcovermatcher.core.catalog.sheetChoices
+import com.bookcovermatcher.core.catalog.sheetKeys
 import com.bookcovermatcher.core.excel.comments.CatalogueField
 import com.bookcovermatcher.core.excel.comments.CatalogueFilter
 import com.bookcovermatcher.core.excel.comments.CatalogueFiltering
@@ -59,11 +66,28 @@ enum class CatalogueView(val label: String) {
  */
 enum class InsightsTab(val label: String) {
     HEALTH("Health"),
-    GALLERY("Gallery"),
     ANALYTICS("Analytics"),
+    GALLERY("Gallery"),
     TIMELINE("Timeline"),
     FIELDS("Fields"),
 }
+
+/**
+ * Which Insights screen a worksheet-scope dialog is editing.
+ *
+ * The Health report and the analytics keep their own selection: narrowing one must not silently narrow
+ * the other, so the dialog remembers its target instead of a single shared scope.
+ */
+enum class ScopeTarget(val label: String) {
+    HEALTH("Health"),
+    ANALYTICS("Analytics"),
+}
+
+/** The open worksheet-scope dialog: its report and the selection being edited (empty = all worksheets). */
+data class ScopeDialogUi(val target: ScopeTarget, val draft: Set<String>)
+
+/** Which end of the timeline's year range a picker is editing. */
+enum class TimelineYearEndpoint { FROM, TO }
 
 /** What the full-screen viewer is showing. */
 data class CommentViewerUi(
@@ -188,6 +212,16 @@ data class WorkbookCommentsUi(
     val dateSetupPublished: String? = null,
     val dateSetupAcquired: String? = null,
     val dateSetupTarget: TimelineMode = TimelineMode.PUBLICATION,
+    /** The timeline filter of each date meaning, so a search in Published cannot filter Acquired. */
+    val timelineFilters: Map<TimelineMode, TimelineFilter> = emptyMap(),
+    /** The open year picker of the timeline range; null when it is closed. */
+    val timelineYearPicker: TimelineYearEndpoint? = null,
+    /** Worksheets the Health report covers; empty = every worksheet. */
+    val healthScope: SheetScope = SheetScope.ALL,
+    /** Worksheets the analytics cover; independent of [healthScope] on purpose. */
+    val analyticsScope: SheetScope = SheetScope.ALL,
+    /** The open worksheet-scope dialog, with the selection being edited. */
+    val scopeDialog: ScopeDialogUi? = null,
     /** When the saved copy was imported, from the workload library; 0 when it is not known. */
     val importedAt: Long = 0L,
 ) {
@@ -279,8 +313,74 @@ data class WorkbookCommentsUi(
     val visibleCatalog: List<CatalogEntry>
         get() = GalleryView.rows(catalog?.entries.orEmpty(), galleryFilter, gallerySort, galleryAscending)
 
-    /** The timeline of the selected date meaning. */
-    val timeline: CollectionTimeline? get() = timelineOf(timelineMode)
+    /** The timeline of the selected date meaning, with its filter applied (what the screen shows). */
+    val timeline: CollectionTimeline? get() = timelineView?.timeline
+
+    /** The timeline as it was built, before the filter — the denominator of "x of y". */
+    val unfilteredTimeline: CollectionTimeline? get() = timelineOf(timelineMode)
+
+    /** The timeline of one meaning with its own filter applied. */
+    val timelineView: TimelineView?
+        get() = timelineOf(timelineMode)?.let { TimelineFiltering.apply(it, currentTimelineFilter) }
+
+    /** The filter of the selected meaning, or an empty one. */
+    val currentTimelineFilter: TimelineFilter get() = timelineFilter(timelineMode)
+
+    /** The filter kept for [mode] — each date meaning has its own. */
+    fun timelineFilter(mode: TimelineMode): TimelineFilter = timelineFilters[mode] ?: TimelineFilter()
+
+    /** Years that actually exist on the selected timeline, newest first: the range a picker offers. */
+    val timelineYears: List<Int> get() = timelineOf(timelineMode)?.sections?.map { it.year }.orEmpty()
+
+    /**
+     * Identity of what the timeline is showing. The list watches this and returns to the top when the
+     * meaning, the ordering or the filter changes — never for an unrelated recomposition.
+     */
+    val timelineOrderKey: String
+        get() = listOf(
+            catalog?.workbookSha256.orEmpty(),
+            timelineMode.name,
+            if (timelineAscending) "asc" else "desc",
+            currentTimelineFilter.key,
+        ).joinToString("|")
+
+    /** Selectable worksheets of the open workbook, in workbook order. */
+    val sheetChoices: List<SheetChoice> get() = catalog?.sheetChoices.orEmpty()
+
+    /** `All worksheets`, `LIST`, or `2 of 3 worksheets` — a summary that fits a filter bar. */
+    fun scopeLabel(scope: SheetScope): String {
+        if (scope.isAll) return "All worksheets"
+        val names = sheetChoices.filter { it.key in scope.keys }.map { it.name }
+        return when (names.size) {
+            0 -> "No worksheet"
+            1 -> names.single()
+            else -> "${names.size} of ${sheetChoices.size} worksheets"
+        }
+    }
+
+    /** The scope of [target], so both reports read one accessor. */
+    fun scopeOf(target: ScopeTarget): SheetScope =
+        if (target == ScopeTarget.HEALTH) healthScope else analyticsScope
+
+    /**
+     * The count the Insights directory shows.
+     *
+     * It is never hidden — a zero is `0 errors`, an unbuilt report is `—`, a running build is `reading…` —
+     * so the same directory entry cannot look count-less just because the spreadsheet was (re)opened.
+     */
+    val insightCountLabel: String
+        get() {
+            val report = health
+            return when {
+                report != null -> {
+                    val errors = report.summary.errors
+                    if (errors == 1) "1 error" else "$errors errors"
+                }
+                insightsBusy -> "reading\u2026"
+                insightsError != null -> "not available"
+                else -> "\u2014"
+            }
+        }
 
     /** Any of the three timelines by meaning, whether or not it is the one on screen. */
     fun timelineOf(mode: TimelineMode): CollectionTimeline? = when (mode) {
@@ -480,16 +580,23 @@ fun WorkbookCommentsUi.insightsLoaded(
     publication: CollectionTimeline,
     acquisition: CollectionTimeline,
     imported: CollectionTimeline,
-): WorkbookCommentsUi = copy(
-    catalog = catalog,
-    health = health,
-    analytics = analytics,
-    publicationTimeline = publication,
-    acquisitionTimeline = acquisition,
-    importTimeline = imported,
-    insightsBusy = false,
-    insightsError = null,
-)
+): WorkbookCommentsUi {
+    // A stored worksheet selection is reconciled against what this workbook really has, so a renamed or
+    // deleted sheet cannot leave a report filtered down to nothing.
+    val keys = catalog.sheetKeys
+    return copy(
+        catalog = catalog,
+        health = health,
+        analytics = analytics,
+        publicationTimeline = publication,
+        acquisitionTimeline = acquisition,
+        importTimeline = imported,
+        healthScope = healthScope.reconciled(keys),
+        analyticsScope = analyticsScope.reconciled(keys),
+        insightsBusy = false,
+        insightsError = null,
+    )
+}
 
 fun WorkbookCommentsUi.insightsStarted(): WorkbookCommentsUi = copy(insightsBusy = true, insightsError = null)
 
@@ -621,4 +728,66 @@ fun WorkbookCommentsUi.dateSetupCommitted(): WorkbookCommentsUi {
         dateSettings = dateSettings.withChoice(sheet, SheetDateChoice(dateSetupPublished, dateSetupAcquired)),
         dateSetupOpen = false,
     )
+}
+
+// ---------------------------------------------------------------------------------------------
+// Timeline filters and worksheet scopes (v2.4.0-dev.4)
+// ---------------------------------------------------------------------------------------------
+
+/** Stores [filter] for [mode] (default: the mode on screen); the other meaning keeps its own. */
+fun WorkbookCommentsUi.filterTimeline(
+    filter: TimelineFilter,
+    mode: TimelineMode = timelineMode,
+): WorkbookCommentsUi = copy(timelineFilters = timelineFilters + (mode to filter))
+
+/** Removes the filter of [mode], restoring the whole eligible timeline for that meaning. */
+fun WorkbookCommentsUi.clearTimelineFilter(mode: TimelineMode = timelineMode): WorkbookCommentsUi =
+    if (mode !in timelineFilters) this else copy(timelineFilters = timelineFilters - mode)
+
+/** Opens (or closes, with null) the year picker of the current timeline filter. */
+fun WorkbookCommentsUi.timelineYearPicker(endpoint: TimelineYearEndpoint?): WorkbookCommentsUi =
+    copy(timelineYearPicker = endpoint)
+
+/** Sets one end of the current meaning's year range; null clears that bound, and the picker closes. */
+fun WorkbookCommentsUi.pickTimelineYear(endpoint: TimelineYearEndpoint, year: Int?): WorkbookCommentsUi {
+    val filter = currentTimelineFilter
+    val next = when (endpoint) {
+        TimelineYearEndpoint.FROM -> filter.withRange(from = year, to = filter.toYear)
+        TimelineYearEndpoint.TO -> filter.withRange(from = filter.fromYear, to = year)
+    }
+    return copy(
+        timelineFilters = timelineFilters + (timelineMode to next),
+        timelineYearPicker = null,
+    )
+}
+
+/**
+ * Opens the worksheet-scope dialog for [target] with that report's current selection.
+ *
+ * Health and the analytics never share this state: opening one cannot change the other.
+ */
+fun WorkbookCommentsUi.openScopeDialog(target: ScopeTarget): WorkbookCommentsUi =
+    copy(scopeDialog = ScopeDialogUi(target, scopeOf(target).keys))
+
+fun WorkbookCommentsUi.toggleScopeSheet(key: String): WorkbookCommentsUi {
+    val dialog = scopeDialog ?: return this
+    val draft = if (key in dialog.draft) dialog.draft - key else dialog.draft + key
+    return copy(scopeDialog = dialog.copy(draft = draft))
+}
+
+/** "All worksheets": an empty draft, which is the unfiltered report. */
+fun WorkbookCommentsUi.scopeSelectAll(): WorkbookCommentsUi =
+    scopeDialog?.let { copy(scopeDialog = it.copy(draft = emptySet())) } ?: this
+
+fun WorkbookCommentsUi.closeScopeDialog(): WorkbookCommentsUi =
+    if (scopeDialog == null) this else copy(scopeDialog = null)
+
+/** Commits the dialog's selection to its own report and closes it. */
+fun WorkbookCommentsUi.scopeCommitted(): WorkbookCommentsUi {
+    val dialog = scopeDialog ?: return this
+    val scope = SheetScope(dialog.draft)
+    return when (dialog.target) {
+        ScopeTarget.HEALTH -> copy(healthScope = scope, scopeDialog = null)
+        ScopeTarget.ANALYTICS -> copy(analyticsScope = scope, scopeDialog = null)
+    }
 }

@@ -18,6 +18,7 @@ import com.bookcovermatcher.core.catalog.HealthFinding
 import com.bookcovermatcher.core.catalog.HealthReport
 import com.bookcovermatcher.core.catalog.HealthReportBuilder
 import com.bookcovermatcher.core.catalog.HealthSeverity
+import com.bookcovermatcher.core.catalog.SheetScope
 import com.bookcovermatcher.core.catalog.TimelineDateSettings
 import com.bookcovermatcher.core.catalog.TimelineEntry
 import com.bookcovermatcher.core.catalog.TimelineMode
@@ -547,10 +548,14 @@ class WorkbookCommentsController(
             ?: state.profiles.firstOrNull { it.name == state.activeProfile }
             ?: detectedProfile(analysis)
         val dates = state.dateSettings
-        _ui.update { it.insightsStarted() }
+        // A worksheet selection is reconciled before it is used, so the numbers and the visible scope agree.
+        val available = analysis.sheets.map { SheetScope.keyOf(it.partPath, it.name) }.toSet()
+        val healthScope = state.healthScope.reconciled(available)
+        val analyticsScope = state.analyticsScope.reconciled(available)
+        _ui.update { it.copy(healthScope = healthScope, analyticsScope = analyticsScope).insightsStarted() }
         scope.launch {
             val bundle = withContext(Dispatchers.IO) {
-                buildInsights(sha256, analysis, model, chosen, state.importedAt, dates)
+                buildInsights(sha256, analysis, model, chosen, state.importedAt, dates, healthScope, analyticsScope)
             }
             _ui.update { current ->
                 if (!current.insightsBelongTo(sha256)) {
@@ -576,6 +581,8 @@ class WorkbookCommentsController(
         profile: ColumnMappingProfile,
         importedAt: Long,
         dates: TimelineDateSettings,
+        healthScope: SheetScope,
+        analyticsScope: SheetScope,
     ): InsightsBundle {
         val catalog = WorkbookCatalogBuilder.build(
             workbookSha256 = sha256,
@@ -586,13 +593,51 @@ class WorkbookCommentsController(
         )
         return InsightsBundle(
             catalog = catalog,
-            health = HealthReportBuilder.build(catalog, analysis, model),
-            analytics = CollectionAnalyticsBuilder.build(catalog),
+            // Both reports are calculated for the worksheets the user selected, not filtered afterwards:
+            // the summary counts and every breakdown come from the same scoped record list.
+            health = HealthReportBuilder.build(catalog, analysis, model, healthScope),
+            analytics = CollectionAnalyticsBuilder.build(catalog, analyticsScope),
             // Both timelines read the columns the user chose for this workbook — never a guessed header.
             publication = CollectionTimelineBuilder.published(catalog, dates),
             acquisition = CollectionTimelineBuilder.acquired(catalog, dates),
             imported = CollectionTimelineBuilder.imported(catalog, importedAt.takeIf { it > 0L }),
         )
+    }
+
+    /** Monotonic revision of the worksheet-scoped rebuilds, so an older result cannot win a race. */
+    private var scopeRevision = 0
+
+    /**
+     * Recomputes the two worksheet-scoped reports from the catalog that is already in memory.
+     *
+     * Nothing is re-parsed: the catalog stays the one canonical model, and only the report and the
+     * analytics are recalculated for the newly selected worksheets. A result that arrives after another
+     * selection, another workbook or another catalog is dropped.
+     */
+    private fun rebuildScopedReports() {
+        val state = _ui.value
+        val catalog = state.catalog ?: return
+        val analysis = state.analysis ?: return
+        val healthScope = state.healthScope
+        val analyticsScope = state.analyticsScope
+        val model = state.model
+        val sha256 = state.sha256
+        val revision = ++scopeRevision
+        scope.launch {
+            val health = withContext(Dispatchers.IO) {
+                HealthReportBuilder.build(catalog, analysis, model, healthScope)
+            }
+            val analytics = withContext(Dispatchers.IO) {
+                CollectionAnalyticsBuilder.build(catalog, analyticsScope)
+            }
+            _ui.update { current ->
+                if (revision != scopeRevision || current.sha256 != sha256 || current.catalog !== catalog) {
+                    current
+                } else {
+                    current.copy(health = health, analytics = analytics)
+                }
+            }
+        }
     }
 
     /** The mapping the workbook suggests for its own headers. */
@@ -738,6 +783,59 @@ class WorkbookCommentsController(
     fun setTimelineMode(mode: TimelineMode) = _ui.update { it.selectTimeline(mode) }
 
     fun toggleTimelineOrder() = _ui.update { it.toggleTimelineOrder() }
+
+    // ---- timeline filter (v2.4.0-dev.4) -------------------------------------------------------
+
+    /** Text filter of the timeline on screen; the other date meaning keeps its own filter. */
+    fun setTimelineQuery(text: String) = _ui.update { it.filterTimeline(it.currentTimelineFilter.withQuery(text)) }
+
+    /** Restores the whole eligible timeline of the meaning on screen. */
+    fun clearTimelineFilters() = _ui.update { it.clearTimelineFilter() }
+
+    fun openTimelineYearPicker(endpoint: TimelineYearEndpoint) = _ui.update { it.timelineYearPicker(endpoint) }
+
+    fun closeTimelineYearPicker() = _ui.update { it.timelineYearPicker(null) }
+
+    /** Sets one end of the year range; null clears that bound. */
+    fun pickTimelineYear(endpoint: TimelineYearEndpoint, year: Int?) =
+        _ui.update { it.pickTimelineYear(endpoint, year) }
+
+    // ---- worksheet scopes of Health and Analytics (v2.4.0-dev.4) ------------------------------
+
+    fun openScopeDialog(target: ScopeTarget) = _ui.update { it.openScopeDialog(target) }
+
+    fun toggleScopeSheet(key: String) = _ui.update { it.toggleScopeSheet(key) }
+
+    fun selectAllScopeSheets() = _ui.update { it.scopeSelectAll() }
+
+    fun closeScopeDialog() = _ui.update { it.closeScopeDialog() }
+
+    /**
+     * Commits the dialog's selection to its own report and recalculates that report.
+     *
+     * Health and Analytics each own their scope, so this updates exactly one of them.
+     */
+    fun applyScopeDialog() {
+        val before = _ui.value.scopeDialog ?: return
+        _ui.update { it.scopeCommitted() }
+        rebuildScopedReports()
+        onMessage(
+            "The ${before.target.label} report now covers " +
+                (if (before.draft.isEmpty()) "all worksheets." else "${before.draft.size} worksheet(s)."),
+            ToastKind.INFO,
+        )
+    }
+
+    /** Applies [scope] to [target] directly — the "All worksheets" shortcut — and recalculates it. */
+    fun setScope(target: ScopeTarget, scope: SheetScope) {
+        _ui.update {
+            when (target) {
+                ScopeTarget.HEALTH -> it.copy(healthScope = scope)
+                ScopeTarget.ANALYTICS -> it.copy(analyticsScope = scope)
+            }
+        }
+        rebuildScopedReports()
+    }
 
     // ---- date columns (v2.4.0-dev.3) ----------------------------------------------------------
 
