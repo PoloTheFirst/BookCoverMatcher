@@ -73,6 +73,9 @@ fun OnlineSearchPanel(
     onAddToWishlist: (com.bookcovermatcher.ProductResultUi) -> Unit,
     onBulkAdd: () -> Unit,
     onBookmarkAll: () -> Unit,
+    onToggleDiscoveryBookmark: (com.bookcovermatcher.ReverseCandidateUi) -> Unit = {},
+    onAddDiscoveryToWishlist: (com.bookcovermatcher.ReverseCandidateUi) -> Unit = {},
+    onBookmarkAllDiscovery: () -> Unit = {},
 ) {
     Panel("Online search") {
         Row(
@@ -129,7 +132,16 @@ fun OnlineSearchPanel(
             onBookmarkAll = onBookmarkAll,
         )
         Spacer(Modifier.height(14.dp))
-        ReverseImageSection(ui = ui, controller = controller, onOpenUrl = onOpenUrl)
+        ReverseImageSection(
+            ui = ui,
+            controller = controller,
+            onOpenUrl = onOpenUrl,
+            bookmarkedKeys = bookmarkedKeys,
+            wishlistedKeys = wishlistedKeys,
+            onToggleBookmark = onToggleDiscoveryBookmark,
+            onAddToWishlist = onAddDiscoveryToWishlist,
+            onBookmarkAllDiscovery = onBookmarkAllDiscovery,
+        )
     }
 }
 
@@ -408,15 +420,18 @@ private fun CatalogueSection(
 
             // Two bulk actions with different scopes, both separate from the per-card chips:
             // bookmarking writes to `Bookmarks` only, adding to the wishlist writes to one profile.
+            // The label names the scope: these are the *platform* search results above. Reverse-image discovery has
+            // its own bulk action, inside the discovery section, so the two can never be confused.
             GradientButton(
                 onClick = onBookmarkAll,
                 colors = Palette.NavyGradient,
                 contentColor = Palette.Text,
                 modifier = Modifier.fillMaxWidth(),
                 minHeight = 44.dp,
-            ) { ButtonLabel("Bookmark all results", Palette.Text, 13f) }
+            ) { ButtonLabel("Bookmark all platform results", Palette.Text, 13f) }
             Text(
-                "Saves every result above to the Bookmarks collection. No profile is created.",
+                "Saves every platform search result above to the Bookmarks collection. No profile is created, and " +
+                    "reverse-image discovery results are not included.",
                 modifier = Modifier.padding(top = 5.dp),
                 color = Palette.Muted,
                 fontSize = 10.sp,
@@ -431,7 +446,8 @@ private fun CatalogueSection(
                 minHeight = 46.dp,
             ) { ButtonLabel("Add entire result profile to wishlist", Color.White, 13.5f) }
             Text(
-                "Includes the workbook matches and every online result above; you choose the profile.",
+                "Includes the workbook matches, every online result above and the eligible reverse-image discovery " +
+                    "results below; you choose the profile.",
                 modifier = Modifier.padding(top = 6.dp),
                 color = Palette.Muted,
                 fontSize = 10.sp,

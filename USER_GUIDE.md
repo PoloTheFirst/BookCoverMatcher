@@ -28,7 +28,7 @@ placeholder.
   the 5-50 result maximum, and the results from the selected platforms. The count is the number of
   unique, displayable results; failures and placeholders are not counted.
 * **Bookmarks (n)** - the results of the current search that are already in the `Bookmarks`
-  collection, with **Bookmark all results** and a shortcut to the full collection.
+  collection, with **Bookmark all platform results** and a shortcut to the full collection.
 
 Switching tabs never cancels a request, clears the session cache or changes saved data, and the three
 lists are never merged: a workbook row is comparison output with no bookmark or remove control, while
@@ -92,7 +92,9 @@ have. This does **not** change the offline comparison, which stays at five match
 4. Expanded actions are separate: **Open website**, **Bookmark**, **+ Wishlist**.
    * **Bookmark** saves the link in `Bookmarks`.
    * **+ Wishlist** adds only that one item to a folder you choose.
-   * **Bookmark all results** saves every result on screen to `Bookmarks`; it creates no folder.
+   * **Bookmark all platform results** saves every *catalogue search* result on screen to `Bookmarks`; it creates no
+  folder. Reverse-image discovery results have their own action, **Bookmark all discovery results**, inside the
+  discovery section.
    * **Add entire result profile to wishlist** saves the offline top-5 and the online results as one
      session in the chosen folder.
 5. **Clear session cache** removes temporary results only.
@@ -100,7 +102,7 @@ have. This does **not** change the offline comparison, which stays at five match
 If OCR fails, type a title and search anyway. If one provider is unavailable, the others still return
 results and the panel names the failure on that provider's card. Google Books can answer HTTP 429
 without an API key; this is reported, not hidden.
-### Reverse-image discovery (v2.5.0-dev.3)
+### Reverse-image discovery (v2.5.0-dev.4)
 
 Under **C · Reverse-image discovery** the Search tab can look for the *cover itself*, not just the text on it.
 
@@ -119,14 +121,29 @@ Under **C · Reverse-image discovery** the Search tab can look for the *cover it
 4. Each candidate shows what it is, **who found it and with what number** (`SauceNAO 95.1% · IQDB 92%`), and the
    SauceNAO row also shows the provider's remaining quota. The two numbers are never added together or averaged:
    they belong to different services.
-5. **Confirm** or **Reject** records *your* decision for that candidate and remembers it (per wishlist profile).
+5. **Pictures.** Each card has a small picture on the left: SauceNAO's own result thumbnail when it sent one,
+   otherwise the image the result's page declares for itself (Open Graph, then Twitter card, then `image_src`). The
+   app never guesses at "the first picture on the page", never runs a page's JavaScript and never signs in anywhere.
+   When a site declares nothing, refuses the request or serves something unreadable, the box says **no image** (or
+   `loading…` / `not loadable`) and the card stays a normal, bookmarkable result.
+6. **Confirm** or **Reject** records *your* decision for that candidate and remembers it (per wishlist profile).
    Until you do, the card says **Suggestion — not confirmed by you**. Confirming does not edit the workbook and does
    not add a wishlist entry — those stay separate, explicit actions.
-6. **Removing an IQDB card:** a card that IQDB produced has a **rubbish bin** at its top-right. Tapping it removes
-   *that card only* from the list on screen. It deletes nothing else: no other card, no SauceNAO result, no saved
-   decision, no bookmark, no wishlist entry. A later search may show the result again.
-7. **Found a listing yourself?** Use the **Wishlist** tab: it owns bookmarks and manual listings, keeps them apart
-   from online results and prevents duplicates. The Online tab is for searching, not for creating listings.
+7. **Bookmark or wishlist one result.** Each card has **Bookmark** (writes to `Bookmarks` only, tap again to remove)
+   and **+ Wishlist** (opens the same folder picker every other card uses). Once done they read
+   **Bookmarked ✓** / **In wishlist ✓**. Repeating either action never creates a duplicate.
+8. **Removing a card:** every card a provider reported has a **rubbish bin** at its top-right — SauceNAO cards
+   included. Tapping it removes *that card only* from the list on screen (`Dismiss SauceNAO result`,
+   `Dismiss IQDB result`, or `Dismiss discovery result` when both providers reported it, because that is one card).
+   It deletes nothing else: no other card, no saved decision, no bookmark, no wishlist entry, no stored picture. A
+   later search may show the result again.
+9. **Two bulk actions, two scopes.** `Bookmark all platform results` (in the platform section) saves the *catalogue
+   search* results; `Bookmark all discovery results` (under the candidates) saves the *reverse-image* results of this
+   search, SauceNAO and IQDB alike, and reports the counts per provider. Neither one touches the other's results.
+   `Add entire result profile to wishlist` saves the whole profile — offline top-5, platform results **and** the
+   eligible discovery results — as one session in the folder you choose.
+10. **Found a listing yourself?** Use the **Wishlist** tab: it owns bookmarks and manual listings, keeps them apart
+    from online results and prevents duplicates. The Online tab is for searching, not for creating listings.
 
 **General-book sources** — the switch above the search box — turns Open Library and Google Books on or off. Off
 means **not queried at all** (not "searched and empty"), and DLsite, the doujin source, is never affected.

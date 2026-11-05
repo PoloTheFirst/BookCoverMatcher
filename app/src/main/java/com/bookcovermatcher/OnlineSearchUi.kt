@@ -6,7 +6,10 @@ import com.bookcovermatcher.core.wishlist.ItemKind
 import com.bookcovermatcher.core.wishlist.MatchType
 
 import com.bookcovermatcher.core.online.CandidateDecision
+import com.bookcovermatcher.core.online.DiscoveryDrafts
 import com.bookcovermatcher.core.online.ProviderCatalog
+import com.bookcovermatcher.core.online.reverse.DiscoveryImageSource
+import com.bookcovermatcher.core.online.reverse.DiscoveryImageState
 import com.bookcovermatcher.core.online.reverse.ReverseImageCandidate
 import com.bookcovermatcher.core.online.reverse.ReverseImageState
 
@@ -241,16 +244,50 @@ data class ReverseCandidateUi(
     /** True when the user supplied this candidate themselves (they pasted an IQDB result). */
     val manual: Boolean = false,
     val note: String? = null,
+    /**
+     * The picture for this candidate, when one could be obtained.
+     *
+     * Never evidence for the match — it exists so the user can compare covers by eye. [imageState] says what
+     * happened, so the card can draw an honest placeholder instead of an empty gap.
+     */
+    val imageBytes: ByteArray? = null,
+    /** Where [imageBytes] came from: the provider's own result image, or a page's metadata. */
+    val imageSource: DiscoveryImageSource? = null,
+    val imageState: DiscoveryImageState = DiscoveryImageState.NOT_REQUESTED,
 ) {
     /**
      * True when IQDB found this candidate and SauceNAO did not.
      *
-     * The rubbish-bin action exists for IQDB results; a candidate that SauceNAO also found is *not* dismissible
-     * here, because dismissing it would silently discard the first-priority provider's evidence.
+     * Kept from v2.5.0-dev.3 for the IQDB dismissal control, which must not change behaviour.
      */
     val isIqdbOnly: Boolean
         get() = providerIds.any { it.equals("iqdb", ignoreCase = true) } &&
             providerIds.none { it.equals("saucenao", ignoreCase = true) }
+
+    /** True when SauceNAO found this candidate and IQDB did not. */
+    val isSauceNaoOnly: Boolean
+        get() = providerIds.any { it.equals("saucenao", ignoreCase = true) } &&
+            providerIds.none { it.equals("iqdb", ignoreCase = true) }
+
+    /** True when a reverse-image provider reported this card, so it can be dismissed. */
+    val isDismissible: Boolean
+        get() = providerIds.any { it.equals("saucenao", ignoreCase = true) || it.equals("iqdb", ignoreCase = true) }
+
+    /**
+     * The accessibility label of the dismissal control, naming the provider whose result is removed.
+     *
+     * A card both providers reported is one card with both references, so its label says "discovery" rather than
+     * pretending only one provider's evidence would go.
+     */
+    val dismissLabel: String
+        get() = when {
+            isIqdbOnly -> "Dismiss IQDB result"
+            isSauceNaoOnly -> "Dismiss SauceNAO result"
+            else -> "Dismiss discovery result"
+        }
+
+    /** `SauceNAO`, `IQDB` or `SauceNAO + IQDB` — the attribution a stored copy keeps. */
+    val providerLabel: String get() = DiscoveryDrafts.providerLabel(providerIds)
 }
 
 /** Everything the reverse-image section draws. */
@@ -329,10 +366,36 @@ internal fun ProductResultUi.toDraft(): ItemDraft = ItemDraft(
 )
 
 /**
+ * One discovery candidate as the **wishlist store** sees it.
+ *
+ * The identity is the candidate's own key, so the same result bookmarked twice — now or in a later search — is the
+ * same item and the store's deduplication can do its job. `provider` keeps the attribution (`SauceNAO`, `IQDB`,
+ * `SauceNAO + IQDB`) because "who found it" is part of the record; nothing is invented for a field the provider did
+ * not send, and the cover bytes are stored only when one was actually obtained.
+ *
+ * `MatchType.VISUAL` is honest here in a way `TEXT_QUERY` would not be: a reverse-image provider compared the
+ * *pictures*, which is exactly what that value means.
+ */
+internal fun ReverseCandidateUi.toDraft(): ItemDraft = ItemDraft(
+    kind = ItemKind.ONLINE_RESULT,
+    title = title.ifBlank { productId.ifBlank { sourceUrl.orEmpty() } },
+    url = sourceUrl,
+    provider = providerLabel,
+    providerKey = DiscoveryDrafts.fingerprintOf(key),
+    identifier = productId.takeIf { it.isNotBlank() },
+    description = note,
+    authors = listOf(author).filter { it.isNotBlank() },
+    circle = circle.takeIf { it.isNotBlank() },
+    matchType = MatchType.VISUAL,
+    matchTypeVerified = true,
+    thumbJpeg = imageBytes,
+)
+
+/**
  * A reverse-image candidate as the section draws it.
  *
- * The evidence line is built from the core model's attributed references — never re-scored here, which is why
- * this function cannot introduce a combined probability even by accident.
+ * The evidence line is built from the core model's attributed references — never re-scored here, which is why this
+ * function cannot introduce a combined probability even by accident.
  */
 fun ReverseImageCandidate.toUi(decision: CandidateDecision): ReverseCandidateUi = ReverseCandidateUi(
     key = key,

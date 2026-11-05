@@ -24,6 +24,7 @@ import com.bookcovermatcher.core.excel.comments.WorkbookAnalyzer
 import com.bookcovermatcher.core.excel.comments.WorkbookComparison
 import com.bookcovermatcher.core.excel.comments.WorkbookMetrics
 import com.bookcovermatcher.core.format.Formatting
+import com.bookcovermatcher.core.online.DiscoveryDrafts
 import com.bookcovermatcher.core.search.CatalogBuilder
 import com.bookcovermatcher.core.search.CatalogIndex
 import com.bookcovermatcher.core.search.CatalogIndexStore
@@ -1088,17 +1089,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * "Add result profile to wishlist": the whole result profile (offline top-5 + online results)
-     * becomes **one session** in the chosen folder. The user still chooses the destination and
-     * nothing is written until Confirm.
+     * "Add result profile to wishlist": the whole result profile becomes **one session** in the chosen folder. The
+     * user still chooses the destination and nothing is written until Confirm.
+     *
+     * The profile is everything the current scan produced:
+     *
+     *  * the offline top-5 ([lastRanked]);
+     *  * the online platform results;
+     *  * **every eligible reverse-image discovery candidate** — SauceNAO and IQDB alike, as of v2.5.0-dev.4. This is
+     *    the aggregation fix: dev.3 stored the offline and platform halves and silently left discovery out, even when
+     *    SauceNAO had done the work. Rejected candidates are excluded (the user said they are not the book) and
+     *    dismissed ones are already gone from the list; a candidate whose picture could not be fetched is included,
+     *    because the picture is not part of the decision.
      */
     fun addResultProfileToWishlist() {
+        val discovery = storableDiscoveryCandidates()
         val drafts = buildList {
             lastRanked.forEach { add(it.toDraft()) }
             (online.ui.value.catalogue as? CatalogueUi.Found)?.items?.forEach { add(it.toDraft()) }
-        }
+            discovery.forEach { add(it.toDraft()) }
+        }.distinctBy { it.fingerprint }
         if (drafts.isEmpty()) {
-            showToast("Nothing to add yet \u2014 run \u201CLink & Find Top 5\u201D or an online search first.", ToastKind.ERR)
+            showToast(
+                "Nothing to add yet \u2014 run \u201CLink & Find Top 5\u201D, an online search or a reverse-image search first.",
+                ToastKind.ERR,
+            )
             return
         }
         openPicker(
@@ -1418,10 +1433,120 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
 
 
+    /**
+     * `Bookmark` on one **discovery** card (SauceNAO or IQDB).
+     *
+     * The same contract as [toggleBookmark] for platform results: only the `Bookmarks` membership changes, the
+     * wishlist is untouched in both directions, and the write is idempotent because the candidate's own key is the
+     * item's identity. A result whose picture could not be fetched is bookmarked exactly the same way — the image is
+     * decoration, not a precondition.
+     */
+    fun toggleDiscoveryBookmark(candidate: ReverseCandidateUi) {
+        if (!DiscoveryDrafts.isStorable(candidate.title, candidate.productId, candidate.sourceUrl)) {
+            showToast("That result has nothing to store (no title, id or link).", ToastKind.ERR)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val nowBookmarked = withContext(wishlistDispatcher) {
+                    val library = wishlist.library()
+                    val existing = library.itemByFingerprint(DiscoveryDrafts.fingerprintOf(candidate.key))
+                        ?: candidate.sourceUrl?.let { url ->
+                            library.items.firstOrNull { it.url != null && it.url == url }
+                        }
+                    if (existing != null && library.isBookmarked(existing.id)) {
+                        wishlist.removeBookmark(existing.id)
+                        false
+                    } else if (existing != null) {
+                        // The item is already in the library: only its bookmark membership is added. Creating a new
+                        // record here would duplicate a result the user already has.
+                        wishlist.bookmarkExisting(existing.id)
+                    } else {
+                        wishlist.bookmark(candidate.toDraft())
+                        true
+                    }
+                }
+                refreshLibrary()
+                showToast(
+                    if (nowBookmarked) {
+                        "Bookmark added \u2014 saved in Bookmarks (from ${candidate.providerLabel})."
+                    } else {
+                        "Bookmark removed. Wishlist entries are untouched."
+                    },
+                    if (nowBookmarked) ToastKind.OK else ToastKind.INFO,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showToast("Wishlist storage error \u2014 could not change the bookmark.", ToastKind.ERR)
+            }
+        }
+    }
 
-    // -------------------------------------------------------------------------------------
-    // Custom bookmark form
-    // -------------------------------------------------------------------------------------
+    /** `+ Wishlist` on one discovery card: exactly that result, into a profile the user chooses. */
+    fun addDiscoveryToWishlist(candidate: ReverseCandidateUi) {
+        if (!DiscoveryDrafts.isStorable(candidate.title, candidate.productId, candidate.sourceUrl)) {
+            showToast("That result has nothing to store (no title, id or link).", ToastKind.ERR)
+            return
+        }
+        openPicker(
+            mode = PickerMode.ADD_ITEMS,
+            headline = "Add ${candidate.title.ifBlank { "this discovery result" }} to wishlist",
+            drafts = listOf(candidate.toDraft()),
+            existingIds = emptyList(),
+        )
+    }
+
+    /**
+     * `Bookmark all discovery results`: every eligible reverse-image result on screen, in **one** write.
+     *
+     * Scope is the discovery section only — the platform search results above are a different set and have their own
+     * action ([bookmarkAllResults]). Rejected cards are excluded (the user already said no) and dismissed ones are
+     * gone from the list; repeated use adds nothing twice, because the store deduplicates by item identity.
+     */
+    fun bookmarkAllDiscoveryResults() {
+        val candidates = storableDiscoveryCandidates()
+        if (candidates.isEmpty()) {
+            showToast("No discovery results to bookmark yet \u2014 search by this cover first.", ToastKind.ERR)
+            return
+        }
+        val byProvider = candidates.groupingBy { it.providerLabel }.eachCount()
+            .entries.sortedBy { it.key }
+            .joinToString(" \u00B7 ") { "${it.key} ${it.value}" }
+        viewModelScope.launch {
+            try {
+                val report = withContext(wishlistDispatcher) {
+                    wishlist.bookmarkAll(candidates.map { it.toDraft() })
+                }
+                refreshLibrary()
+                showToast(
+                    when {
+                        report.added == 0 -> "All ${report.alreadyThere} discovery result(s) were already bookmarked ($byProvider)."
+                        report.alreadyThere > 0 ->
+                            "Bookmarked ${report.added} discovery result(s) \u2014 ${report.alreadyThere} already there ($byProvider)."
+                        else -> "Bookmarked ${report.added} discovery result(s) ($byProvider)."
+                    },
+                    if (report.added == 0) ToastKind.INFO else ToastKind.OK,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                showToast(
+                    "Wishlist storage error \u2014 none of the ${candidates.size} discovery result(s) were bookmarked.",
+                    ToastKind.ERR,
+                )
+            }
+        }
+    }
+
+    /** Discovery candidates the collection actions may act on, in list order. */
+    private fun storableDiscoveryCandidates(): List<ReverseCandidateUi> =
+        online.ui.value.reverse.candidates.filter { candidate ->
+            DiscoveryDrafts.isEligible(candidate.decision) &&
+                DiscoveryDrafts.isStorable(candidate.title, candidate.productId, candidate.sourceUrl)
+        }
+
+
 
     /** The Bookmarks control drawer lives in the app state: switching ribbons keeps the choice. */
     fun toggleBookmarkPanel() = _ui.update { it.toggleBookmarkPanel() }

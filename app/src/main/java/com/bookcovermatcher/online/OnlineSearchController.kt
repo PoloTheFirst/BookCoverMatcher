@@ -4,6 +4,7 @@ package com.bookcovermatcher.online
 
 import android.content.Context
 import com.bookcovermatcher.BridgeUi
+import com.bookcovermatcher.CandidateLists
 import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.OcrUi
 import com.bookcovermatcher.OnlineSearchUi
@@ -31,6 +32,7 @@ import com.bookcovermatcher.core.online.CandidateDecision
 import com.bookcovermatcher.core.online.CandidateDecisionRecord
 import com.bookcovermatcher.core.online.CandidateReviews
 import com.bookcovermatcher.core.online.ProviderCapabilities
+import com.bookcovermatcher.core.online.reverse.DiscoveryImageState
 import com.bookcovermatcher.core.online.reverse.IqdbProtocol
 import com.bookcovermatcher.core.online.reverse.IqdbResultParser
 import com.bookcovermatcher.core.online.reverse.ReverseImageAggregator
@@ -119,6 +121,11 @@ class OnlineSearchController(
         SauceNaoReverseImageSource(apiKey = { sauceNaoKey.key() }),
         IqdbReverseImageSource(),
     ),
+    /**
+     * Fetches each discovery candidate's picture (provider thumbnail first, then the page's own declared image).
+     * Deliberately separate from the search: a missing picture never changes a provider's result state.
+     */
+    private val discoveryCovers: DiscoveryCoverLoader = DiscoveryCoverLoader(),
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
     // ---- reverse-image discovery ---------------------------------------------------------------
@@ -134,6 +141,9 @@ class OnlineSearchController(
     private val reverseRunner = ReverseImageSearchRunner(reverseSources)
     private val reverseRuns = LinkedHashMap<String, ReverseImageRun>()
     private var reverseJob: Job? = null
+
+    /** The picture batch of the current search; cancelled when a newer search replaces it. */
+    private var coverJob: Job? = null
 
     @Volatile
     private var reverseCancelled = false
@@ -440,6 +450,9 @@ class OnlineSearchController(
             )
         }
         val found = result.candidates.size
+        // Pictures are decoration: they are fetched after the results are already on screen, and a failure changes
+        // nothing about the provider's status, the candidate list or the user's ability to bookmark the result.
+        loadDiscoveryImages(generation = reverseGeneration)
         when {
             found > 0 -> onMessage("$found reverse-image candidate(s). $note", ToastKind.OK)
             result.anyAnswered -> onMessage("The providers answered and found nothing. $note", ToastKind.INFO)
@@ -500,6 +513,9 @@ class OnlineSearchController(
             .map { it.toUi(CandidateReviews.stateOf(decisions, it.key)).copy(manual = true) }
         pastedCandidates = (candidates + pastedCandidates).distinctBy { it.key }
         publishCandidates()
+        // Pasted rows are candidates like any other: the same conservative picture loader runs for them, and it can
+        // only ever decorate the card.
+        loadDiscoveryImages(generation = reverseGeneration)
         onMessage("${candidates.size} IQDB result(s) from your browser added.", ToastKind.OK)
     }
 
@@ -510,20 +526,18 @@ class OnlineSearchController(
     fun rejectCandidate(key: String) = decide(key, CandidateDecision.REJECTED)
 
     /**
-     * Dismisses one result card from the current list — the rubbish-bin action on an IQDB card.
+     * Dismisses one result card from the current list — the rubbish-bin action on a candidate card.
      *
      * Deliberately *not* a deletion: it removes the card from this session's list only. The decision log, the
      * workbook, the wishlist, the cover cache and the provider's own records are untouched, and a later search may
      * legitimately show the same result again. Because a dismissal only edits the two in-memory lists, an
      * already-published stale run cannot resurrect the card: the generation guard drops such a run before it
-     * reaches [applyReverseResult], and a fresh run replaces the list wholesale.
+     * reaches [applyReverseResult], and a fresh run replaces the list wholesale. The same rule protects the card from
+     * a picture that is still being fetched — [patchCandidate] refuses a key that is no longer present.
      */
     fun dismissCandidate(key: String) {
-        if (key.isBlank()) return
-        val before = searchCandidates.size + pastedCandidates.size
-        searchCandidates = searchCandidates.filterNot { it.key == key }
-        pastedCandidates = pastedCandidates.filterNot { it.key == key }
-        if (searchCandidates.size + pastedCandidates.size == before) return
+        val next = currentLists().dismiss(key) ?: return
+        adopt(next)
         publishCandidates()
     }
 
@@ -554,11 +568,84 @@ class OnlineSearchController(
 
     /** Re-draws the candidate list with the decisions that are current now. */
     private fun publishCandidates() = _ui.update {
-        it.copy(reverse = it.reverse.copy(candidates = withDecisions(pastedCandidates + searchCandidates)))
+        it.copy(reverse = it.reverse.copy(candidates = withDecisions(currentLists().visible)))
     }
 
     private fun withDecisions(candidates: List<ReverseCandidateUi>): List<ReverseCandidateUi> = candidates.map {
         it.copy(decision = CandidateReviews.stateOf(decisions, it.key))
+    }
+
+    /**
+     * Starts (or restarts) the picture batch for the candidates now on screen.
+     *
+     * Every candidate that has not been tried yet is marked [DiscoveryImageState.LOADING] immediately, so the card
+     * can draw its placeholder without a layout jump, and the fetch itself runs sequentially on the IO dispatcher —
+     * one page at a time, so a slow host cannot open ten sockets at once.
+     *
+     * The batch belongs to a search [generation]. A result that arrives after a newer search started, or after the
+     * card was dismissed, is dropped by [patchCandidate] instead of being written into the list: a picture can never
+     * reinsert a card the user removed, and it can never appear on a candidate from a previous cover.
+     */
+    private fun loadDiscoveryImages(generation: Long) {
+        val targets = _ui.value.reverse.candidates.filter { it.imageState == DiscoveryImageState.NOT_REQUESTED }
+        if (targets.isEmpty()) return
+        markImageState(targets.map { it.key }, DiscoveryImageState.LOADING)
+        coverJob?.cancel()
+        coverJob = scope.launch {
+            for (target in targets) {
+                if (generation != reverseGeneration) return@launch
+                val loaded = withContext(Dispatchers.IO) {
+                    discoveryCovers.load(target.imageUrl, target.sourceUrl)
+                }
+                if (generation != reverseGeneration) return@launch
+                patchCandidate(target.key) { candidate ->
+                    if (loaded == null) {
+                        candidate.copy(imageState = DiscoveryImageState.UNAVAILABLE)
+                    } else {
+                        candidate.copy(
+                            imageBytes = loaded.bytes,
+                            imageSource = loaded.source,
+                            imageState = DiscoveryImageState.AVAILABLE,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun markImageState(keys: Collection<String>, state: DiscoveryImageState) {
+        var lists = currentLists()
+        var touched = false
+        for (key in keys) {
+            val next = lists.patch(key) { it.copy(imageState = state) } ?: continue
+            lists = next
+            touched = true
+        }
+        if (!touched) return
+        adopt(lists)
+        publishCandidates()
+    }
+
+    /**
+     * Rewrites one candidate in place.
+     *
+     * Returns false — and writes nothing — when the key is in neither list any more, which is exactly the
+     * "the user dismissed this card while the image was loading" case. That is why an asynchronous answer can never
+     * bring a dismissed card back.
+     */
+    private fun patchCandidate(key: String, transform: (ReverseCandidateUi) -> ReverseCandidateUi): Boolean {
+        val next = currentLists().patch(key, transform) ?: return false
+        adopt(next)
+        publishCandidates()
+        return true
+    }
+
+    /** The two lists as one value, so the editing rules live in [CandidateLists] and are unit-tested there. */
+    private fun currentLists() = CandidateLists(pasted = pastedCandidates, searched = searchCandidates)
+
+    private fun adopt(lists: CandidateLists) {
+        pastedCandidates = lists.pasted
+        searchCandidates = lists.searched
     }
 
     /**
@@ -571,6 +658,8 @@ class OnlineSearchController(
         reverseCancelled = true
         reverseJob?.cancel()
         reverseJob = null
+        coverJob?.cancel()
+        coverJob = null
         reverseRuns.clear()
         searchCandidates = emptyList()
         _ui.update {

@@ -11,7 +11,7 @@ a connection; every online feature is opt-in.
 > state bug that made the feature unreachable, and adds the bottom navigation the workflow called
 > for. The UI follows the supplied workflow image, which lives outside the repository
 > (`.../Downloads/workflow_image.png`): the Search screen has that image's `Workbook (n) / Online (n)`
-> result tabs, a `Bookmarks` tab with `Bookmark all results`, and the `Add entire result profile to
+> result tabs, a `Bookmarks` tab with `Bookmark all platform results`, and the `Add entire result profile to
 > wishlist` button. Where the picture shows data this stack cannot supply (`Visual match`, price,
 > availability, marketplace sources) the field stays in the layout with an honest empty state instead
 > of an invented value. **2.2.1** corrected the provider layer. **2.2.2** adds the platform picker:
@@ -63,7 +63,7 @@ Bottom navigation has four destinations:
 | Tab | Contents |
 |---|---|
 | **Home** | Cover capture (CameraX), Auto Scan toggle, Scan / restart controls, workbook picker, cell range, image picker, "Link & Find Top 5", and a shortcut to the comparison results |
-| **Search** | **Search Results** with `Workbook (n) / Online (n) / Bookmarks (n)` tabs and live counts: the offline controls plus the top-5 comparison, the online panel (OCR status, query field, **platform picker with per-platform `Open ↗` links**, **result maximum 5–50**, provider results), and this search's bookmarked results with `Bookmark all results`. Offline and online results are never one mixed list |
+| **Search** | **Search Results** with `Workbook (n) / Online (n) / Bookmarks (n)` tabs and live counts: the offline controls plus the top-5 comparison, the online panel (OCR status, query field, **platform picker with per-platform `Open ↗` links**, **result maximum 5–50**, provider results), the reverse-image discovery section (SauceNAO first, IQDB manual, candidate cards with picture, bookmark/wishlist actions and dismissal, `Bookmark all discovery results`), and this search's bookmarked results with `Bookmark all platform results`. Offline and online results are never one mixed list |
 | **Wishlist** | **Folders** and **Bookmarks** sections. A folder opens to its sessions; a session opens to its results. Bookmarks have the same cards as the Search results (expand for the full record) and a filter/sort drawer with its own handle |
 | **More** | Online-search settings (toggle, auto-search, OCR/translation languages), a plain-language explanation of each capability, the **workbook comments & images** preview, storage counts and "clear online session cache" |
 
@@ -377,9 +377,10 @@ thumbnails in `thumbs/`). Version 3 shape:
    * If OCR fails, type a title and press **Search catalogues** — OCR is not required for the
      catalogue step.
 4. Online results are cards. Tap the card body to expand; **Open website**, **Bookmark** and
-   **+ Wishlist** are separate actions. **Bookmark all results** writes all of them to `Bookmarks`
-   without creating a folder. **Add entire result profile to wishlist** writes the offline top-5 and
-   the online results as **one session** in the folder you choose.
+   **+ Wishlist** are separate actions. **Bookmark all platform results** writes every catalogue result to
+   `Bookmarks` without creating a folder; **Bookmark all discovery results** (inside the reverse-image section)
+   does the same for the discovery results only. **Add entire result profile to wishlist** writes the offline top-5,
+   the online results and the eligible discovery results as **one session** in the folder you choose.
 
 ### Wishlist
 * **Folders** → **Create folder** → name it. Open a folder to see its sessions and any directly
@@ -620,7 +621,7 @@ with the offline comparison, which keeps its fixed five results (`Config.TOP_MAT
   (adult sites that block automated access), Doujinshi.info (HTTP 403), MyAnimeList (no
   unauthenticated API) and Toranoana (no documented public API; 18+ catalogue).
 
-### Reverse-image discovery (v2.5.0-dev.3)
+### Reverse-image discovery (v2.5.0-dev.4)
 
 * **SauceNAO** is the first-priority provider and the only automated one: your own API key (stored encrypted with
   an Android Keystore key; shown afterwards only as `••••••••ab12`, with *Replace* and *Remove*) is sent **in the
@@ -639,7 +640,19 @@ with the offline comparison, which keeps its fixed five results (`Config.TOP_MAT
   wishlist profile, and the suggestion line is drawn in white so it cannot be missed. Confirming changes no
   workbook cell and adds no wishlist entry.
 * An IQDB card carries a **rubbish bin** at its top-right that removes *that card only* from the list on screen —
-  no other card, no SauceNAO result, no saved decision and no bookmark is touched.
+  no other card, no SauceNAO result, no saved decision and no bookmark is touched. Since v2.5.0-dev.4 **every**
+  provider card is dismissible, SauceNAO cards included, labelled with the provider whose evidence the tap removes.
+* **Every card shows a picture when one can be obtained**: SauceNAO's own result thumbnail first, otherwise the image
+  the result's page declares for itself (Open Graph, then Twitter card, then `image_src`). Retrieval is conservative
+  and guarded — HTTPS only, public hosts only, every redirect validated, page/image byte caps, content-type and decode
+  checks — and a page that declares nothing, refuses the request or serves something unreadable leaves the card intact
+  with a `no image` placeholder. The picture is decoration: a result stays confirmable and bookmarkable without it.
+* **Each card can be bookmarked or added to a wishlist** (`Bookmark`, `+ Wishlist`), exactly like a platform result:
+  the chips say what is already true and repeating either action cannot create a duplicate.
+* **Two bulk bookmark actions with separate scopes**: `Bookmark all platform results` (the catalogue search results)
+  and `Bookmark all discovery results` (the reverse-image results of this search, SauceNAO and IQDB alike).
+  `Add entire result profile to wishlist` saves the whole profile — offline top-5, platform results *and* the eligible
+  discovery results — as one session.
 * **Manual listings live in the Wishlist**, which owns bookmarks, manual bookmarks, deduplication and profile
   isolation. The Online tab searches and discovers; it no longer creates listings.
 

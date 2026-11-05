@@ -282,6 +282,9 @@ private fun OnlineResultsTab(ui: UiState, vm: MainViewModel, actions: ScreenActi
         onAddToWishlist = vm::addResultToWishlist,
         onBulkAdd = vm::addResultProfileToWishlist,
         onBookmarkAll = vm::bookmarkAllResults,
+        onToggleDiscoveryBookmark = vm::toggleDiscoveryBookmark,
+        onAddDiscoveryToWishlist = vm::addDiscoveryToWishlist,
+        onBookmarkAllDiscovery = vm::bookmarkAllDiscoveryResults,
     )
 }
 
@@ -306,12 +309,13 @@ private fun BookmarksResultsTab(
             contentColor = Palette.Text,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             minHeight = 44.dp,
-        ) { ButtonLabel("Bookmark all results", Palette.Text, 13f) }
+        ) { ButtonLabel("Bookmark all platform results", Palette.Text, 13f) }
         Text(
             if (found.isEmpty()) {
                 "Nothing to bookmark yet \u2014 run a catalogue search on the Online tab."
             } else {
-                "Saves all ${found.size} online result(s) of this search to Bookmarks. No folder is created."
+                "Saves all ${found.size} platform result(s) of this search to Bookmarks. No folder is created, and " +
+                    "reverse-image discovery results are not included."
             },
             modifier = Modifier.padding(top = 6.dp),
             color = Palette.Muted,
@@ -332,7 +336,8 @@ private fun BookmarksResultsTab(
             if (found.isEmpty()) {
                 "No online results in this search yet."
             } else {
-                "None of these ${found.size} result(s) is bookmarked yet. Use the bookmark action on a card, or Bookmark all results."
+                "None of these ${found.size} result(s) is bookmarked yet. Use the bookmark action on a card, or " +
+                    "Bookmark all platform results."
             },
         )
     } else {

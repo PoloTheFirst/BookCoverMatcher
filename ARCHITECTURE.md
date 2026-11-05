@@ -363,11 +363,19 @@ data/                            Android persistence
 * **Decisions are separate from data.** `CandidateReviews` (pure) + `CandidateDecisionStore` (profile-scoped)
   record confirm/reject; `CollectionStatus` keeps owned / catalogued / wanted independent, and
   `LocalProducts.of(CatalogEntry)` reads only mapped, present cells.
-* **Dismissal is local.** The IQDB card's rubbish bin calls `OnlineSearchController.dismissCandidate`, which edits
-  only the two in-memory candidate lists — the decision log, workbook, wishlist and cover cache are untouched.
-  `ReverseCandidateUi.isIqdbOnly` decides which cards get the control, so a card SauceNAO also found cannot be
-  dismissed by accident.
-* **Cache** is `core/online/BoundedImageCache`: byte budget, LRU, per-entry ceiling, refusals counted.
+* **Dismissal is local and provider-aware.** A candidate card's rubbish bin calls
+  `OnlineSearchController.dismissCandidate`, which edits only the two in-memory candidate lists — the decision log,
+  workbook, wishlist and image cache are untouched. The edits themselves live in `CandidateLists`
+  (`dismiss` / `patch` / `visible`), and `patch` returns **null** for a key that is no longer present, so a picture that
+  arrives after a dismissal cannot re-insert the card. `ReverseCandidateUi.isDismissible` decides which cards get the
+  control (any card a provider reported) and `dismissLabel` names the provider(s) whose evidence the tap removes.
+* **Pictures are decoration, never evidence.** `DiscoveryCoverLoader` tries the provider's own result image first, then
+  the result page's declared metadata (`og:image`, Twitter card, `image_src`) through `CoverImageExtractor`;
+  `DiscoveryWebFetcher` validates every hop with `SafeImageUrl` (HTTPS only, public hosts only), caps page and image
+  sizes, checks content types and decodes header-only. `ReverseCandidateUi.imageState` /
+  `imageSource` carry the outcome, so a failed picture never changes a provider's state or invalidates a result.
+* **Cache** is `core/online/BoundedImageCache`: byte budget, LRU, per-entry ceiling, refusals counted. Discovery image
+  bytes use the same cache, keyed by image URL.
 
 There is **no longer** a manual-listing module in `core/online`: v2.5.0-dev.3 removed `ManualCandidates` together
 with the Online tab's duplicate "Listing Candidate" UI. Manual bookmarks belong to the Wishlist (`ItemDraft`,

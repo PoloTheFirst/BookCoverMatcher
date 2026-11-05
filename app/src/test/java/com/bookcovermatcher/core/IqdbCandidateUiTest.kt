@@ -16,11 +16,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v2.5.0-dev.3 — which cards get the rubbish-bin control.
+ * v2.5.0-dev.3, extended in v2.5.0-dev.4 — which cards get the rubbish-bin control, and how it is labelled.
  *
- * The rule is deliberately narrower than "all reverse-image cards": the dismissal removes a whole card, so it may
- * only appear where the card's only evidence is IQDB. A candidate SauceNAO also reported must stay, otherwise one
- * tap would silently throw away the first-priority provider's result.
+ * dev.3 gave the control to IQDB-only cards only. dev.4 requires every SauceNAO card to be dismissible too, so the
+ * rule is now: any card a reverse-image provider reported is dismissible, and the label names the provider(s) whose
+ * evidence the tap removes. A card both providers reported is one card holding both references, so it is labelled
+ * "discovery" rather than pretending only one provider is affected.
  */
 class IqdbCandidateUiTest {
 
@@ -50,29 +51,37 @@ class IqdbCandidateUiTest {
     fun `an IQDB-only candidate is dismissible and carries its provider attribution`() {
         val candidate = candidateOf(hit(ReverseImageProviders.IQDB_ID, "IQDB", "https://example.test/iqdb/1"))
         assertTrue(candidate.isIqdbOnly)
+        assertTrue(candidate.isDismissible)
+        assertEquals("Dismiss IQDB result", candidate.dismissLabel)
         assertEquals(listOf("iqdb"), candidate.providerIds)
         assertEquals(1, candidate.providerCount)
         assertTrue("the evidence line still names the provider", candidate.evidence.contains("IQDB"))
     }
 
     @Test
-    fun `a SauceNAO-only candidate is not dismissible`() {
+    fun `a SauceNAO-only candidate is dismissible in dev 4`() {
         val candidate = candidateOf(
             hit(ReverseImageProviders.SAUCE_NAO_ID, "SauceNAO", "https://example.test/sn/1", productId = "RJ01234567"),
         )
         assertFalse(candidate.isIqdbOnly)
+        assertTrue(candidate.isSauceNaoOnly)
+        assertTrue(candidate.isDismissible)
+        assertEquals("Dismiss SauceNAO result", candidate.dismissLabel)
         assertEquals(listOf("saucenao"), candidate.providerIds)
     }
 
     @Test
-    fun `a candidate both providers found keeps its SauceNAO evidence and is not dismissible`() {
+    fun `a candidate both providers found is dismissed as a whole with a combined label`() {
         val shared = "RJ01234567"
         val candidate = candidateOf(
             hit(ReverseImageProviders.SAUCE_NAO_ID, "SauceNAO", "https://example.test/item", productId = shared),
             hit(ReverseImageProviders.IQDB_ID, "IQDB", "https://example.test/item", productId = shared),
         )
         assertTrue(candidate.providerIds.containsAll(listOf("saucenao", "iqdb")))
-        assertFalse("dismissing this would drop SauceNAO's evidence", candidate.isIqdbOnly)
+        assertFalse("IQDB is not the only provider here", candidate.isIqdbOnly)
+        assertTrue(candidate.isDismissible)
+        assertEquals("Dismiss discovery result", candidate.dismissLabel)
+        assertEquals("SauceNAO + IQDB", candidate.providerLabel)
         assertEquals(2, candidate.providerCount)
     }
 
@@ -91,6 +100,8 @@ class IqdbCandidateUiTest {
             decision = CandidateDecision.SUGGESTED,
         )
         assertFalse(bare.isIqdbOnly)
+        assertFalse(bare.isSauceNaoOnly)
+        assertFalse(bare.isDismissible)
     }
 
     @Test
