@@ -137,6 +137,20 @@ first build where the dev.1 core is reachable from the screen (`Online search �
   configuration, the *Search by this cover* action, the candidate list with attributed evidence and
   Confirm/Reject, the manual-entry form, the IQDB paste block and the general-book switch.
 
+### Fixed
+
+* **The application crashed on every launch (startup `NullPointerException`).** `OnlineSearchController` builds
+  its UI state in a Kotlin property initializer, and that initializer asked for the reverse-image provider rows
+  *before* the `reverseRuns` map it read had been assigned — the map was declared further down the class body,
+  and Kotlin runs property initializers in declaration order, so it was still `null`. The constructor therefore
+  threw `NullPointerException` inside `MainViewModel`'s construction and the process died before the first frame
+  (`OnlineSearchController.reverseProviderRows` → `<init>` → `MainViewModel.<init>`). Fixed in two steps: the
+  reverse-image state is now declared **above** the UI state, and the row builder was extracted into
+  `ReverseProviderRows.of(sources, runs)`, which takes the map as a **parameter**, so the initializer calls it
+  with an explicit `emptyMap()` and can no longer read uninitialised state. Verified on the emulator: cold start,
+  the online panel, the reverse-image section, a manual candidate with Confirm, and the general-book switch all
+  run without a fatal exception. Regression test: `ReverseProviderRowsTest` (5 tests).
+
 ### Changed
 
 * `ProviderCapabilities.eligible`/`skipped` take an `includeSecondary` flag (default `true`, so existing callers

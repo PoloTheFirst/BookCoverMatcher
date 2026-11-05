@@ -121,6 +121,28 @@ class OnlineSearchController(
     ),
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
+    // ---- reverse-image discovery ---------------------------------------------------------------
+    //
+    // Declared **before** `_ui` on purpose: the UI state below is built in a property initializer, and Kotlin
+    // runs initializers in declaration order. In v2.5.0-dev.2 these fields came after `_ui`, so the initializer
+    // read `reverseRuns` while it was still null and the constructor threw — a crash on every launch. Anything a
+    // property initializer touches must already be initialised above it.
+    //
+    // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The generation
+    // counter is the stale-response guard: a result whose token is no longer current is dropped instead of
+    // overwriting the answer to a newer request.
+    private val reverseRunner = ReverseImageSearchRunner(reverseSources)
+    private val reverseRuns = LinkedHashMap<String, ReverseImageRun>()
+    private var reverseJob: Job? = null
+
+    @Volatile
+    private var reverseCancelled = false
+    private var reverseGeneration = 0L
+
+    /** Candidates an automated reverse-image run produced, and candidates the user supplied themselves. */
+    private var searchCandidates: List<ReverseCandidateUi> = emptyList()
+    private var manualCandidates: List<ReverseCandidateUi> = emptyList()
+
     private val _ui = MutableStateFlow(
         OnlineSearchUi(
             enabled = prefs.enabled,
@@ -131,7 +153,9 @@ class OnlineSearchController(
             resultLimit = prefs.resultLimit,
             providers = providerStatuses(query = "", selected = prefs.selectedProviders),
             reverse = ReverseImageUi(
-                providers = reverseProviderRows(),
+                // Explicitly "no runs yet": the resting rows come from the providers' own readiness, so this
+                // initializer depends on nothing mutable.
+                providers = reverseProviderRows(runs = emptyMap()),
                 sauceNaoKeyHint = sauceNaoKey.hint(),
                 secondarySources = prefs.secondarySources,
             ),
@@ -150,23 +174,6 @@ class OnlineSearchController(
      * cover the user is no longer looking at. Nothing here can touch the wishlist store.
      */
     private val session = SessionCache<CachedSearch>()
-
-    // ---- reverse-image discovery ---------------------------------------------------------------
-    //
-    // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The
-    // generation counter is the stale-response guard: a result whose token is no longer current is dropped
-    // instead of overwriting the answer to a newer request.
-    private val reverseRunner = ReverseImageSearchRunner(reverseSources)
-    private val reverseRuns = LinkedHashMap<String, ReverseImageRun>()
-    private var reverseJob: Job? = null
-
-    @Volatile
-    private var reverseCancelled = false
-    private var reverseGeneration = 0L
-
-    /** Candidates an automated reverse-image run produced, and candidates the user supplied themselves. */
-    private var searchCandidates: List<ReverseCandidateUi> = emptyList()
-    private var manualCandidates: List<ReverseCandidateUi> = emptyList()
 
     /** Confirmations and rejections, loaded once from the profile's decision log. */
     private var decisions: Map<String, CandidateDecisionRecord> =
@@ -279,40 +286,13 @@ class OnlineSearchController(
     /**
      * The two provider rows, built from the sources themselves plus whatever the last run reported.
      *
-     * A row's state is the provider's *own* state: `NOT_CONFIGURED` before a key exists, `MANUAL_ONLY` for
-     * IQDB, `SEARCHING` while a request is outstanding, and only `SUCCESS`/`NO_RESULTS` when a genuine answer
-     * arrived. Nothing here can turn "not run" into "found nothing".
+     * The rows themselves are built by [ReverseProviderRows], which takes everything it needs as parameters —
+     * so this call is safe from a property initializer, where reading a field declared further down the class
+     * would see `null` (the v2.5.0-dev.2 startup crash).
      */
-    private fun reverseProviderRows(): List<ReverseImageProviderUi> = reverseSources
-        .sortedBy { it.priority }
-        .map { source ->
-            val run = reverseRuns[source.id]
-            val state = run?.state ?: source.readiness()
-            ReverseImageProviderUi(
-                id = source.id,
-                displayName = source.displayName,
-                priority = source.priority,
-                manualOnly = source.automation ==
-                    com.bookcovermatcher.core.online.reverse.ReverseImageAutomation.MANUAL_ONLY,
-                searchPageUrl = source.searchPageUrl,
-                state = state,
-                detail = run?.message ?: defaultDetailFor(source.id, state),
-                resultCount = run?.hits?.size ?: 0,
-                quota = run?.quota?.describe(),
-            )
-        }
-
-    private fun defaultDetailFor(providerId: String, state: ReverseImageState): String = when (state) {
-        ReverseImageState.NOT_CONFIGURED ->
-            "Needs your own SauceNAO API key. Stored encrypted; never shown again after saving."
-        ReverseImageState.READY -> "Ready. Tried first."
-        ReverseImageState.MANUAL_ONLY -> IqdbProtocol.manualOnlyReason()
-        else -> if (providerId == ReverseImageProviders.IQDB_ID) {
-            "Tried second, after SauceNAO."
-        } else {
-            "Tried first, before IQDB."
-        }
-    }
+    private fun reverseProviderRows(
+        runs: Map<String, ReverseImageRun> = reverseRuns,
+    ): List<ReverseImageProviderUi> = ReverseProviderRows.of(reverseSources, runs)
 
     /** Stores a SauceNAO key in the Keystore-backed store. The key itself is never echoed anywhere. */
     fun saveSauceNaoKey(raw: String) {
