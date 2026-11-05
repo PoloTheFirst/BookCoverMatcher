@@ -5,7 +5,12 @@ import com.bookcovermatcher.core.wishlist.ItemDraft
 import com.bookcovermatcher.core.wishlist.ItemKind
 import com.bookcovermatcher.core.wishlist.MatchType
 
+import com.bookcovermatcher.core.online.CandidateDecision
+import com.bookcovermatcher.core.online.OnlineAggregator
+import com.bookcovermatcher.core.online.ProductSearchResult
 import com.bookcovermatcher.core.online.ProviderCatalog
+import com.bookcovermatcher.core.online.reverse.ReverseImageCandidate
+import com.bookcovermatcher.core.online.reverse.ReverseImageState
 
 /**
  * UI state of the online-search panel.
@@ -57,6 +62,13 @@ sealed interface CatalogueUi {
      * was made and no result list exists; the message explains where the results can be seen.
      */
     data class BrowserOnly(val message: String) : CatalogueUi
+
+    /**
+     * Nothing was queried because every selected provider is switched off (the general-book toggle). Distinct
+     * from [BrowserOnly] — there is no browser page to offer — and distinct from [Empty], which would claim a
+     * search happened.
+     */
+    data class SwitchedOff(val message: String) : CatalogueUi
 }
 
 /** What one provider did in the last search. Drawn as a status row, never as a success claim. */
@@ -180,6 +192,78 @@ fun patchCoverById(items: List<ProductResultUi>, id: String, coverJpeg: ByteArra
 }
 
 
+/**
+ * One reverse-image provider row: who it is, what it may do, and what it did in the last run.
+ *
+ * [state] is the core [ReverseImageState] itself, not a UI copy, so a state can never be re-labelled on its
+ * way to the screen. [detail] carries the provider's own explanation or the measured outcome.
+ */
+data class ReverseImageProviderUi(
+    val id: String,
+    val displayName: String,
+    /** 1 = SauceNAO, 2 = IQDB: shown as "tried first"/"tried second". */
+    val priority: Int,
+    /** True when the app never submits the image to this provider. */
+    val manualOnly: Boolean,
+    val searchPageUrl: String?,
+    val state: ReverseImageState,
+    val detail: String?,
+    val resultCount: Int = 0,
+    /** The provider's own remaining allowance, when it reported one. */
+    val quota: String? = null,
+) {
+    val isSearching: Boolean get() = state == ReverseImageState.SEARCHING
+}
+
+/**
+ * One reverse-image candidate, ready to review.
+ *
+ * [evidence] is a line such as `SauceNAO 95.1% · IQDB 92%`: each provider's own number, attributed. There is
+ * deliberately no combined score, because the two numbers are not on a common scale.
+ */
+data class ReverseCandidateUi(
+    val key: String,
+    val title: String,
+    val circle: String,
+    val author: String,
+    val productId: String,
+    val evidence: String,
+    val sourceUrl: String?,
+    val imageUrl: String?,
+    /** How many providers reported it. More than one is stronger provenance, not a probability. */
+    val providerCount: Int,
+    val decision: CandidateDecision,
+    /** True when the user supplied this candidate themselves (manual listing / pasted IQDB line). */
+    val manual: Boolean = false,
+    val note: String? = null,
+)
+
+/** Everything the reverse-image section draws. */
+data class ReverseImageUi(
+    val running: Boolean = false,
+    val providers: List<ReverseImageProviderUi> = emptyList(),
+    val candidates: List<ReverseCandidateUi> = emptyList(),
+    /** `••••••••ab12` when a SauceNAO key is stored; null when none is. */
+    val sauceNaoKeyHint: String? = null,
+    /** Whether the supplementary general-book sources take part in a search. */
+    val secondarySources: Boolean = true,
+    /** The manual-entry form is open. */
+    val manualOpen: Boolean = false,
+    /** Why the last manual entry was refused, when it was. */
+    val manualError: String? = null,
+    /** A line about the last reverse-image run (provider states, or why nothing ran). */
+    val note: String? = null,
+) {
+    val sauceNaoConfigured: Boolean get() = sauceNaoKeyHint != null
+
+    /** Candidates the user has not decided about yet. */
+    val undecided: List<ReverseCandidateUi>
+        get() = candidates.filter { it.decision == CandidateDecision.SUGGESTED }
+
+    val confirmedCount: Int get() = candidates.count { it.decision == CandidateDecision.CONFIRMED }
+    val rejectedCount: Int get() = candidates.count { it.decision == CandidateDecision.REJECTED }
+}
+
 data class OnlineSearchUi(
     val enabled: Boolean = false,
     val bridge: BridgeUi = BridgeUi.Checking,
@@ -199,6 +283,8 @@ data class OnlineSearchUi(
      * app does not actually have, nor imply that a manual provider answered.
      */
     val providers: List<ProviderStatusUi> = emptyList(),
+    /** The reverse-image section: two providers, their states, and the candidates they produced. */
+    val reverse: ReverseImageUi = ReverseImageUi(),
 ) {
     /** True while either half of the feature is working. */
     val isBusy: Boolean get() = ocr is OcrUi.Running || catalogue is CatalogueUi.Running
@@ -230,3 +316,48 @@ internal fun ProductResultUi.toDraft(): ItemDraft = ItemDraft(
     matchTypeVerified = true,
     thumbJpeg = coverJpeg,
 )
+
+/**
+ * A reverse-image candidate as the section draws it.
+ *
+ * The evidence line is built from the core model's attributed references — never re-scored here, which is why
+ * this function cannot introduce a combined probability even by accident.
+ */
+fun ReverseImageCandidate.toUi(decision: CandidateDecision): ReverseCandidateUi = ReverseCandidateUi(
+    key = key,
+    title = title.ifBlank { productId.ifBlank { sourceUrl.orEmpty() } },
+    circle = circle,
+    author = author,
+    productId = productId,
+    evidence = evidenceLine(),
+    sourceUrl = sourceUrl,
+    imageUrl = imageUrl,
+    providerCount = providerIds.size,
+    decision = decision,
+    manual = false,
+)
+
+/**
+ * A candidate the app did **not** discover by itself (a manual listing, or a pasted IQDB line), presented in
+ * the same shape and flagged as manual so the distinction is never lost on screen.
+ */
+fun ProductSearchResult.toCandidateUi(
+    decision: CandidateDecision,
+    evidence: String,
+    manual: Boolean,
+    note: String? = null,
+): ReverseCandidateUi = ReverseCandidateUi(
+    key = OnlineAggregator.itemKey(this),
+    title = title.ifBlank { identifier.orEmpty() },
+    circle = circle.orEmpty(),
+    author = authors.joinToString(", "),
+    productId = identifier.orEmpty(),
+    evidence = evidence,
+    sourceUrl = detailUrl.takeIf { it.isNotBlank() },
+    imageUrl = null,
+    providerCount = 1,
+    decision = decision,
+    manual = manual,
+    note = note,
+)
+

@@ -74,6 +74,107 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
 * Camera content scenarios (angled, low light, blurry, obstructed, several books) remain blocked on the
   emulator: its virtual scene cannot be posed over adb, so those were neither tested nor claimed.
 
+## v2.5.0-dev.2 (2026-11-05)
+
+**Version code/name: 217 / 2.5.0-dev.2.** Second development build of the online-discovery refinement.
+It adds **reverse-image discovery** with two providers, **manual/browser-assisted discovery**, **bounded cover
+caching**, a **user-controllable secondary-source switch** and **persisted candidate decisions** — and it is the
+first build where the dev.1 core is reachable from the screen (`Online search → C · Reverse-image discovery`).
+
+### Added
+
+* **SauceNAO — first-priority reverse-image provider (automated).** `SauceNaoReverseImageSource` submits the
+  captured cover through SauceNAO's documented JSON API: a `multipart/form-data` POST to
+  `https://saucenao.com/search.php` carrying `output_type=2`, `db=999`, `numres`, an optional `minsim` floor and
+  the user's own `api_key`. The credential travels in the request **body**, never in a URL. The parser
+  (`SauceNaoResponseParser`) reads the documented `header`/`results` envelope, preserves each row's own
+  similarity, source URL, thumbnail, index name and every other scalar it sent, and maps the provider's report to
+  a named state: `SUCCESS`, `NO_RESULTS`, `QUOTA_EXCEEDED`, `ERROR` — plus `TIMEOUT`, `RATE_LIMITED`, `BLOCKED`
+  and `UNAVAILABLE` from the transport. No retry loop exists, because retrying a soft limit is what turns it into
+  a long one.
+* **The SauceNAO API key is stored with a Keystore-backed key.** `SauceNaoKeyStore` seals the key with
+  AES-256-GCM (`AesGcmSecretBox`, a new random IV per write) under a key generated inside `AndroidKeyStore`, and
+  keeps only the ciphertext in its own preference file. The panel shows `••••••••ab12` after saving and offers
+  *Remove*; the key is never logged, echoed, placed in a URL, or shown again. A blob that cannot be opened (new
+  device, cleared app data) is deleted and reported as "not configured" instead of being sent to the provider.
+* **IQDB — second-priority reverse-image provider, implemented as manual-only, with the verification on the
+  record.** Verified 2026-11-05: `https://iqdb.org/` is an HTML form with **no documented public API**, and
+  `https://iqdb.org/robots.txt` disallows `/multi-search`, `/db-search`, `/kc-search`, `/mi-search`, `/index` and
+  `/?url=` for every agent. The app therefore **does not submit images to IQDB**. `IqdbReverseImageSource`
+  reports `MANUAL_ONLY`, its row opens IQDB's own search page, and the user brings results back: a pasted result
+  line or a saved result page is normalised by `IqdbResultParser`, which keeps each row's own percentage and
+  source URL and drops rows with no URL. No IQDB throttling, quota or timeout is incurred at all; the adapter
+  still declares a longer 90 s budget so the provider's character is documented in one place.
+* **A reverse-image pipeline that keeps its providers apart.** `ReverseImageSearchRunner` always tries SauceNAO
+  first and **still tries IQDB afterwards even when SauceNAO answered**, publishes each provider's row as it
+  runs, treats a call that exceeded *that provider's* budget as `TIMEOUT` (never as an empty result), records a
+  cancelled provider as `CANCELLED` without sending anything, and merges only genuine answers.
+  `ReverseImageAggregator` deduplicates only on proof of identity (a shared product code or a shared normalised
+  URL) and keeps **both** providers' references, similarities and URLs. There is deliberately **no combined
+  score**: agreeing providers are stronger provenance, not a probability.
+* **Manual and browser-assisted discovery (Approach D).** `ManualCandidates` validates a listing the user typed
+  (URL must be `http(s)`; a title or a product code is required) and converts it into the *same*
+  `ProductSearchResult` model every automated provider produces, stamped with the `manual` provider id. It is
+  never fetched, never called an automated extraction, and it flows through the same evidence and decision
+  pipeline. The panel adds the form inline, plus a *Paste an IQDB result* block.
+* **Persisted confirmations and rejections.** A candidate starts as `SUGGESTED` — a machine suggestion, labelled
+  as such — and only an explicit tap produces `CONFIRMED`/`REJECTED`. `CandidateReviews` keeps the rules
+  (idempotent by candidate identity, a rejection can be revisited, a blank key decides nothing) and
+  `CandidateDecisionStore` writes one JSON file per wishlist profile. Deciding does **not** write to the workbook
+  or the catalogue.
+* **Ownership, catalogue presence and wanted status, kept independent.** `CollectionStatus` holds three separate
+  facts with "not stated" as a real value, and `CollectionStatusOf` derives only catalogue presence from the
+  matcher — `MATCHED`, `AMBIGUOUS`, `ABSENT` or `UNKNOWN`, where an empty workbook can never produce `ABSENT`.
+  `LocalProducts.of(CatalogEntry)` maps only **mapped, present** cells, so a record without a circle is unknown
+  rather than contradicting.
+* **A user-controllable secondary-source switch.** `ProviderCapability` gained a `tier` (`PRIMARY_DOUJIN` for
+  DLsite, `SECONDARY_BOOK` for Open Library and Google Books). Switching the general-book sources off **does not
+  issue their requests**: the controller filters them out before any call, their rows say "switched off", and the
+  outcome is a new `CatalogueUi.SwitchedOff` state rather than an empty result.
+* **Bounded cover caching.** `BoundedImageCache` is a byte-budgeted LRU with a per-entry ceiling, refusal
+  counters, invalidation and a `describe()` line — plain Kotlin, so the policy is unit-tested rather than assumed.
+* **The dev.1 core is now wired.** The panel shows the two provider rows with their own states, the key
+  configuration, the *Search by this cover* action, the candidate list with attributed evidence and
+  Confirm/Reject, the manual-entry form, the IQDB paste block and the general-book switch.
+
+### Changed
+
+* `ProviderCapabilities.eligible`/`skipped` take an `includeSecondary` flag (default `true`, so existing callers
+  keep their behaviour), and `ProviderCapability` gained a tier.
+* `HttpJsonClient` gained `postMultipart` for the one upload in the app; the credential-bearing body is built and
+  tested in `core` (`MultipartForm`) rather than assembled in the transport.
+* `OnlineSearchPrefs` gained `secondarySources` (default on). The `INTERNET` permission and the off-by-default
+  master switch are unchanged.
+
+### Tests
+
+* 61 new deterministic tests in 9 classes: `SauceNaoProtocolTest` (documented request parts, masked key, response
+  parsing, quota, non-zero status, unreadable document, multipart body), `IqdbProtocolTest` (automation off,
+  robots routes, saved-page parsing, pasted lines), `ReverseImageRunnerTest` (SauceNAO-first order, IQDB still
+  runs, failure isolation, timeout-not-empty, no-query states, cancellation, stale token, cross-provider dedupe,
+  title-is-not-identity), `ManualCandidateTest`, `CollectionStatusTest`, `CandidateReviewTest`,
+  `ProviderTierTest`, `CoverCacheTest` and `SecretBoxTest`. The suite is now **869 tests / 106 classes /
+  0 failures / 7 skipped** and makes no live network request.
+
+### Known limitations
+
+* **IQDB is manual-only, not automated.** No automated IQDB search is implemented or claimed; the documented
+  reason and the disallowed routes are recorded in `IqdbProtocol`. Automation would need a permitted integration
+  route that does not exist today.
+* **SauceNAO was not verified live in this session.** `saucenao.com` answered HTTP 403 to the documentation
+  tooling used here, so the request/response schema is implemented from the provider's published API description
+  and the parser is deliberately defensive (any status other than `0` becomes a named failure carrying the
+  provider's own number). No live request was made, so no result quality is claimed.
+* **The IQDB result parser is exercised only against sanitised fixtures** — it is never run against the live
+  service.
+* **Catalogue matching is not yet shown per candidate.** `CollectionStatus` and `LocalProducts.of` exist and are
+  tested, but the candidate card does not display the per-dimension evidence against the open workbook yet;
+  wiring the OpenCLIP cover comparison into reverse-image candidates is the next step.
+* Confirm/Reject records a decision; it does not modify workbook cells and does not add wishlist entries. Adding
+  a candidate to a profile stays the existing explicit action, so duplicates keep being prevented by the store's
+  own identity rules.
+
+
 
 ## v2.5.0-dev.1 (2026-11-05)
 

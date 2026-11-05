@@ -70,6 +70,18 @@ class OnlineSearchPrefs(context: Context) {
         get() = sp.getBoolean(KEY_AUTO_SEARCH, true)
         set(value) { sp.edit().putBoolean(KEY_AUTO_SEARCH, value).apply() }
 
+    /**
+     * Whether the supplementary general-book sources (Open Library, Google Books) take part in a search.
+     *
+     * On by default, because they are genuinely useful for general books; off is a real choice, because for
+     * doujin discovery they can only muddy a result list. When this is off their requests are **not issued**
+     * — the toggle is not a display filter, so a switched-off provider can never appear as "searched, nothing
+     * found". DLsite (the doujin anchor) is never affected.
+     */
+    var secondarySources: Boolean
+        get() = sp.getBoolean(KEY_SECONDARY_SOURCES, true)
+        set(value) { sp.edit().putBoolean(KEY_SECONDARY_SOURCES, value).apply() }
+
     private companion object {
         const val STORE = "bookcover_online"
         const val KEY_ENABLED = "online_enabled"
@@ -78,5 +90,6 @@ class OnlineSearchPrefs(context: Context) {
         const val KEY_LIMIT = "online_limit"
         const val KEY_PROVIDERS = "online_providers"
         const val KEY_AUTO_SEARCH = "online_auto_search"
+        const val KEY_SECONDARY_SOURCES = "online_secondary_sources"
     }
 }

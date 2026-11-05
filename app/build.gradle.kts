@@ -18,8 +18,9 @@ android {
         applicationId = "com.bookcovermatcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 216
-        versionName = "2.5.0-dev.1"
+        // 217 continues the dev line: 216 was 2.5.0-dev.1, 215 was the 2.4.0 stable release.
+        versionCode = 217
+        versionName = "2.5.0-dev.2"
 
         // ONNX Runtime ships four ABIs (~15 MB each). Real phones are arm64-v8a;
         // x86_64 keeps the emulator working. Add "armeabi-v7a" for old 32-bit phones.

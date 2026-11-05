@@ -52,6 +52,66 @@ class HttpJsonClient(
     fun getBytes(url: String, byteLimit: Int = maxBytes): ByteArray =
         get(url, "image/*", null, byteLimit).bytes
 
+    /**
+     * POSTs an already-built `multipart/form-data` body (an image upload).
+     *
+     * Kept separate from [get] because the only multipart request in the app is the reverse-image upload, and
+     * the caller needs the exact body it assembled to be sent unchanged: the credential is one of the parts,
+     * so a re-encoding bug would be a credential bug. [contentType] carries the boundary that body was built
+     * with.
+     *
+     * Redirects are followed by the platform; a redirect is not retried as a new request.
+     */
+    fun postMultipart(
+        url: String,
+        contentType: String,
+        body: ByteArray,
+        acceptLanguage: String? = null,
+    ): Response {
+        val parsed = try {
+            URL(url)
+        } catch (e: IOException) {
+            throw ProductSourceException(OnlineFailure.BAD_RESPONSE, "The provider URL is not valid.", e)
+        }
+        if (parsed.protocol != "https") {
+            throw ProductSourceException(OnlineFailure.BAD_RESPONSE, "Refusing to contact a non-HTTPS address.")
+        }
+
+        var connection: HttpURLConnection? = null
+        try {
+            connection = (parsed.openConnection() as HttpURLConnection).apply {
+                connectTimeout = this@HttpJsonClient.connectTimeoutMs
+                readTimeout = this@HttpJsonClient.readTimeoutMs
+                instanceFollowRedirects = true
+                requestMethod = "POST"
+                doOutput = true
+                setRequestProperty("User-Agent", USER_AGENT)
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Content-Type", contentType)
+                setRequestProperty("Content-Length", body.size.toString())
+                acceptLanguage?.let { setRequestProperty("Accept-Language", it) }
+            }
+            connection.outputStream.use { it.write(body) }
+
+            val status = connection.responseCode
+            if (status != HttpURLConnection.HTTP_OK) throw failureForStatus(status)
+            val text = connection.inputStream.use { readLimited(it, maxBytes) }
+            return Response(status, String(text, Charsets.UTF_8))
+        } catch (e: ProductSourceException) {
+            throw e
+        } catch (e: SocketTimeoutException) {
+            throw ProductSourceException(OnlineFailure.TIMEOUT, "The provider did not answer in time.", e)
+        } catch (e: UnknownHostException) {
+            throw ProductSourceException(OnlineFailure.OFFLINE, "No connection to the provider.", e)
+        } catch (e: SSLException) {
+            throw ProductSourceException(OnlineFailure.OFFLINE, "The secure connection failed.", e)
+        } catch (e: IOException) {
+            throw ProductSourceException(OnlineFailure.OFFLINE, "The connection failed: ${e.message ?: e.javaClass.simpleName}", e)
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
     private class Fetched(val status: Int, val bytes: ByteArray)
 
     private fun get(url: String, accept: String, acceptLanguage: String?, byteLimit: Int): Fetched {

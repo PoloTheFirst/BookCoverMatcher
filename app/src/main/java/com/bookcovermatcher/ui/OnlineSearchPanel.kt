@@ -115,6 +115,8 @@ fun OnlineSearchPanel(
         Spacer(Modifier.height(12.dp))
         OcrSection(ui, controller)
         Spacer(Modifier.height(12.dp))
+        SecondarySourcesRow(ui, controller)
+        Spacer(Modifier.height(12.dp))
         CatalogueSection(
             ui = ui,
             controller = controller,
@@ -125,6 +127,42 @@ fun OnlineSearchPanel(
             onAddToWishlist = onAddToWishlist,
             onBulkAdd = onBulkAdd,
             onBookmarkAll = onBookmarkAll,
+        )
+        Spacer(Modifier.height(14.dp))
+        ReverseImageSection(ui = ui, controller = controller, onOpenUrl = onOpenUrl)
+    }
+}
+
+/**
+ * The user-controllable secondary-source switch.
+ *
+ * Open Library and Google Books are supplementary general-book sources: they must never dominate doujin
+ * discovery, and switching them off has to mean "not queried", not "searched and empty".
+ */
+@Composable
+private fun SecondarySourcesRow(ui: OnlineSearchUi, controller: OnlineSearchController) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("General-book sources", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Open Library and Google Books. Off = not queried at all; DLsite is never affected.",
+                color = Palette.Muted,
+                fontSize = 10.sp,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Switch(
+            checked = ui.reverse.secondarySources,
+            onCheckedChange = controller::setSecondarySources,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Palette.OnAccent,
+                checkedTrackColor = Palette.Accent,
+                uncheckedThumbColor = Palette.Muted,
+                uncheckedTrackColor = Palette.Navy650,
+            ),
         )
     }
 }
@@ -324,6 +362,7 @@ private fun CatalogueSection(
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
+        is CatalogueUi.SwitchedOff -> Text(catalogue.message, color = Palette.Warn, fontSize = 11.sp)
         is CatalogueUi.Empty -> {
             Text(
                 "No selected platform has anything for " + catalogue.query + ". Try a shorter title.",
