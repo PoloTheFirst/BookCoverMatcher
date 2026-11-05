@@ -75,7 +75,12 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
   emulator: its virtual scene cannot be posed over adb, so those were neither tested nor claimed.
 
 
-## v2.4.0 (2026-10-31)
+## v2.4.0 (2026-11-05)
+
+*The stable release is the `2.4.0-rc.7` code base — the QA-remediation build documented in the section
+above — with the application version set to `2.4.0` (versionCode 215). `rc.5` and `rc.6` were pre-release
+builds of the same release at versionCode 213; `rc.7` was 214. No feature, parsing rule or test expectation
+changed between `rc.7` and this release.*
 
 ### Added
 
@@ -296,7 +301,7 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
 * None of the layout (the gallery's worksheet bar, the picker, the table cells, the source window's cells, the
   Fields buttons) was driven on a device or an emulator, and no screen width was measured.
 
-**Version code/name: 213 / 2.4.0.**
+**Version code/name: 215 / 2.4.0.**
 
 ## v2.4.0-dev.4 (2026-10-31)
 
