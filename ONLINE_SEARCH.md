@@ -355,3 +355,57 @@ not make for the user.
   implemented and tested. A provider that cannot be queried belongs in `ProviderCatalog` as
   `BROWSER_ONLY`, with its measured reason.
 
+## 9. v2.5.0-dev.1 — the query, capability and matching core
+
+Three new plain-Kotlin files under `core/online` are the foundation of the v2.5.0 work. **They are not
+wired to the UI in this build**; the section exists so the next development round extends them instead of
+re-inventing them.
+
+### `OnlineQuery` — what the user typed, split into attributes
+
+```
+OnlineQuery.parse("RJ01234567 title:Blue Archive circle:Yostar")
+  → code = RJ01234567, title = "Blue Archive", circle = "Yostar", original = <the raw text>
+```
+
+* Prefixes: `title:`/`t:`, `circle:`/`c:`, `author:`/`a:`, `code:`/`id:`/`r:`; anything else is a title.
+* A bare code (`RJ` + 6–10 digits, also `RJ 01234567` / `RJ-01234567`) is lifted out of the text wherever it
+  appears and normalised by `normalizeCode` (fold, upper-case, strip spaces and hyphens).
+* `foldWidth` maps U+FF01–U+FF5E to ASCII and U+3000 to a space; kana, kanji, `〜` and `・` are untouched.
+* `keyword()` is the one string a keyword provider (DLsite) receives; `without(field)` drops a part a
+  provider cannot use, and `isEmptyWithout(...)` says whether anything would be left to search.
+
+### `ProviderCapabilities` — what each provider can be asked
+
+| Provider id | Title | Circle | Author | Code | Image |
+|---|---|---|---|---|---|
+| `ol` Open Library | yes | no | yes | yes (ISBN) | **no** |
+| `gb` Google Books | yes | no | yes | yes (ISBN) | **no** |
+| `dl` DLsite | yes | yes | no | yes (`RJ…`) | **no** |
+
+`canSearch(id, query)` is false when the query only uses fields the provider ignores, and
+`eligible(...)`/`skipped(...)` split a selection into "searches this" and "cannot search this", so a
+provider is reported as unable rather than failed. **No provider supports `IMAGE_REFERENCE`:** reverse-image
+discovery is not implemented and is not implied.
+
+### `CandidateMatcher` — evidence, not one opaque score
+
+```
+CandidateMatcher.compare(candidate, localProduct, imageSimilarity = 0.93)
+  → ProductMatch(score 0..100, verdict, evidence = [identifier, title, circle, author, cover])
+```
+
+* Weights: identifier 0.45, title 0.30, circle 0.15, author 0.10, cover 0.35 — documented constants.
+* Only dimensions **both** sides supply are scored; the rest are `EvidenceState.UNKNOWN` and their weight is
+  dropped before renormalising, so a provider without a circle field cannot be penalised for it.
+* Verdicts: an exact identifier is `LIKELY_MATCH`; any contradiction is `NO_MATCH`; a title alone never
+  exceeds `POSSIBLE_MATCH`; nothing comparable is `INSUFFICIENT_EVIDENCE`.
+* `rank(candidate, locals)` orders by verdict quality (not enum order), then score, then record key;
+  `ambiguous(ranked)` returns the records that cannot be told apart so the UI can ask instead of choosing.
+* `similarity(a, b)` is exact, then containment (scaled), then character-bigram Dice; it works on Japanese
+  as well as Latin text because it never splits on spaces alone.
+
+Cover similarity is an **input**: computing it belongs to the existing OpenCLIP/ONNX pipeline, which this
+core does not call yet.
+
+
