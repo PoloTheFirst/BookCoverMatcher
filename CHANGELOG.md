@@ -75,6 +75,51 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
   emulator: its virtual scene cannot be posed over adb, so those were neither tested nor claimed.
 
 
+## v2.5.0-dev.1 (2026-11-05)
+
+**Version code/name: 216 / 2.5.0-dev.1.** First development build of the online-discovery refinement. It
+delivers the audited **core** of the feature; the screens that would consume it are not wired yet, so
+nothing user-visible changes in this build (see *Known limitations*).
+
+### Added
+
+* **A structured search query.** `OnlineQuery` splits what the user types into title, circle, author and
+  product code — `title:`/`circle:`/`author:`/`code:` prefixes, and a bare `RJ01234567` (or `RJ 01234567`,
+  `RJ-01234567`) recognised wherever it appears — and keeps the original text untouched for display and
+  diagnostics. Full-width Latin and the ideographic space fold to half-width; kana, kanji and long-vowel
+  marks are never rewritten. Identifiers lose only spaces, hyphens and case, and only for comparison.
+* **Declared provider capabilities.** `ProviderCapabilities` records what each in-app provider actually
+  searches — Open Library and Google Books: title, author, ISBN; DLsite: title, circle, RJ code — and
+  reports the parts of a query it must ignore. An author-only search is therefore not sent to DLsite's
+  keyword box, and a circle-only search is not sent to the bibliographic catalogues; the provider is
+  reported as unable to search, not as having failed.
+* **An explainable candidate matcher.** `CandidateMatcher` compares an online candidate with a local
+  record one dimension at a time (identifier 0.45, title 0.30, circle 0.15, author 0.10, cover 0.35 — the
+  weights are documented constants), renormalises over the dimensions both sides can supply so a field a
+  provider never sends is never held against it, treats an exact product identifier as decisive, refuses to
+  call a shared title identity, and returns per-dimension evidence plus an ambiguity list instead of
+  silently choosing a record.
+
+### Tests
+
+* `OnlineSearchRefinementTest` (18): query parsing and normalisation, capability routing, identifier
+  precedence, missing-evidence handling, cover participation, ambiguity and similarity. The suite also
+  caught three real defects during development (a title-only match was being called *likely*, a spaced
+  `RJ` code was not parsed, and ranking used the enum's declaration order instead of a quality order), all
+  fixed before the build below.
+
+### Known limitations
+
+* **No UI wiring yet.** The unified search screen, source-grouped results, side-by-side cover comparison,
+  confirm/reject actions, collection-status controls, cover-image cache and wishlist integration described
+  in the prompt are **not implemented**; the new core is not reachable from the UI.
+* Image similarity is accepted as an input from the existing OpenCLIP pipeline but is not called from it
+  yet, and local catalogue records are not yet read into `LocalProduct`.
+* Provider access is unchanged: Open Library, Google Books and DLsite are queried; Melonbooks, Suruga-ya,
+  Doujin no Mori, E-Hentai, Doujinshi.info, MyAnimeList, nhentai and Toranoana stay browser-only for the
+  measured reasons in `ONLINE_SEARCH.md`. No provider was newly enabled and **no reverse-image discovery**
+  is claimed or implemented.
+
 ## v2.4.0 (2026-11-05)
 
 *The stable release is the `2.4.0-rc.7` code base — the QA-remediation build documented in the section
