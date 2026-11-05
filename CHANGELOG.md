@@ -74,7 +74,71 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
 * Camera content scenarios (angled, low light, blurry, obstructed, several books) remain blocked on the
   emulator: its virtual scene cannot be posed over adb, so those were neither tested nor claimed.
 
-## v2.5.0-dev.3 (2026-11-05)
+## v2.5.0-dev.4 (2026-11-05)
+
+**Version code/name: 219 / 2.5.0-dev.4.** Discovery parity: a SauceNAO result is now as usable in the collection
+workflow as an IQDB result. Every discovery card can carry a picture, be dismissed, be bookmarked and be added to a
+wishlist; the profile-wide wishlist action includes SauceNAO; and the two bulk bookmark actions now say which set of
+results they act on.
+
+### Added
+
+* **SauceNAO results show a picture when one can be obtained.** The card gains a fixed 60×82 dp thumbnail that fills
+  from, in order: the provider's own result image (`header.thumbnail`), then the result page's declared metadata —
+  `og:image:secure_url` / `og:image`, then `twitter:image` / `twitter:image:src`, then `<link rel="image_src">` /
+  `itemprop="image"`. The first `<img>` on a page is deliberately **not** used. The box is sized before anything is
+  known about the image, so a picture arriving later cannot move the text, and it says `loading…`, `not loadable` or
+  `no image` instead of leaving a gap. Provenance is kept on the candidate (`PROVIDER` vs the webpage metadata that
+  declared it) and in the image's accessibility label.
+* **`Bookmark all discovery results`**, under the reverse-image section, next to the candidates it acts on. It
+  bookmarks the eligible discovery results of the current search (SauceNAO and IQDB alike) and reports what happened
+  per provider, e.g. *"Bookmarked 1 discovery result(s) — 1 already there (IQDB 2)."*
+* **Per-card `Bookmark` / `+ Wishlist` on discovery cards**, mirroring the platform result cards: a bookmark writes to
+  `Bookmarks` only, the wishlist action opens the same folder picker every other card uses, and the chips state what
+  is already true (`Bookmarked ✓`, `In wishlist ✓`).
+
+### Changed
+
+* **`Bookmark all results` is now `Bookmark all platform results`** (Online tab and the search's Bookmarks tab), with
+  a caption that says so. Its behaviour is unchanged: it bookmarks the platform search results and nothing else.
+* **`Add entire result profile to wishlist` now includes the reverse-image discovery results.** It previously built
+  its session from the offline top-5 plus the platform results and silently left discovery out, even when SauceNAO had
+  found the match — measured on an API 37 emulator as 5 items for a search whose discovery list held a further result.
+  The profile is now offline + platform + eligible discovery, deduplicated by item identity.
+* A discovery result is stored with `MatchType.VISUAL` and `matchTypeVerified`, which is exactly what a reverse-image
+  provider did (it compared the pictures); the previous comment claiming nothing produces `VISUAL` is corrected.
+
+### Fixed
+
+* **SauceNAO cards were not dismissible.** v2.5.0-dev.3 gave the rubbish-bin control to IQDB-only cards, so the
+  primary provider's cards could not be removed from the list. Every card a reverse-image provider reported now has
+  the same control, labelled with the provider whose evidence the tap removes (`Dismiss SauceNAO result`,
+  `Dismiss IQDB result`, and `Dismiss discovery result` for a card both providers reported, which is one card holding
+  both references).
+* **A dropped discovery picture could have re-inserted a dismissed card.** Image loading is now patched by candidate
+  key through a rule that refuses a key that is no longer present, so a picture that arrives after a dismissal — or
+  after a newer search started — is discarded instead of restoring the card.
+
+### Security
+
+* Picture retrieval is bounded and guarded: **HTTPS only**, no credentials, no non-default ports, no bare/private
+  hosts (`localhost`, `*.local`, `10/8`, `172.16/12`, `192.168/16`, `127/8`, `169.254/16`, `::1`, `fc00::/7`,
+  `fe80::/10`, IPv4-mapped IPv6), and **every redirect hop is validated** before it is contacted (`HttpURLConnection`
+  follows none by itself here). Pages are read up to 512 KB (a longer page is truncated at the cap, because the
+  metadata lives in the head), images up to 400 KB, with connect/read timeouts and a content-type check; image bytes
+  are decoded header-only to reject a payload that expands beyond 4096 px. No JavaScript is executed, no browser
+  automation is used, and a refusal is reported as "no image" — a valid result is never removed because its picture
+  could not be fetched.
+
+### Known limitations
+
+* Not every result has a usable picture. A page may declare no image, refuse the request (`HTTP 429` from
+  `upload.wikimedia.org` was observed during live verification), or serve a format the app does not decode; the card
+  then shows its placeholder and stays a perfectly valid, bookmarkable result.
+* DNS is not resolved before a connection, so a hostname that resolves to a private address at fetch time is outside
+  the guard; only URLs a provider returned or a result page declared are ever fetched.
+* Dismissal stays in memory: a new search may show the same result again. There is no persistent block-list.
+
 
 **Version code/name: 218 / 2.5.0-dev.3.** A repair-and-refinement build: SauceNAO's API key can now actually be
 configured (it never could), the duplicate "Listing Candidate" flow is gone from the Online tab, and three IQDB

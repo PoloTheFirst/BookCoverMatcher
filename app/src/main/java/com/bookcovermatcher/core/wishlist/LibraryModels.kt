@@ -30,8 +30,9 @@ enum class ItemKind { WORKBOOK_MATCH, ONLINE_RESULT, MANUAL_BOOKMARK }
  * How the item was found.
  *
  * [TEXT_QUERY] is the honest label for the catalogue search: the cover was OCR'd and the text was
- * searched. [VISUAL] exists for a future provider that really performs image similarity; nothing
- * sets it today. [WORKBOOK] means the offline OpenCLIP comparison, [MANUAL] a typed bookmark.
+ * searched. [VISUAL] means a reverse-image provider compared the pictures themselves — as of v2.5.0-dev.4 a
+ * bookmarked SauceNAO or IQDB discovery result is stored with it. [WORKBOOK] means the offline OpenCLIP comparison,
+ * [MANUAL] a typed bookmark.
  */
 enum class MatchType { WORKBOOK, TEXT_QUERY, VISUAL, MANUAL }
 

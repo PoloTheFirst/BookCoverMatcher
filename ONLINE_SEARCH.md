@@ -1,4 +1,4 @@
-﻿# Online search, OCR and bookmarks â€” implementation notes (v2.4.0)
+# Online search, OCR and bookmarks â€” implementation notes (v2.4.0)
 
 This document describes what the online feature actually does. It deliberately separates four
 capabilities that are easy to confuse:
@@ -625,4 +625,99 @@ still labelled as user-supplied.
 | Debug build | `:app:assembleDebug` **BUILD SUCCESSFUL** (`218 / 2.5.0-dev.3`) |
 | Runtime | emulator `emulator-5554`: key save/replace, readiness, live search, paste, dismiss, always-expanded box |
 | Logcat | no fatal exception; no key material |
+
+
+## 12. v2.5.0-dev.4 — discovery parity: pictures, dismissal, collection actions
+
+### 12.1 Pictures on discovery cards
+
+The card keeps a fixed 60×82 dp box, so a picture that arrives later cannot move the text, and the list cannot jump.
+What fills it, in this order (`DiscoveryCoverLoader.load`):
+
+| Priority | Source | Where it comes from |
+|---|---|---|
+| 1 | `DiscoveryImageSource.PROVIDER` | the image already in the SauceNAO response (`header.thumbnail`, i.e. `ReverseImageHit.imageUrl`) |
+| 2 | `WEBPAGE_OPEN_GRAPH` | `og:image:secure_url`, then `og:image` |
+| 3 | `WEBPAGE_TWITTER` | `twitter:image`, then `twitter:image:src` |
+| 4 | `WEBPAGE_IMAGE_SRC` | `<link rel="image_src">`, `itemprop="image"` |
+| — | none | the box shows `loading…`, `not loadable` or `no image`; the card is unchanged |
+
+Only **declared metadata** is read. The first `<img>` on a page is never taken, because it is not evidence of what the
+page represents. No JavaScript is executed, no browser is automated, and no authentication is attempted.
+
+`DiscoveryImageState` (`NOT_REQUESTED`, `LOADING`, `AVAILABLE`, `UNAVAILABLE`, `FAILED`) lives on
+`ReverseCandidateUi` next to `imageBytes` and `imageSource`, so the UI draws an honest placeholder and the provenance
+is available (it is also the image's accessibility label). Loading is asynchronous, sequential (one page at a time on
+`Dispatchers.IO`), cancellable, and **generation-guarded**: an answer that arrives after a newer search is dropped.
+
+### 12.2 The fetch guard (`SafeImageUrl`, `DiscoveryWebFetcher`)
+
+A result's "source page" is third-party data and may point anywhere. Before a socket is opened — for the page, for the
+image, and for **every redirect hop** — `SafeImageUrl` requires:
+
+* `https` only (a cleartext image would also be refused by the platform on target SDK 35), no credentials in the URL,
+  default port only;
+* a host with a dot (so `localhost`, `nas`, `router` are out) and not `*.local` / `*.internal` / `*.localhost`;
+* a public address: `0.0.0.0`, `10/8`, `100.64/10`, `127/8`, `169.254/16`, `172.16/12`, `192.168/16`, `>=224`,
+  `::1`, `::`, `fc00::/7`, `fe80::/10` and IPv4-mapped IPv6 are all refused.
+
+`DiscoveryWebFetcher` sets `instanceFollowRedirects = false` and re-issues each validated `Location` (max 3 hops), so a
+`302` to a private address cannot slip through the way it could with `HttpJsonClient`. Caps: page 512 KB (**truncated**
+at the cap, because the metadata is in the head), image 400 KB (**refused** at the cap, because half a JPEG is not an
+image), connect 8 s, read 10 s. The content type must be markup for a page and one of
+`image/jpeg|png|webp|gif` for an image; the bytes are then decoded header-only (`inJustDecodeBounds`) and rejected if
+they do not decode or exceed 4096 px on an edge.
+
+Caching: image bytes go into the existing `BoundedImageCache` (byte-budgeted LRU) keyed by image URL; the only new
+state is a small page → declared-image index, so a second card from the same page does not refetch the HTML.
+Dismissing a card evicts nothing.
+
+### 12.3 Dismissal is provider-aware
+
+`ReverseCandidateUi` exposes `isIqdbOnly`, `isSauceNaoOnly` and `isDismissible`, plus a `dismissLabel`:
+`Dismiss IQDB result`, `Dismiss SauceNAO result`, or `Dismiss discovery result` for a card both providers reported —
+which is one card holding both references, so "the whole card" is the only honest description. The edit itself lives in
+`CandidateLists` (`dismiss`, `patch`, `visible`), a pure value the controller owns: `patch` **returns null for a key
+that is no longer present**, which is the single rule that stops a late picture from re-inserting a dismissed card.
+
+
+
+### 12.4 Collection actions and their scopes
+
+| Action | Scope | Code |
+|---|---|---|
+| `Bookmark all platform results` | platform/catalogue search results only | `MainViewModel.bookmarkAllResults` |
+| `Bookmark all discovery results` | the discovery list of the current search (SauceNAO + IQDB) | `MainViewModel.bookmarkAllDiscoveryResults` |
+| `Add entire result profile to wishlist` | offline top-5 + platform results + eligible discovery | `MainViewModel.addResultProfileToWishlist` |
+| `Bookmark` / `+ Wishlist` on one card | that one candidate | `toggleDiscoveryBookmark` / `addDiscoveryToWishlist` |
+
+The two bulk bookmark actions sit in different sections, each with a caption that names its scope, so they can never
+look interchangeable. Identity and eligibility are `DiscoveryDrafts`: the fingerprint is the candidate's own key
+(lower-cased), so the same result — now or in a later search — is the same item and cannot be duplicated; `REJECTED`
+candidates are never bulk-added; a candidate with no title, id or link is not storable; a missing picture never makes a
+result ineligible. Discovery drafts are stored with `MatchType.VISUAL` + `matchTypeVerified`, and the provider
+attribution (`SauceNAO`, `IQDB`, `SauceNAO + IQDB`) is kept as the item's provider. `addResultProfileToWishlist` builds
+one deduplicated draft list from all three sources and still writes nothing until the user confirms a folder.
+
+### 12.5 Verification for this round (API 37 emulator, `emulator-5554`)
+
+| Item | Result |
+|---|---|
+| Unit suite | **914 tests / 111 classes / 0 failures / 7 skipped** (`:app:testDebugUnitTest`) |
+| Debug build | `:app:assembleDebug` **BUILD SUCCESSFUL** (`219 / 2.5.0-dev.4`) |
+| Live SauceNAO | HTTP 200, 8 hits parsed, panel reads `SauceNAO 8 result(s) · IQDB manual only` |
+| Provider pictures | `DiscoveryCover` log: `image img1.saucenao.com 12725B image/jpeg` plus seven from `img3.saucenao.com`; cards render `Result image from SauceNAO` |
+| Webpage picture | `page www.python.org 52897B text/html` → `image www.python.org 7821B image/png` → picture shown on the card |
+| Blocked picture | `image upload.wikimedia.org failed: HTTP 429` → card kept, placeholder `no image`, result still bookmarkable |
+| SauceNAO dismissal | cards labelled `Dismiss SauceNAO result`; two dismissals took `9 candidate(s)` → `7`, other cards and their pictures untouched |
+| Per-card bookmark | toast `Bookmark added — saved in Bookmarks (from IQDB).`, chip becomes `Bookmarked ✓` |
+| Per-card wishlist | picker headline `Add https://www.python.org/ to wishlist`, `1 item(s) will be added directly to this folder`, chip becomes `In wishlist ✓` |
+| Discovery bulk | toast `Bookmarked 1 discovery result(s) — 1 already there (IQDB 2).` |
+| Platform bulk | toast `Bookmarked 5 result(s) in Bookmarks.` — the 5 platform results only; the search's Bookmarks tab showed `Bookmarks (5)` |
+| Profile wishlist | `Add entire result profile to wishlist` → `6 result(s) will be saved as one session` (5 platform + 1 discovery) |
+| Themes / accessibility | card colours come from `Palette` tokens only; the bin has a 36 dp target and a provider-specific description; the picture carries `Result image from <provider>` |
+| Secrets | no key material in `logcat`; the picture loader logs host names, byte sizes and failure reasons only |
+
+Not verified: a **second** live SauceNAO call after replacing the key (the key was already configured and left in place
+this round), and IQDB's own search (still manual-only by design).
 

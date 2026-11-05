@@ -629,10 +629,11 @@ buttons; (2) *Upload file or use online matches* — captured image, **Use workb
 `doujin_catalog.xlsx` selected, and an **Online search** switch; (3) *Add result profile to wishlist* —
 `Search Results` with `Workbook (12) / Online (8)` tabs, `Found 8 results`, cards with source chips
 (`Shopping`, `Community`) and bookmark/heart buttons, primary button
-**`Add entire result profile to wishlist`** ("including workbook matches and online results");
-(4) *Bookmark the online search* — `Search Results` with a **Bookmarks** tab and
+**`Add entire result profile to wishlist`** ("including workbook matches, online results and the eligible
+reverse-image discovery results"); (4) *Bookmark the online search* — `Search Results` with a **Bookmarks** tab and
 `Results are saved to the Bookmarks collection (also linked to your wishlist profile if selected)`, plus
-**`Bookmark all results`**; (5) *View in wishlist and bookmarks* — the Wishlist tab showing
+**`Bookmark all platform results`** (and, inside the reverse-image section, **`Bookmark all discovery results`**);
+(5) *View in wishlist and bookmarks* — the Wishlist tab showing
 `My Wishlist 12 items`, `Favorites 8 items`, `Doujinshi 5 items`, **`Bookmarks 8 items`** (highlighted) and
 `+ Create new profile`.
 
@@ -774,7 +775,7 @@ This project documents its own limitations in detail — see the *Honest status 
 * If you add no new provider, say so plainly; "the design mentions marketplaces; none were added because
   …" is an acceptable and expected sentence.
 * If you could not verify something because it needs a device, write that in the docs **and** in the report.
-### Reverse-image rules added in v2.5.0-dev.2 (extended in v2.5.0-dev.3)
+### Reverse-image rules added in v2.5.0-dev.2 (extended in dev.3 and dev.4)
 
 * **Never pass a caller-supplied IV to a Keystore cipher.** An `AndroidKeyStore` AES/GCM key is created with
   `setRandomizedEncryptionRequired(true)` and rejects `Cipher.init(ENCRYPT_MODE, key, GCMParameterSpec(…))` with
@@ -800,8 +801,19 @@ This project documents its own limitations in detail — see the *Honest status 
   numbers and shows both attributions.
 * A candidate is a **suggestion** until the user confirms or rejects it. Decisions are profile-scoped, do not
   edit workbook cells, and do not create wishlist entries.
-* **Dismissing a card is not deleting data.** The IQDB rubbish bin removes one card from the current list only, and
-  it is never offered on a card SauceNAO also found.
+* **Dismissing a card is not deleting data.** A candidate card's rubbish bin removes one card from the current list
+  only, and it is offered on every card a reverse-image provider reported (`Dismiss SauceNAO result`,
+  `Dismiss IQDB result`, or `Dismiss discovery result` for a card both providers reported). A late picture can never
+  restore a dismissed card: `CandidateLists.patch` refuses a key that is no longer present.
+* **A discovery picture is decoration, never evidence.** `DiscoveryCoverLoader` uses only the provider's own result
+  image or the image a result page *declares* for itself (Open Graph, Twitter card, `image_src`), fetched through
+  `DiscoveryWebFetcher`, which validates every hop with `SafeImageUrl` (HTTPS only, no private or loopback hosts),
+  caps sizes, checks content types and decodes header-only. A missing picture never changes a provider's state and
+  never makes a result unbookmarkable.
+* **Three collection scopes stay separate.** `Bookmark all platform results` (catalogue results),
+  `Bookmark all discovery results` (reverse-image results of the current search) and
+  `Add entire result profile to wishlist` (offline top-5 + platform + eligible discovery, as one session). Discovery
+  identity is the candidate's own key (`DiscoveryDrafts`), so repeating any of these actions cannot duplicate a record.
 * Ownership, catalogue presence and wanted status stay independent; "not stated" is a value, and an empty
   workbook can never produce `ABSENT`.
 

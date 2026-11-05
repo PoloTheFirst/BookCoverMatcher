@@ -1,5 +1,8 @@
 package com.bookcovermatcher.ui
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -30,16 +34,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookcovermatcher.core.online.CandidateDecision
 import com.bookcovermatcher.OnlineSearchUi
 import com.bookcovermatcher.ReverseCandidateUi
 import com.bookcovermatcher.ReverseImageProviderUi
+import com.bookcovermatcher.core.online.reverse.DiscoveryImageState
 import com.bookcovermatcher.core.online.reverse.ReverseImageState
 import com.bookcovermatcher.online.OnlineSearchController
 import com.bookcovermatcher.ui.components.ButtonLabel
@@ -63,6 +72,11 @@ fun ReverseImageSection(
     ui: OnlineSearchUi,
     controller: OnlineSearchController,
     onOpenUrl: (String) -> Unit,
+    bookmarkedKeys: Set<String> = emptySet(),
+    wishlistedKeys: Set<String> = emptySet(),
+    onToggleBookmark: (ReverseCandidateUi) -> Unit = {},
+    onAddToWishlist: (ReverseCandidateUi) -> Unit = {},
+    onBookmarkAllDiscovery: () -> Unit = {},
 ) {
     val reverse = ui.reverse
     FieldLabel("C \u00B7 Reverse-image discovery (SauceNAO first, IQDB second)")
@@ -124,9 +138,32 @@ fun ReverseImageSection(
                 onConfirm = controller::confirmCandidate,
                 onReject = controller::rejectCandidate,
                 onDismiss = controller::dismissCandidate,
+                bookmarked = candidate.key.lowercase() in bookmarkedKeys,
+                wishlisted = candidate.key.lowercase() in wishlistedKeys,
+                onToggleBookmark = { onToggleBookmark(candidate) },
+                onAddToWishlist = { onAddToWishlist(candidate) },
             )
             Spacer(Modifier.height(8.dp))
         }
+        // Discovery-scoped bulk action. Deliberately placed here, under the candidates it acts on, and not beside the
+        // platform bulk action in the platform panel: the two scopes must never look interchangeable.
+        val eligible = reverse.candidates.count { it.decision != CandidateDecision.REJECTED }
+        Spacer(Modifier.height(2.dp))
+        GradientButton(
+            onClick = onBookmarkAllDiscovery,
+            colors = Palette.NavyGradient,
+            contentColor = Palette.Accent2,
+            modifier = Modifier.fillMaxWidth(),
+            minHeight = 40.dp,
+            border = BorderStroke(1.dp, Palette.Accent2),
+        ) { ButtonLabel("Bookmark all discovery results", Palette.Accent2, 12.5f) }
+        Text(
+            "Bookmarks the $eligible discovery result(s) above (SauceNAO and IQDB). Platform search results are " +
+                "not touched by this action.",
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+            modifier = Modifier.padding(top = 5.dp),
+        )
     }
 
     Spacer(Modifier.height(10.dp))
@@ -272,7 +309,7 @@ private fun SauceNaoKeyBlock(hint: String?, controller: OnlineSearchController) 
     )
 }
 
-/** One candidate: what it is, who found it, what the user decided. */
+/** One candidate: what it is, who found it, its picture, and what the user decided. */
 @Composable
 private fun CandidateCard(
     candidate: ReverseCandidateUi,
@@ -280,6 +317,10 @@ private fun CandidateCard(
     onConfirm: (String) -> Unit,
     onReject: (String) -> Unit,
     onDismiss: (String) -> Unit,
+    bookmarked: Boolean,
+    wishlisted: Boolean,
+    onToggleBookmark: () -> Unit,
+    onAddToWishlist: () -> Unit,
 ) {
     Column(
         Modifier
@@ -290,55 +331,59 @@ private fun CandidateCard(
             .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            Text(
-                candidate.title.ifBlank { "(no title sent by the provider)" },
-                color = Palette.Text,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f).padding(top = 2.dp),
-            )
-            if (candidate.isIqdbOnly) {
-                // Dismiss this IQDB card from the list. Only IQDB-only candidates get it: a candidate SauceNAO also
-                // found keeps its row, because throwing it away would discard the primary provider's evidence.
+            CandidateThumbnail(candidate)
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(
+                    candidate.title.ifBlank { "(no title sent by the provider)" },
+                    color = Palette.Text,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                val details = buildString {
+                    if (candidate.circle.isNotBlank()) append("circle ").append(candidate.circle)
+                    if (candidate.author.isNotBlank()) {
+                        if (isNotEmpty()) append(" \u00B7 ")
+                        append("author ").append(candidate.author)
+                    }
+                    if (candidate.productId.isNotBlank()) {
+                        if (isNotEmpty()) append(" \u00B7 ")
+                        append(candidate.productId)
+                    }
+                }
+                if (details.isNotEmpty()) {
+                    Text(details, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+                }
+                Text(candidate.evidence, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+                if (candidate.providerCount > 1) {
+                    Text(
+                        "Reported by ${candidate.providerCount} providers \u2014 stronger provenance, not a probability.",
+                        color = Palette.Muted,
+                        fontSize = 9.5.sp,
+                    )
+                }
+                if (candidate.manual) {
+                    Text("You supplied this candidate.", color = Palette.Warn, fontSize = 9.5.sp)
+                }
+                candidate.note?.let { Text(it, color = Palette.Muted, fontSize = 9.5.sp) }
+            }
+            // Every result a reverse-image provider reported can be thrown away from this list: SauceNAO cards get
+            // the same control IQDB cards already had. A card both providers reported is one card holding both
+            // references, so its label says "discovery" and it is dismissed as a whole.
+            if (candidate.isDismissible) {
                 IconButton(
                     onClick = { onDismiss(candidate.key) },
                     modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
-                        contentDescription = "Dismiss IQDB result",
+                        contentDescription = candidate.dismissLabel,
                         tint = Palette.Muted,
                         modifier = Modifier.size(18.dp),
                     )
                 }
             }
         }
-        val details = buildString {
-            if (candidate.circle.isNotBlank()) append("circle ").append(candidate.circle)
-            if (candidate.author.isNotBlank()) {
-                if (isNotEmpty()) append(" \u00B7 ")
-                append("author ").append(candidate.author)
-            }
-            if (candidate.productId.isNotBlank()) {
-                if (isNotEmpty()) append(" \u00B7 ")
-                append(candidate.productId)
-            }
-        }
-        if (details.isNotEmpty()) {
-            Text(details, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
-        }
-        Text(candidate.evidence, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
-        if (candidate.providerCount > 1) {
-            Text(
-                "Reported by ${candidate.providerCount} providers \u2014 stronger provenance, not a probability.",
-                color = Palette.Muted,
-                fontSize = 9.5.sp,
-            )
-        }
-        if (candidate.manual) {
-            Text("You supplied this candidate.", color = Palette.Warn, fontSize = 9.5.sp)
-        }
-        candidate.note?.let { Text(it, color = Palette.Muted, fontSize = 9.5.sp) }
 
         Row(
             Modifier.fillMaxWidth().padding(top = 6.dp),
@@ -356,9 +401,87 @@ private fun CandidateCard(
                 modifier = Modifier.weight(1f),
             )
             candidate.sourceUrl?.let { url -> SmallAction("Open \u2197", Palette.Accent) { onOpenUrl(url) } }
+        }
+
+        // Per-card collection actions, mirroring the platform result cards. A bookmark writes to `Bookmarks` only;
+        // the wishlist action opens the same folder picker every other card uses. Both are safe to repeat: the chip
+        // states what is already true, and the store deduplicates by the candidate's own identity.
+        Row(
+            Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SmallAction(
+                if (bookmarked) "Bookmarked \u2713" else "Bookmark",
+                if (bookmarked) Palette.Ok else Palette.Accent2,
+                onToggleBookmark,
+            )
+            SmallAction(
+                if (wishlisted) "In wishlist \u2713" else "+ Wishlist",
+                if (wishlisted) Palette.Ok else Palette.Accent2,
+                onAddToWishlist,
+            )
             SmallAction("Confirm", Palette.Ok) { onConfirm(candidate.key) }
             SmallAction("Reject", Palette.Danger) { onReject(candidate.key) }
         }
+    }
+}
+
+/**
+ * The candidate's picture, in a fixed box.
+ *
+ * The box is sized before anything is known about the image, so a picture arriving later cannot move the text: the
+ * card keeps its height and the list cannot jump. `Crop` fills the box without distorting the picture. When there is
+ * nothing to show, the box says so — "loading", "not loadable", or "no image".
+ */
+@Composable
+private fun CandidateThumbnail(candidate: ReverseCandidateUi) {
+    val bitmap = remember(candidate.imageBytes) { decodeDiscoveryCover(candidate.imageBytes) }
+    Box(
+        Modifier
+            .size(width = 60.dp, height = 82.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(6.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = "Result image from ${candidate.providerLabel}",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Text(
+                when (candidate.imageState) {
+                    DiscoveryImageState.LOADING -> "loading\u2026"
+                    DiscoveryImageState.FAILED -> "not loadable"
+                    else -> "no image"
+                },
+                color = Palette.Muted,
+                fontSize = 8.5.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Decodes cover bytes once per byte-array identity (not once per recomposition).
+ *
+ * A provider thumbnail or a page image is untrusted input, so a payload that fails to decode yields null and the
+ * card falls back to its placeholder instead of crashing.
+ */
+private fun decodeDiscoveryCover(bytes: ByteArray?): ImageBitmap? {
+    if (bytes == null || bytes.isEmpty()) return null
+    return try {
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+    } catch (e: Exception) {
+        null
+    } catch (e: OutOfMemoryError) {
+        null
     }
 }
 
