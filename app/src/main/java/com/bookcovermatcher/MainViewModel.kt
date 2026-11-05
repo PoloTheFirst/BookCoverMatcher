@@ -1398,8 +1398,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * `Bookmark all results`: every online result currently on screen into `Bookmarks`, one write.
-     * A bookmark is not a wishlist entry, so this never opens the picker and never creates a folder.
+     * `Bookmark all platform results`: every online (catalogue) result currently on screen into `Bookmarks`, one write.
+     * A bookmark is not a wishlist entry, so this never opens the picker and never creates a folder. Reverse-image
+     * discovery results are a different set and have their own action ([bookmarkAllDiscoveryResults]).
      */
     fun bookmarkAllResults() {
         val items = (online.ui.value.catalogue as? CatalogueUi.Found)?.items.orEmpty()

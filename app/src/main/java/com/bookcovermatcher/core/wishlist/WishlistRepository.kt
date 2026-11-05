@@ -282,7 +282,7 @@ class WishlistRepository(
     fun bookmark(draft: ItemDraft): AddReport = bookmarkAll(listOf(draft))
 
     /**
-     * `Bookmark all results`: every draft into `Bookmarks`, in **one** write.
+     * `Bookmark all platform results` / `Bookmark all discovery results`: every draft into `Bookmarks`, in **one** write.
      *
      * Idempotent, creates no folder, touches no wishlist membership, and refuses workbook matches:
      * offline comparison rows have no bookmark action by design.

@@ -161,7 +161,7 @@ fun HomeScreen(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, a
  *  * **Online** — the whole online panel: OCR, the editable query, catalogue results and their
  *    per-card actions.
  *  * **Bookmarks** — the results of this search that are in the Bookmarks collection, plus
- *    `Bookmark all results`. Bookmarks are their own collection, so this tab never writes to a folder
+ *    `Bookmark all platform results`. Bookmarks are their own collection, so this tab never writes to a folder
  *    and never creates one.
  *
  * A mixed list is deliberately avoided: a workbook row is comparison output, an online record is a
