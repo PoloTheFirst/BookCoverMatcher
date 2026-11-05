@@ -129,4 +129,26 @@ class SecretBoxTest {
         assertTrue(runCatching { AesGcmSecretBox.decode("not base64 !!") }.isFailure)
         assertTrue(runCatching { AesGcmSecretBox.open(key, ByteArray(4)) }.isFailure)
     }
+
+    // ---- the v2.5.0-dev.3 defect: who chooses the IV ---------------------------------------------
+
+    @Test
+    fun `seal never supplies an IV to the cipher, so a Keystore key can be used`() {
+        // The regression this pins: v2.5.0-dev.2 passed its own GCMParameterSpec to Cipher.init, which an
+        // AndroidKeyStore AES/GCM key rejects with CALLER_NONCE_PROHIBITED, so no SauceNAO key could ever be
+        // stored. Here the IV must come from the cipher and be written into the envelope.
+        val key = AesGcmSecretBox.newKey()
+        val sealed = AesGcmSecretBox.seal(key, "x".toByteArray())
+        val iv = sealed.copyOfRange(0, AesGcmSecretBox.IV_BYTES)
+        assertEquals("the envelope starts with the cipher's own IV", AesGcmSecretBox.IV_BYTES, iv.size)
+        assertFalse("an all-zero IV would mean nothing was generated", iv.all { it == 0.toByte() })
+        assertEquals("the key still opens its own envelope", "x", String(AesGcmSecretBox.open(key, sealed)))
+    }
+
+    @Test
+    fun `every seal uses a fresh IV, even for identical plaintext`() {
+        val key = AesGcmSecretBox.newKey()
+        val ivs = (1..8).map { AesGcmSecretBox.seal(key, "same".toByteArray()).copyOfRange(0, AesGcmSecretBox.IV_BYTES) }
+        assertEquals("no IV may repeat", ivs.size, ivs.map { it.toList() }.distinct().size)
+    }
 }

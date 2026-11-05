@@ -774,15 +774,25 @@ This project documents its own limitations in detail — see the *Honest status 
 * If you add no new provider, say so plainly; "the design mentions marketplaces; none were added because
   …" is an acceptable and expected sentence.
 * If you could not verify something because it needs a device, write that in the docs **and** in the report.
-### Reverse-image rules added in v2.5.0-dev.2
+### Reverse-image rules added in v2.5.0-dev.2 (extended in v2.5.0-dev.3)
 
+* **Never pass a caller-supplied IV to a Keystore cipher.** An `AndroidKeyStore` AES/GCM key is created with
+  `setRandomizedEncryptionRequired(true)` and rejects `Cipher.init(ENCRYPT_MODE, key, GCMParameterSpec(…))` with
+  `CALLER_NONCE_PROHIBITED`. That single mistake meant v2.5.0-dev.2 **never stored a SauceNAO key**, so the provider
+  could never become `READY`; the UI blamed the user's key. Encrypt with no IV parameter and store `cipher.iv`;
+  decrypt with the stored IV.
+* **A storage failure is not a typo.** Credential problems must be reported with the distinction intact
+  (`SauceNaoKeySaveResult` / `SauceNaoKeyRules.describe`), and a save is only "done" after the value has been read
+  back through the real decrypt path. Never collapse "this device refused to store it" into "that is not a key".
+* **A configuration change invalidates the recorded run.** After saving or clearing a credential, drop the
+  provider's last run before rebuilding its row, or a pre-configuration `NOT_CONFIGURED` will keep being displayed.
 * A reverse-image provider is only "searched" when a genuine provider answer was received and parsed. A missing
   key (`NOT_CONFIGURED`), a manual-only provider (`MANUAL_ONLY`), a refusal (`BLOCKED`) and a cancel
   (`CANCELLED`) are **not** searches and must never be reported as "no results".
 * A call that exceeded its provider's budget is `TIMEOUT`. Never convert a slow answer into an empty result.
-* SauceNAO is tried first and IQDB second **even when SauceNAO already answered**. SauceNAO's key is read at
-  request time from `SauceNaoKeyStore` and travels in the multipart body only; it must never be logged, echoed in
-  an exception, placed in a URL, written to plain preferences, or shown after saving.
+* SauceNAO is tried first and IQDB second **even when SauceNAO already answered**. The key is read at request time
+  from `SauceNaoKeyStore` and travels in the multipart body only; it must never be logged, echoed in an exception,
+  placed in a URL, written to plain preferences, shown after saving, or committed.
 * IQDB automation is **off, with the measured reason recorded** in `IqdbProtocol` (no API; robots.txt disallows
   `/multi-search`, `/db-search`, `/kc-search`, `/mi-search`, `/index`, `/?url=`). Do not add an IQDB POST "because
   the form exists"; re-verify the access route first and record the evidence.
@@ -790,6 +800,8 @@ This project documents its own limitations in detail — see the *Honest status 
   numbers and shows both attributions.
 * A candidate is a **suggestion** until the user confirms or rejects it. Decisions are profile-scoped, do not
   edit workbook cells, and do not create wishlist entries.
+* **Dismissing a card is not deleting data.** The IQDB rubbish bin removes one card from the current list only, and
+  it is never offered on a card SauceNAO also found.
 * Ownership, catalogue presence and wanted status stay independent; "not stated" is a value, and an empty
   workbook can never produce `ABSENT`.
 

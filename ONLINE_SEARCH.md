@@ -461,8 +461,13 @@ evidence.
 * **No retries.** A 429/503 or an exhausted allowance is reported, never re-attempted.
 * **Credential storage.** `SauceNaoKeyStore` keeps the key AES-256-GCM-sealed under a key generated in
   `AndroidKeyStore`; only the ciphertext lives in `bookcover_online_secrets`, which is a separate file from the
-  ordinary `bookcover_online` settings. The UI shows `••••••••ab12` and a *Remove* action. A key that cannot be
-  decrypted (restored device, cleared data) is deleted and treated as "not configured".
+  ordinary `bookcover_online` settings. The UI shows `••••••••ab12` with *Replace* and *Remove* actions, and the key
+  is never shown again. A key that cannot be decrypted (restored device, cleared data) is deleted and treated as
+  "not configured". Saving is verified by reading the value back through the decrypt path, and a storage failure is
+  reported as such instead of as a mistyped key.
+* **The IV must come from the cipher.** An `AndroidKeyStore` AES/GCM key forbids a caller-supplied nonce
+  (`CALLER_NONCE_PROHIBITED`), so `AesGcmSecretBox.seal` encrypts with no IV parameter and stores `cipher.iv` in the
+  envelope. v2.5.0-dev.2 passed its own IV and therefore could never store a key at all — see §11.1.
 
 
 ### 10.4 IQDB: verified access, and why this build is manual-only
@@ -536,4 +541,88 @@ presented as an automated search result**. If a permitted automated route appear
 
 Follow-up: run an opt-in live SauceNAO check with a real key (`-DonlineCheck=1` style, kept out of the default
 suite), then surface the per-candidate `CollectionStatus`/OpenCLIP evidence on the card.
+
+
+---
+
+## 11. v2.5.0-dev.3 — the SauceNAO key fix, and the IQDB UI round
+
+### 11.1 Why SauceNAO could never be configured (and the fix)
+
+The report chain in v2.5.0-dev.2 was "key saved, `READY`, request sent". None of it happened, and nothing in the UI
+said so. The chain was:
+
+1. `saveSauceNaoKey` → `SauceNaoKeyStore.save` → `AesGcmSecretBox.seal(key, plain, iv)`.
+2. `seal` called `Cipher.init(ENCRYPT_MODE, keystoreKey, GCMParameterSpec(128, iv))` — a **caller-supplied nonce**.
+3. The device's Keystore rejected it: `keystore2 … enforcements.rs: NONCE is present, although CALLER_NONCE is not
+   present`, `Error::Km(r#CALLER_NONCE_PROHIBITED) for AppUid(…)`.
+4. `save` caught the exception and returned `false`; the UI said "That does not look like a SauceNAO key; nothing
+   was saved." The secrets file was never created.
+5. `readiness()` therefore always answered `NOT_CONFIGURED`, and the runner skipped the provider before any socket
+   was opened. The row was telling the truth about a state the code had put it in.
+
+Fixes, in order of importance:
+
+* **Let the cipher choose the IV.** `seal` now calls `cipher.init(ENCRYPT_MODE, key)` with no IV and prefixes
+  `cipher.iv` to the ciphertext. This is the documented way to use a Keystore AES/GCM key; decryption still passes
+  the stored IV, which is allowed. Unit-tested (`SecretBoxTest`).
+* **Never collapse two failures into one message.** `save` returns `SauceNaoKeySaveResult`
+  (`Saved` / `Rejected(MALFORMED)` / `Rejected(STORAGE_FAILED)`); `SauceNaoKeyRules.describe` gives a different,
+  key-free sentence for each. A user with a perfectly good key now learns that the *device* refused to store it.
+* **Round-trip before claiming success.** After writing (with `commit()`), `save` reads the value back through
+  `key()`. If it cannot be read, the save is `STORAGE_FAILED` — the check that would have caught this defect at the
+  button press.
+* **Discard the stale run.** `saveSauceNaoKey` removes any recorded SauceNAO run before rebuilding the rows, so a
+  pre-configuration `NOT_CONFIGURED` run cannot keep the row lying after a successful save.
+* **`Replace` in the UI.** A stored key offers *Replace* (opens the field) next to *Remove*, so replacing never
+  requires deleting the working key first.
+
+### 11.2 Live integration record (2026-11-05, API 37 emulator; key redacted)
+
+`API key: [REDACTED]` was entered through the app's own field, then the project's own test cover
+(`app/src/androidTest/assets/cover.jpg`) was picked through the app's image chooser and submitted with
+*Search by this cover*.
+
+| Step | Observed |
+|---|---|
+| Save | hint `••••••••19a3`; `bookcover_online_secrets.xml` contains base64 ciphertext only |
+| Provider row | `NEEDS KEY` → **`READY`** |
+| Request | `POST https://saucenao.com/search.php`, HTTP **200**, `header.status` **0** |
+| Parse | 8 normalised hits, similarities `40.27`, `38.26`, `38.16`, `37.83`, `36.81`, … |
+| Quota | `quota: 99 of 100 left` |
+| UI | `RESULTS`, `8 candidate(s) · 8 undecided`; titles/authors from the provider (e.g. `[Endless Requiem (yasha)] …`) |
+| IQDB | still `MANUAL ONLY`, unaffected |
+| Replacement | `19a3` → `3333` → `19a3`, `READY` throughout |
+| Secrets | full key, first 8 and last 4 characters absent from `logcat`; prefs hold ciphertext only |
+
+Not re-executed: a second live call after the replacement (reinstall cleared the captured cover). Readiness and
+decryption were verified after the replacement instead.
+
+### 11.3 IQDB UI round
+
+* **The suggestion line is white.** `Suggestion — not confirmed by you` was drawn in `Palette.Navy700`, i.e. the
+  card's own colour. The decision line now uses `Color.White` for `SUGGESTED`, green/red for confirmed/rejected.
+* **A rubbish bin on every IQDB card.** Top-right, `contentDescription = "Dismiss IQDB result"`, 36 dp target. It
+  removes **only that card** from the current list: no other card, no SauceNAO result, no decision record, no
+  wishlist entry, no cached image. It is not shown where SauceNAO also reported the candidate
+  (`ReverseCandidateUi.isIqdbOnly`), so the primary provider's evidence cannot be dismissed by accident.
+  Dismissal is in-memory only, so a later search may show the result again.
+* **The paste box is always expanded.** No toggle, no collapsed state; the field and *Add results* render directly.
+
+### 11.4 The Online tab no longer creates listings
+
+The v2.5.0-dev.2 "Listing Candidate" flow (`Add listing`, a seven-field form, its controller state and
+`core/online/ManualCandidate.kt`) duplicated the Wishlist's bookmark behaviour and is **removed**. The Wishlist
+keeps its own manual bookmark form, deduplication and profile isolation untouched, and no stored data was migrated
+or deleted. The IQDB paste box remains the only way user-supplied material enters the Online tab, and those rows are
+still labelled as user-supplied.
+
+### 11.5 Verification for this round
+
+| Item | Status |
+|---|---|
+| Unit suite | **876 tests / 108 classes / 0 failures / 7 skipped** |
+| Debug build | `:app:assembleDebug` **BUILD SUCCESSFUL** (`218 / 2.5.0-dev.3`) |
+| Runtime | emulator `emulator-5554`: key save/replace, readiness, live search, paste, dismiss, always-expanded box |
+| Logcat | no fatal exception; no key material |
 

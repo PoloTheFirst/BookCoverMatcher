@@ -347,6 +347,7 @@ online/                          the only code with a socket
 
 data/                            Android persistence
   SauceNaoKeyStore               Keystore AES-256-GCM via core/secret/AesGcmSecretBox
+                                 (the cipher chooses the IV: the Keystore forbids a caller-supplied nonce)
   CandidateDecisionStore         one JSON decision log per wishlist profile
 ```
 
@@ -362,7 +363,15 @@ data/                            Android persistence
 * **Decisions are separate from data.** `CandidateReviews` (pure) + `CandidateDecisionStore` (profile-scoped)
   record confirm/reject; `CollectionStatus` keeps owned / catalogued / wanted independent, and
   `LocalProducts.of(CatalogEntry)` reads only mapped, present cells.
+* **Dismissal is local.** The IQDB card's rubbish bin calls `OnlineSearchController.dismissCandidate`, which edits
+  only the two in-memory candidate lists — the decision log, workbook, wishlist and cover cache are untouched.
+  `ReverseCandidateUi.isIqdbOnly` decides which cards get the control, so a card SauceNAO also found cannot be
+  dismissed by accident.
 * **Cache** is `core/online/BoundedImageCache`: byte budget, LRU, per-entry ceiling, refusals counted.
+
+There is **no longer** a manual-listing module in `core/online`: v2.5.0-dev.3 removed `ManualCandidates` together
+with the Online tab's duplicate "Listing Candidate" UI. Manual bookmarks belong to the Wishlist (`ItemDraft`,
+`BookmarkForm`, `WishlistRepository`), which is unchanged.
 
 
 ## Saved-data invariants
