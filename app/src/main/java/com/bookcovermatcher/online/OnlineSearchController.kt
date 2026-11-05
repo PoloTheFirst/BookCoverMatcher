@@ -25,7 +25,30 @@ import com.bookcovermatcher.core.online.SessionCache
 import com.bookcovermatcher.core.wishlist.ItemIdentity
 import com.bookcovermatcher.core.wishlist.MatchType
 import com.bookcovermatcher.patchCoverById
+import com.bookcovermatcher.core.online.CandidateDecision
+import com.bookcovermatcher.core.online.CandidateDecisionRecord
+import com.bookcovermatcher.core.online.CandidateReviews
+import com.bookcovermatcher.core.online.ManualCandidates
+import com.bookcovermatcher.core.online.ManualListing
+import com.bookcovermatcher.core.online.ManualListingResult
+import com.bookcovermatcher.core.online.ProviderCapabilities
+import com.bookcovermatcher.core.online.reverse.IqdbProtocol
+import com.bookcovermatcher.core.online.reverse.IqdbResultParser
+import com.bookcovermatcher.core.online.reverse.ReverseImageAggregator
+import com.bookcovermatcher.core.online.reverse.ReverseImageProviders
+import com.bookcovermatcher.core.online.reverse.ReverseImageRequest
+import com.bookcovermatcher.core.online.reverse.ReverseImageRun
+import com.bookcovermatcher.core.online.reverse.ReverseImageSearchRunner
+import com.bookcovermatcher.core.online.reverse.ReverseImageSource
+import com.bookcovermatcher.core.online.reverse.ReverseImageState
+import com.bookcovermatcher.ReverseCandidateUi
+import com.bookcovermatcher.ReverseImageProviderUi
+import com.bookcovermatcher.ReverseImageUi
+import com.bookcovermatcher.toCandidateUi
+import com.bookcovermatcher.toUi
+import com.bookcovermatcher.data.CandidateDecisionStore
 import com.bookcovermatcher.data.OnlineSearchPrefs
+import com.bookcovermatcher.data.SauceNaoKeyStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -81,6 +104,21 @@ class OnlineSearchController(
         DlsiteSource(),
     ),
     private val covers: CoverImageLoader = CoverImageLoader(),
+    /**
+     * The user's SauceNAO API key, encrypted with a Keystore-held key. Read at request time, never cached in a
+     * field that could end up in a dump.
+     */
+    private val sauceNaoKey: SauceNaoKeyStore = SauceNaoKeyStore(context),
+    /** Durable confirmations/rejections, one file per wishlist profile. */
+    private val decisionStore: CandidateDecisionStore = CandidateDecisionStore(context),
+    /**
+     * The reverse-image providers of this build, in the order the specification fixes: SauceNAO first, IQDB
+     * second. IQDB's adapter is manual-only and says so; see [IqdbProtocol] for the verified reason.
+     */
+    private val reverseSources: List<ReverseImageSource> = listOf(
+        SauceNaoReverseImageSource(apiKey = { sauceNaoKey.key() }),
+        IqdbReverseImageSource(),
+    ),
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
     private val _ui = MutableStateFlow(
@@ -92,6 +130,11 @@ class OnlineSearchController(
             selectedProviders = prefs.selectedProviders,
             resultLimit = prefs.resultLimit,
             providers = providerStatuses(query = "", selected = prefs.selectedProviders),
+            reverse = ReverseImageUi(
+                providers = reverseProviderRows(),
+                sauceNaoKeyHint = sauceNaoKey.hint(),
+                secondarySources = prefs.secondarySources,
+            ),
         ),
     )
     val ui: StateFlow<OnlineSearchUi> = _ui.asStateFlow()
@@ -107,6 +150,27 @@ class OnlineSearchController(
      * cover the user is no longer looking at. Nothing here can touch the wishlist store.
      */
     private val session = SessionCache<CachedSearch>()
+
+    // ---- reverse-image discovery ---------------------------------------------------------------
+    //
+    // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The
+    // generation counter is the stale-response guard: a result whose token is no longer current is dropped
+    // instead of overwriting the answer to a newer request.
+    private val reverseRunner = ReverseImageSearchRunner(reverseSources)
+    private val reverseRuns = LinkedHashMap<String, ReverseImageRun>()
+    private var reverseJob: Job? = null
+
+    @Volatile
+    private var reverseCancelled = false
+    private var reverseGeneration = 0L
+
+    /** Candidates an automated reverse-image run produced, and candidates the user supplied themselves. */
+    private var searchCandidates: List<ReverseCandidateUi> = emptyList()
+    private var manualCandidates: List<ReverseCandidateUi> = emptyList()
+
+    /** Confirmations and rejections, loaded once from the profile's decision log. */
+    private var decisions: Map<String, CandidateDecisionRecord> =
+        runCatching { decisionStore.load() }.getOrDefault(emptyMap())
 
     private class CachedSearch(
         val query: String,
@@ -139,11 +203,14 @@ class OnlineSearchController(
         selected: Set<String>,
         automated: Map<String, Pair<ProviderState, String>> = emptyMap(),
         searching: Boolean = false,
+        secondaryOn: Boolean = prefs.secondarySources,
     ): List<ProviderStatusUi> = ProviderCatalog.ALL.map { spec ->
         val manual = !spec.selectable
         val isSelected = spec.selectable && spec.id in selected
+        val switchedOff = isSelected && !secondaryOn && ProviderCapabilities.isSecondary(spec.id)
         val (state, detail) = when {
             manual -> ProviderState.MANUAL to spec.note
+            switchedOff -> ProviderState.SKIPPED to "General-book sources are switched off; it is not queried."
             !isSelected -> ProviderState.SKIPPED to "Not selected for this search."
             searching -> ProviderState.SEARCHING to "Searching\u2026"
             else -> automated[spec.id] ?: (ProviderState.READY to spec.note)
@@ -188,12 +255,14 @@ class OnlineSearchController(
             job?.cancel()
             // switching the feature off hides the results immediately and drops the session cache
             session.invalidate()
+            resetReverse("Online search is off.")
         }
     }
 
     /** "Clear session cache": temporary results only, never a bookmark, item or membership. */
     fun clearSession() {
         session.invalidate()
+        resetReverse()
         _ui.update {
             it.copy(
                 catalogue = CatalogueUi.Idle,
@@ -204,8 +273,353 @@ class OnlineSearchController(
     }
 
     // =========================================================================================
-    // Platform selection and result count
+    // Reverse-image discovery — SauceNAO first, IQDB second
     // =========================================================================================
+
+    /**
+     * The two provider rows, built from the sources themselves plus whatever the last run reported.
+     *
+     * A row's state is the provider's *own* state: `NOT_CONFIGURED` before a key exists, `MANUAL_ONLY` for
+     * IQDB, `SEARCHING` while a request is outstanding, and only `SUCCESS`/`NO_RESULTS` when a genuine answer
+     * arrived. Nothing here can turn "not run" into "found nothing".
+     */
+    private fun reverseProviderRows(): List<ReverseImageProviderUi> = reverseSources
+        .sortedBy { it.priority }
+        .map { source ->
+            val run = reverseRuns[source.id]
+            val state = run?.state ?: source.readiness()
+            ReverseImageProviderUi(
+                id = source.id,
+                displayName = source.displayName,
+                priority = source.priority,
+                manualOnly = source.automation ==
+                    com.bookcovermatcher.core.online.reverse.ReverseImageAutomation.MANUAL_ONLY,
+                searchPageUrl = source.searchPageUrl,
+                state = state,
+                detail = run?.message ?: defaultDetailFor(source.id, state),
+                resultCount = run?.hits?.size ?: 0,
+                quota = run?.quota?.describe(),
+            )
+        }
+
+    private fun defaultDetailFor(providerId: String, state: ReverseImageState): String = when (state) {
+        ReverseImageState.NOT_CONFIGURED ->
+            "Needs your own SauceNAO API key. Stored encrypted; never shown again after saving."
+        ReverseImageState.READY -> "Ready. Tried first."
+        ReverseImageState.MANUAL_ONLY -> IqdbProtocol.manualOnlyReason()
+        else -> if (providerId == ReverseImageProviders.IQDB_ID) {
+            "Tried second, after SauceNAO."
+        } else {
+            "Tried first, before IQDB."
+        }
+    }
+
+    /** Stores a SauceNAO key in the Keystore-backed store. The key itself is never echoed anywhere. */
+    fun saveSauceNaoKey(raw: String) {
+        if (!sauceNaoKey.save(raw)) {
+            onMessage("That does not look like a SauceNAO key; nothing was saved.", ToastKind.ERR)
+            return
+        }
+        _ui.update {
+            it.copy(reverse = it.reverse.copy(sauceNaoKeyHint = sauceNaoKey.hint(), providers = reverseProviderRows()))
+        }
+        onMessage("SauceNAO key saved in encrypted storage.", ToastKind.OK)
+    }
+
+    fun clearSauceNaoKey() {
+        sauceNaoKey.clear()
+        reverseRuns.remove(ReverseImageProviders.SAUCE_NAO_ID)
+        _ui.update { it.copy(reverse = it.reverse.copy(sauceNaoKeyHint = null, providers = reverseProviderRows())) }
+        onMessage("SauceNAO key removed; SauceNAO will not be queried.", ToastKind.INFO)
+    }
+
+    /**
+     * Switches the supplementary general-book sources on or off.
+     *
+     * Off means **not queried**: [search] filters them out before any request, and their rows say so, so a
+     * switched-off provider can never be reported as "searched, nothing found".
+     */
+    fun setSecondarySources(on: Boolean) {
+        prefs.secondarySources = on
+        _ui.update {
+            it.copy(
+                reverse = it.reverse.copy(secondarySources = on),
+                providers = providerStatuses(it.query, prefs.selectedProviders, secondaryOn = on),
+            )
+        }
+        onMessage(
+            if (on) {
+                "Open Library and Google Books take part in searches again."
+            } else {
+                "Open Library and Google Books are switched off and will not be queried."
+            },
+            ToastKind.INFO,
+        )
+    }
+
+    /**
+     * Starts reverse-image discovery on the captured cover.
+     *
+     * Sequence, fixed by the release: SauceNAO first (if a key is stored), IQDB second (manual-only, so it
+     * reports `MANUAL_ONLY` and offers its own page). Each provider publishes its row as it runs, so SauceNAO's
+     * results are visible while IQDB is still being handled — nothing waits for the slower provider.
+     */
+    fun runReverseSearch() {
+        val bytes = capture
+        if (bytes == null) {
+            onMessage("Scan a cover first — reverse-image search needs the image itself.", ToastKind.ERR)
+            return
+        }
+        if (!_ui.value.enabled) {
+            onMessage("Turn online search on first.", ToastKind.INFO)
+            return
+        }
+        if (_ui.value.reverse.running || _ui.value.isBusy) {
+            onMessage("Still working — tap Cancel to stop.", ToastKind.INFO)
+            return
+        }
+
+        val generation = ++reverseGeneration
+        reverseCancelled = false
+        reverseRuns.clear()
+        searchCandidates = emptyList()
+        val request = ReverseImageRequest(
+            bytes = bytes,
+            fileName = "cover.jpg",
+            mimeType = "image/jpeg",
+            maxResults = SearchLimits.sanitize(prefs.resultLimit).coerceAtMost(ReverseImageRequest.MAX_RESULTS),
+        )
+        val runner = reverseRunner
+
+        reverseJob?.cancel()
+        reverseJob = scope.launch {
+            _ui.update {
+                it.copy(
+                    reverse = it.reverse.copy(
+                        running = true,
+                        candidates = withDecisions(manualCandidates),
+                        note = "SauceNAO first, then IQDB\u2026",
+                        manualError = null,
+                    ),
+                )
+            }
+            val result = withContext(Dispatchers.IO) {
+                runner.run(
+                    request = request,
+                    token = generation,
+                    // Cancellation is cooperative: the runner asks before every provider.
+                    shouldContinue = { token -> !reverseCancelled && token == reverseGeneration },
+                    onRun = { run -> publishReverseRun(run, generation) },
+                )
+            }
+            // A newer run (or a cancel) took over: this answer belongs to a request nobody is waiting for.
+            if (generation != reverseGeneration) return@launch
+            applyReverseResult(result)
+        }
+    }
+
+    /** Publishes one provider's row: `SEARCHING` first, then the provider's real answer. */
+    private fun publishReverseRun(run: ReverseImageRun, generation: Long) {
+        if (generation != reverseGeneration) return
+        reverseRuns[run.providerId] = run
+        _ui.update { state -> state.copy(reverse = state.reverse.copy(providers = reverseProviderRows())) }
+    }
+
+    private fun applyReverseResult(result: ReverseImageSearchRunner.Result) {
+        searchCandidates = result.candidates.map { it.toUi(CandidateReviews.stateOf(decisions, it.key)) }
+        val note = result.describeStates()
+        _ui.update {
+            it.copy(
+                reverse = it.reverse.copy(
+                    running = false,
+                    candidates = withDecisions(manualCandidates + searchCandidates),
+                    note = note,
+                    providers = reverseProviderRows(),
+                ),
+            )
+        }
+        val found = result.candidates.size
+        when {
+            found > 0 -> onMessage("$found reverse-image candidate(s). $note", ToastKind.OK)
+            result.anyAnswered -> onMessage("The providers answered and found nothing. $note", ToastKind.INFO)
+            else -> onMessage("No provider results. $note", ToastKind.INFO)
+        }
+    }
+
+    /**
+     * Stops the run. A provider already inside a blocking HTTP call cannot be preempted, so its answer is
+     * discarded by the generation check instead of being applied to a request the user abandoned.
+     */
+    fun cancelReverseSearch() {
+        reverseCancelled = true
+        reverseGeneration++
+        reverseJob?.cancel()
+        reverseJob = null
+        _ui.update {
+            it.copy(
+                reverse = it.reverse.copy(
+                    running = false,
+                    note = "Reverse-image search cancelled.",
+                    providers = reverseProviderRows(),
+                ),
+            )
+        }
+        onMessage("Reverse-image search cancelled.", ToastKind.INFO)
+    }
+
+
+    // =========================================================================================
+    // Manual candidates and user decisions
+    // =========================================================================================
+
+    fun openManualCandidate() = _ui.update {
+        it.copy(reverse = it.reverse.copy(manualOpen = true, manualError = null))
+    }
+
+    fun closeManualCandidate() = _ui.update {
+        it.copy(reverse = it.reverse.copy(manualOpen = false, manualError = null))
+    }
+
+    /**
+     * Adds a candidate the user typed themselves (a listing from a site the app does not query, or an IQDB
+     * result they found in the browser).
+     *
+     * It goes through [ManualCandidates.validate] — the same normalisation automated results get — and lands in
+     * the same review list, flagged manual. Nothing is fetched from the URL, and nothing is written to the
+     * wishlist here: this records a candidate, not a desire and not an ownership claim.
+     */
+    fun submitManualCandidate(
+        url: String,
+        title: String,
+        circle: String,
+        author: String,
+        identifier: String,
+        providerLabel: String,
+        note: String,
+    ) {
+        val listing = ManualListing(
+            url = url,
+            title = title,
+            circle = circle,
+            author = author,
+            identifier = identifier,
+            providerLabel = providerLabel,
+            note = note,
+        )
+        when (val result = ManualCandidates.validate(listing)) {
+            is ManualListingResult.Invalid -> _ui.update {
+                it.copy(reverse = it.reverse.copy(manualError = result.errors.joinToString(" ")))
+            }
+            is ManualListingResult.Valid -> {
+                val candidate = result.candidate.toCandidateUi(
+                    decision = CandidateDecision.SUGGESTED,
+                    evidence = "You supplied this \u2014 not an automated result",
+                    manual = true,
+                    note = result.listing.note.takeIf { it.isNotBlank() },
+                )
+                // Stable identity means a re-entry cannot pile up duplicates.
+                manualCandidates = (listOf(candidate) + manualCandidates).distinctBy { it.key }
+                publishCandidates()
+                _ui.update { it.copy(reverse = it.reverse.copy(manualOpen = false, manualError = null)) }
+                onMessage("Candidate added: ${candidate.title}", ToastKind.OK)
+            }
+        }
+    }
+
+    /**
+     * Accepts an IQDB result the user pasted (a result line, or a saved page's markup).
+     *
+     * This is the manual half of IQDB: the app did not query the service, the user did, and
+     * [IqdbResultParser] only normalises what they brought back. Rows without a URL are dropped.
+     */
+    fun importIqdbResult(text: String) {
+        val now = System.currentTimeMillis()
+        val pasted = IqdbResultParser.parsePasted(text, now)
+        val hits = pasted.ifEmpty { IqdbResultParser.parsePage(text, now) }
+        if (hits.isEmpty()) {
+            onMessage("No IQDB result URL found in that text.", ToastKind.ERR)
+            return
+        }
+        val run = ReverseImageRun(
+            providerId = ReverseImageProviders.IQDB_ID,
+            displayName = IqdbProtocol.DISPLAY_NAME,
+            priority = ReverseImageProviders.IQDB_PRIORITY,
+            state = ReverseImageState.SUCCESS,
+            hits = hits,
+        )
+        // The aggregator does the dedupe, so a pasted row that matches an existing candidate merges with it
+        // instead of standing beside it.
+        val candidates = ReverseImageAggregator.merge(listOf(run), limit = PASTED_LIMIT)
+            .map { it.toUi(CandidateReviews.stateOf(decisions, it.key)).copy(manual = true) }
+        manualCandidates = (candidates + manualCandidates).distinctBy { it.key }
+        publishCandidates()
+        onMessage("${candidates.size} IQDB result(s) from your browser added.", ToastKind.OK)
+    }
+
+    /** Confirms a candidate: this is the only thing that turns a suggestion into a stated identity. */
+    fun confirmCandidate(key: String) = decide(key, CandidateDecision.CONFIRMED)
+
+    /** Rejects a candidate. The record is kept, so the same key is not re-suggested as if new. */
+    fun rejectCandidate(key: String) = decide(key, CandidateDecision.REJECTED)
+
+    private fun decide(key: String, decision: CandidateDecision) {
+        val candidate = _ui.value.reverse.candidates.firstOrNull { it.key == key } ?: return
+        decisions = CandidateReviews.applyKey(
+            records = decisions,
+            key = key,
+            decision = decision,
+            now = System.currentTimeMillis(),
+            title = candidate.title,
+            provider = candidate.evidence,
+            url = candidate.sourceUrl,
+        )
+        persistDecisions()
+        publishCandidates()
+        val verb = if (decision == CandidateDecision.CONFIRMED) "Confirmed" else "Rejected"
+        onMessage(
+            "$verb: ${candidate.title}",
+            if (decision == CandidateDecision.CONFIRMED) ToastKind.OK else ToastKind.INFO,
+        )
+    }
+
+    private fun persistDecisions() {
+        val snapshot = decisions
+        scope.launch(Dispatchers.IO) { runCatching { decisionStore.save(snapshot) } }
+    }
+
+    /** Re-draws the candidate list with the decisions that are current now. */
+    private fun publishCandidates() = _ui.update {
+        it.copy(reverse = it.reverse.copy(candidates = withDecisions(manualCandidates + searchCandidates)))
+    }
+
+    private fun withDecisions(candidates: List<ReverseCandidateUi>): List<ReverseCandidateUi> = candidates.map {
+        it.copy(decision = CandidateReviews.stateOf(decisions, it.key))
+    }
+
+    /**
+     * Drops everything a previous cover produced. Called when the capture changes, the feature is switched
+     * off, or the session cache is cleared: a candidate on screen must never belong to a cover the user is no
+     * longer looking at. Manual candidates are the user's own material and survive.
+     */
+    private fun resetReverse(note: String? = null) {
+        reverseGeneration++
+        reverseCancelled = true
+        reverseJob?.cancel()
+        reverseJob = null
+        reverseRuns.clear()
+        searchCandidates = emptyList()
+        _ui.update {
+            it.copy(
+                reverse = it.reverse.copy(
+                    running = false,
+                    candidates = withDecisions(manualCandidates),
+                    providers = reverseProviderRows(),
+                    note = note,
+                ),
+            )
+        }
+    }
+
 
     /**
      * Selects or deselects one platform for the **next** search. Never starts a search itself.
@@ -333,7 +747,11 @@ class OnlineSearchController(
         val fingerprint = ImageFingerprint.of(jpegBytes)
         val cached = session.select(fingerprint)
         // A different cover: the cards on screen cannot belong to it, so they are dropped at once.
-        if (cached == null) _ui.update { it.copy(catalogue = CatalogueUi.Idle) }
+        if (cached == null) {
+            _ui.update { it.copy(catalogue = CatalogueUi.Idle) }
+            // Reverse-image candidates belong to the cover they were found from, not to the next one.
+            resetReverse()
+        }
         if (!_ui.value.enabled) return
         readCover()
     }
@@ -344,6 +762,7 @@ class OnlineSearchController(
      */
     fun onCoverChanged() {
         session.invalidate()
+        resetReverse()
         _ui.update { it.copy(catalogue = CatalogueUi.Idle) }
     }
 
@@ -465,29 +884,40 @@ class OnlineSearchController(
         val selection = prefs.selectedProviders
         val limit = SearchLimits.sanitize(prefs.resultLimit)
         val selectionKey = SearchRouting.key(selection)
+        val secondaryOn = prefs.secondarySources
+        // A switched-off secondary source is filtered out **before** any request, so it can never be reported
+        // as having been searched.
         val automatedSpecs = SearchRouting.automated(selection)
+            .filter { secondaryOn || !ProviderCapabilities.isSecondary(it.id) }
 
         if (automatedSpecs.isEmpty()) {
-            // Browser-only platforms are never part of the selection, so this can only mean that no
-            // in-app platform is selected. The cards and their Open buttons stay available.
             session.invalidate()
+            val switchedOffOnly = SearchRouting.automated(selection).isNotEmpty()
             val shortcuts = SearchRouting.shortcuts().filter { it.hasLink }.joinToString { it.name }
-            val message = if (shortcuts.isEmpty()) {
-                "Select at least one platform to search (Open Library, Google Books or DLsite)."
-            } else {
-                "No in-app platform is selected. Browser-only shortcuts ($shortcuts) open their own " +
-                    "search pages with the Open \u2197 buttons above."
+            val message = when {
+                // Selected, but every selected provider is a general-book source the user switched off.
+                switchedOffOnly ->
+                    "Open Library and Google Books are switched off, so nothing was queried. Turn the " +
+                        "general-book sources back on, or select DLsite."
+                shortcuts.isEmpty() ->
+                    "Select at least one platform to search (Open Library, Google Books or DLsite)."
+                else ->
+                    "No in-app platform is selected. Browser-only shortcuts ($shortcuts) open their own " +
+                        "search pages with the Open \u2197 buttons above."
             }
             _ui.update {
                 it.copy(
                     query = trimmed,
-                    catalogue = CatalogueUi.BrowserOnly(message),
+                    catalogue = if (switchedOffOnly) CatalogueUi.SwitchedOff(message) else CatalogueUi.BrowserOnly(message),
                     selectedProviders = selection,
                     resultLimit = limit,
-                    providers = providerStatuses(trimmed, selection).withQuery(trimmed),
+                    providers = providerStatuses(trimmed, selection, secondaryOn = secondaryOn).withQuery(trimmed),
                 )
             }
-            onMessage("Select at least one in-app platform to search.", ToastKind.INFO)
+            onMessage(
+                if (switchedOffOnly) "General-book sources are off — nothing to search." else "Select at least one in-app platform to search.",
+                ToastKind.INFO,
+            )
             return
         }
 
@@ -784,11 +1214,16 @@ class OnlineSearchController(
     fun shutdown() {
         job?.cancel()
         job = null
+        reverseJob?.cancel()
+        reverseJob = null
     }
 
     private companion object {
         /** Generous: the first Lens call of a session also pays for TLS setup. */
         const val OCR_TIMEOUT_SECONDS = 60
+
+        /** How many pasted IQDB rows one submission may add: a browsing session's worth, not a dump. */
+        const val PASTED_LIMIT = 20
 
         /**
          * One provider's budget for one search. Providers run concurrently, so this is also the

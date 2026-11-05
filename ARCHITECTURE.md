@@ -326,6 +326,45 @@ ProviderCatalog (core/online)      eleven ProviderSpec rows: id, host, access, n
 * Fixtures under `app/src/test/resources/fixtures` are captured provider pages (DLsite and
   Melonbooks search/empty results), so the parser tests assert against real markup, not mocks.
 
+## Reverse-image discovery (v2.5.0-dev.2)
+
+```
+core/online/reverse/            pure Kotlin, no socket, unit-tested
+  ReverseImageSource            interface: id, displayName, priority, automation, timeoutMs,
+                                searchPageUrl, readiness(), search(request)
+  ReverseImageState             NOT_CONFIGURED READY SEARCHING SUCCESS NO_RESULTS TIMEOUT
+                                RATE_LIMITED QUOTA_EXCEEDED UNAVAILABLE BLOCKED CANCELLED ERROR MANUAL_ONLY
+  SauceNaoProtocol              documented request parts + response parser (+ quota, + state mapping)
+  IqdbProtocol / IqdbResultParser   why automation is off + a parser for USER-supplied material
+  MultipartForm                 the exact multipart body (the credential is a part, never a URL)
+  ReverseImageSearchRunner      SauceNAO first, IQDB second, per-provider timeout, cancel, stale token
+  ReverseImageAggregator        identity-based merge; keeps both providers' references and numbers
+
+online/                          the only code with a socket
+  SauceNaoReverseImageSource     POST multipart -> SauceNaoResponseParser -> ReverseImageOutcome
+  IqdbReverseImageSource         MANUAL_ONLY: never posts; exposes the search page
+  HttpJsonClient.postMultipart   transport for the one upload (no retries)
+
+data/                            Android persistence
+  SauceNaoKeyStore               Keystore AES-256-GCM via core/secret/AesGcmSecretBox
+  CandidateDecisionStore         one JSON decision log per wishlist profile
+```
+
+* **Ordering is data, not luck.** `ReverseImageProviders` fixes `saucenao = 1`, `iqdb = 2`, and the runner
+  sorts by `priority`. IQDB still runs when SauceNAO answered.
+* **A provider that did nothing is a state, not a result.** `NOT_CONFIGURED`, `MANUAL_ONLY`, `BLOCKED`,
+  `CANCELLED` and `UNAVAILABLE` short-circuit before any request (`ReverseImageState.searchedNothing`), so the
+  UI can never present them as "nothing found".
+* **Slow is not empty.** Each source declares its own budget (30 s SauceNAO, 90 s IQDB); the runner measures
+  elapsed time with an injected clock and reports `TIMEOUT`, dropping the late rows.
+* **No combined score exists** in the model. `ReverseImageCandidate` exposes `evidenceLine()` over each
+  provider's own value; averaging two services' numbers is not representable.
+* **Decisions are separate from data.** `CandidateReviews` (pure) + `CandidateDecisionStore` (profile-scoped)
+  record confirm/reject; `CollectionStatus` keeps owned / catalogued / wanted independent, and
+  `LocalProducts.of(CatalogEntry)` reads only mapped, present cells.
+* **Cache** is `core/online/BoundedImageCache`: byte budget, LRU, per-entry ceiling, refusals counted.
+
+
 ## Saved-data invariants
 
 * One reserved `Bookmarks` folder; idempotent creation.

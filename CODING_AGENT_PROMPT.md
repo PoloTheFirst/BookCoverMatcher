@@ -774,6 +774,28 @@ This project documents its own limitations in detail — see the *Honest status 
 * If you add no new provider, say so plainly; "the design mentions marketplaces; none were added because
   …" is an acceptable and expected sentence.
 * If you could not verify something because it needs a device, write that in the docs **and** in the report.
+### Reverse-image rules added in v2.5.0-dev.2
+
+* A reverse-image provider is only "searched" when a genuine provider answer was received and parsed. A missing
+  key (`NOT_CONFIGURED`), a manual-only provider (`MANUAL_ONLY`), a refusal (`BLOCKED`) and a cancel
+  (`CANCELLED`) are **not** searches and must never be reported as "no results".
+* A call that exceeded its provider's budget is `TIMEOUT`. Never convert a slow answer into an empty result.
+* SauceNAO is tried first and IQDB second **even when SauceNAO already answered**. SauceNAO's key is read at
+  request time from `SauceNaoKeyStore` and travels in the multipart body only; it must never be logged, echoed in
+  an exception, placed in a URL, written to plain preferences, or shown after saving.
+* IQDB automation is **off, with the measured reason recorded** in `IqdbProtocol` (no API; robots.txt disallows
+  `/multi-search`, `/db-search`, `/kc-search`, `/mi-search`, `/index`, `/?url=`). Do not add an IQDB POST "because
+  the form exists"; re-verify the access route first and record the evidence.
+* Scores from different providers are never averaged, summed or rescaled. A candidate found by both keeps both
+  numbers and shows both attributions.
+* A candidate is a **suggestion** until the user confirms or rejects it. Decisions are profile-scoped, do not
+  edit workbook cells, and do not create wishlist entries.
+* Ownership, catalogue presence and wanted status stay independent; "not stated" is a value, and an empty
+  workbook can never produce `ABSENT`.
+
+---
+
+
 
 ---
 

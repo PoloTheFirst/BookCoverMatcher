@@ -620,6 +620,27 @@ with the offline comparison, which keeps its fixed five results (`Config.TOP_MAT
   (adult sites that block automated access), Doujinshi.info (HTTP 403), MyAnimeList (no
   unauthenticated API) and Toranoana (no documented public API; 18+ catalogue).
 
+### Reverse-image discovery (v2.5.0-dev.2)
+
+* **SauceNAO** is the first-priority provider and the only automated one: your own API key (stored encrypted with
+  an Android Keystore key, shown afterwards only as `••••••••ab12`) is sent **in the request body** together with
+  the captured cover through its documented JSON API. Every state it can report - results, nothing found,
+  timeout, rate limited, quota used up, blocked, unreachable, failed, needs key - is drawn as that state.
+* **IQDB** is the second-priority provider and is **manual-only in this build**: it publishes no API and its
+  `robots.txt` disallows its own search routes (`/multi-search`, `/db-search`, `/kc-search`, `/mi-search`,
+  `/index`, `/?url=`), so the app opens IQDB's page in your browser and accepts the result you paste back. No
+  IQDB result is ever presented as an automated search result.
+* A candidate found by both providers keeps **both** numbers and both links (`SauceNAO 95.1% · IQDB 92%`). They
+  are never added or averaged: two services agreeing is provenance, not a probability.
+* Every candidate is a **suggestion** until you tap **Confirm** or **Reject**; the decision is remembered per
+  wishlist profile. Confirming changes no workbook cell and adds no wishlist entry.
+* **Add listing** is the manual fallback for every site the app does not search: nothing is fetched from the URL
+  you paste, and the entry is marked as yours.
+
+Follow-up work that is *not* in this build: showing the per-candidate catalogue evidence (matched / ambiguous /
+absent) computed with the existing OpenCLIP pipeline, and any automated IQDB route that is genuinely permitted.
+
+
 ---
 
 ## 7. Build and run

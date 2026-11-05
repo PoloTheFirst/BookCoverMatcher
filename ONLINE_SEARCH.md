@@ -1,4 +1,4 @@
-# Online search, OCR and bookmarks — implementation notes (v2.4.0)
+﻿# Online search, OCR and bookmarks â€” implementation notes (v2.4.0)
 
 This document describes what the online feature actually does. It deliberately separates four
 capabilities that are easy to confuse:
@@ -19,22 +19,22 @@ and the code never sets `MatchType.VISUAL`.
 
 ```
 Camera / gallery
-  → PixelImage
-  → AndroidImageCodec.encodeJpeg(OCR_MAX_EDGE)
-  → OnlineSearchController.onCapture
-      → SessionCache (SHA-256 of the JPEG)
-      → ChromeLensPyBridge.recognise
-          → PythonRuntime (Chaquopy, Python 3.12)
-          → lens_bridge.ocr_image
-          → chrome_lens_py.LensAPI.process_image(output_format="blocks")
-          → flat envelope {ok, text, block_heights, detected_language, translated_text, …}
-      → OcrText
-  → OcrQueryExtractor.suggest (title/author)
-  → OpenLibraryBooksSource.search + GoogleBooksSource.search + DlsiteSource.search
+  â†’ PixelImage
+  â†’ AndroidImageCodec.encodeJpeg(OCR_MAX_EDGE)
+  â†’ OnlineSearchController.onCapture
+      â†’ SessionCache (SHA-256 of the JPEG)
+      â†’ ChromeLensPyBridge.recognise
+          â†’ PythonRuntime (Chaquopy, Python 3.12)
+          â†’ lens_bridge.ocr_image
+          â†’ chrome_lens_py.LensAPI.process_image(output_format="blocks")
+          â†’ flat envelope {ok, text, block_heights, detected_language, translated_text, â€¦}
+      â†’ OcrText
+  â†’ OcrQueryExtractor.suggest (title/author)
+  â†’ OpenLibraryBooksSource.search + GoogleBooksSource.search + DlsiteSource.search
       (concurrent on Dispatchers.IO, 20 s deadline each)
-  → OnlineAggregator.merge (provider key → dedupe → bookmarked promotion → limit)
-  → CatalogueUi.Found
-  → ProductResultCard → Bookmark / + Wishlist / Open website
+  â†’ OnlineAggregator.merge (provider key â†’ dedupe â†’ bookmarked promotion â†’ limit)
+  â†’ CatalogueUi.Found
+  â†’ ProductResultCard â†’ Bookmark / + Wishlist / Open website
 ```
 
 If OCR fails, the query field remains editable; **Search catalogues** works without OCR. That is a
@@ -47,7 +47,7 @@ deliberate separation: the catalogue step does not require the Python bridge.
 ### Open Library Books API
 * Endpoint: `https://openlibrary.org/search.json`
 * Free, no API key; structured works/editions; cover ids; detail URLs are built from a validated
-  `/works/OL…` or `/books/OL…` key.
+  `/works/OLâ€¦` or `/books/OLâ€¦` key.
 * Failures map to `OFFLINE`, `TIMEOUT`, `RATE_LIMITED`, `SERVER_ERROR` or `BAD_RESPONSE`.
 
 ### Google Books Volumes API
@@ -57,31 +57,31 @@ deliberate separation: the catalogue step does not require the Python bridge.
 * `http://` cover links are upgraded to `https://` on the same host. A missing/unsafe detail link
   falls back to `https://books.google.com/books?id=<validated id>`.
 * **Without a key Google may answer HTTP 429** on shared networks. The outcome is
-  `ProductSearchOutcome.Failed(RATE_LIMITED, …)`; the controller still shows the other catalogue's
+  `ProductSearchOutcome.Failed(RATE_LIMITED, â€¦)`; the controller still shows the other catalogue's
   results and displays a note. It does not retry silently.
 
 ### DLsite (books search page)
 * Endpoint: `https://www.dlsite.com/books/fsr/=/keyword/<form-encoded query>`
 * **Encoding is `+` for a space, not `%20`.** The keyword is a path segment, but DLsite parses it as its
   own form value and rejects `%20` outright: measured 2026-10-23 with the app's user agent,
-  `keyword/Blue+Archive` → **HTTP 200 with 30 works**, `keyword/Blue%20Archive` → **HTTP 403** (a
+  `keyword/Blue+Archive` â†’ **HTTP 200 with 30 works**, `keyword/Blue%20Archive` â†’ **HTTP 403** (a
   239-byte error page). That is why every multi-word query used to fail while single words worked.
   `QueryForm.PLUS` on the `ProviderSpec` plus `ProviderLinks.encode(query, form)` keep the rule in one
   place; a `+` typed by the user is still `%2B`, so the two cannot be confused.
 * Public HTML page, no key, no cookie, no login. Measured live on 2026-10-22: HTTP 200 with **30 real
-  works** for `東方`, and a genuine (empty) result page for a nonsense query — with the app's own user
+  works** for `æ±æ–¹`, and a genuine (empty) result page for a nonsense query â€” with the app's own user
   agent, not a spoofed browser one.
 * Parsed by `core/online/DlsiteResponseParser` (plain Kotlin, fixture-tested, no HTML dependency):
-  * id from `data-list_item_product_id` (`RJ…`), validated by regex;
+  * id from `data-list_item_product_id` (`RJâ€¦`), validated by regex;
   * title from `<dd class="work_name">`'s anchor (`title` attribute, else its text), entity-decoded;
   * circle from `<dd class="maker_name">`, kept as the author line;
   * the **current** price from the first `work_price_base`/`work_price_suffix` pair (the struck-through
     `<span class="strike">` price is the old one and is not used);
-  * the 240×240 cover from the listing, upgraded to `https`.
-* The listing has no stock, description or rating field, so those stay `null` and the card shows `—`.
+  * the 240Ã—240 cover from the listing, upgraded to `https`.
+* The listing has no stock, description or rating field, so those stay `null` and the card shows `â€”`.
 * One request per user search; no pagination, no retry. `robots.txt` asks for `Crawl-delay: 10` and
   disallows the paged result URLs (`/fsr/=/*/per_page/*/page/`), which the adapter never requests.
-* A 401/403/451 becomes `OnlineFailure.BLOCKED` — never a retry with a disguised client.
+* A 401/403/451 becomes `OnlineFailure.BLOCKED` â€” never a retry with a disguised client.
 
 ### Melonbooks - browser-only by product decision
 * Search page: `https://www.melonbooks.co.jp/search/search.php?mode=search&name=<percent-encoded query>`
@@ -202,7 +202,7 @@ the missing trailing slash: it marks Suruga-ya `BROWSER_ONLY`, sends it **no** r
 * The cache entry stores query, limit and selection key; a hit requires all three, so a five-result
   answer can never satisfy a twenty-result request. Changing either cancels an in-flight search.
 * Every card link comes from `ProviderLinks` (validated https + own host, the platform's own query form
-  — `%20`, or `+` for DLsite — landing page for a blank query) and is independent of the selection.
+  â€” `%20`, or `+` for DLsite â€” landing page for a blank query) and is independent of the selection.
   A `ProviderSpec` with no configured page is refused by `ProviderLinks` instead of producing a dead
   button (unit-tested); every shipped card does have a verified page.
 * **The links follow the query field, not the last search** (v2.2.4): `OnlineSearchController.setQuery`
@@ -279,13 +279,13 @@ the wrong title candidate.
 * A saved bookmark is drawn with the Search result card (**v2.3.1**): `ui/ResultCardParts` supplies the
   expand control, the description block, the detail rows and the action chips, and
   `core/wishlist/BookmarkPresentation` derives the author line, the price/identifier caption, the source
-  chip and the match-type wording from the stored fields (`—` for a value the source never sent; the
+  chip and the match-type wording from the stored fields (`â€”` for a value the source never sent; the
   circle never becomes an artist). The `Bookmarks` drawer's open flag is `UiState.bookmarkPanelOpen`,
   and the filter text, sort and expanded cards are kept per tab by `rememberSaveableStateHolder`.
-* All three workflows (wishlist→bookmark, bookmark→wishlist, bookmark→restart→wishlist) are covered
+* All three workflows (wishlistâ†’bookmark, bookmarkâ†’wishlist, bookmarkâ†’restartâ†’wishlist) are covered
   by JVM tests and were exercised manually for the custom-bookmark case.
 
-Schema details and the full migration rules are in `README.md` §3.
+Schema details and the full migration rules are in `README.md` Â§3.
 
 ---
 
@@ -293,12 +293,12 @@ Schema details and the full migration rules are in `README.md` §3.
 
 | Item | Command / environment | Result |
 |---|---|---|
-| JVM suite | `.\gradlew.bat testDebugUnitTest` | 470 tests, 0 failures (4 live checks skipped by design) — measured 2026-10-30 |
+| JVM suite | `.\gradlew.bat testDebugUnitTest` | 470 tests, 0 failures (4 live checks skipped by design) â€” measured 2026-10-30 |
 | Live provider checks | `.\gradlew.bat testDebugUnitTest -DonlineCheck=1 --tests "*LiveCatalogueTest" --rerun-tasks` | 329 tests, 0 failures; **4/4 live checks ran**: Open Library and DLsite returned real records, Google Books was found or `RATE_LIMITED`. Melonbooks is not in the live suite any more |
 | Compose UI tests | none | **not run**: no `ui-test-junit4` dependency and no emulator/device; selection rules, link independence, the cap and the batch repository calls are unit-tested (`SelectionLogicTest`, `SearchRoutingTest`, `ProviderLinksTest`, `OnlineResultLimitTest`, `BatchOperationsTest`) |
-| DLsite live parse | `DlsiteSource().search("東方", 3)` | real `RJ…` works with Japanese titles, circles, `924円`-style prices, `img.dlsite.jp` covers and `dlsite.com` product URLs |
+| DLsite live parse | `DlsiteSource().search("æ±æ–¹", 3)` | real `RJâ€¦` works with Japanese titles, circles, `924å††`-style prices, `img.dlsite.jp` covers and `dlsite.com` product URLs |
 | Provider access probe | `robots.txt` + search URL, app user agent (2026-10-23) | Melonbooks robots **404**, search **200** (not queried); Suruga-ya robots **200** with `Disallow: /search/`; DLsite robots **200**, paged URLs disallowed; E-Hentai robots **200**, `/s/` and `/codegen.php` disallowed; Doujin no Mori robots **200** with `Disallow: /comics/free-search`, search **200**; Doujinshi.info robots **200** but every page **403**; MyAnimeList `/topmanga` **404**, `/manga.php?q=` **200**; nhentai **403** everywhere |
-| Toranoana access probe | `robots.txt` + search URL, app user agent (2026-10-25) | robots **200** `text/plain` (283 B, no redirect, no `Crawl-delay`), rules `/api/ /app/ /ec/app/ /cms/ /cems/ /log/ /pc/` — **none matches `/tora_r/ec/app/catalog/list`**; search **200** `text/html` with no redirect, 50 `catalog-item` blocks, with `%20` and with `+`; landing **200**; **not queried** by the app (no documented API; 18+ catalogue) |
+| Toranoana access probe | `robots.txt` + search URL, app user agent (2026-10-25) | robots **200** `text/plain` (283 B, no redirect, no `Crawl-delay`), rules `/api/ /app/ /ec/app/ /cms/ /cems/ /log/ /pc/` â€” **none matches `/tora_r/ec/app/catalog/list`**; search **200** `text/html` with no redirect, 50 `catalog-item` blocks, with `%20` and with `+`; landing **200**; **not queried** by the app (no documented API; 18+ catalogue) |
 | Python bridge | `python tools/lens_bridge_check.py` with chrome-lens-py installed | all checks passed |
 | Real OCR, desktop | chrome-lens-py 3.8.2, Open Library Hobbit cover | read `THE HOBBIT` / `JRR TOLKIEN`, heights present |
 | Real OCR, device | `connectedDebugAndroidTest` on `Medium_Phone_API_37.0` | passed in ~2.2 s |
@@ -328,7 +328,7 @@ not make for the user.
 * **Toranoana product-URL lookup** - not implemented (deferred): it would fetch product pages on the
   same disallowed paths, and there is no product-URL enrichment entry point in the app.
 * **DLsite on a device** - the live checks ran on the desktop JVM through the same adapter.
-* **Compose UI interaction** (card toggle, glow/dim, link independence) — no Compose UI-test
+* **Compose UI interaction** (card toggle, glow/dim, link independence) â€” no Compose UI-test
   dependency and no emulator/device was available; the state transitions those clicks drive are
   unit-tested instead.
 
@@ -355,47 +355,47 @@ not make for the user.
   implemented and tested. A provider that cannot be queried belongs in `ProviderCatalog` as
   `BROWSER_ONLY`, with its measured reason.
 
-## 9. v2.5.0-dev.1 — the query, capability and matching core
+## 9. v2.5.0-dev.1 â€” the query, capability and matching core
 
 Three new plain-Kotlin files under `core/online` are the foundation of the v2.5.0 work. **They are not
 wired to the UI in this build**; the section exists so the next development round extends them instead of
 re-inventing them.
 
-### `OnlineQuery` — what the user typed, split into attributes
+### `OnlineQuery` â€” what the user typed, split into attributes
 
 ```
 OnlineQuery.parse("RJ01234567 title:Blue Archive circle:Yostar")
-  → code = RJ01234567, title = "Blue Archive", circle = "Yostar", original = <the raw text>
+  â†’ code = RJ01234567, title = "Blue Archive", circle = "Yostar", original = <the raw text>
 ```
 
 * Prefixes: `title:`/`t:`, `circle:`/`c:`, `author:`/`a:`, `code:`/`id:`/`r:`; anything else is a title.
-* A bare code (`RJ` + 6–10 digits, also `RJ 01234567` / `RJ-01234567`) is lifted out of the text wherever it
+* A bare code (`RJ` + 6â€“10 digits, also `RJ 01234567` / `RJ-01234567`) is lifted out of the text wherever it
   appears and normalised by `normalizeCode` (fold, upper-case, strip spaces and hyphens).
-* `foldWidth` maps U+FF01–U+FF5E to ASCII and U+3000 to a space; kana, kanji, `〜` and `・` are untouched.
+* `foldWidth` maps U+FF01â€“U+FF5E to ASCII and U+3000 to a space; kana, kanji, `ã€œ` and `ãƒ»` are untouched.
 * `keyword()` is the one string a keyword provider (DLsite) receives; `without(field)` drops a part a
   provider cannot use, and `isEmptyWithout(...)` says whether anything would be left to search.
 
-### `ProviderCapabilities` — what each provider can be asked
+### `ProviderCapabilities` â€” what each provider can be asked
 
 | Provider id | Title | Circle | Author | Code | Image |
 |---|---|---|---|---|---|
 | `ol` Open Library | yes | no | yes | yes (ISBN) | **no** |
 | `gb` Google Books | yes | no | yes | yes (ISBN) | **no** |
-| `dl` DLsite | yes | yes | no | yes (`RJ…`) | **no** |
+| `dl` DLsite | yes | yes | no | yes (`RJâ€¦`) | **no** |
 
 `canSearch(id, query)` is false when the query only uses fields the provider ignores, and
 `eligible(...)`/`skipped(...)` split a selection into "searches this" and "cannot search this", so a
 provider is reported as unable rather than failed. **No provider supports `IMAGE_REFERENCE`:** reverse-image
 discovery is not implemented and is not implied.
 
-### `CandidateMatcher` — evidence, not one opaque score
+### `CandidateMatcher` â€” evidence, not one opaque score
 
 ```
 CandidateMatcher.compare(candidate, localProduct, imageSimilarity = 0.93)
-  → ProductMatch(score 0..100, verdict, evidence = [identifier, title, circle, author, cover])
+  â†’ ProductMatch(score 0..100, verdict, evidence = [identifier, title, circle, author, cover])
 ```
 
-* Weights: identifier 0.45, title 0.30, circle 0.15, author 0.10, cover 0.35 — documented constants.
+* Weights: identifier 0.45, title 0.30, circle 0.15, author 0.10, cover 0.35 â€” documented constants.
 * Only dimensions **both** sides supply are scored; the rest are `EvidenceState.UNKNOWN` and their weight is
   dropped before renormalising, so a provider without a circle field cannot be penalised for it.
 * Verdicts: an exact identifier is `LIKELY_MATCH`; any contradiction is `NO_MATCH`; a title alone never
@@ -408,4 +408,132 @@ CandidateMatcher.compare(candidate, localProduct, imageSimilarity = 0.93)
 Cover similarity is an **input**: computing it belongs to the existing OpenCLIP/ONNX pipeline, which this
 core does not call yet.
 
+
+
+---
+
+## 10. v2.5.0-dev.2 — reverse-image discovery, manual fallback and decisions
+
+This section records the second dev iteration. Everything below exists in **217 / 2.5.0-dev.2** and is covered
+by deterministic tests; §10.7 states exactly what was and was not measured.
+
+### 10.1 The four image capabilities, kept apart
+
+| Capability | What it really is | Who does it |
+|---|---|---|
+| OCR text extraction | reading printed text off the cover | `chrome-lens-py` bridge (unchanged) |
+| External reverse-image discovery | submitting the image to a visual-search service | **SauceNAO** (automated); **IQDB** manual only |
+| Local cover comparison | comparing two covers with the app's own embeddings | existing OpenCLIP/ONNX pipeline (not called from this panel yet) |
+| Manual listing | the user supplies a URL / metadata / cover | `ManualCandidates` + the same evidence pipeline |
+
+OCR is never described as visual search, and a local OpenCLIP comparison is never described as external
+discovery. The reverse-image section of the panel is labelled `C ·`, after `A · Read the cover` (OCR) and
+`B · Search the catalogues` (metadata providers).
+
+### 10.2 Provider order and integration status
+
+| Priority | Provider | Integration | Request budget | State when it cannot run |
+|---|---|---|---|---|
+| 1 | SauceNAO | automated, documented JSON API | 30 s | `NOT_CONFIGURED` (no key), `BLOCKED`, `RATE_LIMITED`, `QUOTA_EXCEEDED`, `TIMEOUT`, `UNAVAILABLE`, `ERROR` |
+| 2 | IQDB | **manual only** (no API; robots-disallowed routes) | 90 s declared, unused | `MANUAL_ONLY` |
+| local | OpenCLIP | existing pipeline | — | — |
+
+`ReverseImageSearchRunner` sorts by that priority regardless of list order, and **always continues to IQDB after
+SauceNAO has answered**: skipping the second provider because the first succeeded would silently halve the
+evidence.
+
+### 10.3 SauceNAO: request, response, credential
+
+* **Endpoint and method.** `POST https://saucenao.com/search.php`, `multipart/form-data`.
+* **Parts.** `output_type=2` (JSON), `db=999` (all indexes), `numres` (1–30, the user's result maximum capped),
+  optional `minsim` (0–100), `api_key`, and the image in the `file` part.
+* **Why multipart.** The key is a form **part**, so it never appears in a URL — which is where credentials leak
+  (proxy logs, `Referer` headers, crash reports). `MultipartForm` builds the body in `core`, so the exact bytes
+  that leave the device are unit-tested.
+* **Response.** The documented `header`/`results` envelope. `header.status == 0` is success; a non-zero status
+  is a named failure carrying the provider's own number (and `QUOTA_EXCEEDED` when the reported allowance is
+  exhausted). `header.short_limit`/`long_limit`/`short_remaining`/`long_remaining` are preserved and shown as
+  "quota: N of M left".
+* **Per row.** `header.similarity` (kept verbatim, never treated as a probability), `header.thumbnail`,
+  `header.index_name`, `data.ext_urls[0]` as the source URL, `data.title`/`eng_name`/`jp_name`,
+  `data.company` as the circle, `data.creator`/`author_name`/`member_name` as the author, every other scalar in
+  `data` as metadata, and an `RJ…` code extracted from the title/URL when the provider sent one.
+* **No retries.** A 429/503 or an exhausted allowance is reported, never re-attempted.
+* **Credential storage.** `SauceNaoKeyStore` keeps the key AES-256-GCM-sealed under a key generated in
+  `AndroidKeyStore`; only the ciphertext lives in `bookcover_online_secrets`, which is a separate file from the
+  ordinary `bookcover_online` settings. The UI shows `••••••••ab12` and a *Remove* action. A key that cannot be
+  decrypted (restored device, cleared data) is deleted and treated as "not configured".
+
+
+### 10.4 IQDB: verified access, and why this build is manual-only
+
+Measured 2026-11-05, in this session:
+
+* `https://iqdb.org/` is an HTML form: one `File or Source URL` field, JPEG/PNG/GIF, 8192 KB and 7500×7500
+  limits. It publishes **no API** — no endpoint, parameter set, versioning or response contract.
+* `https://iqdb.org/robots.txt` (verbatim) disallows, for `User-agent: *`: `/danbooru/`, `/dou/`,
+  `/konachan/`, `/moe.imouto/`, `/3dbooru/`, `/4scrape/`, `/e-shuushuu/`, `/sankaku/`, `/db-search`,
+  `/kc-search`, `/mi-search`, `/multi-search`, `/index` and `/?url=`. That is every route an automated query
+  would use, including the URL-submission form.
+
+So `IqdbProtocol.AUTOMATION_SUPPORTED` is **false** and no image is ever posted to IQDB. What the app does:
+
+* the IQDB row reports **`MANUAL_ONLY`** with the reason, and its *Open ↗* button opens IQDB's own page;
+* the user performs the search in the browser, then either **pastes a result line**
+  (`92% https://danbooru.donmai.us/posts/123`) or pastes a saved result page into *Paste an IQDB result*;
+* `IqdbResultParser` normalises what was pasted — each row keeps its own percentage and source URL, and a row
+  with no URL is dropped — and the rows enter the same candidate list, flagged as user-supplied.
+
+Consequences, stated plainly: no IQDB throttling, quota or timeout is ever incurred, and **no IQDB result is ever
+presented as an automated search result**. If a permitted automated route appears later, it replaces
+`IqdbReverseImageSource.search`; the classification lives in one place so it cannot be switched on silently.
+
+### 10.5 Aggregation, provenance and failure isolation
+
+* Only providers whose state is `SUCCESS` contribute rows. A `TIMEOUT` never masquerades as "nothing found".
+* Deduplication happens **only on evidence of identity**: a shared product code (`id:RJ01234567`) or a shared
+  normalised URL. Two rows with similar titles stay apart — they may be two editions or two products.
+* A candidate found by both providers keeps **both** references, both similarity values and both URLs, and is
+  shown as `SauceNAO 95.1% · IQDB 92%`. There is **no combined probability** anywhere in the model: two sources
+  agreeing is stronger *provenance*, not a higher certainty, and it never establishes identity on its own.
+* Ordering is by provider priority of the best reference, then that provider's own similarity. Provider scores
+  are never averaged across providers.
+* A provider failure is contained: the runner records each provider separately and merges only successes, so
+  SauceNAO's results survive an IQDB failure and vice versa.
+* Cancellation is cooperative and honest: the runner asks before each provider, so a cancel sends nothing for
+  the outstanding one and records it `CANCELLED`. Because a blocking HTTP call cannot be preempted, a late answer
+  is dropped by the controller's generation check instead of being applied to a request the user abandoned.
+
+### 10.6 Decisions, collection status, secondary sources, cache
+
+* **A candidate is a suggestion.** `CandidateDecision.SUGGESTED` is the default and the card says
+  "Suggestion — not confirmed by you". Confirming or rejecting writes a `CandidateDecisionRecord` through
+  `CandidateDecisionStore` (one JSON file per wishlist profile, atomic-ish write, unreadable file → empty map).
+  A decision is idempotent by candidate identity and can be revisited; a blank key decides nothing.
+* **Deciding is not owning and not wanting.** `CollectionStatus` keeps `owned`, `catalogued` and `wanted`
+  independent, with `null` for "not stated". `CollectionStatusOf` derives *only* catalogue presence from the
+  comparison (`MATCHED` / `AMBIGUOUS` / `ABSENT` / `UNKNOWN`) and an empty workbook can never yield `ABSENT`.
+  `LocalProducts.of(CatalogEntry)` reads only mapped, present cells, so an unmapped circle is unknown rather than
+  contradicting.
+* **Secondary-source switch.** `ProviderTier.SECONDARY_BOOK` covers Open Library and Google Books; `DLsite` is
+  `PRIMARY_DOUJIN` and is never affected. Switching the general-book sources off removes them from the eligible
+  set **before** any request, marks their rows "switched off", and produces `CatalogueUi.SwitchedOff` when they
+  were the only selected providers — never an empty result.
+* **Bounded cover caching.** `BoundedImageCache` is a byte-budgeted LRU (1 MB, 512 KB per entry) with refusal
+  counters, `invalidate(key)`, `clear()` and a `describe()` line. Saved data is never in it.
+
+### 10.7 Verification — what was measured, and what was not
+
+| Item | Status |
+|---|---|
+| IQDB page and `robots.txt` | **verified live 2026-11-05** |
+| SauceNAO request/response schema | implemented from the published API description; the documentation host answered **HTTP 403** to the tooling used here, so it was **not re-verified live** |
+| SauceNAO live search | **not run** — no key, and no live network request was made this session |
+| IQDB automated search | **not implemented, by design** |
+| IQDB parser | tested against sanitised fixtures only |
+| Test suite | **869 tests / 106 classes / 0 failures / 7 skipped**, no live network |
+| Debug build | `:app:assembleDebug` **BUILD SUCCESSFUL** at `217 / 2.5.0-dev.2` |
+
+Follow-up: run an opt-in live SauceNAO check with a real key (`-DonlineCheck=1` style, kept out of the default
+suite), then surface the per-candidate `CollectionStatus`/OpenCLIP evidence on the card.
 
