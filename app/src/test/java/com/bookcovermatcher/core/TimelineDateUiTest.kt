@@ -126,9 +126,13 @@ class TimelineDateUiTest {
     }
 
     @Test
-    fun `the import timeline cannot be a target of the dialog`() {
-        val opened = state().openDateSetup().dateSetupAssignTo(TimelineMode.IMPORT)
+    fun `the dialog targets Published or Acquired, and only those`() {
+        val opened = state().openDateSetup()
         assertEquals(TimelineMode.PUBLICATION, opened.dateSetupTarget)
+        val acquired = opened.dateSetupAssignTo(TimelineMode.ACQUISITION)
+        assertEquals(TimelineMode.ACQUISITION, acquired.dateSetupTarget)
+        // There is no third mode to target: the enum itself only has the two date meanings.
+        assertEquals(2, TimelineMode.entries.size)
     }
 
     @Test

@@ -64,8 +64,9 @@ object CatalogDates {
     /**
      * @param allowSerial read a bare number as an Excel serial date. Only pass true for a column the
      * caller knows holds dates (the timeline's configured date columns).
+     * @param date1904 read that serial in the workbook's own date system (`workbookPr@date1904`).
      */
-    fun parse(raw: String?, allowSerial: Boolean = false): CatalogDate? {
+    fun parse(raw: String?, allowSerial: Boolean = false, date1904: Boolean = false): CatalogDate? {
         val text = raw?.trim().orEmpty()
         if (text.isEmpty()) return null
         YEAR.matchEntire(text)?.let { match ->
@@ -86,28 +87,30 @@ object CatalogDates {
             if (month !in 1..12 || day < 1 || day > daysIn(year, month)) return null
             return CatalogDate(year, month, day)
         }
-        return if (allowSerial) serial(text) else null
+        return if (allowSerial) serial(text, date1904) else null
     }
 
     /**
      * An Excel serial number as a date.
      *
      * Excel counts days from 1899-12-30 for serials of 60 and above (serial 60 is its non-existent
-     * 1900-02-29), so that is the base used here; nothing is rounded or padded.
+     * 1900-02-29), so that is the base used here; nothing is rounded or padded. A workbook that declares
+     * the 1904 date system counts from 1904-01-01, which is 1 462 days later.
      */
-    fun serial(raw: String?): CatalogDate? {
+    fun serial(raw: String?, date1904: Boolean = false): CatalogDate? {
         val match = SERIAL.matchEntire(raw?.trim().orEmpty()) ?: return null
         val days = match.groupValues[1].toLongOrNull() ?: return null
         if (days < MIN_SERIAL || days > MAX_SERIAL) return null
-        val date = runCatching { java.time.LocalDate.of(1899, 12, 30).plusDays(days) }.getOrNull() ?: return null
+        val base = if (date1904) java.time.LocalDate.of(1904, 1, 1) else java.time.LocalDate.of(1899, 12, 30)
+        val date = runCatching { base.plusDays(days) }.getOrNull() ?: return null
         if (date.year !in CatalogDate.MIN_YEAR..CatalogDate.MAX_YEAR) return null
         return CatalogDate(date.year, date.monthValue, date.dayOfMonth)
     }
 
     /** True when the text is non-blank and cannot be read as a date — the health report says so. */
-    fun isMalformed(raw: String?, allowSerial: Boolean = false): Boolean {
+    fun isMalformed(raw: String?, allowSerial: Boolean = false, date1904: Boolean = false): Boolean {
         val text = raw?.trim().orEmpty()
-        return text.isNotEmpty() && parse(text, allowSerial) == null
+        return text.isNotEmpty() && parse(text, allowSerial, date1904) == null
     }
 
     private fun daysIn(year: Int, month: Int): Int = when (month) {

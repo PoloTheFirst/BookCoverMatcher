@@ -128,7 +128,7 @@ class ColumnMappingTest {
 
     @Test
     fun `an empty profile maps nothing and is honest about it`() {
-        val mapping = ColumnMappings.resolve(table, ColumnMappingProfile("empty", emptyMap()))
+        val mapping = ColumnMappings.resolve(table, ColumnMappingProfile("empty", columns = emptyMap()))
         assertTrue(mapping.columns.isEmpty())
         assertTrue(mapping.issues.all { it.kind == MappingIssueKind.REQUIRED_UNMAPPED })
     }

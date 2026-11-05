@@ -1,20 +1,29 @@
 package com.bookcovermatcher.core.catalog
 
-/** How the visual browser orders its cards. */
+/**
+ * How the visual browser orders its cards.
+ *
+ * There is deliberately no "cover first" order: cover state is a **filter** (`GalleryFilter.onlyWithCover`
+ * / `onlyWithoutCover`), and a second control that also ranked by cover made two different ideas look like
+ * one. The association data behind those filters is untouched — this is a choice of presentation only.
+ */
 enum class GallerySort(val label: String) {
     TITLE("Title"),
     CIRCLE("Circle"),
     ARTIST("Artist"),
     ROW("Source order"),
-    COVER("Cover first"),
 }
 
 /**
  * The gallery filters. Each one is a property the parser actually established, so a filter can never
  * hide a record for a reason the user cannot see.
+ *
+ * [sheets] is the worksheet selection: all of them, one, or any combination. It is a [SheetScope] of
+ * worksheet **identities** (package part paths), not display names, so renaming a worksheet keeps the
+ * selection and a stored selection cannot silently move to a different sheet.
  */
 data class GalleryFilter(
-    val sheetName: String? = null,
+    val sheets: SheetScope = SheetScope.ALL,
     val query: String = "",
     val onlyWithCover: Boolean = false,
     val onlyWithoutCover: Boolean = false,
@@ -22,9 +31,13 @@ data class GalleryFilter(
     val onlyMissingMetadata: Boolean = false,
 ) {
     val isActive: Boolean
-        get() = sheetName != null || query.isNotBlank() || onlyWithCover || onlyWithoutCover ||
+        get() = !sheets.isAll || query.isNotBlank() || onlyWithCover || onlyWithoutCover ||
             onlyMissingTitle || onlyMissingMetadata
 }
+
+/** The filter with only the worksheet selection replaced — the picker's commit path. */
+fun GalleryFilter.withSheets(scope: SheetScope): GalleryFilter =
+    if (sheets == scope) this else copy(sheets = scope)
 
 /**
  * Pure filtering and ordering for the Visual Spreadsheet Browser.
@@ -42,7 +55,7 @@ object GalleryView {
     ): List<CatalogEntry> {
         val needle = filter.query.trim()
         val rows = entries.filter { entry ->
-            (filter.sheetName == null || entry.sheetName == filter.sheetName) &&
+            filter.sheets.allows(entry.sheetPath, entry.sheetName) &&
                 (needle.isEmpty() || matches(entry, needle)) &&
                 (!filter.onlyWithCover || entry.hasVerifiedCover) &&
                 (!filter.onlyWithoutCover || !entry.hasVerifiedCover) &&
@@ -55,11 +68,6 @@ object GalleryView {
             GallerySort.ARTIST -> rows.sortedWith(textOrder { it.text(CatalogField.ARTIST) })
             GallerySort.ROW -> rows.sortedWith(
                 compareBy({ it.sheetName.lowercase() }, { it.row }, { it.id }),
-            )
-            GallerySort.COVER -> rows.sortedWith(
-                compareByDescending<CatalogEntry> { it.hasVerifiedCover }
-                    .thenBy { it.title.orEmpty().lowercase() }
-                    .thenBy { it.id },
             )
         }
         return if (ascending) sorted else sorted.reversed()

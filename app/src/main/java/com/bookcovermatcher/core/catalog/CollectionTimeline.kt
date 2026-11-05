@@ -1,18 +1,17 @@
 package com.bookcovermatcher.core.catalog
 
-import java.time.Instant
-import java.time.ZoneId
-
-/** The three date meanings, kept apart on purpose. */
+/**
+ * The two date meanings the Timeline offers, kept apart on purpose.
+ *
+ * There is deliberately no "imported" mode: the app's own import timestamp is workbook metadata, not a
+ * date the collection has, and a timeline built from it duplicated both other modes for every record.
+ */
 enum class TimelineMode(val label: String) {
     /** When the work was published, from the column the user chose for it. */
     PUBLICATION("Published"),
 
     /** When the user acquired the work, from the column the user chose for it. */
     ACQUISITION("Acquired"),
-
-    /** When the workbook copy was imported into the app, from the saved-workbook library. */
-    IMPORT("Imported"),
 }
 
 /** One record on the timeline. [date] is null only in the unknown bucket. */
@@ -26,6 +25,11 @@ data class TimelineEntry(
     val date: CatalogDate?,
     val sheetName: String,
     val row: Int,
+    /**
+     * The record's Default Order value (Section 7.2 of the release scope), exactly as the workbook spells it.
+     * It breaks a tie between two records that share a date; it never replaces the date as the primary key.
+     */
+    val defaultOrder: String? = null,
 ) {
     /** `LIST!128`, the one-based source row. */
     val locationLabel: String get() = "$sheetName!${row + 1}"
@@ -52,7 +56,7 @@ data class CollectionTimeline(
     val sections: List<TimelineSection> = emptyList(),
     val unknown: List<TimelineEntry> = emptyList(),
     val ascending: Boolean = false,
-    /** Per-worksheet state of the chosen date column; empty for the import timeline. */
+    /** Per-worksheet state of the chosen date column. */
     val dateColumns: List<DateColumnReport> = emptyList(),
 ) {
     val datedCount: Int get() = sections.sumOf { it.entries.size }
@@ -72,7 +76,8 @@ object CollectionTimelineBuilder {
         catalog: WorkbookCatalog,
         settings: TimelineDateSettings,
         ascending: Boolean = false,
-    ): CollectionTimeline = dated(catalog, TimelineMode.PUBLICATION, settings, ascending)
+        date1904: Boolean = false,
+    ): CollectionTimeline = dated(catalog, TimelineMode.PUBLICATION, settings, ascending, date1904)
 
     /**
      * The Acquired timeline, from its own column choice.
@@ -84,15 +89,17 @@ object CollectionTimelineBuilder {
         catalog: WorkbookCatalog,
         settings: TimelineDateSettings,
         ascending: Boolean = false,
-    ): CollectionTimeline = dated(catalog, TimelineMode.ACQUISITION, settings, ascending)
+        date1904: Boolean = false,
+    ): CollectionTimeline = dated(catalog, TimelineMode.ACQUISITION, settings, ascending, date1904)
 
     private fun dated(
         catalog: WorkbookCatalog,
         mode: TimelineMode,
         settings: TimelineDateSettings,
         ascending: Boolean,
+        date1904: Boolean = false,
     ): CollectionTimeline {
-        val reports = TimelineDates.inspectAll(catalog, settings, mode)
+        val reports = TimelineDates.inspectAll(catalog, settings, mode, date1904)
         val bySheet = reports.associateBy { it.sheetName }
 
         val dated = ArrayList<Pair<CatalogDate, TimelineEntry>>()
@@ -101,24 +108,59 @@ object CollectionTimelineBuilder {
             val table = catalog.tables[entry.sheetName]
             val column = bySheet[entry.sheetName]?.column
             val raw = if (table != null && column != null) TimelineDates.valueAt(table, entry.row, column) else null
-            val base = entryOf(entry, CatalogDates.parse(raw, allowSerial = true))
+            val base = entryOf(entry, CatalogDates.parse(raw, allowSerial = true, date1904 = date1904))
             val date = base.date
             if (date == null) unknown.add(base) else dated.add(date to base)
         }
 
-        val ordered = dated.sortedWith(
-            compareBy<Pair<CatalogDate, TimelineEntry>> { it.first.sortKey }.thenBy { it.second.recordId },
-        ).let { if (ascending) it else it.reversed() }
+        val ordered = entriesInOrder(dated, ascending)
         val available = dated.isNotEmpty()
         return CollectionTimeline(
             mode = mode,
             available = available,
             unavailableReason = if (available) null else unavailableReason(mode, reports),
-            sections = sectionsOf(ordered.map { it.second }),
+            sections = sectionsOf(ordered),
             unknown = unknown.sortedWith(compareBy({ it.sheetName.lowercase() }, { it.row }, { it.recordId })),
             ascending = ascending,
             dateColumns = reports,
         )
+    }
+
+    /**
+     * The chronological order of a timeline: the date first, then the record's Default Order, then the
+     * verified source identity.
+     *
+     * The date direction follows [ascending]; the Default Order tie-break is **always ascending**, so the
+     * same two records keep their workbook order whether the user reads newest first or oldest first. A
+     * record without a readable Default Order sorts after the ones that have one instead of being given a
+     * position it does not claim; the record identity is the final, fully deterministic fallback.
+     */
+    fun entriesInOrder(
+        dated: List<Pair<CatalogDate, TimelineEntry>>,
+        ascending: Boolean,
+    ): List<TimelineEntry> {
+        val order = compareBy<Pair<CatalogDate, TimelineEntry>> {
+            DefaultOrderValue(it.second.defaultOrder)
+        }.thenBy { it.second.recordId }
+        val byDate = if (ascending) {
+            compareBy<Pair<CatalogDate, TimelineEntry>> { it.first.sortKey }
+        } else {
+            compareByDescending<Pair<CatalogDate, TimelineEntry>> { it.first.sortKey }
+        }
+        return dated.sortedWith(byDate.then(order)).map { it.second }
+    }
+
+    /**
+     * The same timeline in the other chronological direction, without rebuilding it.
+     *
+     * Entries are re-read from their own dates and Default Order, so flipping the direction never reverses
+     * the tie-break and never moves an unknown-date record into a year.
+     */
+    fun ordered(sections: List<TimelineSection>, ascending: Boolean): List<TimelineSection> {
+        val dated = sections.flatMap { section -> section.entries }.mapNotNull { entry ->
+            entry.date?.let { it to entry }
+        }
+        return sectionsOf(entriesInOrder(dated, ascending))
     }
 
     /** Why a timeline has nothing to show — the setup case, the stale case, or an unreadable column. */
@@ -138,36 +180,11 @@ object CollectionTimelineBuilder {
     }
 
     /**
-     * Import dates come from the saved-workbook library (`importedAt`). A workbook that was only staged,
-     * never imported, has no import date and the mode reports that instead of inventing one.
+     * One record as a timeline entry, with the date this timeline established (null = unknown).
+     *
+     * Kept private and shared by both modes, so a Published entry and an Acquired entry of the same record
+     * can never describe it differently.
      */
-    fun imported(
-        catalog: WorkbookCatalog,
-        importedAtMillis: Long?,
-        zone: ZoneId = ZoneId.systemDefault(),
-        ascending: Boolean = false,
-    ): CollectionTimeline {
-        if (importedAtMillis == null || importedAtMillis <= 0L) {
-            return CollectionTimeline(
-                mode = TimelineMode.IMPORT,
-                available = false,
-                unavailableReason = "This workbook was not opened from the saved-workbook library, so the app has " +
-                    "no import date for it. Import it in More \u2192 Saved workbooks to record one.",
-                unknown = catalog.entries.map { entryOf(it, null) }.sortedBy { it.recordId },
-            )
-        }
-        val day = Instant.ofEpochMilli(importedAtMillis).atZone(zone).toLocalDate()
-        val date = CatalogDate(day.year, day.monthValue, day.dayOfMonth)
-        val entries = catalog.entries.map { entryOf(it, date) }
-            .sortedWith(compareBy({ it.sheetName.lowercase() }, { it.row }, { it.recordId }))
-        return CollectionTimeline(
-            mode = TimelineMode.IMPORT,
-            available = true,
-            sections = sectionsOf(if (ascending) entries else entries.reversed()),
-            ascending = ascending,
-        )
-    }
-
     private fun entryOf(entry: CatalogEntry, date: CatalogDate?) = TimelineEntry(
         recordId = entry.id,
         title = entry.title.orEmpty(),
@@ -178,6 +195,7 @@ object CollectionTimelineBuilder {
         date = date,
         sheetName = entry.sheetName,
         row = entry.row,
+        defaultOrder = entry.defaultOrder,
     )
 
     /** Groups by year, keeping the order the entries arrived in (newest first unless ascending). */

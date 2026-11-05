@@ -87,7 +87,15 @@ class FormattingAndBadgeTest {
     @Test fun numbersUseDotAndFixedDecimals() {
         assertEquals("83.4", Formatting.percent(83.449f))
         assertEquals("0.0", Formatting.percent(0f))
-        assertEquals("0.812", Formatting.cosine(0.8123f))
+        // A similarity score is a measurement: the app-wide display rule is two decimals at most.
+        assertEquals("0.81", Formatting.cosine(0.8123f))
+        assertEquals("1", Formatting.cosine(1f))
+        assertEquals("12.35", Formatting.decimal(12.3456))
+        assertEquals("1200", Formatting.decimal(1200.0))
+        assertEquals("0.5", Formatting.decimal(0.5))
+        assertEquals("0", Formatting.decimal(-0.0001))
+        assertEquals("12.35", Formatting.decimalOrNull(" 12.3456 "))
+        assertNull(Formatting.decimalOrNull("12,35"))
         assertEquals(0.02f, Formatting.barFraction(0f), 1e-6f)
         assertEquals(1f, Formatting.barFraction(250f), 1e-6f)
         assertEquals("96.5 MB", Formatting.fileSize(101_187_584L))

@@ -15,6 +15,9 @@ data class SheetScope(val keys: Set<String> = emptySet()) {
 
     val isAll: Boolean get() = keys.isEmpty()
 
+    /** One stable string for this selection: `all`, or the sorted identities. Used for change detection. */
+    val key: String get() = if (isAll) ALL_KEY else keys.sorted().joinToString(",")
+
     /** True when the worksheet with this path (or, without one, this name) is in scope. */
     fun allows(sheetPath: String, sheetName: String): Boolean =
         isAll || keyOf(sheetPath, sheetName) in keys
@@ -32,6 +35,9 @@ data class SheetScope(val keys: Set<String> = emptySet()) {
 
     companion object {
         val ALL = SheetScope()
+
+        /** The [key] of [ALL]; a selection can never print this, because keys are part paths. */
+        const val ALL_KEY = "all"
 
         /** `xl/worksheets/sheet5.xml`, or `name:LIST` when the part path is unknown. */
         fun keyOf(sheetPath: String, sheetName: String): String =

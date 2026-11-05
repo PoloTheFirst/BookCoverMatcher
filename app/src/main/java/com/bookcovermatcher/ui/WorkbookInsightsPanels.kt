@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -55,6 +56,7 @@ import com.bookcovermatcher.WorkbookCommentsUi
 import com.bookcovermatcher.core.catalog.CatalogEntry
 import com.bookcovermatcher.core.catalog.CatalogField
 import com.bookcovermatcher.core.catalog.CollectionTimeline
+import com.bookcovermatcher.core.catalog.CollectionTimelineBuilder
 import com.bookcovermatcher.core.catalog.FieldState
 import com.bookcovermatcher.core.catalog.GalleryFilter
 import com.bookcovermatcher.core.catalog.DateColumnReport
@@ -123,12 +125,12 @@ private fun SheetScopeDialog(
                 .border(1.dp, Palette.Line, RoundedCornerShape(14.dp)).padding(12.dp),
         ) {
             Text(
-                "Worksheets in the ${dialog.target.label} report",
+                "Worksheets in ${dialog.target.label}",
                 color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
             )
             Text(
-                "The calculations use the selected worksheets only, summary counts and breakdowns included. " +
-                    "Nothing is written to the workbook.",
+                "Only the selected worksheets contribute records, so the counts, breakdowns and cards come " +
+                    "from that selection. Nothing is written to the workbook.",
                 color = Palette.Muted, fontSize = 9.5.sp,
                 modifier = Modifier.padding(vertical = 3.dp),
             )
@@ -249,6 +251,27 @@ internal fun InsightAction(label: String, onClick: () -> Unit) {
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.clickable(role = Role.Button, onClick = onClick).padding(horizontal = 6.dp, vertical = 3.dp),
+    )
+}
+
+/**
+ * A control that reads as a control: a bordered pill, used wherever the Fields screen offers to change a column.
+ *
+ * The whole row it sits in is tappable too, but the border and the accent colour are what tell a user that the
+ * column can be changed at all — a bare muted word did not, which is why the mapping looked read-only.
+ */
+@Composable
+private fun MappingButton(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        color = Palette.Accent,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(7.dp))
+            .border(1.dp, Palette.Accent, RoundedCornerShape(7.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 9.dp, vertical = 5.dp),
     )
 }
 
@@ -483,6 +506,17 @@ private fun GalleryPanel(state: WorkbookCommentsUi, controller: WorkbookComments
         Spacer(Modifier.height(8.dp))
         GalleryDivider()
         Spacer(Modifier.height(6.dp))
+        // The worksheet selection comes first: it decides which records the other filters even see.
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            SheetScopeBar(
+                label = "Worksheets",
+                scopeLabel = state.scopeLabel(filter.sheets),
+                filtered = !filter.sheets.isAll,
+                onOpen = { controller.openScopeDialog(ScopeTarget.GALLERY) },
+                onClear = { controller.setGalleryScope(SheetScope.ALL) },
+            )
+        }
+        // The cover and absence filters of the card list, unchanged and on their own row.
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -514,8 +548,9 @@ private fun GalleryPanel(state: WorkbookCommentsUi, controller: WorkbookComments
             InsightAction(if (state.galleryAscending) "A \u2192 Z" else "Z \u2192 A") { controller.toggleGalleryOrder() }
         }
         Text(
-            "${state.visibleCatalog.size} of ${catalog.entries.size} record(s), " +
-                "${catalog.withVerifiedCover} with a verified cover",
+            "${state.visibleCatalog.size} of ${state.galleryEligible.size} record(s), " +
+                "${catalog.withVerifiedCover} with a verified cover" +
+                if (filter.sheets.isAll) "" else " \u00B7 ${state.scopeLabel(filter.sheets)}",
             color = Palette.Muted,
             fontSize = 9.5.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
@@ -778,10 +813,8 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
                     controller.setTimelineMode(mode)
                 }
             }
-            // The Published and Acquired columns are the user's to choose; the import date is not.
-            if (state.timelineMode != TimelineMode.IMPORT) {
-                InsightAction("Choose date columns\u2026") { controller.openDateSetup() }
-            }
+            // The Published and Acquired columns are the user's to choose, and nothing is guessed for them.
+            InsightAction("Choose date columns\u2026") { controller.openDateSetup() }
         }
         if (view == null) {
             InsightNote("The timeline is still being built.")
@@ -835,10 +868,8 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
             ) {
                 Text("This timeline needs a date column", color = Palette.Warn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 Text(timeline.unavailableReason, color = Palette.Text.copy(alpha = 0.85f), fontSize = 10.5.sp, modifier = Modifier.padding(top = 3.dp))
-                if (timeline.mode != TimelineMode.IMPORT) {
-                    InsightAction("Choose the ${timeline.mode.label.lowercase()} column\u2026") {
-                        controller.openDateSetup()
-                    }
+                InsightAction("Choose the ${timeline.mode.label.lowercase()} column\u2026") {
+                    controller.openDateSetup()
                 }
             }
         }
@@ -853,10 +884,10 @@ private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookComment
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
             )
         }
-        val sections = if (state.timelineAscending) {
-            timeline.sections.reversed().map { section -> section.copy(entries = section.entries.reversed()) }
-        } else {
-            timeline.sections
+        // The direction is applied from each entry's own date and Default Order: reversing an already-sorted
+        // list would also reverse the tie-break inside a shared date, which the workbook order forbids.
+        val sections = remember(timeline, state.timelineAscending) {
+            CollectionTimelineBuilder.ordered(timeline.sections, state.timelineAscending)
         }
         LazyColumn(
             Modifier.fillMaxSize(),
@@ -1217,7 +1248,7 @@ private fun FieldsPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsC
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            ChoiceChip("Detected", state.activeProfile == null) { controller.selectProfile(null) }
+            ChoiceChip("Detected", state.isDetectedMapping) { controller.selectProfile(null) }
             for (profile in state.profiles) {
                 ChoiceChip(profile.name, state.activeProfile == profile.name) { controller.selectProfile(profile.name) }
             }
@@ -1239,12 +1270,28 @@ private fun FieldsPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsC
         ) {
             item {
                 InfoLine(
-                    "Applied mapping: ${catalog.profileName}. A profile stores header names, not column " +
-                        "positions, so inserting a column does not shift the mapping. The workbook is never modified.",
+                    "Showing ${if (state.isDetectedView) "Detected" else "\u201C${state.activeProfile}\u201D"} for " +
+                        "${state.mappingSheet ?: "this worksheet"}: ${state.mappingSourceLabel}. Selecting a " +
+                        "profile switches which saved configuration is shown and used \u2014 it never exchanges, " +
+                        "merges or rewrites a profile. A profile stores header names per worksheet, so inserting a " +
+                        "column does not shift the mapping, and saving a new one keeps every other worksheet's " +
+                        "mapping as it is. The workbook is never modified.",
                 )
             }
-            items(CatalogField.ordered, key = { it.name }) { field ->
+            items(CatalogField.ordered.filter { it != CatalogField.DEFAULT_ORDER }, key = { it.name }) { field ->
                 FieldRow(field, state.mappingDraft[field]) { picking = field }
+            }
+            // Default order has its own card below — the value preview and its own Change / Clear / Use-detected
+            // buttons — so the field is not listed twice with two controls that could disagree.
+            item {
+                DefaultOrderCard(
+                    state = state,
+                    onChange = { picking = CatalogField.DEFAULT_ORDER },
+                    onClear = { controller.mapField(CatalogField.DEFAULT_ORDER, null) },
+                    onDetect = { state.detectedHeader(CatalogField.DEFAULT_ORDER)?.let { header ->
+                        controller.mapField(CatalogField.DEFAULT_ORDER, header)
+                    } },
+                )
             }
             if (state.mappingIssues.isNotEmpty()) {
                 item { IssueBlock(state.mappingIssues) }
@@ -1254,8 +1301,9 @@ private fun FieldsPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsC
                     InsightAction("Apply mapping") { controller.applyMapping() }
                     InsightAction("Reset") { controller.resetMapping() }
                     InsightAction("Save profile\u2026") { saving = true }
-                    if (state.activeProfile != null) {
-                        InsightAction("Delete profile") { controller.deleteProfile(state.activeProfile) }
+                    val active = state.activeProfile
+                    if (active != null) {
+                        InsightAction("Delete profile") { controller.deleteProfile(active) }
                     }
                 }
             }
@@ -1293,6 +1341,91 @@ private fun FieldsPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsC
     }
 }
 
+/**
+ * The Default Order column of the Fields screen, with the control that changes it.
+ *
+ * It is a **row like any other field**, with its own visible buttons, because a label alone left the one column
+ * the timeline depends on looking read-only: Change opens the same column picker the other fields use, Clear
+ * unsets it, and Use detected puts back the column automatic detection found. The value statistics below the
+ * buttons come from the draft mapping's own preview, so what is shown is what the timeline will read once the
+ * mapping is applied — and nothing here writes a file.
+ */
+@Composable
+private fun DefaultOrderCard(
+    state: WorkbookCommentsUi,
+    onChange: () -> Unit,
+    onClear: () -> Unit,
+    onDetect: () -> Unit,
+) {
+    val header = state.defaultOrderHeader
+    val detected = state.detectedHeader(CatalogField.DEFAULT_ORDER)
+    val values = state.defaultOrderValues
+    val numbers = values.count { it.group == 0 }
+    val texts = values.count { it.group == 1 }
+    val blanks = values.count { it.isMissing }
+    val samples = values.mapNotNull { it.text }.distinct().take(4)
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Default order",
+                color = Palette.Text,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            // The current column, in the same accent the other mapped headers use.
+            Text(
+                header ?: "Not mapped",
+                color = if (header == null) Palette.Muted else Palette.Accent,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            if (header == null) {
+                "Not mapped. Records with the same date fall back to their worksheet row, and the workbook keeps " +
+                    "every value it has."
+            } else {
+                "Read from \u201C$header\u201D in this preview: $numbers number(s), $texts text value(s), " +
+                    "$blanks blank. A blank one sorts after the records that have a value."
+            },
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+        )
+        if (samples.isNotEmpty()) {
+            Text("Examples: " + samples.joinToString(" \u00B7 "), color = Palette.Accent, fontSize = 9.5.sp)
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MappingButton(if (header == null) "Choose column" else "Change") { onChange() }
+            if (header != null) MappingButton("Clear") { onClear() }
+            if (header != null && detected != null && !state.defaultOrderIsDetected) {
+                MappingButton("Use detected") { onDetect() }
+            }
+        }
+        Text(
+            when {
+                detected == null -> "Automatic detection found no order column in this worksheet; pick one if it exists."
+                state.defaultOrderIsDetected -> "This is the column detection found (\u201C$detected\u201D)."
+                else -> "Detection would use \u201C$detected\u201D. A column you choose wins until you reset it."
+            },
+            color = Palette.Muted,
+            fontSize = 9.sp,
+        )
+    }
+}
+
 @Composable
 private fun FieldRow(field: CatalogField, header: String?, onClick: () -> Unit) {
     Row(
@@ -1319,7 +1452,7 @@ private fun FieldRow(field: CatalogField, header: String?, onClick: () -> Unit) 
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Text("Change", color = Palette.Muted, fontSize = 9.5.sp)
+        MappingButton("Change", onClick = onClick)
     }
 }
 
@@ -1396,7 +1529,9 @@ private fun HeaderPickerDialog(
             )
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 item(key = "none") { PickRow("Not mapped", current == null) { onPick(null) } }
-                items(headers, key = { it }) { header ->
+                // Two columns can carry the same header; keying by position keeps the picker from failing on a
+                // duplicate key, and both entries stay choosable (the resolver then reports the ambiguity).
+                itemsIndexed(headers) { index, header ->
                     PickRow(header, current == header) { onPick(header) }
                 }
             }

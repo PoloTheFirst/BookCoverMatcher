@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +39,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +51,7 @@ import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.excel.comments.LegacyCommentEntry
 import com.bookcovermatcher.core.excel.comments.SheetWindow
+import com.bookcovermatcher.core.excel.comments.SheetWindowCell
 import com.bookcovermatcher.core.excel.comments.SourceLocation
 import com.bookcovermatcher.core.excel.comments.SourceLocations
 import com.bookcovermatcher.MainViewModel
@@ -188,6 +189,9 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
         }
 
         SheetPickerDialog(state, controller)
+        // The cell dialog belongs to the Catalogue table but is drawn here so it can never be clipped by a
+        // scroll container; it is a plain dialog, dismissed by Back or by a tap outside it.
+        CellPeekDialog(state, controller)
     }
 }
 
@@ -204,19 +208,12 @@ private fun CommentsHeader(state: WorkbookCommentsUi, controller: WorkbookCommen
                 color = Palette.Muted, fontSize = 10.5.sp,
             )
         }
-        GradientButton(
-            onClick = controller::openSheetPicker,
-            colors = Palette.GreyGradient,
-            contentColor = Palette.Text,
-            // min width, not a fixed width: "Sheets" stays on one line and the button may grow at
-            // larger font scales instead of wrapping.
-            modifier = Modifier.widthIn(min = 84.dp),
-            minHeight = 36.dp,
-        ) { ButtonLabel("Sheets", Palette.Text, 11f) }
-        Spacer(Modifier.width(6.dp))
+        // No global "Sheets" button: the worksheet picker is opened from the section that filters by it
+        // (Comments, Images, Catalogue), because a single button in the shared header implied a filter that
+        // applied to every directory — including the ones that keep their own independent worksheet scope.
         GradientButton(
             onClick = controller::reload,
-            colors = Palette.GreyGradient,
+            colors = Palette.NavyGradient,
             contentColor = Palette.Text,
             modifier = Modifier.width(84.dp),
             minHeight = 36.dp,
@@ -620,7 +617,7 @@ private fun SourceOverlay(
                     )
                 }
                 source.loading -> Text("Reading the worksheet\u2026", color = Palette.Muted, fontSize = 11.5.sp)
-                window != null -> SheetWindowView(window, source.chosen)
+                window != null -> SheetWindowView(window, source.chosen, controller)
                 else -> SourceCandidateList(source.candidates, controller::openSourceCell)
             }
         }
@@ -671,11 +668,24 @@ private fun SourceCandidateList(
 }
 
 
-/** The worksheet cells around the verified row, with the verified cell highlighted. */
+/**
+ * The worksheet cells around the verified row, with the verified cell highlighted.
+ *
+ * Every cell is drawn the way the workbook shows it ([SheetWindowCell.shown] — the same number-format rule the
+ * Catalogue table uses) and every cell is its own touch target: tapping one opens the shared cell dialog with the
+ * value, Copy, Open Link and Back. A cell the workbook links is drawn in the accent colour and underlined, so a
+ * link is recognisable before it is opened — while a cell that merely reads like a URL stays ordinary text.
+ */
 @Composable
-private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidate?) {
+private fun SheetWindowView(
+    window: SheetWindow,
+    chosen: SourceLocation.Candidate?,
+    controller: WorkbookCommentsController,
+) {
     val vertical = rememberScrollState()
     val horizontal = rememberScrollState()
+    // The row and column actually drawn, never a screen position: the dialog is opened by source identity.
+    val onCell: (Int, Int) -> Unit = { row, column -> controller.peekSourceCell(window, row, column) }
     Column(Modifier.fillMaxSize()) {
         Text(
             "${window.sheetName} \u00B7 ${window.targetCell} \u00B7 rows ${window.rowRangeLabel} \u00B7 " +
@@ -690,6 +700,10 @@ private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidat
                 "The verified comment cell is highlighted. Every column this worksheet uses is drawn \u2014 " +
                     "scroll sideways for the rest."
             },
+            color = Palette.Muted, fontSize = 9.5.sp,
+        )
+        Text(
+            "Tap any cell to see the whole value, copy it, or open its link.",
             color = Palette.Muted, fontSize = 9.5.sp,
         )
         if (window.hiddenColumns > 0) {
@@ -717,7 +731,7 @@ private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidat
                             }
                         }
                     }
-                    val header = window.headerValues
+                    val header = window.headerCells
                     val headerRow = window.headerRow
                     if (header != null && headerRow != null) {
                         Row(
@@ -728,7 +742,9 @@ private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidat
                             Box(Modifier.width(ROW_LABEL_WIDTH)) {
                                 Text("${headerRow + 1}", color = Palette.Muted, fontSize = 8.5.sp)
                             }
-                            header.forEach { value -> WindowCell(value, highlight = false) }
+                            header.forEachIndexed { index, cell ->
+                                WindowCell(cell) { onCell(headerRow, window.columns[index].column) }
+                            }
                         }
                     }
                     window.rows.forEach { row ->
@@ -743,12 +759,12 @@ private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidat
                             Box(Modifier.width(ROW_LABEL_WIDTH)) {
                                 Text("${row.row + 1}", color = Palette.Muted, fontSize = 8.5.sp)
                             }
-                            row.values.forEachIndexed { index, value ->
+                            row.cells.forEachIndexed { index, cell ->
                                 val column = window.columns[index]
                                 WindowCell(
-                                    value = value,
+                                    cell = cell,
                                     highlight = row.row == window.targetRow && column.column == window.targetColumn,
-                                )
+                                ) { onCell(row.row, column.column) }
                             }
                         }
                     }
@@ -758,9 +774,14 @@ private fun SheetWindowView(window: SheetWindow, chosen: SourceLocation.Candidat
     }
 }
 
-/** One fixed-width cell; a blank value stays blank instead of pretending to be a value. */
+/**
+ * One fixed-width cell of the preview: the value as the workbook displays it, tappable, and visibly linked.
+ *
+ * A blank cell stays blank instead of pretending to be a value, and an ordinary cell is never drawn in the link
+ * style — the accent colour and the underline mean "the workbook stores a destination for this cell".
+ */
 @Composable
-private fun WindowCell(value: String?, highlight: Boolean) {
+private fun WindowCell(cell: SheetWindowCell, highlight: Boolean = false, onClick: () -> Unit) {
     Box(
         Modifier
             .width(CELL_WIDTH)
@@ -775,15 +796,21 @@ private fun WindowCell(value: String?, highlight: Boolean) {
                     Modifier
                 },
             )
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 3.dp, vertical = 2.dp),
     ) {
         Text(
-            value.orEmpty(),
-            color = if (value.isNullOrEmpty()) Palette.Muted else Palette.Text,
+            cell.shown,
+            color = when {
+                cell.isBlank -> Palette.Muted
+                cell.isLinked -> Palette.Accent
+                else -> Palette.Text
+            },
             fontSize = 9.sp,
             fontFamily = FontFamily.Monospace,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            textDecoration = if (cell.isLinked) TextDecoration.Underline else null,
         )
     }
 }

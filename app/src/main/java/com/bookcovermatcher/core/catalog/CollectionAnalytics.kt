@@ -42,7 +42,15 @@ object CollectionAnalyticsBuilder {
     /** How many values of a grouped metric are shown; the rest stay in the workbook, not in the chart. */
     const val TOP_VALUES = 50
 
-    fun build(catalog: WorkbookCatalog, scope: SheetScope = SheetScope.ALL): CollectionAnalytics {
+    /**
+     * @param date1904 read a serial publication date in the workbook's own date system, so the year buckets
+     * agree with the Catalogue table and the timelines.
+     */
+    fun build(
+        catalog: WorkbookCatalog,
+        scope: SheetScope = SheetScope.ALL,
+        date1904: Boolean = false,
+    ): CollectionAnalytics {
         val entries = catalog.entries.filter { scope.allows(it.sheetPath, it.sheetName) }
         val tables = catalog.tables.values.filter { table ->
             val path = catalog.sheets.firstOrNull { it.name == table.sheetName }?.partPath.orEmpty()
@@ -72,7 +80,7 @@ object CollectionAnalyticsBuilder {
         var unknownYear = 0
         for (entry in entries) {
             // The publication field is a date column by definition: an Excel serial is a real date here.
-            val date = CatalogDates.parse(entry.text(CatalogField.PUBLISHED), allowSerial = true)
+            val date = CatalogDates.parse(entry.text(CatalogField.PUBLISHED), allowSerial = true, date1904 = date1904)
             if (date == null) unknownYear++ else years[date.year] = (years[date.year] ?: 0) + 1
         }
 

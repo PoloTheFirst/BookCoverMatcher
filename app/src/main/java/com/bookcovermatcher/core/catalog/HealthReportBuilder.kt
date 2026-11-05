@@ -46,7 +46,7 @@ object HealthReportBuilder {
         }
         val findings = LinkedHashMap<String, HealthFinding>()
         structure(findings, analysis, model, tables, scope)
-        records(findings, entries)
+        records(findings, entries, analysis.date1904)
         images(findings, entries, analysis, scope)
         consistency(findings, entries, issues)
 
@@ -180,7 +180,11 @@ object HealthReportBuilder {
     }
     // ---- records ----------------------------------------------------------------------------
 
-    private fun records(out: MutableMap<String, HealthFinding>, entries: List<CatalogEntry>) {
+    private fun records(
+        out: MutableMap<String, HealthFinding>,
+        entries: List<CatalogEntry>,
+        date1904: Boolean,
+    ) {
         var listed = 0
         var omitted = 0
         for (entry in entries) {
@@ -251,7 +255,7 @@ object HealthReportBuilder {
             }
             entry.text(CatalogField.PUBLISHED)?.let { raw ->
                 // The publication field is a date column by definition, so an Excel serial is readable here.
-                if (CatalogDates.isMalformed(raw, allowSerial = true)) {
+                if (CatalogDates.isMalformed(raw, allowSerial = true, date1904 = date1904)) {
                     out.putIfAbsent(
                         "record:date:${entry.id}",
                         recordFinding(

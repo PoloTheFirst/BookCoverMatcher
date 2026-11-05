@@ -1,4 +1,4 @@
-# BookCover Matcher - User Guide (v2.4.0-dev.4)
+# BookCover Matcher - User Guide (v2.4.0)
 
 This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
 instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
@@ -236,6 +236,14 @@ marked, the catalogue header when the sheet is a table, and six rows of context 
 list** (or the system Back) closes it and leaves the section, the worksheet filter, your search text, the
 filters, the sort order and any selection exactly as they were.
 
+**A cell in this view behaves like a cell in the table.** It is drawn the way the workbook shows it — a date
+column reads `2024-01-01`, a percentage `12.35%`, an ordinary number keeps its digits — and a cell the
+workbook links is blue and underlined. Tap any cell (the header cells included) to open the same dialog the
+Catalogue table uses: the whole value, **Copy**, **Open Link** when the workbook really stores a destination,
+and **Back**. Copy takes what you see, and Open Link goes to that cell's own link; the dialog names the
+worksheet and the exact cell (`LIST!F12`) plus the column's header, and it always describes the cell you
+tapped, whatever you have scrolled to.
+
 When there is nothing honest to show, the app says so instead of inventing a place:
 
 * **No association found by this previewer** — the picture exists but no note points at it, so there is no
@@ -269,20 +277,22 @@ count never disappears, so you can always tell whether a workbook has been check
   possible duplicates are shown but not subtracted from the totals.
 * **Gallery** shows one card per record with its cover, title, Circle, Artist, product ID and source row.
   Filter for *With cover*, *No cover*, *Missing title* or *Missing metadata*, search the text, and sort by
-  title, Circle, Artist, source order or cover. A record with no cover shows *No cover* — nothing is filled
+  title, Circle, Artist or source order. A record with no cover shows *No cover* — nothing is filled
   in to make the card look complete. **Open** shows the cover full screen; **Source** opens the row. The
   search bar sits in its own band above the filter chips, separated by a hairline.
 * **Timeline** groups records by year, newest or oldest first, and keeps records whose date is absent or
   unreadable in **No date known** — they never disappear. **Published** and **Acquired** read the two columns
-  you assigned (see below) and never borrow each other's; **Imported** uses the date the saved copy was
-  imported. **Go to row** opens the source view for that record. It can be searched and limited to a year
-  range, and it starts at the top when you switch between Published and Acquired.
+  you assigned (see below) and never borrow each other's. **Go to row** opens the source view for that record.
+  It can be searched and limited to a year range, and it starts at the top when you switch between Published
+  and Acquired.
 * **Fields** maps the worksheet's own columns to the app's fields: Title, Circle, Artist, Product ID, URL,
   Price, Description, Publication date and Tags. Tap a field, pick the column, and the preview under the
   list shows what the records will look like. Orange issues mean a column is missing, appears twice, or is
   used by two fields. **Apply mapping** uses it for the reports; **Save profile…** stores it by name so the
-  same layout can be reused on another workbook. A profile remembers column *names*, so inserting a column
-  in Excel does not break it, and Circle and Artist stay two different fields.
+  same layout can be reused later. A profile remembers column *names*, so inserting a column in Excel does not
+  break it, and Circle and Artist stay two different fields. It also remembers **one mapping per worksheet**,
+  because two worksheets rarely have the same header row: saving while one worksheet is open keeps every other
+  worksheet's own mapping instead of copying the one on screen over them.
 
 ### Filtering Health, Analytics and the Timeline (v2.4.0-dev.4)
 
@@ -328,6 +338,95 @@ The assignment is remembered for that workbook only, and it survives closing the
 renamed or deleted, the timeline says the column is gone and asks you to choose again instead of reading a
 neighbouring column. Excel date serial numbers (a cell that shows a date but stores `43465`) are read as dates
 in the columns you picked.
+
+### Choosing the worksheets a gallery shows, and reading dates (v2.4.0)
+
+**Limiting the gallery to some worksheets.** In *Insights → Gallery*, the filter area starts with
+**Worksheets: …**:
+
+1. Tap it. The picker lists the workbook's own worksheets, each with its record count and whether it is
+   hidden.
+2. Choose **All worksheets**, one worksheet, or any combination. **Use these worksheets** applies the choice;
+   **All worksheets** clears it; **Cancel** changes nothing.
+3. The bar then reads *Worksheets: LIST* or *Worksheets: 2 of 3 worksheets*, and the count line says how many
+   records the grid is showing out of the ones those worksheets hold.
+
+The choice is a filter on the records themselves: *Search*, *With cover*, *No cover*, *Missing title*,
+*Missing metadata*, every sort order and the scroll reset all work within it, so *LIST* + *No cover* shows
+exactly that worksheet's coverless records. Gallery, Health and Analytics each keep their own choice. A
+worksheet you renamed in Excel stays selected; one you deleted is dropped from the selection rather than
+leaving an empty grid.
+
+**Dates and percentages in the Catalogue table.** In *More → Workbook comments → Catalogue → Table*, a cell
+that Excel formats as a date is shown as a date (`2018-12-31`, or `2018-12-31 14:30` when it also carries a
+time) instead of the serial number behind it (`43465`), and a cell formatted as a percentage is shown rounded
+to two decimals (`12.35%`) instead of its stored fraction (`0.123456`). A price, a page count, a rating or a
+product number is left alone: the app reads each cell's own format, so a bare number is never turned into a
+date. Your workbook is only read — nothing is written back, and the stored values keep the digits they had.
+
+**Timeline has two meanings.** *Published* and *Acquired*, each reading the column you chose, with their own
+search and year range. There is no *Imported* mode any more.
+
+**The order inside one date.** *Insights → Fields → Default order* lets you pick the column that says what
+order your collection is in (a serial number, a shelf position — any header, in any language). The card has
+its own buttons: **Change** (or **Choose column** when nothing is mapped yet) opens the same column picker the
+other fields use, **Clear** unmaps it, and **Use detected** puts back the column the app found by itself — a
+line under the buttons says which column that is. The preview shows what the chosen column holds: how many
+values are numbers, how many are text, how many are blank, and a few examples. It is optional, and each
+worksheet remembers its own mapping, so it is still in effect next time. When several records share a Published
+or Acquired date, the timeline lists them by this column ascending (`2` before `10`); a record with no value
+comes last and keeps its worksheet row as the final tie-break. Nothing is filled in for it.
+
+**A mapping belongs to one worksheet.** *Fields* shows the worksheet you pick at the top, and everything you do
+there — **Apply mapping**, **Save profile** — changes that worksheet only. The other worksheets keep their own
+mappings, so a profile saved while one worksheet is open cannot blank out another worksheet's fields: saving
+carries every other worksheet's mapping forward (from the profile you were viewing, or from its own detected
+headers), and a blank you clear stays cleared on that worksheet alone.
+
+**Detected and your profiles are views you switch between.** The chips under the picker choose which
+configuration is shown *and used*: **Detected** is what the app finds in the workbook by itself, and a saved
+profile is what you stored. Picking one does not copy anything into the other — switch to your profile, back to
+**Detected**, and back again, and each one is exactly as it was. **Detected** is blue whenever the mapping in
+effect is the one the app would have found by itself: applying an unchanged mapping keeps it blue (and stores
+nothing), while changing an assignment, clearing one, or viewing a profile that differs turns it grey. Putting
+the detected column back — or pressing **Detected** — makes it blue again. Switching also drops edits you applied
+but did not save, so use **Save profile** for anything you want to keep.
+
+**Your selections are remembered.** The worksheet filter of Health, Analytics and the Gallery — each one
+separately — and the year range of each timeline come back when you reopen the workbook or restart the app.
+They are stored per workbook in the app's own folder (`files/mappings/insights-views.json`); a selection that
+names a worksheet the workbook no longer has is dropped rather than applied to a different one.
+
+**Numbers show at most two decimals.** A similarity score reads `0.81`, and a workbook cell whose Excel
+format declares decimals reads `1234.57` instead of `1234.5678`. Whole numbers, identifiers, serial numbers,
+row numbers and dates are never reformatted, and nothing is rounded before it is saved, sorted, filtered or
+exported.
+
+**Rescanning while you are in Insights.** The **Rescan** button in the preview header re-reads the workbook
+from the file. Every Insights function is rebuilt immediately — Health, Analytics, Gallery, Timeline and
+Fields — so you do not have to leave the directory and come back. Your profiles, worksheet selections,
+filters and chosen date columns are kept, the panels say they are reading while it runs, and if the file
+cannot be read the reason appears in place of the reports. The button is the same blue as **Import** on
+*More → Saved workbooks*.
+
+**Working with a table cell.** In *Catalogue → Table*, tap any cell to open a dialog in the middle of the
+screen showing that cell's value:
+
+* **Copy** puts the value you see on the clipboard (the displayed text — not the link's address, and an empty
+  cell says it is empty).
+* **Open Link** appears only when the workbook itself stores a link for that cell. A web address opens in your
+  browser; a link that points at another place in the workbook opens that cell in the app's own source view.
+* **Back** closes the dialog, and so does a tap outside it.
+
+Cells the workbook links are drawn in the accent colour and underlined, so you can see them before tapping. A
+cell whose text merely looks like a web address is *not* a link: only what the file stores counts. Links the
+app cannot follow (a local `file://` path, a defined name, an address no installed app handles) are shown with
+their destination but offer no **Open Link**. The **source location** view uses this same dialog for the
+worksheet cells it draws, so a value, a link and a copy behave identically in both places.
+
+**The worksheet picker** is opened from the section you are in — *Comments*, *Images* or *Catalogue* — rather
+than from a single button in the header: Health, Analytics and the Gallery keep their own independent
+worksheet scopes, and a shared button suggested otherwise.
 
 ### Saved workbooks (More → Saved workbooks)
 

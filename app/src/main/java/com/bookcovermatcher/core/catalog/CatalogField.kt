@@ -29,6 +29,20 @@ enum class CatalogField(val label: String, val required: Boolean, val aliases: L
 
     PUBLISHED("Publication date", false, listOf("発行", "発売", "出版", "日付", "年月", "date", "year", "release")),
 
+    /**
+     * The workbook's own default ordering value — a serial number, a shelf position, anything the user
+     * picked. It is **not** the worksheet row, the cell address, an image index or any app-internal id:
+     * it is a source column the user chose, and it is the secondary key when two records share a date.
+     *
+     * Optional, and nothing is inferred from a header name: the aliases below only let a workbook with no
+     * configuration start somewhere sensible, exactly like every other field.
+     */
+    DEFAULT_ORDER(
+        "Default order",
+        false,
+        listOf("通し番号", "連番", "並び順", "serial number", "serial no", "default order", "sort order"),
+    ),
+
     TAGS("Tags", false, listOf("タグ", "ジャンル", "分類", "tags", "genre", "类型", "類型")),
     ;
 

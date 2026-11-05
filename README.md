@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.4.0-dev.4 (development)** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.4.0** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -31,7 +31,10 @@ a connection; every online feature is opt-in.
 > the list state, and the bookmark form's price sample reads `770円`. **2.4.0-dev.1** is the first
 > development build of 2.4.0: an image or a catalogue record whose source the workbook proves can be
 > opened at its worksheet cell, with the surrounding cells shown and every unproven case explained
-> instead of guessed (see §6).
+> instead of guessed (see §6). **2.4.0** is the stable release: the Insights gallery filters by worksheet
+> (all, one or several), Timeline keeps Published and Acquired only, and the Catalogue table shows
+> date-formatted cells as dates and percentage-formatted cells rounded to two decimals — all read from the
+> cell's own number format, with the stored values untouched.
 > Step-by-step usage is in `USER_GUIDE.md`; layering and invariants are in `ARCHITECTURE.md`.
 ---
 
@@ -101,6 +104,12 @@ structural catalogue reader detected — never from image order, file names or l
 * **The view is real cells, not a label.** It reads the worksheet and shows the verified row highlighted,
   the verified cell marked, Excel's column letters, the catalogue header when the sheet is a table, and six
   rows of context either side. Selecting a cell is therefore something the screen actually does.
+* **Read, drawn and tapped the same way as the table.** A date-formatted cell shows its date (`2024-01-01`),
+  a percentage its percentage (`12.35%`) — the *same* number-format rule the Catalogue table uses, so one cell
+  cannot read two ways — and a cell the workbook links is drawn in the accent colour and underlined. Tapping
+  any cell (header cells included) opens the shared **Copy / Open Link / Back** dialog for **that worksheet
+  cell**: the dialog's identity is the source row and column, never the drawn position, so the thirteen-row
+  window cannot make it describe a neighbour. The stored value is never replaced.
 * **Proven only.** An image nothing references, a note whose image is missing, a worksheet that is no longer
   in the workbook, and a cell reference that does not parse all end in a readable explanation. A note that
   states several locations lists all of them and the user chooses; the app never picks silently.
@@ -124,18 +133,19 @@ has, and the five sub-tabs read **one** canonical catalog.
   Each finding names the worksheet row or image, states the evidence, suggests a next step, and is either a
   confirmed problem or information. Filterable by severity and category; nothing is repaired.
 * **Gallery.** One card per record with its cover, title, Circle, Artist, product ID and source row;
-  filters for cover state, missing title, missing metadata and free text; sorting by title, Circle, Artist,
-  source order or cover. A record without a cover shows a placeholder, never a padded card.
+  filters for cover state, missing title, missing metadata and free text; sorting by title, Circle, Artist
+  or source order. A record without a cover shows a placeholder, never a padded card.
 * **Analytics.** Records, worksheets, verified covers, missing metadata, duplicate IDs and possible
   duplicates, grouped by Circle, Artist, tag, worksheet and publication year. The rules are on the screen:
   one record is one source row, a blank cell is *missing* not zero, and potential duplicates are reported
   rather than subtracted.
 * **Timeline.** Publication year groups, newest or oldest first, with a separate *No date known* group.
-  Since v2.4.0-dev.3 **you choose** the column each timeline reads (see below); **Imported** uses the
-  saved-workbook library's import time.
+  Since v2.4.0-dev.3 **you choose** the column each timeline reads (see below), and v2.4.0 keeps the two
+  meanings *Published* and *Acquired* only — the rarely used *Imported* mode was removed.
 * **Fields.** Maps a worksheet's own headers to the app's fields, previews the records before applying,
-  reports headers that are missing, duplicated or shared, and saves the mapping as **header names** (not
-  column positions) in `files/mappings/profiles.json` for reuse on another workbook.
+  reports headers that are missing, duplicated or shared, and saves the configuration as **header names** (not
+  column positions) in `files/mappings/profiles.json`. A profile holds one mapping per worksheet, and the
+  **Detected** profile the screen starts on is computed from the workbook, never stored.
 
 Source navigation from v2.4.0-dev.1 is reused rather than re-implemented: a gallery card, a timeline entry
 and a finding with a record or image all open the verified worksheet row through the same overlay.
@@ -199,6 +209,82 @@ and a finding with a record or image all open the verified worksheet row through
   and another workbook starts from *All worksheets*.
 * **The gallery's search bar and filters are separated.** The bar has its own margins and a hairline in the
   palette's line colour above the chip rows; no font size changed and no filter behaves differently.
+
+### Gallery worksheet filter, dates and percentages (v2.4.0)
+
+* **The gallery can be limited to any set of worksheets.** *Insights → Gallery* now starts its filter area
+  with **Worksheets: All worksheets / LIST / 2 of 3 worksheets**, which opens the same picker the Health and
+  Analytics reports use: all worksheets, one, or any combination, each with its record count, and
+  **Use these worksheets** to commit. The selection decides which records the grid even holds, so the search,
+  *With cover*, *No cover*, *Missing title*, *Missing metadata*, every sort order, the count line and the
+  scroll reset all compose with it — picking one worksheet and *No cover* shows exactly that worksheet's
+  coverless records. A worksheet is identified by its place in the package, not by its display name, so
+  renaming it in Excel keeps the selection, a worksheet that has since been deleted is dropped instead of
+  emptying the grid, and another workbook always starts from *All worksheets*.
+* **Every selection is remembered per workbook.** The worksheet scope of Health, Analytics and Gallery (each
+  its own) and the timeline's year range for Published and Acquired are saved in
+  `files/mappings/insights-views.json`, keyed by the workbook's hash, and come back when you reopen the
+  workbook or restart the app. Nothing is shared between the three screens or between two workbooks.
+* **A Default order field, with a control that changes it.** *Insights → Fields* has an optional **Default
+  order** row for the workbook's own ordering column (a serial number, a shelf position — your choice, any
+  header, any language). It carries the same bordered **Change** button as every other field, plus **Clear**
+  and **Use detected** on its own card, and its preview says how many of the values are numbers, how many are
+  text and how many are blank, with examples. When two records share a Published or Acquired date the timeline
+  orders them by that column, ascending and numerically (`2` before `10`), and a record without a value comes
+  last instead of being given a position. The column is detected from the workbook's own headers like every
+  other field, and a mapping you apply yourself — Default order included — keeps precedence over the detected
+  one for **that worksheet** until you pick **Detected** or a saved profile; the Fields screen says which of
+  the three is in effect, and each worksheet's mapping is remembered separately
+  (`files/mappings/workbook-mappings.json`), so it is still there after a restart.
+* **One mapping per worksheet, and Detected is a view you can switch away from.** Applying a mapping, saving a
+  profile or picking a profile changes the worksheet on screen only: every other worksheet keeps its own mapping
+  (or its own detected headers), so a profile saved while `LIST` was open cannot unmap `DATA`'s fields. The
+  **Detected** chip stays blue whenever the mapping in effect equals what detection would choose — including
+  right after applying an unchanged mapping. Picking **Detected** or a saved profile **switches the configuration
+  the screen and the reports use**; it does not exchange, merge or rewrite either side, so Detected → profile →
+  Detected → profile shows each configuration exactly as it was.
+* **Saving a profile carries the other worksheets forward.** A profile is a snapshot of several worksheets, keyed
+  by worksheet identity, so the header row of one worksheet is never applied to another. Saving while one
+  worksheet is open records that worksheet's edits and keeps every other worksheet's mapping (the selected
+  profile's, or its own detected headers) — blanks stay where they were cleared, and a worksheet the profile
+  knows nothing about (one added later, or another workbook's) is read with its own detected headers.
+  `files/mappings/profiles.json` is schema 2 (per worksheet; a schema-1 profile still loads as the single column
+  set it was), and the view a workbook was left on travels with its per-worksheet edits in
+  `files/mappings/workbook-mappings.json`.
+* **Dates are shown as dates** in *Catalogue → Table* (and on the record cards). A cell formatted as a date
+  used to print the serial Excel stores — `43465` — and now reads `2018-12-31`, or `2018-12-31 14:30` when the
+  cell carries a time. The workbook's own date system (1900 or 1904) is used, and a value that is not a real
+  date keeps its stored text instead of being shifted to a neighbouring day.
+* **Percentages are rounded to two decimals.** A cell formatted as a percentage used to print its stored
+  fraction (`0.123456`) and now reads `12.35%`; `0.5` is `50%`, `1` is `100%`, a tiny value is `0%`, and the
+  fraction is scaled exactly once. A cell that is *not* percentage-formatted never gains a `%`.
+* **Numbers are shown with at most two decimals.** One rule formats every measurement: a similarity score
+  reads `0.81` (not `0.812`), and a cell whose number format declares decimals reads `1234.57`. It is a
+  display rule only — nothing is rounded before it is stored, sorted, filtered or exported — and `General`
+  or integer cells (identifiers, serial numbers, row numbers) keep every digit they had.
+* **Cover first is gone as an order.** Cover state is still a filter (*With cover* / *No cover*), driven by
+  the verified image association; the four orders that remain describe the workbook.
+* **Only the cell's own format decides.** A price, a page count, a rating or a product number keeps its
+  digits: `45292` is a date only inside a date-formatted cell. Text cells are never converted, and the stored
+  value is never rewritten — filters, search, the canonical catalog and the export keep reading exactly what
+  the workbook contains.
+* **Timeline keeps Published and Acquired.** The rarely used **Imported** mode is gone, because it repeated
+  every record under the app's own import date rather than a date the collection has. The saved-workbook
+  library still records its import time; it is no longer a timeline.
+* **Rescan refreshes everything, where you are.** The header's **Rescan** button re-reads the workbook and now
+  rebuilds Health, Analytics, Gallery, Timeline and Fields immediately; the reports used to come back only
+  after leaving the Insights directory and returning. The profiles, worksheet scopes, filters and chosen date
+  columns survive it, the panels show a reading state while it runs, and a failed scan says why instead of
+  leaving them empty.
+* **No global Sheets button.** The worksheet picker is opened from the section that filters by worksheet
+  (Comments, Images, Catalogue); the one shared header button was removed, so nothing implies a filter that
+  applies to directories that keep their own scope.
+* **A cell dialog with Copy and Open Link.** Tapping a cell in *Catalogue → Table* opens a centred dialog with
+  the cell's value and three stacked actions: **Copy** (the displayed text), **Open Link** (only when the
+  workbook stores a link the app can follow) and **Back**; a tap outside the card also closes it. Linked cells
+  are drawn in the accent colour and underlined — the workbook's own `http(s)`/`mailto` destinations go to the
+  browser, an in-workbook `Sheet!Cell` location opens in the app's source view, and a cell whose text merely
+  looks like a URL is not a link.
 
 ---
 
@@ -575,8 +661,9 @@ app/src/main/java/com/bookcovermatcher/
 │   │                             fields, dates (incl. Excel serials), column mapping +
 │   │                             codec, health report, analytics, timeline, gallery view,
 │   │                             TimelineDates (the date columns the user chose), and the
-│   │                             v2.4.0-dev.4 SheetScope + TimelineFilter (what a report
-│   │                             covers and what the timeline shows)
+│   │                             v2.4.0 SheetScope (what a report and the gallery cover),
+│   │                             TimelineFilter (what the timeline shows) and the
+│   │                             gallery's own worksheet selection
 │   ├── wishlist/                 LibraryModels (folders/sessions/items), repository,
 │   │                             MiniJson, identity, bookmark rules and
 │   │                             BookmarkPresentation (the card's own lines)
@@ -586,7 +673,8 @@ app/src/main/java/com/bookcovermatcher/
 │                                 ProviderLinks, SearchRouting, SearchLimits,
 │                                 OnlineAggregator, SessionCache
 ├── data/                         Prefs, OnlineSearchPrefs, ModelStore, WorkbookFiles,
-│                                 CommentImageCache, ColumnMappingStore, TimelineDateStore
+│                                 CommentImageCache, ColumnMappingStore, TimelineDateStore,
+│                                 InsightsViewStore, WorkbookMappingStore
 ├── vision/                       AndroidImageCodec, OrtClipEmbedder
 ├── camera/                       CameraController (CameraX)
 ├── online/                       OnlineSearchController, ChromeLensPyBridge, PythonRuntime,
@@ -676,8 +764,9 @@ No step of this pipeline is online, and the online feature is never consulted by
 | Full JVM suite (v2.4.0-dev.1) | `.\gradlew.bat :app:testDebugUnitTest` | **487 tests**, 0 failures, 4 skipped by design, across 63 result classes; the new `SourceNavigationTest` (17 tests) covers verified image/comment/record locations, ambiguous notes, unreferenced and unresolved images, stale worksheets, trailing-space/Unicode sheet names, the worksheet window and the overlay state; `assembleDebug`: BUILD SUCCESSFUL, version 209 / 2.4.0-dev.1 |
 | Full JVM suite (v2.4.0-dev.2) | `.\gradlew.bat :app:testDebugUnitTest` | **574 tests**, 0 failures, 4 skipped by design, across 71 result classes; 87 of them new: `ColumnMappingTest` 14, `ColumnMappingStoreTest` 5, `WorkbookCatalogTest` 9, `HealthReportTest` 18, `CollectionAnalyticsTest` 9, `CollectionTimelineTest` 12, `GalleryViewTest` 10, `WorkbookInsightsUiTest` 10; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,015,505 bytes, version 210 / 2.4.0-dev.2 |
 | Full JVM suite (v2.4.0-dev.4) | `.\gradlew.bat :app:testDebugUnitTest` | **658 tests**, 0 failures, 7 skipped by design, across 81 result classes; 37 of them new: `TimelineFilterTest` 10, `SheetScopeTest` 5, `ScopedReportsTest` 8, `InsightsFilterUiTest` 11, `InsightsOrderTest` 3; `assembleDebug`: BUILD SUCCESSFUL, version 212 / 2.4.0-dev.4 |
+| Full JVM suite (v2.4.0) | `.\gradlew.bat :app:testDebugUnitTest` | **781 tests**, 0 failures, 7 skipped by design, across 94 result classes; 64 of them new: `GallerySheetFilterTest` 11, `CatalogueNumberFormatTest` 11, `DefaultOrderTest` 10, `InsightsViewPersistenceTest` 8, `SheetLinksTest` 7, `CellPeekAndMappingTest` 5, `CatalogueFormattingWorkbookTest` 4, `RescanStateTest` 4, the real-workbook date/order/link checks 3, the 1904 case 1, minus one test for the removed import timeline; plus `SourceWindowFormattingTest` 14 and `MappingPersistenceTest` 13 for the source-preview and persistence corrections; plus `DetectedStatusTest` 14, `WorksheetMappingIsolationTest` 11 and `ProfileViewSwitchingTest` 7 for the mapping and profile-view fixes; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,929,512 bytes, version 213 / 2.4.0 |
 | Full JVM suite (v2.4.0-dev.3) | `.\gradlew.bat :app:testDebugUnitTest` | **621 tests**, 0 failures, 7 skipped by design, across 76 result classes; 47 of them new: `WorksheetColumnsTest` 7, `TimelineDatesTest` 17, `TimelineDateUiTest` 9, `GalleryScrollTest` 6, `SampleWorkbookColumnsTest` 5 and 3 more timeline cases; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,064,657 bytes, version 211 / 2.4.0-dev.3 |
-| Sample workbook (v2.4.0-dev.3) | `.\gradlew.bat :app:testDebugUnitTest --tests "*SampleWorkbookColumnsTest"` | **5 tests**, 0 failures, run through the production reader on `test_excel/doujin.xlsx` (skipped when absent): `LIST` reads as **24 columns A–X** with 24 values on every record, `ツイッター`/`ツイッター (ユーザー名)`/`ミスキー`/`ミスキー (ユーザー名)` resolve to S/T/U/V, `出版日付` (G) and `購入日` (R) are readable date columns (serial numbers), the source window draws all 24 columns, and the worksheet inventory is unchanged |
+| Sample workbook (v2.4.0) | `.\gradlew.bat :app:testDebugUnitTest --tests "*SampleWorkbookColumnsTest"` | **9 tests**, 0 failures, run through the production reader on `test_excel/doujin.xlsx` (skipped when absent): `LIST` reads as **24 columns A–X** with 24 values on every record, `ツイッター`/`ツイッター (ユーザー名)`/`ミスキー`/`ミスキー (ユーザー名)` resolve to S/T/U/V, `出版日付` (G) and `購入日` (R) are readable date columns (serial numbers), `通し番号` is the detected Default order and really breaks a date tie, the workbook's stored hyperlinks keep their destinations apart from their text, every column of a record reads identically in the Catalogue table and in the source window, the source window draws all 24 columns, and the worksheet inventory is unchanged |
 | Debug build | `.\\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |
 | Python bridge contract | `python tools/lens_bridge_check.py` (with chrome-lens-py installed) | **ALL BRIDGE CHECKS PASSED** |
 | Real OCR on desktop | chrome-lens-py 3.8.2 + the Hobbit cover | `THE HOBBIT` / `JRR TOLKIEN` read; heights returned |
@@ -699,6 +788,16 @@ No step of this pipeline is online, and the online feature is never consulted by
   no device or emulator was available and there is still no Compose UI-test dependency, so the screens
   were not tapped through. The mapping, the window model and the overlay state are unit-tested
   (`SourceNavigationTest`, 17 tests) and both builds pass.
+* The v2.4.0 final round — the source preview's tappable cells and their blue link styling, the cell dialog's
+  **Copy**/**Open Link** (they need an Android clipboard and intent) and the Fields **Change**/**Clear**/
+  **Use detected** buttons: compiled, and their state and model are unit-tested
+  (`SourceWindowFormattingTest` 14, `MappingPersistenceTest` 11), but no button was tapped on a device.
+* The mapping state itself — the Detected chip, the profile-view switch (Detected ↔ a saved profile, and between
+  two profiles), applying and saving a profile per worksheet, profile inheritance, the per-worksheet
+  persistence and both migrations — is covered by `DetectedStatusTest`, `WorksheetMappingIsolationTest` and
+  `ProfileViewSwitchingTest` at the state level; no Compose UI test asserts the chip's colour on screen, and the
+  corner case where a selected profile means exactly detection (both the Detected chip and the profile chip
+  highlighted) was reasoned about rather than seen.
 * The v2.4.0-dev.2 Insights screens — Health, Gallery, Analytics, Timeline and Fields, their chips, the
   header picker and the save-profile dialog: compiled and unit-tested (`HealthReportTest`,
   `GalleryViewTest`, `WorkbookInsightsUiTest` and the other catalog tests, 87 in all), not tapped through
@@ -716,6 +815,14 @@ No step of this pipeline is online, and the online feature is never consulted by
   `InsightsFilterUiTest`, `InsightsOrderTest`, 37 tests in all), but not tapped through on a device. The
   scroll reset, the two-line layout and the divider are layout behaviour, so they are reasoned and built,
   not photographed.
+* The v2.4.0 surface — the gallery's worksheet bar and its picker, the persisted selections, the Default
+  order row, the formatted catalogue cells, the cell dialog with its clipboard/link actions, the rescan
+  rebuild and the two-mode timeline: compiled and covered by `GallerySheetFilterTest` (11),
+  `CatalogueNumberFormatTest` (11), `DefaultOrderTest` (10), `InsightsViewPersistenceTest` (8),
+  `SheetLinksTest` (7), `CellPeekAndMappingTest` (5), `RescanStateTest` (4), `CatalogueFormattingWorkbookTest`
+  (4) and the updated timeline/date tests, but not tapped through on a device: the dialog's clipboard and
+  browser calls need an Android runtime, so they are reasoned and compiled rather than unit-tested. The cell
+  widths of the table are unchanged, so a long date is ellipsised like any other value.
 * Google Books with an API key (none is configured).
 * **Suruga-ya as an in-app search** — deliberately not implemented: its `robots.txt` disallows
   `/search/`. Only its generated browser link is verified.

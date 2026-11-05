@@ -61,7 +61,7 @@ class HealthReportTest {
     fun `an unmapped title is reported once per record and is an error`() {
         val report = report(
             records = listOf(CatalogFixtures.catalogueRecord(1), CatalogFixtures.catalogueRecord(2)),
-            profile = ColumnMappingProfile("empty", emptyMap()),
+            profile = ColumnMappingProfile("empty", columns = emptyMap()),
         )
         val titleFindings = report.findings.filter {
             it.category == HealthCategory.RECORDS && it.field == CatalogField.TITLE && it.severity == HealthSeverity.ERROR

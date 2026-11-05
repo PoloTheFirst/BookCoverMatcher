@@ -5,6 +5,7 @@ import com.bookcovermatcher.core.catalog.CatalogFixtures
 import com.bookcovermatcher.core.catalog.GalleryFilter
 import com.bookcovermatcher.core.catalog.GallerySort
 import com.bookcovermatcher.core.catalog.GalleryView
+import com.bookcovermatcher.core.catalog.SheetScope
 import com.bookcovermatcher.core.catalog.WorkbookCatalogBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -75,7 +76,9 @@ class GalleryScrollTest {
         )
         assertNotEquals(
             state.galleryOrderKey,
-            state.copy(galleryFilter = GalleryFilter(sheetName = "LIST")).galleryOrderKey,
+            state.copy(
+                galleryFilter = GalleryFilter(sheets = SheetScope(setOf("xl/worksheets/sheet2.xml"))),
+            ).galleryOrderKey,
         )
     }
 

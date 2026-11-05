@@ -1,13 +1,241 @@
-# Search a timeline, scope a report, and read a stable count
+# Scope every report by worksheet, follow the workbook's own order, read dates as dates
 
-**v2.4.0-dev.4 is a development build** of 2.4.0: the Insights directory is now ordered **Health, Analytics,
-Gallery, Timeline** (analysis first, browsing second), its entries show the section name above the count
-instead of squeezing both onto one line, the timeline can be **searched and narrowed to a year range** and
-returns to the top when you switch between Published and Acquired, the gallery's search bar no longer sits on
-top of its filter chips, and the Health report and the analytics can be limited to **any set of worksheets**
-with every number and breakdown recalculated for that selection.
+**v2.4.0 is a stable release.** The Insights gallery can now be limited to **any set of worksheets** —
+all of them, one, or several — and that selection composes with its search, cover and missing-data
+filters. Every worksheet selection and every timeline year range is **remembered per workbook**, when two
+records share a date the timeline now follows the workbook's own **Default order** column, the rarely used
+**Imported** timeline is gone (Timeline keeps **Published** and **Acquired**), and in *Catalogue → Table* a
+date-formatted cell is shown as a date (`2026-10-31`, or `2026-10-31 14:30`) with a percentage rounded to
+**two decimals at most** (`12.35%`). One display rule now caps every measurement at two decimals, while the
+stored values are left exactly as the workbook wrote them.
 
-This is a beta. The layout and the wording may still change before 2.4.0 is released.
+The **Source location** preview reads its cells with that same rule and is now tappable like the table — every
+value, link and copy describes the **original worksheet cell**, not the position on screen — and the
+**Default order** column can be changed from *Insights → Fields* with a real button and is remembered per
+workbook.
+
+## v2.4.0 (2026-10-31)
+
+### Added
+
+* **A worksheet filter on the Gallery.** Inside *More → Workbook comments → Insights → Gallery* the filter
+  bar now starts with *Worksheets: All worksheets / LIST / 2 of 3 worksheets*, which opens the same
+  worksheet picker the Health and Analytics reports use: all worksheets, one, or any combination, with each
+  worksheet's record count and hidden state, and **Use these worksheets** to commit.
+  The selection is a set of worksheet **identities** (the package part, `xl/worksheets/sheet5.xml`), not
+  display names — renaming a worksheet in Excel keeps the selection, and a key the workbook no longer has
+  is reconciled instead of hiding every card. It filters the records **before** anything else runs, so it
+  changes what the grid holds rather than hiding cards after they were chosen: search, *With cover*,
+  *No cover*, *Missing title*, *Missing metadata*, every sort order, the count line (`12 of 40 record(s)`)
+  and the scroll reset all work with it. Gallery, Health and Analytics each keep their **own** selection.
+  A workbook opened in a fresh session starts at *All worksheets*, so a selection cannot follow the user
+  into another file.
+* **A worksheet filter on Health, Analytics and the Gallery that is remembered.** Each of the three screens
+  keeps its own selection — all worksheets, one, or several — and it now survives navigation, closing the
+  workbook and restarting the app: `files/mappings/insights-views.json` stores it per workbook (its SHA-256),
+  never per display name, and a saved key the workbook no longer has is dropped instead of matching some
+  other sheet. None of the three can overwrite another's selection.
+* **The timeline's year filter is remembered too**, separately for Published and Acquired, so reopening a
+  workbook comes back to the period the user was reading.
+* **Linked cells in the Catalogue table, and a cell dialog to act on them.** The workbook's own hyperlinks
+  (`<hyperlinks>` plus the worksheet's `.rels`) are now kept with the cell they belong to: a linked value is
+  drawn in the accent colour and underlined, and tapping any cell opens a centred dialog with its value and
+  three stacked actions — **Copy** (the displayed text, exactly as shown), **Open Link** (only for a link the
+  workbook really stores: an `http(s)`/`mailto` destination goes to the browser, an in-workbook `location`
+  opens that cell in the app's own source view) and **Back** — outside a tap on the card the dialog closes.
+  Nothing is inferred from the text: a cell that merely looks like a URL has no link, and the destination
+  never replaces the displayed value.
+* **A "Default order" field for the workbook's own ordering column.** *Insights → Fields* now has an
+  optional **Default order** field — a serial number, a shelf position, anything the user picks. It is
+  mapped like any other field (any header, any language, any position), can be changed or cleared, and the
+  screen shows what the chosen column really holds (how many values are numbers, how many are text, how many
+  are blank, plus examples). Nothing is inferred from a header name: the field is offered, never forced.
+  When two records share a Published or Acquired date, the timeline now orders them by this column —
+  **ascending**, numerically (`2` before `10`, `0012` the same as `12`), and text values predictably after
+  numbers. A record with no value sorts last and keeps its verified source row as the final tie-break, so
+  nothing is invented. Changing the mapping changes the order; without it, the timeline keeps its previous
+  behaviour.
+* **The Source location preview reads and behaves like the table.** The worksheet window that *go to source*
+  opens used to print the raw cell — a date-formatted serial showed as `45292`, a percentage as `0.123456` —
+  and no cell could be inspected. Every cell is now drawn the way the workbook shows it, through the **same**
+  number-format rule the Catalogue table uses (one call, two screens, so the same cell can never read two
+  ways), every cell is a touch target that opens the same **Copy / Open Link / Back** dialog, and a cell the
+  workbook links is drawn in the accent colour and underlined. The dialog's identity is the worksheet's own
+  row and column — the window shows about thirteen rows around the verified cell, so the drawn position is
+  never used as the identity — and the value, the hyperlink and *Open Link* therefore always describe the
+  cell that was tapped. Header cells are inspectable too, whether the header row is inside the window or
+  carried above it.
+* **The mapping is remembered per workbook.** *Insights → Fields* now stores the mapping in effect next to the
+  other per-workbook settings (`files/mappings/workbook-mappings.json`, keyed by the workbook's SHA-256), so
+  a manual choice — the Default order column included — is still in effect after navigating away, closing the
+  workbook or restarting the app, instead of falling back to detection. Picking **Detected** removes the
+  stored entry; nothing unapplied is ever stored.
+
+### Changed
+
+* **The Rescan button is now the blue of the Saved workbooks Import button** (`Palette.NavyGradient`, the
+  same token, not a new blue), so it reads as the primary action of the header next to the grey Back button.
+  Its size, typography, and its loading/disabled behaviour are unchanged.
+* **Cover first is no longer a gallery order.** Cover state stays a **filter** (*With cover* / *No cover*)
+  driven by the verified image association; the separate "Cover first" ordering option is gone, so the four
+  remaining orders describe the workbook (title, Circle, Artist, source order) and nothing ranks cards by
+  their picture.
+* **Numbers are displayed with at most two decimals, everywhere.** One shared rule
+  (`Formatting.decimal`) now formats every measurement the app shows: a similarity score reads `0.81`
+  instead of `0.812`, a workbook cell whose number format declares decimals reads `1234.57` instead of
+  `1234.5678`, and percentages keep their own formatting (`12.35%`). This is a **display** rule only —
+  nothing is rounded before it is stored, aggregated, sorted, filtered or exported, and a value that is not
+  a measurement is left alone: `General` and integer cells (identifiers, serial numbers, row numbers, page
+  counts) keep every digit they had.
+* **Timeline: Published and Acquired only.** The **Imported** mode was removed from the timeline: it
+  repeated every record once, under the app's own import date rather than a date the collection has. Both
+  remaining modes, their manual column choices, their filters, their ordering and the scroll reset are
+  unchanged. Nothing else about import metadata changed — the saved-workbook library still records and sorts
+  by its import timestamp.
+* **Catalogue → Table shows dates as dates.** A cell whose number format is a date was printed as the
+  serial number Excel stores (`45292`); it now reads `2024-01-01`, and `2024-01-01 14:30` when the cell also
+  carries a time. The workbook's own date system is honoured (@1900/@1904), and the record's stored value is
+  untouched, so filters, search, exports and the canonical catalog keep reading exactly what the file
+  contains.
+* **A percentage cell is rounded to two decimals.** A cell formatted as a percentage was printed as the
+  stored fraction (`0.123456`); it now reads `12.35%`, `50%`, `100%`, `0%`. Trailing zeros are dropped, the
+  fraction is scaled exactly once, and a cell that is *not* percentage-formatted never gains a `%`. Nothing
+  is rounded before it is stored.
+
+### Fixed
+
+* **Rescan now refreshes every Insights function in place.** Clicking **Rescan** while the Insights
+  directory was open dropped the parsed data but rebuilt nothing, so Health, Analytics, Gallery, Timeline and
+  Fields only came back after leaving the directory and returning. A finished rescan now rebuilds the catalog
+  and all five functions from the new analysis immediately, re-previews the Fields draft, and keeps every
+  choice the user made (profiles, worksheet scopes, gallery and timeline filters, chosen date columns) — the
+  panels show a reading state instead of an empty report while it runs, and a failed scan clears that state
+  instead of leaving them stuck.
+* **The global Sheets button is gone.** One button in the shared header opened the worksheet picker for every
+  directory, including the three that keep their own independent worksheet scope. It was removed; the picker
+  is still opened where it belongs (Comments, Images, Catalogue), and no worksheet feature was touched.
+* **A manual mapping now outranks automatic detection.** A mapping applied from the Fields screen without
+  being saved as a profile was silently reverted to the detected one on the next rebuild (and would have been
+  on a rescan). It is now kept in the state, used by every report until the user picks a profile or
+  **Detected**, and the Fields screen says which of the three is in effect.
+* **The Default order column can be changed in Fields.** The field had no visible control of its own: the row's
+  only affordance was a muted word, and the read-only card beside it looked like the whole story, so the one
+  column the timeline depends on appeared locked. Every mapped field now shows a bordered **Change** button, and
+  **Default order** has its own card with **Change / Choose column**, **Clear** and **Use detected** — the same
+  column picker the other fields use, with *Not mapped* available — plus a line saying which column detection
+  would use. The picker also no longer fails when two columns carry the same header (both stay choosable, and
+  the resolver keeps reporting the ambiguity).
+* **Applying an unchanged mapping keeps the Detected status.** The indicator was a pair of state flags ("no
+  profile picked, no manual mapping applied"), so **Apply mapping** on a mapping that was identical to the
+  detected one turned it grey even though nothing had changed — it reported the click instead of the mapping.
+  It now compares the mapping **in effect** with the mapping detection would choose for that worksheet, by
+  meaning rather than by object: trimmed, case-folded headers, blank ("not assigned") values ignored, fields
+  present on one side only a difference. Applying exactly what detection found stores no override at all, so
+  the status stays blue and nothing is written; changing one or more assignments turns it grey; putting the
+  detected assignments back — or picking **Detected** — turns it blue again.
+* **Detected and a saved profile are two independent views, and picking one only changes what is shown.** The
+  Fields screen's chips used to *apply* a profile to the worksheet on screen, and the indicator compared state
+  flags, so it was never clear whether a profile had been picked or a mapping merely matched. Picking **Detected**
+  or a profile now **switches which configuration is displayed and used**: Detected is derived from the workbook's
+  own headers whenever it is needed and is never written to, and each saved profile keeps its own record. A switch
+  in either direction copies, merges and rewrites nothing, so Detected → profile → Detected → profile shows each
+  configuration exactly as it was, and the draft, the reports and the "mapping in effect" line follow the view.
+  Applying a mapping on top of the selected view stays a separate, explicit action; switching the view drops the
+  edits that belonged to the previous one (they are this workbook's session state, not saved data), and **Save
+  profile** is how an edit is kept.
+* **A saved profile holds one mapping per worksheet, and saving one carries the others forward.** A profile was a
+  single column set, so saving it while `LIST` was on screen made `LIST`'s header names the mapping of **every**
+  worksheet: the other worksheets were re-resolved with them, their own detected mappings were lost, and `LIST`'s
+  blank fields appeared as unmapped everywhere. A profile is now a snapshot of **several worksheets**, keyed by
+  worksheet identity (the worksheet's package part), because two worksheets rarely share a header row. Saving a
+  new profile records the worksheet on screen with the user's edits and **every other worksheet with the mapping
+  it already has** (the selected profile's entry, or its own detected headers), so untouched worksheets are
+  inherited rather than reset or overwritten, an empty value stays where it was cleared, and the worksheet on
+  screen is never a template for the others. Deriving a profile from another profile keeps that profile's
+  customisations and replaces only the worksheets actually edited. A worksheet a profile says nothing about (one
+  added later, or another workbook's) is read with its own detected headers instead of borrowing a mapping.
+  Deleting a profile changes no worksheet: the view falls back to Detected. `profiles.json` is now schema 2 (one
+  entry per worksheet; a schema-1 profile still loads as the single column set it was), and
+  `files/mappings/workbook-mappings.json` remembers the selected view and the per-worksheet edits, migrating a
+  file written by the previous build (one column set for the whole workbook) to the worksheets that really have
+  those headers.
+* **A price, a page count or an identifier can no longer look like a date.** The display decides what a
+  number means from the cell's **own number format** (`xl/styles.xml` + the cell's style index), never from
+  its value: `45292` is a date only in a date-formatted cell, and a bare number in a `General` or integer
+  cell keeps its digits. Text cells are never formatted, even when their style says otherwise, and invalid
+  or ambiguous values (`0`, Excel's fictitious `1900-02-29`) keep their stored text rather than being
+  shifted to a neighbouring day.
+* **The Images tab's catalogue filter keeps working with formatted columns.** Its value list and its
+  matching now use the same displayed text the Catalogue table shows, so a date filter still finds the rows
+  it lists.
+
+### Verified
+
+* 781 JVM tests, 0 failures, 7 skipped by design (4 opt-in live provider checks and 3 real-workbook tests
+  whose 40 MB files are not committed), across 94 result classes. 64 of them are new for this release: the
+  Gallery worksheet filter 11, date and percentage formatting 11, the formatting workbook 4, the Default
+  Order mapping and its timeline tie-break 10, the persisted views 8, the rescan state 4, the cell dialog and
+  mapping precedence 5, the hyperlink parser 7, the real-workbook date/order/link checks 3 and the 1904
+  date-system case 1, minus one test for the removed import timeline, plus 26 for the source-preview and
+  mapping-persistence corrections (`SourceWindowFormattingTest` 14, `MappingPersistenceTest` 11 and the real
+  workbook reading identically in both table views 1), 29 for the Detected-status and per-worksheet-mapping
+  corrections (`DetectedStatusTest` 14, `WorksheetMappingIsolationTest` 12, three more in
+  `MappingPersistenceTest`), and 5 more for this round: `ProfileViewSwitchingTest` 7 (the switching matrix:
+  Detected → profile → Detected → profile, two profiles in turn, the draft following the view, no profile
+  changing) plus `WorksheetMappingIsolationTest` 11 and `DetectedStatusTest` 14 rewritten around profile
+  inheritance (`MappingPersistenceTest` 13 covers the view, the edits and both migrations). The regression
+  suite — health, gallery, analytics, timeline, catalogue, source navigation, rescan and the persisted
+  views — still passes unchanged.
+* The new date and percentage reading was run against the real `test_excel/doujin.xlsx`: its `出版日付` and
+  `購入日` columns are `yyyy"年"m"月"d"日"`-formatted serials and display as dates, while `価格（稅込）` and
+  `ページ数` stay numeric. Its `通し番号` column is detected as the Default order and really does order the
+  records that share a publication date, and its stored hyperlinks (the circle column links to a shop search)
+  reach the right cells while the cells keep their own text.
+* The workbook's date system is honoured everywhere a serial is read — the table, the date-column preview,
+  both timelines, the analytics' year buckets and the source preview — so a 1904 workbook cannot show one year
+  in the table and another on the timeline (pinned by a dedicated test).
+* The source preview was checked against the same real `test_excel/doujin.xlsx`: every column of a record reads
+  identically in the Catalogue table and in the window, and the workbook's stored hyperlinks reach the same
+  cells in both.
+* Debug build: BUILD SUCCESSFUL, version 213 / 2.4.0.
+
+### Known limitations
+
+* The formatted text is a **display** value: the CSV export, the catalogue filters' identity and the
+  canonical catalog keep the stored text, in both views alike. A filter is chosen from what the table shows,
+  so two source values that display identically are one filter chip.
+* Percentages are capped at two decimals even when a format asks for more (`0.00000%` still shows two), and
+  are not padded when a format asks for fewer, so the two-decimal rule is applied to the value rather than
+  copied from the format's own precision.
+* The two-decimal rule reaches a workbook cell only when its number format declares decimals (`0.00`,
+  `#,##0.00`); `General` and integer cells are shown exactly as stored, because an integer cell is as likely
+  an identifier as a measurement. The workbook's own currency symbol is not re-rendered — the table shows the
+  number, as it always did.
+* Only `http`, `https` and `mailto` destinations are handed to the browser, and only `Sheet!Cell` locations
+  are followed inside the workbook. A `file://` link, a defined name or a scheme with no handler keeps its
+  value and its link, but **Open Link** is not offered for it.
+* The cell dialog, the source preview's cells and the Fields buttons were compiled and covered by state tests,
+  but not tapped through on a device; the dialog's clipboard and browser calls need an Android runtime and are
+  not unit-tested.
+* The source preview draws at most 96 columns of a worksheet (and says how many it left out), and a hyperlink
+  whose `ref` covers more than 1024 cells is attached to that range's first cell rather than expanded.
+* The stored mapping is the one that was **applied**; a draft that was never applied is not remembered. It is
+  stored per worksheet, so each worksheet of a workbook keeps its own mapping — and a mapping identical to what
+  the selected view already gives that worksheet is not stored at all, because it changes nothing.
+* Switching the view drops the edits applied on top of the previous view: they are the session state of one
+  configuration, not saved data, so an edit that should outlive a switch has to be saved as a profile.
+* A profile covers the worksheets it was saved with. A worksheet it has no entry for (one added to the workbook
+  later, or another workbook's) is read with its own detected headers rather than with a column set borrowed
+  from a sibling, so reusing a profile on a different workbook is safe but not automatic.
+* When a profile whose mapping is exactly detection's is selected, the **Detected** chip stays blue (the mapping
+  in effect *is* detection) while that profile's chip is also highlighted (it is the selected view): both
+  statements are true, and the line under the chips names the view that is showing.
+* The Images and Catalogue worksheet picker is session state: it is not remembered per workbook the way the
+  three Insights scopes are.
+* None of the layout (the gallery's worksheet bar, the picker, the table cells, the source window's cells, the
+  Fields buttons) was driven on a device or an emulator, and no screen width was measured.
+
+**Version code/name: 213 / 2.4.0.**
 
 ## v2.4.0-dev.4 (2026-10-31)
 

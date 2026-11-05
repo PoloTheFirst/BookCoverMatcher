@@ -5,15 +5,31 @@ import com.bookcovermatcher.core.excel.ZipSource
 import org.xml.sax.Attributes
 import org.xml.sax.helpers.DefaultHandler
 
-/** A cell that carried a value: zero-based row/column plus its text. */
-data class CellValue(val row: Int, val col: Int, val text: String)
+/**
+ * A cell that carried a value: zero-based row/column, its **stored** text, and the metadata the display
+ * layer needs to read that text the way the workbook shows it.
+ *
+ * [text] is never replaced by a formatted value: a date cell keeps its serial number and a percentage cell
+ * keeps its fraction, so filters, searches and stored values continue to see exactly what Excel stored.
+ */
+data class CellValue(
+    val row: Int,
+    val col: Int,
+    val text: String,
+    /** The cell's `s` attribute (an index into `cellXfs`), or -1 when the cell declared none. */
+    val styleIndex: Int = -1,
+    /** True for a numeric cell; a string, boolean or error is never formatted as a number. */
+    val numeric: Boolean = false,
+)
 
 /**
  * Reads a worksheet's cells and the workbook's shared strings.
  *
  * Only what the catalogue features need: text values (shared, inline, formula strings), numbers and
- * booleans. A number stays the text Excel stored — nothing is guessed, and no date conversion is
- * invented. Reading is bounded by [maxRows]/[maxCols] so a hostile sheet cannot exhaust memory.
+ * booleans. A number stays the text Excel stored — nothing is guessed, and no date conversion is invented
+ * here. What *is* kept is the cell's own style index, so the display layer can read a formatted date or
+ * percentage the way the workbook shows it without the stored value ever being rewritten. Reading is
+ * bounded by [maxRows]/[maxCols] so a hostile sheet cannot exhaust memory.
  */
 object SheetCells {
 
@@ -115,6 +131,7 @@ object SheetCells {
         var row = -1
         var col = -1
         var type = ""
+        var style = -1
         var value: StringBuilder? = null
         var inValue = false
         var inline: StringBuilder? = null
@@ -133,6 +150,7 @@ object SheetCells {
                         val cell = refToCell(attributes?.let { WorkbookSheets.attributeByLocal(it, "r") })
                         col = cell?.second ?: (col + 1)
                         type = attributes?.let { WorkbookSheets.attributeByLocal(it, "t") } ?: ""
+                        style = attributes?.let { WorkbookSheets.attributeByLocal(it, "s") }?.toIntOrNull() ?: -1
                         value = StringBuilder()
                         inline = StringBuilder()
                         inValue = false
@@ -160,7 +178,9 @@ object SheetCells {
                             else -> raw
                         }.trim()
                         if (text.isNotEmpty() && row >= 0 && col >= 0 && col < maxCols) {
-                            out.add(CellValue(row, col, text))
+                            // Only an untyped or `n` cell carries a number; every other type is text.
+                            val numeric = type.isEmpty() || type.equals("n", ignoreCase = true)
+                            out.add(CellValue(row, col, text, style, numeric))
                         }
                         value = null
                         inline = null

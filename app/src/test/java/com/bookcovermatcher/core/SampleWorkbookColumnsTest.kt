@@ -1,20 +1,31 @@
 package com.bookcovermatcher.core
 
+import com.bookcovermatcher.core.catalog.CatalogField
+import com.bookcovermatcher.core.catalog.CatalogFixtures
+import com.bookcovermatcher.core.catalog.CollectionTimelineBuilder
+import com.bookcovermatcher.core.catalog.ColumnMappings
 import com.bookcovermatcher.core.catalog.DateColumnState
+import com.bookcovermatcher.core.catalog.SheetDateChoice
+import com.bookcovermatcher.core.catalog.TimelineDateSettings
 import com.bookcovermatcher.core.catalog.TimelineDates
 import com.bookcovermatcher.core.catalog.TimelineMode
+import com.bookcovermatcher.core.catalog.WorkbookCatalogBuilder
 import com.bookcovermatcher.core.excel.JavaZipSource
 import com.bookcovermatcher.core.excel.comments.CatalogueFiltering
 import com.bookcovermatcher.core.excel.comments.CatalogueReader
 import com.bookcovermatcher.core.excel.comments.CatalogueTable
 import com.bookcovermatcher.core.excel.comments.CellValue
 import com.bookcovermatcher.core.excel.comments.SheetCells
+import com.bookcovermatcher.core.excel.comments.SheetLinks
 import com.bookcovermatcher.core.excel.comments.SheetWindows
 import com.bookcovermatcher.core.excel.comments.WorkbookSheets
+import com.bookcovermatcher.core.excel.comments.WorkbookStyles
 import java.io.File
 import java.util.zip.ZipFile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -102,6 +113,143 @@ class SampleWorkbookColumnsTest {
         assertEquals(0, window.hiddenColumns)
         assertEquals("X", window.columns.last().letter)
         assertEquals(24, window.rows.first().values.size)
+    }
+
+    @Test
+    fun `the sample workbook's date column reads as dates while its serial values stay`() {
+        assumeTrue("sample workbook not present: ${file.path}", file.isFile)
+        ZipFile(file).use { zip ->
+            JavaZipSource(zip).use { source ->
+                val styles = WorkbookStyles.read(source)
+                assertFalse("the workbook declares its own number formats", styles.isEmpty)
+                val sheet = WorkbookSheets.list(source).first { it.name == "LIST" }
+                val table = CatalogueReader.read(source, sheet.partPath, sheet.name, styles = styles)
+                assertNotNull("LIST must read as a catalogue table", table)
+                val published = table!!.fields.first { it.name == "出版日付" }
+                val dated = table.records.filter { it.value(published).isNotEmpty() }
+                assertTrue(dated.isNotEmpty())
+
+                // Stored: what Excel wrote. Displayed: the date its own format means.
+                assertTrue(
+                    "stored values are serial numbers: ${dated.take(3).map { it.value(published) }}",
+                    dated.all { it.value(published).matches(Regex("\\d{4,6}(\\.\\d+)?")) },
+                )
+                assertTrue(
+                    "displayed values are dates: ${dated.take(3).map { it.display(published) }}",
+                    dated.all { it.display(published).matches(Regex("\\d{4}-\\d{2}-\\d{2}")) },
+                )
+
+                // The price and the page count are numbers: they must never become dates.
+                val price = table.fields.first { it.name.contains("価格") }
+                val pages = table.fields.first { it.name == "ページ数" }
+                val record = table.records.first { it.value(price).isNotEmpty() && it.value(pages).isNotEmpty() }
+                assertEquals(record.value(price), record.display(price))
+                assertEquals(record.value(pages), record.display(pages))
+                assertFalse(record.display(price).contains("-"))
+            }
+        }
+    }
+
+    @Test
+    fun `the serial column is offered as the default order and breaks a date tie`() = withListSheet { table, _ ->
+        // Detection is a starting point, not a decision: the field is offered because the workbook has a
+        // column whose header the field knows, and the user can change or clear it.
+        val profile = ColumnMappings.detectedProfile(table)
+        assertEquals("通し番号", profile.columns[CatalogField.DEFAULT_ORDER])
+
+        val catalog = WorkbookCatalogBuilder.build(
+            workbookSha256 = "sample",
+            sheets = CatalogFixtures.sheets("LIST"),
+            tables = listOf(table),
+            images = emptyList(),
+            profile = profile,
+        )
+        assertTrue(catalog.entries.all { it.defaultOrder != null })
+        // Every value is the workbook's own text, not an index the app invented.
+        val first = catalog.entries.first()
+        val column = table.fields.first { it.name == "通し番号" }
+        assertEquals(table.records.first { it.row == first.row }.value(column), first.defaultOrder)
+
+        val timeline = CollectionTimelineBuilder.published(
+            catalog,
+            TimelineDateSettings("sample", mapOf("LIST" to SheetDateChoice("出版日付", null))),
+        )
+        val ordered = CollectionTimelineBuilder.ordered(timeline.sections, ascending = false)
+            .flatMap { it.entries }
+        assertTrue("the sample has records to place", ordered.size > 100)
+        // Inside one shared publication date the workbook's own order decides — the timeline does not
+        // alphabetise the records that happen to have the same date.
+        val tied = ordered.groupBy { it.date }.values.first { it.size > 1 }
+        val values = tied.map { java.math.BigDecimal(it.defaultOrder!!) }
+        assertEquals(values.sorted(), values)
+    }
+
+    @Test
+    fun `the sample workbook's linked cells keep their destinations apart from their text`() = withListSheet { table, _ ->
+        // The fixture really does store hyperlinks (its circle column links to a shop search), so this is a
+        // regression check on the real thing rather than on a synthetic package.
+        val linked = table.records.filter { record -> table.fields.any { record.linkOf(it) != null } }
+        assertTrue("the sample stores hyperlinks", linked.isNotEmpty())
+
+        val circle = table.fields.first { it.name == "サークル名" }
+        val withLink = linked.first { it.linkOf(circle) != null }
+        val link = withLink.linkOf(circle)!!
+        assertTrue("external target: ${link.target}", link.target.startsWith("http"))
+        assertTrue(link.isWeb)
+        assertTrue(link.isOpenable)
+
+        // The cell keeps its own text: the destination never replaces what the workbook displays.
+        assertFalse(withLink.display(circle).startsWith("http"))
+        assertEquals(withLink.value(circle), withLink.display(circle))
+
+        // A column the workbook does not link reports no link, so nothing is fabricated from the text.
+        val title = table.fields.first { it.name == "ブック名" }
+        assertNull(linked.first().linkOf(title))
+    }
+
+    @Test
+    fun `the source window reads the same dates and links as the catalogue table`() {
+        assumeTrue("sample workbook not present: ${file.path}", file.isFile)
+        ZipFile(file).use { zip ->
+            JavaZipSource(zip).use { source ->
+                val styles = WorkbookStyles.read(source)
+                val sheet = WorkbookSheets.list(source).first { it.name == "LIST" }
+                val cells = SheetCells.read(source, sheet.partPath)
+                val links = SheetLinks.read(source, sheet.partPath)
+                val table = CatalogueReader.fromCells(cells, sheet.name, styles = styles, links = links)
+                assertNotNull("LIST must read as a catalogue table", table)
+                val record = table!!.records.first { row -> row.values.any { it.isNotBlank() } }
+                val window = SheetWindows.build(
+                    sheetName = sheet.name,
+                    sheetPath = sheet.partPath,
+                    cells = cells,
+                    targetRow = record.row,
+                    targetColumn = 0,
+                    headerRow = table.headerRow,
+                    styles = styles,
+                    links = links,
+                )
+
+                // One record, two views: every column must read exactly the same in both.
+                for (field in table.fields) {
+                    assertEquals(
+                        "column ${field.letter} reads the same in the table and in the source preview",
+                        record.display(field),
+                        window.cellAt(record.row, field.column)?.shown,
+                    )
+                }
+                // The workbook's own hyperlinks are attached to the same cells the table reports them for.
+                val linked = table.fields.filter { record.linkOf(it) != null }
+                assertTrue("the sample workbook stores hyperlinks", linked.isNotEmpty())
+                for (field in linked) {
+                    assertEquals(
+                        "column ${field.letter} keeps its destination in the preview",
+                        record.linkOf(field)?.target,
+                        window.cellAt(record.row, field.column)?.link?.target,
+                    )
+                }
+            }
+        }
     }
 
     @Test

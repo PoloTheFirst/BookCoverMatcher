@@ -26,8 +26,36 @@ data class CatalogueField(val name: String, val index: Int, val column: Int = in
 }
 
 /** One catalogue row: the values of [CatalogueTable.fields], in field order. */
-data class CatalogueRecord(val row: Int, val values: List<String>) {
+data class CatalogueRecord(
+    val row: Int,
+    val values: List<String>,
+    /**
+     * The same cells as the workbook **displays** them — a date-formatted serial as `2026-10-31`, a
+     * percentage-formatted fraction as `12.35%`. Empty when the parser had no styles to read (or was built
+     * from fixture cells), and [display] then falls back to [values].
+     *
+     * [values] is never replaced: the raw stored text is what filters, searches and the canonical catalog
+     * keep using, and the formatted text exists only for the screen.
+     */
+    val displayValues: List<String> = emptyList(),
+    /**
+     * The workbook's own hyperlinks of this row, keyed by source column. A cell without an entry simply has
+     * no link — nothing is inferred from its text.
+     */
+    val links: Map<Int, CellLink> = emptyMap(),
+) {
+    /** The stored text of [field]; what the workbook actually contains. */
     fun value(field: CatalogueField): String = values.getOrNull(field.index)?.trim().orEmpty()
+
+    /** The text of [field] as the workbook shows it; falls back to [value] when nothing is formatted. */
+    fun display(field: CatalogueField): String =
+        displayValues.getOrNull(field.index)?.trim()?.takeIf { it.isNotEmpty() } ?: value(field)
+
+    /** Every column's display text, aligned with [values] — what the table view draws. */
+    fun displays(): List<String> = if (displayValues.size == values.size) displayValues else values
+
+    /** The link the workbook stores for [field]'s cell, or null when that cell has none. */
+    fun linkOf(field: CatalogueField): CellLink? = links[field.column]
 }
 
 /**
@@ -75,15 +103,17 @@ data class CatalogueTable(
     }
 
     fun valuesOf(field: CatalogueField): List<String> =
-        records.asSequence().map { it.value(field) }.filter { it.isNotEmpty() }.distinct().sorted().toList()
+        records.asSequence().map { it.display(field) }.filter { it.isNotEmpty() }.distinct().sorted().toList()
 
     fun recordAt(row: Int): CatalogueRecord? = records.firstOrNull { it.row == row }
 
-    /** Case-insensitive search across every column of [record]. */
+    /** Case-insensitive search across every column of [record], by stored text and by displayed text. */
     fun matches(record: CatalogueRecord, needle: String): Boolean {
         val n = needle.trim()
         if (n.isEmpty()) return true
-        return fields.any { field -> record.value(field).contains(n, ignoreCase = true) }
+        return fields.any { field ->
+            record.value(field).contains(n, ignoreCase = true) || record.display(field).contains(n, ignoreCase = true)
+        }
     }
 }
 
@@ -106,13 +136,22 @@ object CatalogueReader {
         sheetName: String,
         shared: List<String> = SheetCells.sharedStrings(zip),
         maxRecords: Int = MAX_RECORDS,
+        styles: WorkbookStyles = WorkbookStyles.EMPTY,
     ): CatalogueTable? {
         val cells = SheetCells.read(zip, sheetPath, shared)
-        return fromCells(cells, sheetName, maxRecords)
+        // The workbook's own hyperlinks, kept beside the values so a cell's destination never replaces its text.
+        val links = runCatching { SheetLinks.read(zip, sheetPath) }.getOrDefault(emptyMap())
+        return fromCells(cells, sheetName, maxRecords, styles, links)
     }
 
     /** Same detection over already-read cells, so a caller that scanned a sheet once can reuse them. */
-    fun fromCells(cells: List<CellValue>, sheetName: String, maxRecords: Int = MAX_RECORDS): CatalogueTable? {
+    fun fromCells(
+        cells: List<CellValue>,
+        sheetName: String,
+        maxRecords: Int = MAX_RECORDS,
+        styles: WorkbookStyles = WorkbookStyles.EMPTY,
+        links: Map<Long, CellLink> = emptyMap(),
+    ): CatalogueTable? {
         if (cells.isEmpty()) return null
         val byRow = cells.groupBy { it.row }
         val headerRow = detectHeaderRow(byRow) ?: return null
@@ -141,13 +180,24 @@ object CatalogueReader {
 
         val records = ArrayList<CatalogueRecord>()
         for (row in (headerRow + 1)..(headerRow + maxRecords)) {
-            val values = columns.map { col -> byRowCol[row * 100_000L + col]?.text.orEmpty() }
+            val rowCells = columns.map { col -> byRowCol[row * 100_000L + col] }
+            val values = rowCells.map { cell -> cell?.text.orEmpty() }
             if (values.all { it.isEmpty() }) {
                 if (records.isNotEmpty()) break else continue
             }
             // A repeated header row is not a record.
             if (values.map { it.trim() } == headerTexts) continue
-            records.add(CatalogueRecord(row, values))
+            // The display spelling comes from each cell's own number format; the stored value above is
+            // left untouched, so a filter or a stored record still sees exactly what Excel stored.
+            val displays = rowCells.map { cell ->
+                if (cell == null) "" else styles.display(cell.styleIndex, cell.text, cell.numeric) ?: cell.text
+            }
+            // Hyperlinks are attached by source column, so a cell can never show its neighbour's link.
+            val rowLinks = LinkedHashMap<Int, CellLink>()
+            for (col in columns) {
+                links[SheetLinks.key(row, col)]?.let { rowLinks[col] = it }
+            }
+            records.add(CatalogueRecord(row, values, displays, rowLinks))
         }
         if (records.isEmpty()) return null
         return CatalogueTable(sheetName, headerRow, fields, records)
