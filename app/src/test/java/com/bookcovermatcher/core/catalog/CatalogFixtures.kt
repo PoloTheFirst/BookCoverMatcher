@@ -4,6 +4,7 @@ import com.bookcovermatcher.core.excel.comments.CatalogueField
 import com.bookcovermatcher.core.excel.comments.CatalogueHit
 import com.bookcovermatcher.core.excel.comments.CatalogueRecord
 import com.bookcovermatcher.core.excel.comments.CatalogueTable
+import com.bookcovermatcher.core.excel.comments.CatalogueTruncation
 import com.bookcovermatcher.core.excel.comments.ImageCoverage
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageState
@@ -50,7 +51,8 @@ object CatalogFixtures {
         headerRow: Int = 0,
         fields: List<CatalogueField> = fields(),
         records: List<CatalogueRecord> = emptyList(),
-    ): CatalogueTable = CatalogueTable(sheetName, headerRow, fields, records)
+        truncation: CatalogueTruncation? = null,
+    ): CatalogueTable = CatalogueTable(sheetName, headerRow, fields, records, truncation)
 
     fun sheets(vararg names: String): List<SheetInfo> = names.mapIndexed { index, name ->
         SheetInfo(name, "visible", null, "xl/worksheets/sheet${index + 1}.xml")

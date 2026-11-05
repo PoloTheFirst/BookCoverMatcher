@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.4.0** · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.4.0** (current development build `2.4.0-rc.7`, versionCode 214) · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -209,6 +209,24 @@ and a finding with a record or image all open the verified worksheet row through
   and another workbook starts from *All worksheets*.
 * **The gallery's search bar and filters are separated.** The bar has its own margins and a hairline in the
   palette's line colour above the chip rows; no font size changed and no filter behaves differently.
+
+### QA remediation: a silent truncation and a too-narrow default range (v2.4.0-rc.7)
+
+* **A catalogue that stops at an empty row now says so.** The reader ends a table at the first all-empty
+  row — deliberately, because skipping blank rows could merge two unrelated blocks that share one sheet —
+  so a sheet with data below that row was reported with fewer records than it holds and nothing explained
+  the difference (`layout_blank_rows.xlsx`: 8 comments, **3** records, no warning). The rows below the
+  blank row that carry data in the table's own columns are now counted, and the count is shown in
+  *Catalogue* under the record total and again under each worksheet's header in the Table view
+  ("5 rows below empty row 5 were not read — a blank row ends a table"), and as a warning in
+  *Insights → Health* that names the row numbers and how to fix the sheet. The stop rule, every fixture's
+  record count and every worksheet mapping are unchanged.
+* **The default range covers the layout the app documents.** A fresh install started on `A1:B20` while
+  the doujin catalogue keeps its 24 columns in `A:X` with the covers in the title column `D`, so a first
+  run against a real workbook found no images at all. The default is now `A1:Z5000` — planning an
+  extraction reads the workbook's drawing and comment anchors, so a wide range costs nothing per empty
+  cell — and the empty-result message names the range and says where covers usually sit. A range the user
+  has already typed is never overwritten.
 
 ### Gallery worksheet filter, dates and percentages (v2.4.0)
 
@@ -765,6 +783,8 @@ No step of this pipeline is online, and the online feature is never consulted by
 | Full JVM suite (v2.4.0-dev.2) | `.\gradlew.bat :app:testDebugUnitTest` | **574 tests**, 0 failures, 4 skipped by design, across 71 result classes; 87 of them new: `ColumnMappingTest` 14, `ColumnMappingStoreTest` 5, `WorkbookCatalogTest` 9, `HealthReportTest` 18, `CollectionAnalyticsTest` 9, `CollectionTimelineTest` 12, `GalleryViewTest` 10, `WorkbookInsightsUiTest` 10; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,015,505 bytes, version 210 / 2.4.0-dev.2 |
 | Full JVM suite (v2.4.0-dev.4) | `.\gradlew.bat :app:testDebugUnitTest` | **658 tests**, 0 failures, 7 skipped by design, across 81 result classes; 37 of them new: `TimelineFilterTest` 10, `SheetScopeTest` 5, `ScopedReportsTest` 8, `InsightsFilterUiTest` 11, `InsightsOrderTest` 3; `assembleDebug`: BUILD SUCCESSFUL, version 212 / 2.4.0-dev.4 |
 | Full JVM suite (v2.4.0) | `.\gradlew.bat :app:testDebugUnitTest` | **781 tests**, 0 failures, 7 skipped by design, across 94 result classes; 64 of them new: `GallerySheetFilterTest` 11, `CatalogueNumberFormatTest` 11, `DefaultOrderTest` 10, `InsightsViewPersistenceTest` 8, `SheetLinksTest` 7, `CellPeekAndMappingTest` 5, `CatalogueFormattingWorkbookTest` 4, `RescanStateTest` 4, the real-workbook date/order/link checks 3, the 1904 case 1, minus one test for the removed import timeline; plus `SourceWindowFormattingTest` 14 and `MappingPersistenceTest` 13 for the source-preview and persistence corrections; plus `DetectedStatusTest` 14, `WorksheetMappingIsolationTest` 11 and `ProfileViewSwitchingTest` 7 for the mapping and profile-view fixes; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,929,512 bytes, version 213 / 2.4.0 |
+| Full JVM suite (v2.4.0-rc.7) | `.\gradlew.bat :app:testDebugUnitTest` | **790 tests**, 0 failures, 0 errors, 7 skipped by design, across 96 result classes; 9 new: `CatalogueTruncationTest` 6 (the blank-row stop rule, the rows counted below it, leading blanks and out-of-table cells, and the per-worksheet health warning) and `DefaultRangeTest` 3 (the default range covers column `D`/`X` and 5000 rows, a fresh `UiState` starts on it, and `A1:B20` would have missed `D`); `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,194,901 bytes, version 214 / 2.4.0-rc.7 |
+| Emulator (v2.4.0-rc.7) | Pixel 8 AVD `emulator-5554`, Android 17 / API 37, `adb install -r`, app data cleared | Fresh install shows range `A1:Z5000`; `layout_blank_rows.xlsx` staged (`34 KB`) and read as **3 records with the warning** "LIST: 5 rows below empty row 5 not read" in *Catalogue*, the same note under the sheet header in Table view, and the health finding "Rows below an empty row were not read" naming rows 5–10; 0 fatal exceptions |
 | Full JVM suite (v2.4.0-dev.3) | `.\gradlew.bat :app:testDebugUnitTest` | **621 tests**, 0 failures, 7 skipped by design, across 76 result classes; 47 of them new: `WorksheetColumnsTest` 7, `TimelineDatesTest` 17, `TimelineDateUiTest` 9, `GalleryScrollTest` 6, `SampleWorkbookColumnsTest` 5 and 3 more timeline cases; `assembleDebug`: BUILD SUCCESSFUL, `app-debug.apk` 195,064,657 bytes, version 211 / 2.4.0-dev.3 |
 | Sample workbook (v2.4.0) | `.\gradlew.bat :app:testDebugUnitTest --tests "*SampleWorkbookColumnsTest"` | **9 tests**, 0 failures, run through the production reader on `test_excel/doujin.xlsx` (skipped when absent): `LIST` reads as **24 columns A–X** with 24 values on every record, `ツイッター`/`ツイッター (ユーザー名)`/`ミスキー`/`ミスキー (ユーザー名)` resolve to S/T/U/V, `出版日付` (G) and `購入日` (R) are readable date columns (serial numbers), `通し番号` is the detected Default order and really breaks a date tie, the workbook's stored hyperlinks keep their destinations apart from their text, every column of a record reads identically in the Catalogue table and in the source window, the source window draws all 24 columns, and the worksheet inventory is unchanged |
 | Debug build | `.\\gradlew.bat assembleDebug` | **BUILD SUCCESSFUL** |

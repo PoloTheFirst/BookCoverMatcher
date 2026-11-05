@@ -357,6 +357,19 @@ exactly that worksheet's coverless records. Gallery, Health and Analytics each k
 worksheet you renamed in Excel stays selected; one you deleted is dropped from the selection rather than
 leaving an empty grid.
 
+**A blank row inside a catalogue is reported, not hidden.** A sheet ends a table with an empty row, so the
+app stops reading there — that is deliberate, because rows below could be an unrelated block. When data
+does continue below the blank row, *Catalogue* now says so under the record count ("LIST: 5 rows below
+empty row 5 not read"), the Table view repeats it under that worksheet's header, and *Insights → Health*
+lists it as a warning with the row numbers. Nothing about the stop rule changed: the record count is
+still the rows above the gap.
+
+**The image range a fresh install starts on.** The matcher reads pictures from a cell range; it used to
+start at `A1:B20`, which is narrower than the doujin layout (24 columns in `A:X`, covers in the title
+column `D`), so a first run could find nothing. It now starts at `A1:Z5000`, and a range you type
+yourself is kept. If a scan still finds no images, the message names the range it used and reminds you
+that covers usually sit in the title column.
+
 **Dates and percentages in the Catalogue table.** In *More → Workbook comments → Catalogue → Table*, a cell
 that Excel formats as a date is shown as a date (`2018-12-31`, or `2018-12-31 14:30` when it also carries a
 time) instead of the serial number behind it (`43465`), and a cell formatted as a percentage is shown rounded

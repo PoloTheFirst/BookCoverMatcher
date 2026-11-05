@@ -14,6 +14,67 @@ value, link and copy describes the **original worksheet cell**, not the position
 **Default order** column can be changed from *Insights → Fields* with a real button and is remembered per
 workbook.
 
+## v2.4.0-rc.7 (2026-11-05)
+
+**Version code/name: 214 / 2.4.0-rc.7.** A QA-remediation build: the two defects the previous emulator
+engagement left open are fixed and re-verified on the Pixel 8 AVD. No feature was added and no parsing
+rule was changed.
+
+### Fixed
+
+* **A catalogue that stops at an empty row now says so.** The reader ends a table at the first all-empty
+  row, which is deliberate — skipping blank rows could merge two unrelated blocks that share one sheet —
+  but a sheet with data below that row was reported with fewer records than it holds and nothing
+  explained the difference: `layout_blank_rows.xlsx` showed 8 comments and **3** records, silently
+  (QA defect XLS-01). The reader now counts the rows below the blank row **that carry data in the
+  table's own columns** (`CatalogueTable.truncation`), and that fact is shown in three places: a warning
+  line under the record count in *Catalogue*, the same line under the worksheet's header in the Table
+  view ("5 rows below empty row 5 were not read — a blank row ends a table"), and a warning finding in
+  *Insights → Health* ("Rows below an empty row were not read", with the row numbers and how to fix the
+  sheet). The stop rule, every fixture's record count and every worksheet's mapping are unchanged.
+* **The matcher's default range covers the layout the app documents.** A fresh install started on
+  `A1:B20`, two columns wide, while the doujin catalogue keeps its 24 columns in `A:X` and its cover
+  pictures in the title column `D`, so a first run against a real workbook found nothing at all (QA
+  defect UI-01). The default is now `A1:Z5000` — a wide range costs nothing, because planning an
+  extraction reads the workbook's own drawing and comment anchors and keeps the ones inside the range —
+  and the empty-result message now names the range and says where covers usually sit, instead of only
+  reporting the emptiness. A range the user has already typed is never overwritten.
+
+### Tests
+
+* `CatalogueTruncationTest` (6): the record count still stops at the blank row, the rows below are
+  counted with their row numbers, leading blank rows and out-of-table cells are not a truncation, and the
+  health finding is a per-worksheet warning that names the rows.
+* `DefaultRangeTest` (3): the default range parses, contains the documented title column `D` and column
+  `X`, spans 5000 rows, is what a fresh `UiState` starts on, and the old `A1:B20` would have missed
+  column `D`.
+* Full suite: **790 tests, 0 failures, 0 errors, 7 skipped** across 96 result classes.
+
+### Verified on the emulator
+
+Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug APK installed with
+`adb install -r`, app data cleared first so a **fresh install** was tested:
+
+| Check | Result |
+|---|---|
+| Fresh install's range field | `A1:Z5000` |
+| `layout_blank_rows.xlsx` import | staged `layout_blank_rows.xlsx · 34 KB` |
+| Catalogue record count (unchanged) | `3 record(s) shown · all worksheets` |
+| Catalogue warning | `LIST: 5 rows below empty row 5 not read` |
+| Table view note | `5 rows below empty row 5 were not read — a blank row ends a table` |
+| Health finding | "Rows below an empty row were not read": the catalogue stops at row 5, 5 rows from row 6 are not counted, delete the empty row and rescan |
+| Fatal exceptions during the run | 0 |
+
+### Known limitations
+
+* A sheet whose records continue after an empty row is still read as one table up to that row: the app
+  reports what it skipped instead of guessing that the rows below belong to the same catalogue.
+* The "no images found" wording is verified by inspection; the full scan-and-find path was not re-driven
+  end to end in this round (it needs a camera capture or an image upload first).
+* Camera content scenarios (angled, low light, blurry, obstructed, several books) remain blocked on the
+  emulator: its virtual scene cannot be posed over adb, so those were neither tested nor claimed.
+
+
 ## v2.4.0 (2026-10-31)
 
 ### Added

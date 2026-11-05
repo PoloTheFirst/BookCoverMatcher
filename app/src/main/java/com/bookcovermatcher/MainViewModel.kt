@@ -779,8 +779,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (catalog.size == 0) {
                     lastRanked = emptyList()
                     _ui.update { it.copy(results = ResultsUi.Empty) }
+                    // The range is the likeliest reason a real workbook yields nothing: name it and say what
+                    // to change, instead of only reporting the emptiness (QA defect UI-01).
                     showToast(
-                        "No images found inside " + rangeText.trim().uppercase() + " (checked floating images and comment fills).",
+                        "No images found inside " + rangeText.trim().uppercase() +
+                            ". Covers are usually in the title column of the catalogue — widen the range " +
+                            "(e.g. A1:Z5000) if yours sits outside it.",
                         ToastKind.ERR,
                     )
                     return@launch
