@@ -622,6 +622,20 @@ fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsCont
             "${records.size} record(s) shown" + if (state.selectedSheet == null) " \u00B7 all worksheets" else "",
             color = Palette.Muted, fontSize = 9.5.sp,
         )
+        // A table that stopped at an empty row is not silently short here: the reader's rule and its
+        // consequence are both stated, per worksheet, instead of only in the health report (XLS-01).
+        val truncated = tables.filter { it.truncation != null }
+        if (truncated.isNotEmpty()) {
+            Text(
+                truncated.joinToString(" \u00B7 ") { table ->
+                    val truncation = table.truncation
+                    val rows = if (truncation?.skippedRows == 1) "1 row" else "${truncation?.skippedRows} rows"
+                    "${table.sheetName}: $rows below empty row ${(truncation?.blankRow ?: 0) + 1} not read"
+                },
+                color = Palette.Warn, fontSize = 9.5.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
         Spacer(Modifier.height(4.dp))
         when (state.catalogueView) {
             CatalogueView.CARDS -> RecordCards(records, state, controller)
@@ -760,6 +774,13 @@ private fun TableSheetHeader(table: CatalogueTable, shown: Int) {
             "$shown of ${table.records.size} record(s) shown",
             color = Palette.Muted, fontSize = 9.sp,
         )
+        table.truncation?.let { truncation ->
+            val rows = if (truncation.skippedRows == 1) "1 row" else "${truncation.skippedRows} rows"
+            Text(
+                "$rows below empty row ${truncation.blankRow + 1} were not read \u2014 a blank row ends a table",
+                color = Palette.Warn, fontSize = 9.sp,
+            )
+        }
     }
 }
 

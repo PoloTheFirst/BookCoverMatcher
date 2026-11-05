@@ -61,6 +61,25 @@ data class CatalogueRecord(
 }
 
 /**
+ * What a catalogue reader left **below** the empty row that ended the table.
+ *
+ * A sheet ends a table with a blank row, so the reader stops at the first all-empty row after data
+ * has started. That is the documented rule (and the authentic workbook never breaks it), but when
+ * data *does* continue below such a row the user would otherwise be shown fewer records than the
+ * sheet holds, with nothing explaining the difference (QA defect XLS-01). This value carries the
+ * fact to the report instead of changing the stop rule, which would risk merging two unrelated
+ * tables that share a sheet.
+ */
+data class CatalogueTruncation(
+    /** The all-empty row the table stopped at, zero-based, as the sheet stores it. */
+    val blankRow: Int,
+    /** How many rows below it carry data in this table's columns. */
+    val skippedRows: Int,
+    /** The first of those rows, zero-based — what a message points the user at. */
+    val firstSkippedRow: Int,
+)
+
+/**
  * A worksheet that looks like a catalogue table.
  *
  * **Nothing here is hardcoded to a sheet name, a column number or a Japanese header.** The header row is
@@ -76,6 +95,8 @@ data class CatalogueTable(
     val headerRow: Int,
     val fields: List<CatalogueField>,
     val records: List<CatalogueRecord>,
+    /** Rows the blank-row stop rule left unread, or null when the table ended with the sheet. */
+    val truncation: CatalogueTruncation? = null,
 ) {
     private fun alias(vararg needles: String): CatalogueField? = fields.firstOrNull { field ->
         val name = field.name.lowercase()
@@ -181,11 +202,18 @@ object CatalogueReader {
         val headerTexts = columns.map { col -> headerByColumn[col]?.text?.trim().orEmpty() }
 
         val records = ArrayList<CatalogueRecord>()
-        for (row in (headerRow + 1)..(headerRow + maxRecords)) {
+        var truncation: CatalogueTruncation? = null
+        val lastRow = headerRow + maxRecords
+        for (row in (headerRow + 1)..lastRow) {
             val rowCells = columns.map { col -> byRowCol[row * 100_000L + col] }
             val values = rowCells.map { cell -> cell?.text.orEmpty() }
             if (values.all { it.isEmpty() }) {
-                if (records.isNotEmpty()) break else continue
+                if (records.isNotEmpty()) {
+                    // The table ends here — but say so when data continues below, instead of silently
+                    // reporting fewer records than the sheet holds.
+                    truncation = truncationBelow(byRowCol, columns, row, lastRow)
+                    break
+                } else continue
             }
             // A repeated header row is not a record.
             if (values.map { it.trim() } == headerTexts) continue
@@ -202,7 +230,31 @@ object CatalogueReader {
             records.add(CatalogueRecord(row, values, displays, rowLinks))
         }
         if (records.isEmpty()) return null
-        return CatalogueTable(sheetName, headerRow, fields, records)
+        return CatalogueTable(sheetName, headerRow, fields, records, truncation)
+    }
+
+    /**
+     * Counts the rows below [blankRow] that carry data in the table's own columns.
+     *
+     * Only rows the reader would have read ([blankRow] + 1 .. [lastRow]) are examined, and only the table's
+     * columns count: a note written in a far column, or a comment shape, is not a record. Returns null when
+     * nothing follows the blank row, which is the normal end of a table.
+     */
+    private fun truncationBelow(
+        byRowCol: Map<Long, CellValue>,
+        columns: List<Int>,
+        blankRow: Int,
+        lastRow: Int,
+    ): CatalogueTruncation? {
+        var skipped = 0
+        var first = 0
+        for (row in (blankRow + 1)..lastRow) {
+            val hasData = columns.any { col -> byRowCol[row * 100_000L + col]?.text?.isNotBlank() == true }
+            if (!hasData) continue
+            if (skipped == 0) first = row
+            skipped++
+        }
+        return if (skipped == 0) null else CatalogueTruncation(blankRow, skipped, first)
     }
 
     /** The row with the most short, text-like, distinct cells near the top of the sheet. */

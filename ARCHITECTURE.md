@@ -247,6 +247,20 @@ dialogs                      │            CatalogIndex              └─ Wis
       decodes into `legacy` and is migrated by `restoredMapping(mapping, tables)` **per worksheet** (only the
       columns that worksheet really has). The controller restores it *after* the analysis is known
       (`restoreMapping()`), and a view whose profile has been deleted falls back to Detected.
+  * **v2.4.0-rc.7 — the blank-row stop rule is reported, and the default range is honest.** The reader
+    still ends a table at the first all-empty row (`CatalogueReader.fromCells`), because skipping blank rows
+    could merge two unrelated blocks that share a sheet; what changed is that the consequence is now data:
+    `CatalogueTable.truncation` (`CatalogueTruncation(blankRow, skippedRows, firstSkippedRow)`) counts the
+    rows below the gap that carry data **in the table's own columns** (`truncationBelow`, bounded by the
+    same `maxRecords` the reader uses), so a note in a far column is not a record. It is surfaced three
+    ways: `ui/WorkbookBrowserPanels.CatalogueBrowser` prints one warning line for the scoped tables and
+    `TableSheetHeader` repeats it under that sheet's header, and `HealthReportBuilder.structure` adds
+    `structure:blank-row:<sheet>` (STRUCTURE / WARNING / MANUAL) naming the rows and the fix. `Config.DEFAULT_RANGE`
+    is `A1:Z5000` (was `A1:B20`): `WorkbookImageExtractor.plan` filters the workbook's own anchors, so width
+    costs nothing per empty cell, and `UiState.rangeText`/`Prefs.range` start there while a stored or typed
+    range is never overwritten. `MainViewModel.findTopMatches` names the range in its empty-result message.
+    Pinned by `CatalogueTruncationTest` (6) and `DefaultRangeTest` (3) and re-verified on the Pixel 8 AVD
+    (see `BookCoverMatcher-QA/reports/v2.4.0-rc.7/emulator-test-report.md`).
 * The five features are sub-tabs of `CommentsSection.INSIGHTS` (`InsightsTab.HEALTH`/`ANALYTICS`/`GALLERY`/
   `TIMELINE`/`FIELDS`) rendered by `ui/WorkbookInsightsPanels`, not new top-level destinations.
   A gallery card, a timeline entry and a finding with a record or an image open the row/cell through the

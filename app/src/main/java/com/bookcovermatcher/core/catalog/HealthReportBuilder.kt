@@ -105,6 +105,31 @@ object HealthReportBuilder {
             )
         }
 
+        // A table that ended at an empty row, with data still below it: the reader stops where Excel ends a
+        // table, so the rows below are deliberately not guessed into the record list — but the user must be
+        // told they were left out instead of quietly seeing fewer records than the sheet holds (XLS-01).
+        for (table in tables) {
+            val truncation = table.truncation ?: continue
+            val rows = if (truncation.skippedRows == 1) "1 row" else "${truncation.skippedRows} rows"
+            out.putIfAbsent(
+                "structure:blank-row:${table.sheetName}",
+                HealthFinding(
+                    id = "structure:blank-row:${table.sheetName}",
+                    category = HealthCategory.STRUCTURE,
+                    severity = HealthSeverity.WARNING,
+                    title = "Rows below an empty row were not read",
+                    detail = "The catalogue of \u201C${table.sheetName}\u201D stops at row ${truncation.blankRow + 1}, " +
+                        "which is empty, so $rows below it (from row ${truncation.firstSkippedRow + 1}) are not " +
+                        "counted here. An empty row is how a sheet ends a table, so those rows are not read as " +
+                        "part of this catalogue.",
+                    action = "Delete the empty row inside the table, or move the block below it into its own " +
+                        "worksheet, then rescan.",
+                    resolution = HealthResolution.MANUAL,
+                    sheetName = table.sheetName,
+                ),
+            )
+        }
+
         // A scan limit and parsing diagnostics are facts about the package, not about one worksheet, so
         // they belong to the whole-workbook report only.
         if (scope.isAll && model?.truncated == true) {
