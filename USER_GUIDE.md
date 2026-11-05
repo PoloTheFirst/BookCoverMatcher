@@ -100,28 +100,33 @@ have. This does **not** change the offline comparison, which stays at five match
 If OCR fails, type a title and search anyway. If one provider is unavailable, the others still return
 results and the panel names the failure on that provider's card. Google Books can answer HTTP 429
 without an API key; this is reported, not hidden.
-### Reverse-image discovery (v2.5.0-dev.2)
+### Reverse-image discovery (v2.5.0-dev.3)
 
 Under **C · Reverse-image discovery** the Search tab can look for the *cover itself*, not just the text on it.
 
-1. **SauceNAO is tried first.** It needs your own SauceNAO API key: paste it once, tap **Save key**, and the app
-   stores it encrypted with an Android Keystore key. Afterwards it shows only `••••••••ab12`; **Remove** deletes
-   it. Without a key the row says **NEEDS KEY** and nothing is sent — the app never pretends SauceNAO searched.
-2. **IQDB is manual-only.** IQDB publishes no API and its `robots.txt` disallows its own search routes, so the
-   app does not submit your image to it. Tap **Open ↗** on the IQDB row, search there in your browser, then paste
-   what you found into **Paste an IQDB result** (one result per line, e.g.
-   `92% https://danbooru.donmai.us/posts/123`). Those rows are labelled as yours, not as an automated result.
-3. Tap **Search by this cover**. The two rows show their own states as they go — searching, results, nothing
-   found, timed out, rate limited, quota used up, blocked, manual only — and SauceNAO's results appear while IQDB
-   is still being handled. **Cancel** stops the run; nothing else is sent after it.
-4. Each candidate shows what it is, **who found it and with what number** (`SauceNAO 95.1% · IQDB 92%`). The two
-   numbers are never added together or averaged: they belong to different services.
+1. **SauceNAO is tried first.** It needs your own SauceNAO API key: paste it once and tap **Save key**; the app
+   stores it encrypted with an Android Keystore key. Afterwards it shows only `••••••••ab12`, with **Replace** (enter
+   a new key without losing the working one) and **Remove**. If saving ever fails, the message says *why* — a key the
+   device could not store is reported as a storage problem, not as a bad key. Without a key the row says
+   **NEEDS KEY** and nothing is sent.
+2. **IQDB is manual-only.** IQDB publishes no API and its `robots.txt` disallows its own search routes, so the app
+   does not submit your image to it. Tap **Open ↗** on the IQDB row, search there in your browser, then paste what
+   you found into the **Paste an IQDB result** box — it is always visible, one result per line, e.g.
+   `92% https://danbooru.donmai.us/posts/123`. Those rows are labelled as yours, not as an automated result.
+3. Tap **Search by this cover**. The two rows show their own states as they go — searching, results, nothing found,
+   timed out, rate limited, quota used up, blocked, manual only — and SauceNAO's results appear while IQDB is still
+   being handled. **Cancel** stops the run; nothing else is sent after it.
+4. Each candidate shows what it is, **who found it and with what number** (`SauceNAO 95.1% · IQDB 92%`), and the
+   SauceNAO row also shows the provider's remaining quota. The two numbers are never added together or averaged:
+   they belong to different services.
 5. **Confirm** or **Reject** records *your* decision for that candidate and remembers it (per wishlist profile).
-   Until you do, the card says **Suggestion — not confirmed by you**. Confirming does not edit the workbook and
-   does not add a wishlist entry — those stay separate, explicit actions.
-6. **Add listing** is the fallback for any site the app does not search (Melonbooks, Suruga-ya, Toranoana…).
-   Paste the listing URL and/or type the title, circle, author and product ID. Nothing is downloaded or scraped;
-   the entry is marked as yours and goes through the same review list.
+   Until you do, the card says **Suggestion — not confirmed by you**. Confirming does not edit the workbook and does
+   not add a wishlist entry — those stay separate, explicit actions.
+6. **Removing an IQDB card:** a card that IQDB produced has a **rubbish bin** at its top-right. Tapping it removes
+   *that card only* from the list on screen. It deletes nothing else: no other card, no SauceNAO result, no saved
+   decision, no bookmark, no wishlist entry. A later search may show the result again.
+7. **Found a listing yourself?** Use the **Wishlist** tab: it owns bookmarks and manual listings, keeps them apart
+   from online results and prevents duplicates. The Online tab is for searching, not for creating listings.
 
 **General-book sources** — the switch above the search box — turns Open Library and Google Books on or off. Off
 means **not queried at all** (not "searched and empty"), and DLsite, the doujin source, is never affected.

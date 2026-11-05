@@ -74,6 +74,93 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
 * Camera content scenarios (angled, low light, blurry, obstructed, several books) remain blocked on the
   emulator: its virtual scene cannot be posed over adb, so those were neither tested nor claimed.
 
+## v2.5.0-dev.3 (2026-11-05)
+
+**Version code/name: 218 / 2.5.0-dev.3.** A repair-and-refinement build: SauceNAO's API key can now actually be
+configured (it never could), the duplicate "Listing Candidate" flow is gone from the Online tab, and three IQDB
+UI defects are fixed.
+
+### Fixed
+
+* **SauceNAO automation: the API key was never stored, so the provider could never leave `NOT_CONFIGURED`.**
+  `AesGcmSecretBox.seal` passed a **caller-supplied GCM IV** to `Cipher.init(ENCRYPT_MODE, …)`, which an
+  `AndroidKeyStore` AES/GCM key forbids: the Keystore refused the operation (`CALLER_NONCE_PROHIBITED`, measured
+  on an API 37 emulator as `keystore2 … enforcements.rs: NONCE is present, although CALLER_NONCE is not present`).
+  `SauceNaoKeyStore.save` caught that failure and returned `false`, the UI reported it as "that does not look like
+  a SauceNAO key", and nothing was ever written to the secrets file. Encryption now lets the **cipher generate the
+  IV** and stores it in the envelope (`[12-byte IV][ciphertext‖tag]`), which works for both a Keystore key and a
+  plain JVM key; decryption still uses the stored IV, which the platform allows.
+* **A failed save is no longer indistinguishable from a typo.** `SauceNaoKeyStore.save` now returns a
+  `SauceNaoKeySaveResult` — `Saved`, `Rejected(MALFORMED)` or `Rejected(STORAGE_FAILED)` — with two different,
+  key-free messages (`SauceNaoKeyRules.describe`). The save also **round-trips**: the value is read back through
+  the same decrypt path before the app claims success, which is the check that would have caught this defect the
+  moment the user pressed the button.
+* **A stale run no longer blocks a fresh configuration.** Saving a key discards the previous SauceNAO run (a run
+  recorded before the key existed says `NOT_CONFIGURED`), and the write uses `commit()` so the round-trip reads
+  what was actually persisted.
+* **The IQDB suggestion line is readable.** `Suggestion — not confirmed by you` was drawn in the card's own navy
+  (`Palette.Navy700`) and was effectively invisible; the decision line now uses explicit **white** for
+  `SUGGESTED` (and keeps green/red for confirmed/rejected).
+
+### Added
+
+* **A rubbish-bin control on every IQDB result card.** It sits at the card's top-right, is labelled
+  `Dismiss IQDB result` for accessibility, and removes **only that card** from the current list: no other card, no
+  SauceNAO result, no decision record, no wishlist entry and no cached image is touched, and a later search may
+  legitimately show the result again. It is deliberately **not** shown on cards SauceNAO also found, so one tap
+  cannot discard the first-priority provider's evidence (`ReverseCandidateUi.isIqdbOnly`).
+* **`Replace` for the SauceNAO key.** A stored key now offers *Replace* next to *Remove*, opening the field without
+  deleting the working key first — a mistyped replacement cannot leave the user with no key at all.
+
+### Removed
+
+* **The "Listing Candidate" flow from the Online tab** (`Add listing`, its seven-field form, its controller state
+  and `core/online/ManualCandidate.kt` plus its tests). It duplicated what the Wishlist already does properly: the
+  Wishlist tab owns bookmarks, manual bookmarks and their deduplication/profile isolation, and this build leaves
+  that untouched. No stored data was migrated, deleted or rewritten. The IQDB paste box — the remaining way user
+  material enters the Online tab — is unaffected.
+
+### Changed
+
+* **The `Paste an IQDB result` section is always expanded.** The expand/collapse button and its state are gone, so
+  the field and its *Add results* action are visible as soon as the reverse-image section is reached.
+
+
+### Tests
+
+* `SauceNaoKeyRulesTest` (3) — key shape rules and the two distinct, key-free rejection messages.
+* `SecretBoxTest` additions (2) — the envelope carries the **cipher's** IV (the regression that broke SauceNAO),
+  and no IV ever repeats.
+* `IqdbCandidateUiTest` (5) — which cards are dismissible: IQDB-only yes, SauceNAO-only no, found-by-both no, and
+  provider attribution survives the UI mapping.
+* `ManualCandidateTest` (8) deleted with the feature it covered. Suite: **876 tests / 108 classes / 0 failures /
+  7 skipped**, no live network.
+
+### Live SauceNAO integration test (2026-11-05, API 37 emulator; key redacted)
+
+| Item | Result |
+|---|---|
+| API key configured through the app's own field | **PASS** — `API key: [REDACTED]` |
+| Secure storage written | **PASS** — `bookcover_online_secrets.xml`, base64 ciphertext only; no plaintext key in the file |
+| Key retrieval after save | **PASS** — masked hint `••••••••19a3` |
+| Provider readiness | **PASS** — row changed `NEEDS KEY` → `READY` |
+| Provider invoked / real request | **PASS** — `POST https://saucenao.com/search.php`, HTTP 200, `header.status = 0` |
+| Response parsing | **PASS** — 8 normalised hits, e.g. `SauceNAO 40.27%`, 38.26%, 38.16%, 37.83%, 36.81% |
+| Quota reported by the provider | **PASS** — `quota: 99 of 100 left` |
+| UI presentation | **PASS** — `RESULTS`, `8 candidate(s) · 8 undecided`; IQDB still `MANUAL ONLY` |
+| Key replacement | **PASS** — `••••••••19a3` → `••••••••3333` → `••••••••19a3`, `READY` throughout |
+| Secret-exposure check (logcat + prefs) | **PASS** — the full key, its first 8 and its last 4 characters do not appear in `logcat`; prefs hold ciphertext only |
+
+### Known limitations
+
+* The second live call after the key replacement was **not** re-executed: reinstalling the app cleared the
+  captured cover, and the call needs one. Readiness and decryption were verified after replacement instead, and the
+  provider reads the key at call time.
+* IQDB remains **manual only** (no API; its `robots.txt` disallows its own search routes) — unchanged by design.
+* Candidate cards still do not show the per-candidate OpenCLIP/catalogue comparison (`CollectionStatus`), which
+  remains wired only in `core`.
+
+
 ## v2.5.0-dev.2 (2026-11-05)
 
 **Version code/name: 217 / 2.5.0-dev.2.** Second development build of the online-discovery refinement.

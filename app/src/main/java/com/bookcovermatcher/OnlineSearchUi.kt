@@ -6,8 +6,6 @@ import com.bookcovermatcher.core.wishlist.ItemKind
 import com.bookcovermatcher.core.wishlist.MatchType
 
 import com.bookcovermatcher.core.online.CandidateDecision
-import com.bookcovermatcher.core.online.OnlineAggregator
-import com.bookcovermatcher.core.online.ProductSearchResult
 import com.bookcovermatcher.core.online.ProviderCatalog
 import com.bookcovermatcher.core.online.reverse.ReverseImageCandidate
 import com.bookcovermatcher.core.online.reverse.ReverseImageState
@@ -233,10 +231,27 @@ data class ReverseCandidateUi(
     /** How many providers reported it. More than one is stronger provenance, not a probability. */
     val providerCount: Int,
     val decision: CandidateDecision,
-    /** True when the user supplied this candidate themselves (manual listing / pasted IQDB line). */
+    /**
+     * Provider ids that reported this candidate, in priority order (`saucenao`, `iqdb`).
+     *
+     * Kept because the card's dismissal control is provider-specific: it may only appear where dismissing cannot
+     * throw away another provider's evidence.
+     */
+    val providerIds: List<String> = emptyList(),
+    /** True when the user supplied this candidate themselves (they pasted an IQDB result). */
     val manual: Boolean = false,
     val note: String? = null,
-)
+) {
+    /**
+     * True when IQDB found this candidate and SauceNAO did not.
+     *
+     * The rubbish-bin action exists for IQDB results; a candidate that SauceNAO also found is *not* dismissible
+     * here, because dismissing it would silently discard the first-priority provider's evidence.
+     */
+    val isIqdbOnly: Boolean
+        get() = providerIds.any { it.equals("iqdb", ignoreCase = true) } &&
+            providerIds.none { it.equals("saucenao", ignoreCase = true) }
+}
 
 /** Everything the reverse-image section draws. */
 data class ReverseImageUi(
@@ -247,10 +262,6 @@ data class ReverseImageUi(
     val sauceNaoKeyHint: String? = null,
     /** Whether the supplementary general-book sources take part in a search. */
     val secondarySources: Boolean = true,
-    /** The manual-entry form is open. */
-    val manualOpen: Boolean = false,
-    /** Why the last manual entry was refused, when it was. */
-    val manualError: String? = null,
     /** A line about the last reverse-image run (provider states, or why nothing ran). */
     val note: String? = null,
 ) {
@@ -334,30 +345,7 @@ fun ReverseImageCandidate.toUi(decision: CandidateDecision): ReverseCandidateUi 
     imageUrl = imageUrl,
     providerCount = providerIds.size,
     decision = decision,
+    providerIds = providerIds,
     manual = false,
-)
-
-/**
- * A candidate the app did **not** discover by itself (a manual listing, or a pasted IQDB line), presented in
- * the same shape and flagged as manual so the distinction is never lost on screen.
- */
-fun ProductSearchResult.toCandidateUi(
-    decision: CandidateDecision,
-    evidence: String,
-    manual: Boolean,
-    note: String? = null,
-): ReverseCandidateUi = ReverseCandidateUi(
-    key = OnlineAggregator.itemKey(this),
-    title = title.ifBlank { identifier.orEmpty() },
-    circle = circle.orEmpty(),
-    author = authors.joinToString(", "),
-    productId = identifier.orEmpty(),
-    evidence = evidence,
-    sourceUrl = detailUrl.takeIf { it.isNotBlank() },
-    imageUrl = null,
-    providerCount = 1,
-    decision = decision,
-    manual = manual,
-    note = note,
 )
 

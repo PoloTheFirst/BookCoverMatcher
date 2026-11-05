@@ -620,22 +620,28 @@ with the offline comparison, which keeps its fixed five results (`Config.TOP_MAT
   (adult sites that block automated access), Doujinshi.info (HTTP 403), MyAnimeList (no
   unauthenticated API) and Toranoana (no documented public API; 18+ catalogue).
 
-### Reverse-image discovery (v2.5.0-dev.2)
+### Reverse-image discovery (v2.5.0-dev.3)
 
 * **SauceNAO** is the first-priority provider and the only automated one: your own API key (stored encrypted with
-  an Android Keystore key, shown afterwards only as `••••••••ab12`) is sent **in the request body** together with
-  the captured cover through its documented JSON API. Every state it can report - results, nothing found,
-  timeout, rate limited, quota used up, blocked, unreachable, failed, needs key - is drawn as that state.
+  an Android Keystore key; shown afterwards only as `••••••••ab12`, with *Replace* and *Remove*) is sent **in the
+  request body** together with the captured cover through its documented JSON API. Every state it can report -
+  results, nothing found, timeout, rate limited, quota used up, blocked, unreachable, failed, needs key - is drawn as
+  that state, and the row shows the provider's own remaining quota. A key this device cannot store is reported as a
+  storage problem, never as a bad key. **Verified live**: a real cover returned 8 normalised results with
+  `quota: 99 of 100 left` (key redacted).
 * **IQDB** is the second-priority provider and is **manual-only in this build**: it publishes no API and its
   `robots.txt` disallows its own search routes (`/multi-search`, `/db-search`, `/kc-search`, `/mi-search`,
-  `/index`, `/?url=`), so the app opens IQDB's page in your browser and accepts the result you paste back. No
-  IQDB result is ever presented as an automated search result.
+  `/index`, `/?url=`), so the app opens IQDB's page in your browser and accepts the result you paste back — the
+  paste box is always visible, with no toggle. No IQDB result is ever presented as an automated search result.
 * A candidate found by both providers keeps **both** numbers and both links (`SauceNAO 95.1% · IQDB 92%`). They
   are never added or averaged: two services agreeing is provenance, not a probability.
 * Every candidate is a **suggestion** until you tap **Confirm** or **Reject**; the decision is remembered per
-  wishlist profile. Confirming changes no workbook cell and adds no wishlist entry.
-* **Add listing** is the manual fallback for every site the app does not search: nothing is fetched from the URL
-  you paste, and the entry is marked as yours.
+  wishlist profile, and the suggestion line is drawn in white so it cannot be missed. Confirming changes no
+  workbook cell and adds no wishlist entry.
+* An IQDB card carries a **rubbish bin** at its top-right that removes *that card only* from the list on screen —
+  no other card, no SauceNAO result, no saved decision and no bookmark is touched.
+* **Manual listings live in the Wishlist**, which owns bookmarks, manual bookmarks, deduplication and profile
+  isolation. The Online tab searches and discovers; it no longer creates listings.
 
 Follow-up work that is *not* in this build: showing the per-candidate catalogue evidence (matched / ambiguous /
 absent) computed with the existing OpenCLIP pipeline, and any automated IQDB route that is genuinely permitted.

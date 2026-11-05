@@ -5,6 +5,9 @@ package com.bookcovermatcher.data
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import com.bookcovermatcher.core.online.reverse.SauceNaoKeyRejection
+import com.bookcovermatcher.core.online.reverse.SauceNaoKeyRules
+import com.bookcovermatcher.core.online.reverse.SauceNaoKeySaveResult
 import com.bookcovermatcher.core.online.reverse.SauceNaoProtocol
 import com.bookcovermatcher.core.secret.AesGcmSecretBox
 import java.security.KeyStore
@@ -57,19 +60,29 @@ class SauceNaoKeyStore(context: Context) {
     /**
      * Stores [apiKey].
      *
-     * @return false when the value is not a plausible key (blank, whitespace, absurdly long) — nothing is
-     *         written in that case.
+     * The two failure modes are reported separately, because they need different user action: a malformed value
+     * is a typing problem, while a Keystore failure means this device cannot hold the credential. Collapsing them
+     * (as v2.5.0-dev.2 did) hid a real encryption failure behind "that does not look like a key".
      */
-    fun save(apiKey: String): Boolean {
+    fun save(apiKey: String): SauceNaoKeySaveResult {
         val clean = apiKey.trim()
-        if (clean.length !in 8..MAX_KEY_LENGTH) return false
-        if (clean.any { it.isWhitespace() }) return false
+        if (!SauceNaoKeyRules.isPlausible(clean)) {
+            return SauceNaoKeySaveResult.Rejected(SauceNaoKeyRejection.MALFORMED)
+        }
         return try {
-            val sealed = AesGcmSecretBox.seal(secretKey(create = true)!!, clean.toByteArray(Charsets.UTF_8))
-            prefs.edit().putString(KEY_SECRET, AesGcmSecretBox.encode(sealed)).apply()
-            true
+            val key = secretKey(create = true)
+                ?: return SauceNaoKeySaveResult.Rejected(SauceNaoKeyRejection.STORAGE_FAILED)
+            // The cipher chooses the IV: an AndroidKeyStore AES/GCM key forbids a caller-supplied nonce
+            // (CALLER_NONCE_PROHIBITED), which is why the previous implementation could never save anything.
+            val sealed = AesGcmSecretBox.seal(key, clean.toByteArray(Charsets.UTF_8))
+            val stored = prefs.edit().putString(KEY_SECRET, AesGcmSecretBox.encode(sealed)).commit()
+            if (!stored) return SauceNaoKeySaveResult.Rejected(SauceNaoKeyRejection.STORAGE_FAILED)
+            // Round-trip check: a save that cannot be read back is not a save. This is the step that would have
+            // caught the v2.5.0-dev.2 defect at the moment the user pressed the button.
+            if (key() == null) SauceNaoKeySaveResult.Rejected(SauceNaoKeyRejection.STORAGE_FAILED)
+            else SauceNaoKeySaveResult.Saved
         } catch (e: Exception) {
-            false
+            SauceNaoKeySaveResult.Rejected(SauceNaoKeyRejection.STORAGE_FAILED)
         }
     }
 
@@ -113,8 +126,5 @@ class SauceNaoKeyStore(context: Context) {
         const val KEY_SECRET = "saucenao_secret_v1"
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val KEY_ALIAS = "bookcover_saucenao_key_v1"
-
-        /** SauceNAO keys are ~32 characters; the bound only rejects obvious nonsense. */
-        const val MAX_KEY_LENGTH = 128
     }
 }

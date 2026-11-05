@@ -30,9 +30,6 @@ import com.bookcovermatcher.patchCoverById
 import com.bookcovermatcher.core.online.CandidateDecision
 import com.bookcovermatcher.core.online.CandidateDecisionRecord
 import com.bookcovermatcher.core.online.CandidateReviews
-import com.bookcovermatcher.core.online.ManualCandidates
-import com.bookcovermatcher.core.online.ManualListing
-import com.bookcovermatcher.core.online.ManualListingResult
 import com.bookcovermatcher.core.online.ProviderCapabilities
 import com.bookcovermatcher.core.online.reverse.IqdbProtocol
 import com.bookcovermatcher.core.online.reverse.IqdbResultParser
@@ -43,10 +40,11 @@ import com.bookcovermatcher.core.online.reverse.ReverseImageRun
 import com.bookcovermatcher.core.online.reverse.ReverseImageSearchRunner
 import com.bookcovermatcher.core.online.reverse.ReverseImageSource
 import com.bookcovermatcher.core.online.reverse.ReverseImageState
+import com.bookcovermatcher.core.online.reverse.SauceNaoKeyRules
+import com.bookcovermatcher.core.online.reverse.SauceNaoKeySaveResult
 import com.bookcovermatcher.ReverseCandidateUi
 import com.bookcovermatcher.ReverseImageProviderUi
 import com.bookcovermatcher.ReverseImageUi
-import com.bookcovermatcher.toCandidateUi
 import com.bookcovermatcher.toUi
 import com.bookcovermatcher.data.CandidateDecisionStore
 import com.bookcovermatcher.data.OnlineSearchPrefs
@@ -75,8 +73,8 @@ import kotlinx.coroutines.withTimeout
  *
  * Two independent network steps, deliberately kept apart:
  *  1. **OCR** of the captured cover through the embedded `chrome-lens-py` package
- *     ([OcrTextSource]) — the only thing that library actually does.
- *  2. **Product search** through a catalogue ([ProductSearchDataSource]) — a different service
+ *     ([OcrTextSource]) â€” the only thing that library actually does.
+ *  2. **Product search** through a catalogue ([ProductSearchDataSource]) â€” a different service
  *     with a different failure model. `chrome-lens-py` returns no products, so nothing here asks
  *     it for any.
  *
@@ -89,14 +87,14 @@ class OnlineSearchController(
     private val bridge: OcrTextSource = ChromeLensPyBridge(PythonRuntime(context)),
     /**
      * Every provider the app can query itself, each through its own adapter:
-     *  * **Open Library** — library catalogue, JSON API;
-     *  * **Google Books** — book catalogue, JSON API;
-     *  * **DLsite** — doujinshi / digital works shop, public search page (HTML).
+     *  * **Open Library** â€” library catalogue, JSON API;
+     *  * **Google Books** â€” book catalogue, JSON API;
+     *  * **DLsite** â€” doujinshi / digital works shop, public search page (HTML).
      *
      * Melonbooks and Suruga-ya are deliberately **not** here: the first is browser-only by product
      * decision (v2.2.2 patch), the second because its `robots.txt` disallows `/search/`. Doujin no Mori
      * disallows its own search route in `robots.txt`, Doujinshi.info and nhentai answer HTTP 403 to
-     * automated clients, and MyAnimeList has no unauthenticated API — all five are listed by
+     * automated clients, and MyAnimeList has no unauthenticated API â€” all five are listed by
      * [ProviderCatalog] for the browser-handoff card only (E-Hentai too, as an adult catalogue).
      * Which of these actually run is decided by the user's platform selection ([SearchRouting]).
      */
@@ -127,7 +125,7 @@ class OnlineSearchController(
     //
     // Declared **before** `_ui` on purpose: the UI state below is built in a property initializer, and Kotlin
     // runs initializers in declaration order. In v2.5.0-dev.2 these fields came after `_ui`, so the initializer
-    // read `reverseRuns` while it was still null and the constructor threw — a crash on every launch. Anything a
+    // read `reverseRuns` while it was still null and the constructor threw â€” a crash on every launch. Anything a
     // property initializer touches must already be initialised above it.
     //
     // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The generation
@@ -141,9 +139,14 @@ class OnlineSearchController(
     private var reverseCancelled = false
     private var reverseGeneration = 0L
 
-    /** Candidates an automated reverse-image run produced, and candidates the user supplied themselves. */
+    /** Candidates the last automated reverse-image run produced. */
     private var searchCandidates: List<ReverseCandidateUi> = emptyList()
-    private var manualCandidates: List<ReverseCandidateUi> = emptyList()
+
+    /**
+     * Candidates the **user** supplied through the IQDB handoff (the paste box). Kept apart from the automated
+     * run's candidates so a new SauceNAO/IQDB run never discards what the user brought back.
+     */
+    private var pastedCandidates: List<ReverseCandidateUi> = emptyList()
 
     private val _ui = MutableStateFlow(
         OnlineSearchUi(
@@ -199,9 +202,9 @@ class OnlineSearchController(
      * The provider rows for [query] under [selected].
      *
      * Four honest states, all drawn:
-     *  * a browser-only platform is always [ProviderState.MANUAL] — it is never queried, so its row can
+     *  * a browser-only platform is always [ProviderState.MANUAL] â€” it is never queried, so its row can
      *    never claim a result, whether or not it is selected;
-     *  * an unselected platform is [ProviderState.SKIPPED] — not queried, and it must not look like an
+     *  * an unselected platform is [ProviderState.SKIPPED] â€” not queried, and it must not look like an
      *    empty successful search;
      *  * a selected automated platform is [ProviderState.SEARCHING] during a search, then whatever
      *    [automated] says it actually returned;
@@ -278,17 +281,17 @@ class OnlineSearchController(
                 providers = providerStatuses(query = it.query, selected = it.selectedProviders),
             )
         }
-        onMessage("Session cache cleared — saved bookmarks and wishlist items are untouched.", ToastKind.INFO)
+        onMessage("Session cache cleared â€” saved bookmarks and wishlist items are untouched.", ToastKind.INFO)
     }
 
     // =========================================================================================
-    // Reverse-image discovery — SauceNAO first, IQDB second
+    // Reverse-image discovery â€” SauceNAO first, IQDB second
     // =========================================================================================
 
     /**
      * The two provider rows, built from the sources themselves plus whatever the last run reported.
      *
-     * The rows themselves are built by [ReverseProviderRows], which takes everything it needs as parameters —
+     * The rows themselves are built by [ReverseProviderRows], which takes everything it needs as parameters â€”
      * so this call is safe from a property initializer, where reading a field declared further down the class
      * would see `null` (the v2.5.0-dev.2 startup crash).
      */
@@ -296,16 +299,33 @@ class OnlineSearchController(
         runs: Map<String, ReverseImageRun> = reverseRuns,
     ): List<ReverseImageProviderUi> = ReverseProviderRows.of(reverseSources, runs)
 
-    /** Stores a SauceNAO key in the Keystore-backed store. The key itself is never echoed anywhere. */
+    /**
+     * Stores a SauceNAO key in the Keystore-backed store. The key itself is never echoed anywhere.
+     *
+     * On success the previous SauceNAO run is discarded: a run recorded *before* the key existed says
+     * `NOT_CONFIGURED`, and keeping it would leave the row claiming "needs key" after a successful configuration
+     * (a stale-state defect of its own). The row is then rebuilt from the provider's live readiness.
+     */
     fun saveSauceNaoKey(raw: String) {
-        if (!sauceNaoKey.save(raw)) {
-            onMessage("That does not look like a SauceNAO key; nothing was saved.", ToastKind.ERR)
-            return
+        when (val result = sauceNaoKey.save(raw)) {
+            is SauceNaoKeySaveResult.Rejected -> {
+                onMessage(SauceNaoKeyRules.describe(result.reason), ToastKind.ERR)
+                // Nothing was stored, so the row must keep telling the truth about that.
+                _ui.update { it.copy(reverse = it.reverse.copy(sauceNaoKeyHint = sauceNaoKey.hint())) }
+                return
+            }
+            SauceNaoKeySaveResult.Saved -> Unit
         }
+        reverseRuns.remove(ReverseImageProviders.SAUCE_NAO_ID)
         _ui.update {
-            it.copy(reverse = it.reverse.copy(sauceNaoKeyHint = sauceNaoKey.hint(), providers = reverseProviderRows()))
+            it.copy(
+                reverse = it.reverse.copy(
+                    sauceNaoKeyHint = sauceNaoKey.hint(),
+                    providers = reverseProviderRows(),
+                ),
+            )
         }
-        onMessage("SauceNAO key saved in encrypted storage.", ToastKind.OK)
+        onMessage("SauceNAO key saved in encrypted storage; SauceNAO is ready to be asked.", ToastKind.OK)
     }
 
     fun clearSauceNaoKey() {
@@ -344,12 +364,12 @@ class OnlineSearchController(
      *
      * Sequence, fixed by the release: SauceNAO first (if a key is stored), IQDB second (manual-only, so it
      * reports `MANUAL_ONLY` and offers its own page). Each provider publishes its row as it runs, so SauceNAO's
-     * results are visible while IQDB is still being handled — nothing waits for the slower provider.
+     * results are visible while IQDB is still being handled â€” nothing waits for the slower provider.
      */
     fun runReverseSearch() {
         val bytes = capture
         if (bytes == null) {
-            onMessage("Scan a cover first — reverse-image search needs the image itself.", ToastKind.ERR)
+            onMessage("Scan a cover first â€” reverse-image search needs the image itself.", ToastKind.ERR)
             return
         }
         if (!_ui.value.enabled) {
@@ -357,7 +377,7 @@ class OnlineSearchController(
             return
         }
         if (_ui.value.reverse.running || _ui.value.isBusy) {
-            onMessage("Still working — tap Cancel to stop.", ToastKind.INFO)
+            onMessage("Still working â€” tap Cancel to stop.", ToastKind.INFO)
             return
         }
 
@@ -379,9 +399,8 @@ class OnlineSearchController(
                 it.copy(
                     reverse = it.reverse.copy(
                         running = true,
-                        candidates = withDecisions(manualCandidates),
+                        candidates = withDecisions(pastedCandidates),
                         note = "SauceNAO first, then IQDB\u2026",
-                        manualError = null,
                     ),
                 )
             }
@@ -414,7 +433,7 @@ class OnlineSearchController(
             it.copy(
                 reverse = it.reverse.copy(
                     running = false,
-                    candidates = withDecisions(manualCandidates + searchCandidates),
+                    candidates = withDecisions(pastedCandidates + searchCandidates),
                     note = note,
                     providers = reverseProviderRows(),
                 ),
@@ -451,62 +470,8 @@ class OnlineSearchController(
 
 
     // =========================================================================================
-    // Manual candidates and user decisions
+    // Pasted IQDB results and user decisions
     // =========================================================================================
-
-    fun openManualCandidate() = _ui.update {
-        it.copy(reverse = it.reverse.copy(manualOpen = true, manualError = null))
-    }
-
-    fun closeManualCandidate() = _ui.update {
-        it.copy(reverse = it.reverse.copy(manualOpen = false, manualError = null))
-    }
-
-    /**
-     * Adds a candidate the user typed themselves (a listing from a site the app does not query, or an IQDB
-     * result they found in the browser).
-     *
-     * It goes through [ManualCandidates.validate] — the same normalisation automated results get — and lands in
-     * the same review list, flagged manual. Nothing is fetched from the URL, and nothing is written to the
-     * wishlist here: this records a candidate, not a desire and not an ownership claim.
-     */
-    fun submitManualCandidate(
-        url: String,
-        title: String,
-        circle: String,
-        author: String,
-        identifier: String,
-        providerLabel: String,
-        note: String,
-    ) {
-        val listing = ManualListing(
-            url = url,
-            title = title,
-            circle = circle,
-            author = author,
-            identifier = identifier,
-            providerLabel = providerLabel,
-            note = note,
-        )
-        when (val result = ManualCandidates.validate(listing)) {
-            is ManualListingResult.Invalid -> _ui.update {
-                it.copy(reverse = it.reverse.copy(manualError = result.errors.joinToString(" ")))
-            }
-            is ManualListingResult.Valid -> {
-                val candidate = result.candidate.toCandidateUi(
-                    decision = CandidateDecision.SUGGESTED,
-                    evidence = "You supplied this \u2014 not an automated result",
-                    manual = true,
-                    note = result.listing.note.takeIf { it.isNotBlank() },
-                )
-                // Stable identity means a re-entry cannot pile up duplicates.
-                manualCandidates = (listOf(candidate) + manualCandidates).distinctBy { it.key }
-                publishCandidates()
-                _ui.update { it.copy(reverse = it.reverse.copy(manualOpen = false, manualError = null)) }
-                onMessage("Candidate added: ${candidate.title}", ToastKind.OK)
-            }
-        }
-    }
 
     /**
      * Accepts an IQDB result the user pasted (a result line, or a saved page's markup).
@@ -533,7 +498,7 @@ class OnlineSearchController(
         // instead of standing beside it.
         val candidates = ReverseImageAggregator.merge(listOf(run), limit = PASTED_LIMIT)
             .map { it.toUi(CandidateReviews.stateOf(decisions, it.key)).copy(manual = true) }
-        manualCandidates = (candidates + manualCandidates).distinctBy { it.key }
+        pastedCandidates = (candidates + pastedCandidates).distinctBy { it.key }
         publishCandidates()
         onMessage("${candidates.size} IQDB result(s) from your browser added.", ToastKind.OK)
     }
@@ -543,6 +508,24 @@ class OnlineSearchController(
 
     /** Rejects a candidate. The record is kept, so the same key is not re-suggested as if new. */
     fun rejectCandidate(key: String) = decide(key, CandidateDecision.REJECTED)
+
+    /**
+     * Dismisses one result card from the current list — the rubbish-bin action on an IQDB card.
+     *
+     * Deliberately *not* a deletion: it removes the card from this session's list only. The decision log, the
+     * workbook, the wishlist, the cover cache and the provider's own records are untouched, and a later search may
+     * legitimately show the same result again. Because a dismissal only edits the two in-memory lists, an
+     * already-published stale run cannot resurrect the card: the generation guard drops such a run before it
+     * reaches [applyReverseResult], and a fresh run replaces the list wholesale.
+     */
+    fun dismissCandidate(key: String) {
+        if (key.isBlank()) return
+        val before = searchCandidates.size + pastedCandidates.size
+        searchCandidates = searchCandidates.filterNot { it.key == key }
+        pastedCandidates = pastedCandidates.filterNot { it.key == key }
+        if (searchCandidates.size + pastedCandidates.size == before) return
+        publishCandidates()
+    }
 
     private fun decide(key: String, decision: CandidateDecision) {
         val candidate = _ui.value.reverse.candidates.firstOrNull { it.key == key } ?: return
@@ -571,7 +554,7 @@ class OnlineSearchController(
 
     /** Re-draws the candidate list with the decisions that are current now. */
     private fun publishCandidates() = _ui.update {
-        it.copy(reverse = it.reverse.copy(candidates = withDecisions(manualCandidates + searchCandidates)))
+        it.copy(reverse = it.reverse.copy(candidates = withDecisions(pastedCandidates + searchCandidates)))
     }
 
     private fun withDecisions(candidates: List<ReverseCandidateUi>): List<ReverseCandidateUi> = candidates.map {
@@ -594,7 +577,7 @@ class OnlineSearchController(
             it.copy(
                 reverse = it.reverse.copy(
                     running = false,
-                    candidates = withDecisions(manualCandidates),
+                    candidates = withDecisions(pastedCandidates),
                     providers = reverseProviderRows(),
                     note = note,
                 ),
@@ -686,8 +669,8 @@ class OnlineSearchController(
     /**
      * The text field's only writer, and the **source of truth** for every browser-only link.
      *
-     * The cards' `Open ↗` targets are rebuilt for [text] on each edit, so typing a title and opening
-     * Melonbooks/Suruga-ya/Toranoana… never requires a dummy in-app search first. Nothing is launched
+     * The cards' `Open â†—` targets are rebuilt for [text] on each edit, so typing a title and opening
+     * Melonbooks/Suruga-ya/Toranoanaâ€¦ never requires a dummy in-app search first. Nothing is launched
      * here and no provider is contacted: a search still starts only from [search]. The rows keep the
      * states/details of the last search that actually ran, so an edit never fakes a result.
      */
@@ -713,7 +696,7 @@ class OnlineSearchController(
 
 
     // =========================================================================================
-    // Step 1 — OCR of the captured cover
+    // Step 1 â€” OCR of the captured cover
     // =========================================================================================
 
     /**
@@ -721,7 +704,7 @@ class OnlineSearchController(
      * feature is on, reads its text.
      *
      * [jpegBytes] is produced by
-     * [com.bookcovermatcher.vision.AndroidImageCodec.encodeJpeg] — the 224-pixel thumbnail is far
+     * [com.bookcovermatcher.vision.AndroidImageCodec.encodeJpeg] â€” the 224-pixel thumbnail is far
      * too small for OCR.
      */
     fun onCapture(jpegBytes: ByteArray) {
@@ -774,14 +757,14 @@ class OnlineSearchController(
             return
         }
         if (_ui.value.isBusy) {
-            onMessage("Still working — tap Cancel to stop.", ToastKind.INFO)
+            onMessage("Still working â€” tap Cancel to stop.", ToastKind.INFO)
             return
         }
 
         job?.cancel()
         job = scope.launch {
             val token = session.token()
-            _ui.update { it.copy(ocr = OcrUi.Running("Reading the cover with Google Lens…")) }
+            _ui.update { it.copy(ocr = OcrUi.Running("Reading the cover with Google Lensâ€¦")) }
             val result = withContext(Dispatchers.IO) {
                 runCatching { bridge.recognise(bytes, _ui.value.ocrLanguage, _ui.value.targetLanguage, OCR_TIMEOUT_SECONDS) }
             }
@@ -847,7 +830,7 @@ class OnlineSearchController(
      * Routing is decided by the user's selection ([SearchRouting]) and the configured maximum
      * ([SearchLimits]):
      *  * only selected **automated** platforms are queried, each with its own capped limit;
-     *  * selected **browser-only** platforms are never queried — if they are the only thing selected,
+     *  * selected **browser-only** platforms are never queried â€” if they are the only thing selected,
      *    no request is made at all and the panel says where those results can be seen;
      *  * an empty selection searches nothing (and says so) rather than silently querying defaults.
      */
@@ -897,7 +880,7 @@ class OnlineSearchController(
                 )
             }
             onMessage(
-                if (switchedOffOnly) "General-book sources are off — nothing to search." else "Select at least one in-app platform to search.",
+                if (switchedOffOnly) "General-book sources are off â€” nothing to search." else "Select at least one in-app platform to search.",
                 ToastKind.INFO,
             )
             return
@@ -1158,7 +1141,7 @@ class OnlineSearchController(
 
     /**
      * The honest label for how this result was found. Open Library is searched with the text the OCR
-     * read off the cover, so it is a text match — never a visual one.
+     * read off the cover, so it is a text match â€” never a visual one.
      */
     private fun ProductSearchResult.matchTypeLabel(): String = when (OnlineAggregator.matchTypeOf(this)) {
         MatchType.TEXT_QUERY -> "Text match"
@@ -1170,7 +1153,7 @@ class OnlineSearchController(
     private fun messageFor(failure: OnlineFailure, detail: String): String = when (failure) {
         OnlineFailure.OFFLINE -> "No connection to the catalogue. The offline matcher still works."
         OnlineFailure.TIMEOUT -> "The catalogue did not answer in time."
-        OnlineFailure.RATE_LIMITED -> "The catalogue is throttling requests — try again in a minute."
+        OnlineFailure.RATE_LIMITED -> "The catalogue is throttling requests â€” try again in a minute."
         OnlineFailure.SERVER_ERROR -> "The catalogue is having trouble right now."
         OnlineFailure.BAD_RESPONSE -> "The catalogue sent something unexpected."
         OnlineFailure.BLOCKED -> "The site refused automated access. Use its search link instead."
