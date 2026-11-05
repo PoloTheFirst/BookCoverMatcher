@@ -3,10 +3,12 @@
 package com.bookcovermatcher.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,14 +50,22 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.bookcovermatcher.CatalogueRow
+import com.bookcovermatcher.CatalogueView
 import com.bookcovermatcher.WorkbookCommentsController
 import com.bookcovermatcher.WorkbookCommentsUi
+import com.bookcovermatcher.core.excel.comments.CatalogueField
+import com.bookcovermatcher.core.excel.comments.CatalogueRecord
+import com.bookcovermatcher.core.excel.comments.CatalogueTable
+import com.bookcovermatcher.core.excel.comments.CellLink
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
 import com.bookcovermatcher.core.excel.comments.ImageState
+import com.bookcovermatcher.core.excel.comments.SourceLocations
 import com.bookcovermatcher.ui.theme.Palette
 
 /**
@@ -342,6 +352,20 @@ private fun ImageGrid(state: WorkbookCommentsUi, controller: WorkbookCommentsCon
                     modifier = Modifier.padding(top = 3.dp),
                 )
                 Text(StateLabel.of(row), color = StateLabel.colour(row), fontSize = 8.5.sp, maxLines = 1)
+                // Only an image whose association the parser verified offers a destination.
+                val location = SourceLocations.ofImage(row, state.sheets)
+                if (location.candidates.isNotEmpty()) {
+                    Text(
+                        "Source \u2197",
+                        color = Palette.Accent,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .clickable(role = Role.Button) { controller.openSource(row.fileName, location) }
+                            .padding(vertical = 1.dp),
+                    )
+                }
             }
         }
     }
@@ -381,6 +405,13 @@ private fun ImageList(state: WorkbookCommentsUi, controller: WorkbookCommentsCon
                     val place = listOfNotNull(row.sheetName, row.cell).joinToString("!")
                     if (place.isNotEmpty()) {
                         Text(place, color = Palette.Muted, fontSize = 8.5.sp, maxLines = 1)
+                    }
+                    // A verified destination is offered only when the parser proved one.
+                    val location = SourceLocations.ofImage(row, state.sheets)
+                    if (location.candidates.isNotEmpty()) {
+                        Row(Modifier.padding(top = 2.dp)) {
+                            SmallAction("Go to source") { controller.openSource(row.fileName, location) }
+                        }
                     }
                 }
                 if (row.key in state.selectedImages) {
@@ -445,7 +476,7 @@ private fun rememberMediaBytes(path: String?, controller: WorkbookCommentsContro
 }
 
 @Composable
-private fun SearchField(value: String, onChange: (String) -> Unit, hint: String) {
+internal fun SearchField(value: String, onChange: (String) -> Unit, hint: String) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -466,7 +497,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit, hint: String)
 }
 
 @Composable
-private fun ChoiceChip(label: String, active: Boolean, onClick: () -> Unit) {
+internal fun ChoiceChip(label: String, active: Boolean, onClick: () -> Unit) {
     Text(
         label,
         color = if (active) Palette.OnAccent else Palette.Muted,
@@ -532,6 +563,10 @@ private fun decodeThumbnail(bytes: ByteArray, maxEdge: Int): android.graphics.Bi
 /**
  * Catalogue search: the workbook's own tables, a free-text search over their columns, and how many
  * records have a verified image. A record without one is still listed and said to have none.
+ *
+ * Two views, and the second one exists because a card cannot show a wide worksheet: [CatalogueView.CARDS]
+ * shows the identifying columns, [CatalogueView.TABLE] draws **every** column the parser found, in the
+ * workbook's own order, with one shared horizontal scroll so the header travels with its values.
  */
 @Composable
 fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsController, modifier: Modifier = Modifier) {
@@ -560,46 +595,359 @@ fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsCont
         Spacer(Modifier.height(6.dp))
         SearchField(state.catalogueQuery, controller::setCatalogueQuery, "Search title, author, circle, any column\u2026")
         Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            for (view in CatalogueView.entries) {
+                ChoiceChip(view.label, state.catalogueView == view) { controller.setCatalogueView(view) }
+            }
+        }
+        val tables = state.scopedTables
+        val columnCount = tables.sumOf { it.fields.size }
+        Text(
+            if (state.catalogueView == CatalogueView.TABLE) {
+                "$columnCount column(s) on ${tables.size} worksheet(s) \u2014 all of them are drawn; " +
+                    "scroll sideways to reach the last one. Tap a row number to open that row."
+            } else {
+                "$columnCount column(s) on ${tables.size} worksheet(s); a card shows the identifying ones. " +
+                    "Switch to Table to see every column."
+            },
+            color = Palette.Muted, fontSize = 9.5.sp,
+            modifier = Modifier.padding(vertical = 3.dp),
+        )
 
         val records = state.visibleRecords
         Text(
             "${records.size} record(s) shown" + if (state.selectedSheet == null) " \u00B7 all worksheets" else "",
             color = Palette.Muted, fontSize = 9.5.sp,
         )
+        // A table that stopped at an empty row is not silently short here: the reader's rule and its
+        // consequence are both stated, per worksheet, instead of only in the health report (XLS-01).
+        val truncated = tables.filter { it.truncation != null }
+        if (truncated.isNotEmpty()) {
+            Text(
+                truncated.joinToString(" \u00B7 ") { table ->
+                    val truncation = table.truncation
+                    val rows = if (truncation?.skippedRows == 1) "1 row" else "${truncation?.skippedRows} rows"
+                    "${table.sheetName}: $rows below empty row ${(truncation?.blankRow ?: 0) + 1} not read"
+                },
+                color = Palette.Warn, fontSize = 9.5.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
         Spacer(Modifier.height(4.dp))
-        LazyColumn(Modifier.fillMaxSize()) {
-            items(records.size) { index ->
-                val row = records[index]
-                val table = row.table
-                val record = row.record
-                val hasImage = row.hasImage
-                Column(
-                    Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(Palette.Navy700)
-                        .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
-                        .padding(8.dp),
-                ) {
-                    Text("${table.sheetName}!${record.row + 1}", color = Palette.Muted, fontSize = 8.5.sp)
-                    table.identifyingFields.forEach { field ->
-                        val value = record.value(field)
-                        if (value.isNotEmpty()) {
-                            Text(
-                                if (field == table.titleField) value else "${field.name}: $value",
-                                color = if (field == table.titleField) Palette.Text else Palette.Muted,
-                                fontSize = if (field == table.titleField) 11.5.sp else 9.5.sp,
-                                fontWeight = if (field == table.titleField) FontWeight.Bold else FontWeight.Normal,
-                                maxLines = 2,
-                            )
-                        }
+        when (state.catalogueView) {
+            CatalogueView.CARDS -> RecordCards(records, state, controller)
+            CatalogueView.TABLE -> WorksheetTables(tables, records, onCellClick = { table, record, field ->
+                controller.peekCell(table.sheetName, record, field)
+            }) { table, record ->
+                controller.openSource(
+                    "${table.sheetName} row ${record.row + 1}",
+                    SourceLocations.ofRecord(table, record, state.sheets),
+                )
+            }
+        }
+    }
+}
+
+/** The compact record list: the identifying columns, one card per record. */
+@Composable
+private fun RecordCards(
+    records: List<CatalogueRow>,
+    state: WorkbookCommentsUi,
+    controller: WorkbookCommentsController,
+) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        items(records.size) { index ->
+            val row = records[index]
+            val table = row.table
+            val record = row.record
+            val hasImage = row.hasImage
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Palette.Navy700)
+                    .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
+                    .padding(8.dp),
+            ) {
+                Text("${table.sheetName}!${record.row + 1}", color = Palette.Muted, fontSize = 8.5.sp)
+                table.identifyingFields.forEach { field ->
+                    // Displayed text: a card must not show a raw serial where the sheet shows a date.
+                    val value = record.display(field)
+                    if (value.isNotEmpty()) {
+                        Text(
+                            // A column without a header is labelled by its letter, never left blank.
+                            if (field == table.titleField) value else "${field.label}: $value",
+                            color = if (field == table.titleField) Palette.Text else Palette.Muted,
+                            fontSize = if (field == table.titleField) 11.5.sp else 9.5.sp,
+                            fontWeight = if (field == table.titleField) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 2,
+                        )
                     }
-                    Text(
-                        if (hasImage) "Verified image" else "No image linked",
-                        color = if (hasImage) Palette.Ok else Palette.Muted,
-                        fontSize = 9.sp,
+                }
+                Text(
+                    if (hasImage) "Verified image" else "No image linked",
+                    color = if (hasImage) Palette.Ok else Palette.Muted,
+                    fontSize = 9.sp,
+                )
+                // The record's row is a verified location; the app labels it as a row, not a cell.
+                SmallAction("Go to row") {
+                    controller.openSource(
+                        "${table.sheetName} row ${record.row + 1}",
+                        SourceLocations.ofRecord(table, record, state.sheets),
                     )
                 }
             }
+        }
+    }
+}
+
+/** Width of one worksheet cell in the table view; wide enough for a Japanese header to be read. */
+private val TABLE_CELL_WIDTH = 104.dp
+
+/** Width of the frozen row-number column, so it stays visible while the cells scroll sideways. */
+private val TABLE_ROW_LABEL_WIDTH = 40.dp
+
+/**
+ * Every column of every worksheet in scope, in the workbook's own order.
+ *
+ * The header row and the data rows share one [ScrollState], so a column's header can never be read above
+ * another column's values. The row-number column is frozen outside the scroll, and each row number opens
+ * that row in the verified source view. Rows stay lazy: a worksheet with thousands of records renders only
+ * what is on screen.
+ */
+@Composable
+private fun WorksheetTables(
+    tables: List<CatalogueTable>,
+    records: List<CatalogueRow>,
+    onCellClick: (CatalogueTable, CatalogueRecord, CatalogueField) -> Unit,
+    onGoToRow: (CatalogueTable, CatalogueRecord) -> Unit,
+) {
+    val horizontal = rememberScrollState()
+    LazyColumn(Modifier.fillMaxSize()) {
+        for (table in tables) {
+            val rows = records
+                .filter { it.table.sheetName == table.sheetName && it.table.headerRow == table.headerRow }
+                .map { it.record }
+            item(key = "sheet-${table.sheetName}") { TableSheetHeader(table, rows.size) }
+            item(key = "head-${table.sheetName}") { TableHeaderRow(table, horizontal) }
+            items(count = rows.size, key = { index -> "${table.sheetName}#${rows[index].row}" }) { index ->
+                val record = rows[index]
+                TableDataRow(
+                    record = record,
+                    table = table,
+                    horizontal = horizontal,
+                    onCellClick = { field -> onCellClick(table, record, field) },
+                    onClick = { onGoToRow(table, record) },
+                )
+            }
+            if (rows.isEmpty()) {
+                item(key = "empty-${table.sheetName}") {
+                    Text(
+                        "No record of this worksheet matches the search.",
+                        color = Palette.Muted, fontSize = 9.5.sp,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One worksheet's title line: its name, its column span and how many of its rows are shown. */
+@Composable
+private fun TableSheetHeader(table: CatalogueTable, shown: Int) {
+    val first = table.fields.firstOrNull()
+    val last = table.fields.lastOrNull()
+    val span = if (first != null && last != null) {
+        "${first.letter}\u2013${last.letter}"
+    } else {
+        "\u2014"
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp)) {
+        Text(
+            "${table.sheetName} \u00B7 ${table.fields.size} column(s) ($span) \u00B7 header row ${table.headerRow + 1}",
+            color = Palette.Text, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "$shown of ${table.records.size} record(s) shown",
+            color = Palette.Muted, fontSize = 9.sp,
+        )
+        table.truncation?.let { truncation ->
+            val rows = if (truncation.skippedRows == 1) "1 row" else "${truncation.skippedRows} rows"
+            Text(
+                "$rows below empty row ${truncation.blankRow + 1} were not read \u2014 a blank row ends a table",
+                color = Palette.Warn, fontSize = 9.sp,
+            )
+        }
+    }
+}
+
+/** The worksheet's header row: every column, its letter and the workbook's own header text. */
+@Composable
+private fun TableHeaderRow(table: CatalogueTable, horizontal: ScrollState) {
+    Row(Modifier.fillMaxWidth().background(Palette.Navy700)) {
+        Box(Modifier.width(TABLE_ROW_LABEL_WIDTH).padding(horizontal = 3.dp, vertical = 4.dp)) {
+            Text("row", color = Palette.Muted, fontSize = 8.5.sp)
+        }
+        Row(Modifier.horizontalScroll(horizontal)) {
+            for (field in table.fields) {
+                Column(
+                    Modifier.width(TABLE_CELL_WIDTH)
+                        .padding(horizontal = 4.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        field.letter,
+                        color = Palette.Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        field.label,
+                        color = if (field.hasHeader) Palette.Text else Palette.Muted,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One worksheet record, aligned cell by cell with [table]'s header row.
+ *
+ * Each cell is its own touch target: tapping it opens the cell dialog (value, Copy, Open Link), while the
+ * frozen row number still opens the whole row in the source view. A cell the workbook links is drawn in the
+ * accent colour and underlined, so a linked value is recognisable before it is tapped.
+ */
+@Composable
+private fun TableDataRow(
+    record: CatalogueRecord,
+    table: CatalogueTable,
+    horizontal: ScrollState,
+    onCellClick: (CatalogueField) -> Unit,
+    onClick: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier.width(TABLE_ROW_LABEL_WIDTH)
+                .clickable(role = Role.Button, onClick = onClick)
+                .padding(horizontal = 3.dp, vertical = 4.dp),
+        ) {
+            Text(
+                "${record.row + 1}",
+                color = Palette.Accent, fontSize = 8.5.sp, fontWeight = FontWeight.Bold,
+            )
+        }
+        Row(Modifier.horizontalScroll(horizontal)) {
+            // One cell per column of the table, in the table's own order: values are aligned with
+            // [table].fields by index, so a cell can never sit under its neighbour's header. The text is
+            // the workbook's own display spelling — a date-formatted serial, a percentage-formatted
+            // fraction — while the record keeps the stored value for filtering and search.
+            val displays = record.displays()
+            table.fields.forEachIndexed { index, field ->
+                val value = displays.getOrNull(index).orEmpty()
+                TableCell(value, record.linkOf(field)) { onCellClick(field) }
+            }
+        }
+    }
+}
+
+/** One cell of the table: tappable, and visibly linked when the workbook stores a destination for it. */
+@Composable
+private fun TableCell(value: String, link: CellLink?, onClick: () -> Unit) {
+    val linked = link != null
+    Box(
+        Modifier.width(TABLE_CELL_WIDTH)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+    ) {
+        Text(
+            value,
+            color = when {
+                linked -> Palette.Accent
+                value.isEmpty() -> Palette.Muted
+                else -> Palette.Text
+            },
+            fontSize = 9.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textDecoration = if (linked) TextDecoration.Underline else null,
+        )
+    }
+}
+
+
+/**
+ * The cell dialog of the Catalogue table: the value, then Copy, Open Link (only for a real link) and Back.
+ *
+ * A centred dialog with the actions stacked vertically, as the requirement describes. The value keeps its own
+ * line breaks and scrolls when it is longer than the card, and the dialog is dismissed by Back, by the system
+ * Back gesture or by a tap on the area around it — a tap inside the card never closes it.
+ */
+@Composable
+fun CellPeekDialog(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    val peek = state.cellPeek ?: return
+    Dialog(onDismissRequest = controller::closeCellPeek) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp))
+                // A tap inside the card must not reach the dialog's dismiss handler.
+                .clickable(enabled = false) {}
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                peek.locationLabel,
+                color = Palette.Muted,
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "${peek.fieldLabel} \u00B7 column ${peek.columnLetter}",
+                color = Palette.Text,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Box(
+                Modifier.fillMaxWidth()
+                    .heightIn(max = 240.dp)
+                    .background(Palette.Navy700, RoundedCornerShape(9.dp))
+                    .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
+                    .verticalScroll(rememberScrollState())
+                    .horizontalScroll(rememberScrollState())
+                    .padding(10.dp),
+            ) {
+                Text(
+                    if (peek.isBlank) "This cell is empty." else peek.value,
+                    color = if (peek.isBlank) Palette.Muted else Palette.Text,
+                    fontSize = 11.5.sp,
+                )
+            }
+            if (peek.link != null) {
+                Text(
+                    "Link: ${peek.link.label}" + if (peek.link.internal) " (inside this workbook)" else "",
+                    color = Palette.Muted,
+                    fontSize = 9.5.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            InsightAction("Copy") { controller.copyPeekedCell() }
+            // Only a destination the workbook really stores, and the app can act on, offers this action.
+            if (peek.canOpenLink) {
+                InsightAction("Open Link") { controller.openPeekedLink() }
+            }
+            InsightAction("Back") { controller.closeCellPeek() }
         }
     }
 }

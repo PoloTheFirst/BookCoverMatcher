@@ -1,0 +1,1585 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package com.bookcovermatcher.ui
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.bookcovermatcher.InsightsTab
+import com.bookcovermatcher.ScopeDialogUi
+import com.bookcovermatcher.ScopeTarget
+import com.bookcovermatcher.TimelineYearEndpoint
+import com.bookcovermatcher.WorkbookCommentsController
+import com.bookcovermatcher.WorkbookCommentsUi
+import com.bookcovermatcher.core.catalog.CatalogEntry
+import com.bookcovermatcher.core.catalog.CatalogField
+import com.bookcovermatcher.core.catalog.CollectionTimeline
+import com.bookcovermatcher.core.catalog.CollectionTimelineBuilder
+import com.bookcovermatcher.core.catalog.FieldState
+import com.bookcovermatcher.core.catalog.GalleryFilter
+import com.bookcovermatcher.core.catalog.DateColumnReport
+import com.bookcovermatcher.core.catalog.DateColumnState
+import com.bookcovermatcher.core.catalog.GallerySort
+import com.bookcovermatcher.core.catalog.HealthCategory
+import com.bookcovermatcher.core.catalog.HealthFinding
+import com.bookcovermatcher.core.catalog.HealthReport
+import com.bookcovermatcher.core.catalog.HealthSeverity
+import com.bookcovermatcher.core.catalog.MappingIssue
+import com.bookcovermatcher.core.catalog.MappingIssueKind
+import com.bookcovermatcher.core.catalog.MetricCount
+import com.bookcovermatcher.core.catalog.SheetChoice
+import com.bookcovermatcher.core.catalog.SheetScope
+import com.bookcovermatcher.core.catalog.TimelineEntry
+import com.bookcovermatcher.core.catalog.TimelineMode
+import com.bookcovermatcher.core.catalog.WorkbookCatalog
+import com.bookcovermatcher.ui.theme.Palette
+
+/**
+ * The worksheet filter of one report: a single bar that says what the report currently covers.
+ *
+ * The same bar is used by Health and by the analytics, but each owns its own [SheetScope], so narrowing one
+ * report never narrows the other. It shows a summary rather than a row of names, so a workbook with forty
+ * worksheets cannot grow the header.
+ */
+@Composable
+private fun SheetScopeBar(
+    label: String,
+    scopeLabel: String,
+    filtered: Boolean,
+    onOpen: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ChoiceChip("$label: $scopeLabel", filtered, onOpen)
+        if (filtered) {
+            InsightAction("All worksheets") { onClear() }
+        }
+    }
+}
+
+/**
+ * Choosing which worksheets a report covers: all of them, one, or any combination.
+ *
+ * The list is the workbook's own worksheets (with how many records each one contributes), identified by
+ * package path rather than display name, and the dialog edits a draft — a mis-tap costs nothing until
+ * **Use these worksheets** is pressed.
+ */
+@Composable
+private fun SheetScopeDialog(
+    dialog: ScopeDialogUi,
+    choices: List<SheetChoice>,
+    onToggle: (String) -> Unit,
+    onAll: () -> Unit,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp)).padding(12.dp),
+        ) {
+            Text(
+                "Worksheets in ${dialog.target.label}",
+                color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                "Only the selected worksheets contribute records, so the counts, breakdowns and cards come " +
+                    "from that selection. Nothing is written to the workbook.",
+                color = Palette.Muted, fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 3.dp),
+            )
+            if (choices.isEmpty()) {
+                InsightNote("This workbook has no worksheet to choose.")
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxWidth().heightIn(max = 300.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    item(key = "all") {
+                        PickRow("All worksheets", dialog.draft.isEmpty()) { onAll() }
+                    }
+                    items(choices, key = { it.key }) { choice ->
+                        val selected = choice.key in dialog.draft
+                        val detail = buildString {
+                            append(if (selected) "\u2713 " else "\u25CB ")
+                            append(choice.name)
+                            if (choice.hidden) append(" (hidden)")
+                            append(" \u00B7 ")
+                            append(if (choice.isTable) "${choice.records} record(s)" else "no catalogue table")
+                        }
+                        PickRow(detail, selected) { onToggle(choice.key) }
+                    }
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                InsightAction("Use these worksheets") { onApply() }
+                InsightAction("All worksheets") { onAll() }
+                InsightAction("Cancel", onDismiss)
+            }
+        }
+    }
+}
+
+/**
+ * The Insights surface of the workbook preview: health, analytics, gallery, timeline and mapping.
+ *
+ * Every panel reads the one catalog the controller built, so a record looks the same in all of them.
+ * Nothing here parses a workbook or computes a statistic: the panels display results.
+ */
+@Composable
+fun InsightsPanel(
+    state: WorkbookCommentsUi,
+    controller: WorkbookCommentsController,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxSize()) {
+        InsightTabs(state, controller)
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            val catalog = state.catalog
+            when {
+                catalog == null && state.insightsBusy -> InsightNote("Reading the workbook's records\u2026")
+                catalog == null && state.insightsError != null -> Column(Modifier.fillMaxSize()) {
+                    InsightNote(state.insightsError)
+                    InsightAction("Try again") { controller.refreshInsights() }
+                }
+                catalog == null -> InsightNote("Nothing to report yet.")
+                else -> when (state.insightsTab) {
+                    InsightsTab.HEALTH -> HealthPanel(state, controller)
+                    InsightsTab.GALLERY -> GalleryPanel(state, controller)
+                    InsightsTab.ANALYTICS -> AnalyticsPanel(state, controller)
+                    InsightsTab.TIMELINE -> TimelinePanel(state, controller)
+                    InsightsTab.FIELDS -> FieldsPanel(state, controller)
+                }
+            }
+        }
+    }
+    // The date-column dialog belongs to the timeline but is opened from it, so it lives outside the
+    // tab branch: switching tabs must not silently drop a half-made choice.
+    DateColumnsDialog(state, controller)
+    // The worksheet scope belongs to whichever report opened it; the dialog says which one.
+    val scopeDialog = state.scopeDialog
+    if (scopeDialog != null) {
+        SheetScopeDialog(
+            dialog = scopeDialog,
+            choices = state.sheetChoices,
+            onToggle = controller::toggleScopeSheet,
+            onAll = controller::selectAllScopeSheets,
+            onApply = controller::applyScopeDialog,
+            onDismiss = controller::closeScopeDialog,
+        )
+    }
+}
+
+@Composable
+private fun InsightTabs(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    Row(
+        Modifier.fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        for (tab in InsightsTab.entries) {
+            ChoiceChip(tab.label, state.insightsTab == tab) { controller.showInsights(tab) }
+        }
+    }
+}
+
+/** A centred explanation: used for loading, empty and unavailable states alike. */
+@Composable
+internal fun InsightNote(text: String) {
+    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+        Text(text, color = Palette.Muted, fontSize = 11.5.sp)
+    }
+}
+
+/** A small accent-coloured button, the same shape the image browser uses. */
+@Composable
+internal fun InsightAction(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        color = Palette.Accent,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.clickable(role = Role.Button, onClick = onClick).padding(horizontal = 6.dp, vertical = 3.dp),
+    )
+}
+
+/**
+ * A control that reads as a control: a bordered pill, used wherever the Fields screen offers to change a column.
+ *
+ * The whole row it sits in is tappable too, but the border and the accent colour are what tell a user that the
+ * column can be changed at all — a bare muted word did not, which is why the mapping looked read-only.
+ */
+@Composable
+private fun MappingButton(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        color = Palette.Accent,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(7.dp))
+            .border(1.dp, Palette.Accent, RoundedCornerShape(7.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 9.dp, vertical = 5.dp),
+    )
+}
+
+/** A labelled count with a proportional bar, used by the analytics breakdowns. */
+@Composable
+internal fun MetricBar(label: String, count: Int, max: Int, barColor: androidx.compose.ui.graphics.Color = Palette.Accent) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            color = Palette.Text,
+            fontSize = 10.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            Modifier.width(110.dp).height(7.dp).clip(RoundedCornerShape(4.dp)).background(Palette.Navy800),
+        ) {
+            val fraction = if (max <= 0) 0f else (count.toFloat() / max).coerceIn(0.02f, 1f)
+            Box(Modifier.fillMaxWidth(fraction).height(7.dp).background(barColor))
+        }
+        Text(
+            count.toString(),
+            color = Palette.Muted,
+            fontSize = 10.5.sp,
+            modifier = Modifier.width(38.dp).padding(start = 6.dp),
+        )
+    }
+}
+// ---------------------------------------------------------------------------------------------
+// Feature A: Spreadsheet Health Report
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun HealthPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    val report = state.health
+    if (report == null) {
+        InsightNote("The report is still being built.")
+        return
+    }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            // The report is recalculated for these worksheets, so this bar changes the numbers below it,
+            // not just their visibility.
+            SheetScopeBar(
+                label = "Worksheets",
+                scopeLabel = state.scopeLabel(state.healthScope),
+                filtered = !state.healthScope.isAll,
+                onOpen = { controller.openScopeDialog(ScopeTarget.HEALTH) },
+                onClear = { controller.setScope(ScopeTarget.HEALTH, SheetScope.ALL) },
+            )
+        }
+        item { HealthSummary(report) }
+        item {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ChoiceChip(
+                    "All ${report.summary.total}",
+                    state.healthSeverity == null && state.healthCategory == null,
+                ) { controller.setHealthFilter(null, null) }
+                ChoiceChip("Errors ${report.summary.errors}", state.healthSeverity == HealthSeverity.ERROR) {
+                    controller.setHealthFilter(HealthSeverity.ERROR)
+                }
+                ChoiceChip("Warnings ${report.summary.warnings}", state.healthSeverity == HealthSeverity.WARNING) {
+                    controller.setHealthFilter(HealthSeverity.WARNING)
+                }
+                ChoiceChip("Info ${report.summary.info}", state.healthSeverity == HealthSeverity.INFO) {
+                    controller.setHealthFilter(HealthSeverity.INFO)
+                }
+            }
+        }
+        item {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (category in HealthCategory.entries) {
+                    val count = report.summary.byCategory[category] ?: 0
+                    ChoiceChip("${category.label} $count", state.healthCategory == category) {
+                        controller.setHealthFilter(
+                            state.healthSeverity,
+                            if (state.healthCategory == category) null else category,
+                        )
+                    }
+                }
+            }
+        }
+        if (report.unmappedFields.isNotEmpty()) {
+            item {
+                InfoLine(
+                    "Not mapped on any worksheet: " + report.unmappedFields.joinToString(", ") { it.label } +
+                        ". Those fields are unmapped, not missing.",
+                )
+            }
+        }
+        item {
+            InfoLine(
+                "Confirmed problems come first, then missing optional data and coverage. The report never " +
+                    "repairs anything and never writes to the workbook.",
+            )
+        }
+        if (state.visibleFindings.isEmpty()) {
+            item { InsightNote("No finding matches this filter.") }
+        }
+        items(state.visibleFindings, key = { it.id }) { finding -> FindingCard(finding, controller) }
+    }
+}
+
+@Composable
+private fun HealthSummary(report: HealthReport) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatTile("Records", report.records.toString(), Modifier.weight(1f))
+            StatTile("Worksheets", report.sheets.toString(), Modifier.weight(1f))
+            StatTile("With cover", report.withCover.toString(), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatTile("No cover", report.withoutCover.toString(), Modifier.weight(1f))
+            StatTile("Errors", report.summary.errors.toString(), Modifier.weight(1f), Palette.Warn)
+            StatTile("Warnings", report.summary.warnings.toString(), Modifier.weight(1f), Palette.Warn)
+            StatTile("Info", report.summary.info.toString(), Modifier.weight(1f), Palette.Muted)
+        }
+    }
+}
+
+@Composable
+private fun StatTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueColor: androidx.compose.ui.graphics.Color = Palette.Text,
+) {
+    Column(
+        modifier.clip(RoundedCornerShape(8.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp))
+            .padding(8.dp),
+    ) {
+        Text(value, color = valueColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Palette.Muted, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun InfoLine(text: String) {
+    Text(text, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun FindingCard(finding: HealthFinding, controller: WorkbookCommentsController) {
+    val color = when (finding.severity) {
+        HealthSeverity.ERROR -> Palette.Warn
+        HealthSeverity.WARNING -> Palette.Warn
+        HealthSeverity.INFO -> Palette.Muted
+    }
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                finding.severity.label.uppercase(),
+                color = color,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                    .border(1.dp, color, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                finding.title,
+                color = Palette.Text,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        val meta = buildString {
+            append(finding.locationLabel)
+            append(" \u00B7 ").append(finding.category.label)
+            finding.count?.let { append(" \u00B7 ").append(it).append(" item(s)") }
+            append(" \u00B7 ").append(finding.resolution.label)
+        }
+        Text(meta, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 3.dp))
+        Text(
+            finding.detail,
+            color = Palette.Text.copy(alpha = 0.85f),
+            fontSize = 10.5.sp,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(finding.action, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 3.dp))
+        if (finding.recordId != null || finding.imagePath != null) {
+            InsightAction("Go to source") { controller.openFindingSource(finding) }
+        }
+    }
+}
+// ---------------------------------------------------------------------------------------------
+// Feature B: Visual Spreadsheet Browser
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun GalleryPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    val catalog = state.catalog ?: return
+    val filter = state.galleryFilter
+    // The grid owns its scroll state so it can be moved deliberately: when the order (or the filtered
+    // dataset) changes, the first card of the new order is what the user needs to see. A thumbnail that
+    // finishes decoding, a dialog opening or a report rebuilding leaves the key — and the scroll — alone.
+    val gridState = rememberLazyGridState()
+    LaunchedEffect(state.galleryOrderKey) {
+        if (gridState.firstVisibleItemIndex != 0 || gridState.firstVisibleItemScrollOffset != 0) {
+            gridState.scrollToItem(0)
+        }
+    }
+    Column(Modifier.fillMaxSize()) {
+        // The search bar and the filter chips are two different controls: the bar gets its own margins and
+        // a hairline separates it from the chips, so neither reads as part of the other.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            SearchField(filter.query, { controller.setGalleryQuery(it) }, "Search title, circle, artist, ID or cell")
+        }
+        Spacer(Modifier.height(8.dp))
+        GalleryDivider()
+        Spacer(Modifier.height(6.dp))
+        // The worksheet selection comes first: it decides which records the other filters even see.
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            SheetScopeBar(
+                label = "Worksheets",
+                scopeLabel = state.scopeLabel(filter.sheets),
+                filtered = !filter.sheets.isAll,
+                onOpen = { controller.openScopeDialog(ScopeTarget.GALLERY) },
+                onClear = { controller.setGalleryScope(SheetScope.ALL) },
+            )
+        }
+        // The cover and absence filters of the card list, unchanged and on their own row.
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            ChoiceChip("All", !filter.onlyWithCover && !filter.onlyWithoutCover) {
+                controller.setGalleryFilter(filter.copy(onlyWithCover = false, onlyWithoutCover = false))
+            }
+            ChoiceChip("With cover", filter.onlyWithCover) {
+                controller.setGalleryFilter(filter.copy(onlyWithCover = true, onlyWithoutCover = false))
+            }
+            ChoiceChip("No cover", filter.onlyWithoutCover) {
+                controller.setGalleryFilter(filter.copy(onlyWithCover = false, onlyWithoutCover = true))
+            }
+            ChoiceChip("Missing title", filter.onlyMissingTitle) {
+                controller.setGalleryFilter(filter.copy(onlyMissingTitle = !filter.onlyMissingTitle))
+            }
+            ChoiceChip("Missing metadata", filter.onlyMissingMetadata) {
+                controller.setGalleryFilter(filter.copy(onlyMissingMetadata = !filter.onlyMissingMetadata))
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (sort in GallerySort.entries) {
+                ChoiceChip(sort.label, state.gallerySort == sort) { controller.setGallerySort(sort) }
+            }
+            InsightAction(if (state.galleryAscending) "A \u2192 Z" else "Z \u2192 A") { controller.toggleGalleryOrder() }
+        }
+        Text(
+            "${state.visibleCatalog.size} of ${state.galleryEligible.size} record(s), " +
+                "${catalog.withVerifiedCover} with a verified cover" +
+                if (filter.sheets.isAll) "" else " \u00B7 ${state.scopeLabel(filter.sheets)}",
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+        )
+        if (state.visibleCatalog.isEmpty()) {
+            InsightNote("No record matches these filters.")
+            return
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(150.dp),
+            state = gridState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(state.visibleCatalog, key = { it.id }) { entry -> GalleryCard(entry, controller) }
+        }
+    }
+}
+
+/** A hairline that groups the gallery's search bar apart from its filter chips, in the palette's line colour. */
+@Composable
+private fun GalleryDivider() {
+    Box(
+        Modifier.fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .height(1.dp)
+            .background(Palette.Line),
+    )
+}
+
+/**
+ * One record as a card. A missing value is shown as missing (never padded) and the cover state is always
+ * visible, so a card cannot look complete when it is not.
+ */
+@Composable
+private fun GalleryCard(entry: CatalogEntry, controller: WorkbookCommentsController) {
+    val coverPath = entry.images.firstOrNull { it.isVerified }?.mediaPath
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp))
+            .padding(6.dp),
+    ) {
+        Box(
+            Modifier.fillMaxWidth().height(116.dp).clip(RoundedCornerShape(6.dp)).background(Palette.Navy700),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                coverPath != null -> CoverThumb(coverPath, controller)
+                entry.hasUnresolvedImage -> Text("Cover unresolved", color = Palette.Warn, fontSize = 9.5.sp)
+                else -> Text("No cover", color = Palette.Muted, fontSize = 9.5.sp)
+            }
+        }
+        Text(
+            entry.title ?: "No title",
+            color = Palette.Text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        val circle = entry.text(CatalogField.CIRCLE)
+        val artist = entry.text(CatalogField.ARTIST)
+        if (circle != null) Text(circle, color = Palette.Muted, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (artist != null) {
+            Text("Artist: $artist", color = Palette.Muted, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        entry.text(CatalogField.IDENTIFIER)?.let {
+            Text(it, color = Palette.Muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(entry.locationLabel, color = Palette.Muted, fontSize = 9.sp)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (coverPath != null) InsightAction("Open") { controller.openViewer(coverPath) }
+            InsightAction("Source") { controller.openRecordSource(entry) }
+        }
+    }
+}
+
+/** A downsampled cover; the full image is only decoded when the viewer is opened. */
+@Composable
+private fun CoverThumb(path: String, controller: WorkbookCommentsController) {
+    var bytes by remember(path) { mutableStateOf<ByteArray?>(null) }
+    LaunchedEffect(path) {
+        bytes = controller.mediaBytes(path)?.takeIf { !controller.tooLarge(it) }
+    }
+    val bitmap = remember(bytes) { bytes?.let { decodeInsightThumb(it, 240) } }
+    if (bitmap != null) {
+        Image(
+            bitmap.asImageBitmap(),
+            contentDescription = path.substringAfterLast('/'),
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize().padding(2.dp),
+        )
+    } else {
+        Text("Cover not readable", color = Palette.Muted, fontSize = 9.5.sp)
+    }
+}
+
+/** One thumbnail is never a full-resolution bitmap: the sample size is doubled until it fits. */
+private fun decodeInsightThumb(bytes: ByteArray, maxEdge: Int): android.graphics.Bitmap? = try {
+    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    var sample = 1
+    val longest = maxOf(bounds.outWidth, bounds.outHeight)
+    while (longest > 0 && longest / sample > maxEdge) sample *= 2
+    android.graphics.BitmapFactory.decodeByteArray(
+        bytes, 0, bytes.size,
+        android.graphics.BitmapFactory.Options().apply { inSampleSize = sample },
+    )
+} catch (e: OutOfMemoryError) {
+    null
+} catch (e: Exception) {
+    null
+}
+// ---------------------------------------------------------------------------------------------
+// Feature D: Collection Analytics
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun AnalyticsPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    val analytics = state.analytics
+    if (analytics == null) {
+        InsightNote("The analytics are still being built.")
+        return
+    }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            // Every number and chart below is calculated for these worksheets only.
+            SheetScopeBar(
+                label = "Worksheets",
+                scopeLabel = state.scopeLabel(state.analyticsScope),
+                filtered = !state.analyticsScope.isAll,
+                onOpen = { controller.openScopeDialog(ScopeTarget.ANALYTICS) },
+                onClear = { controller.setScope(ScopeTarget.ANALYTICS, SheetScope.ALL) },
+            )
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatTile("Records", analytics.records.toString(), Modifier.weight(1f))
+                StatTile("Worksheets", analytics.sheets.toString(), Modifier.weight(1f))
+                StatTile("With cover", analytics.withVerifiedCover.toString(), Modifier.weight(1f))
+                StatTile("No cover", analytics.withoutVerifiedCover.toString(), Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatTile("No title", analytics.missingTitle.toString(), Modifier.weight(1f), Palette.Warn)
+                StatTile("No circle", analytics.missingCircle.toString(), Modifier.weight(1f))
+                StatTile("No artist", analytics.missingArtist.toString(), Modifier.weight(1f))
+                StatTile("No ID", analytics.missingIdentifier.toString(), Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatTile("Duplicate IDs", analytics.duplicateIdentifierGroups.toString(), Modifier.weight(1f), Palette.Warn)
+                StatTile("Rows with a duplicate ID", analytics.duplicateIdentifierRecords.toString(), Modifier.weight(1f))
+                StatTile("Possible duplicates", analytics.potentialDuplicateGroups.toString(), Modifier.weight(1f))
+            }
+        }
+        item {
+            InfoLine(
+                "One record is one source row. A blank cell counts as missing, never as zero. Potential " +
+                    "duplicates are reported and never subtracted from the totals.",
+            )
+        }
+        if (analytics.records == 0) item { InsightNote("This workbook has no catalogue records to analyse.") }
+        if (analytics.mappedFields.isNotEmpty()) {
+            item { InfoLine("Mapped fields: " + analytics.mappedFields.joinToString(", ") { it.label } + ".") }
+        }
+        if (analytics.unmappedFields.isNotEmpty()) {
+            item { InfoLine("Unmapped fields: " + analytics.unmappedFields.joinToString(", ") { it.label } + ".") }
+        }
+        item { Breakdown("By circle", analytics.byCircle) }
+        item { Breakdown("By artist", analytics.byArtist) }
+        item { Breakdown("By tag", analytics.byTags) }
+        item { Breakdown("By worksheet", analytics.byWorksheet) }
+        item { YearBreakdown(analytics.byPublicationYear, analytics.unknownPublicationYear) }
+        item {
+            InfoLine(
+                "Publication years come from the mapped date column only. A record whose date is absent or " +
+                    "unreadable stays in the unknown count instead of being given a year.",
+            )
+        }
+        item { InsightAction("Open the gallery") { controller.showInsights(InsightsTab.GALLERY) } }
+    }
+}
+
+@Composable
+private fun Breakdown(title: String, values: List<MetricCount>) {
+    if (values.isEmpty()) return
+    val max = values.maxOf { it.count }
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            "$title \u00B7 top ${values.size}",
+            color = Palette.Text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 3.dp),
+        )
+        for (value in values) MetricBar(value.label, value.count, max)
+    }
+}
+
+@Composable
+private fun YearBreakdown(values: List<MetricCount>, unknown: Int) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            "By publication year",
+            color = Palette.Text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 3.dp),
+        )
+        if (values.isEmpty()) {
+            Text("No readable publication year.", color = Palette.Muted, fontSize = 10.sp)
+        } else {
+            val max = values.maxOf { it.count }
+            for (value in values) MetricBar(value.label, value.count, max)
+        }
+        Text("Unknown year: $unknown record(s)", color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
+    }
+}
+// ---------------------------------------------------------------------------------------------
+// Feature E: Collection Timeline
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun TimelinePanel(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    // The list owns its scroll state so it can be moved deliberately: Published and Acquired are different
+    // chronological datasets, so switching between them (or changing the filter) starts at the top. A
+    // recomposition, a rebuilt report or an item update leaves the key — and the position — alone.
+    val listState = rememberLazyListState()
+    LaunchedEffect(state.timelineOrderKey) {
+        if (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0) {
+            listState.scrollToItem(0)
+        }
+    }
+    val view = state.timelineView
+    val filter = state.currentTimelineFilter
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            for (mode in TimelineMode.entries) {
+                val available = state.timelineOf(mode)?.available == true
+                ChoiceChip(if (available) mode.label else mode.label + " \u00B7 setup", state.timelineMode == mode) {
+                    controller.setTimelineMode(mode)
+                }
+            }
+            // The Published and Acquired columns are the user's to choose, and nothing is guessed for them.
+            InsightAction("Choose date columns\u2026") { controller.openDateSetup() }
+        }
+        if (view == null) {
+            InsightNote("The timeline is still being built.")
+            return
+        }
+        // Filter bar: a text search over the record's own fields, and a year range. Two compact rows, because
+        // the timeline header already carries the modes, the date-column state and the ordering action.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+            SearchField(filter.query, controller::setTimelineQuery, "Search title, circle, artist, ID or row")
+        }
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ChoiceChip("Years: ${filter.rangeLabel}", filter.hasRange) {
+                controller.openTimelineYearPicker(TimelineYearEndpoint.FROM)
+            }
+            if (filter.isActive) {
+                InsightAction("Clear filters") { controller.clearTimelineFilters() }
+            }
+        }
+        val timeline = view.timeline
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val total = state.unfilteredTimeline?.let { it.datedCount + it.unknownCount } ?: view.shown
+            Text(
+                if (filter.isActive) {
+                    "${view.shown} of $total record(s) \u00B7 ${timeline.datedCount} dated \u00B7 " +
+                        "${timeline.unknownCount} without a usable date"
+                } else {
+                    "${timeline.datedCount} dated \u00B7 ${timeline.unknownCount} without a usable date"
+                },
+                color = Palette.Muted,
+                fontSize = 9.5.sp,
+                modifier = Modifier.weight(1f),
+            )
+            InsightAction(if (state.timelineAscending) "Oldest first" else "Newest first") {
+                controller.toggleTimelineOrder()
+            }
+        }
+        // What each worksheet's chosen column holds, so a wrong or renamed column is visible here.
+        for (report in timeline.dateColumns) DateColumnLine(report)
+        if (!timeline.available && timeline.unavailableReason != null) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(8.dp)).background(Palette.Navy800)
+                    .border(1.dp, Palette.Line, RoundedCornerShape(8.dp)).padding(10.dp),
+            ) {
+                Text("This timeline needs a date column", color = Palette.Warn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text(timeline.unavailableReason, color = Palette.Text.copy(alpha = 0.85f), fontSize = 10.5.sp, modifier = Modifier.padding(top = 3.dp))
+                InsightAction("Choose the ${timeline.mode.label.lowercase()} column\u2026") {
+                    controller.openDateSetup()
+                }
+            }
+        }
+        if (view.withoutDateExcluded > 0) {
+            // Never silent: a date range cannot judge a record whose own date is unknown, so those records
+            // are left out and counted here instead of being given a year that happens to fit.
+            Text(
+                "${view.withoutDateExcluded} record(s) without a usable date are not shown while a year range " +
+                    "is active. Clear the range to see them again.",
+                color = Palette.Warn,
+                fontSize = 9.5.sp,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+            )
+        }
+        // The direction is applied from each entry's own date and Default Order: reversing an already-sorted
+        // list would also reverse the tie-break inside a shared date, which the workbook order forbids.
+        val sections = remember(timeline, state.timelineAscending) {
+            CollectionTimelineBuilder.ordered(timeline.sections, state.timelineAscending)
+        }
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            state = listState,
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (view.isEmpty) {
+                item(key = "timeline-empty") {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        InsightNote(
+                            when {
+                                !timeline.available && filter.isActive ->
+                                    "This timeline needs a date column before it can be filtered."
+                                filter.isActive -> "No record matches this filter."
+                                else -> "No record to place on a timeline."
+                            },
+                        )
+                        if (filter.isActive) {
+                            InsightAction("Clear filters") { controller.clearTimelineFilters() }
+                        }
+                    }
+                }
+            }
+            for (section in sections) {
+                item(key = "year-${section.year}") { YearHeader(section.year.toString(), section.entries.size) }
+                items(section.entries, key = { "entry-${it.recordId}" }) { entry ->
+                    TimelineRow(entry, controller)
+                }
+            }
+            if (timeline.unknown.isNotEmpty()) {
+                item(key = "year-unknown") { YearHeader("No date known", timeline.unknown.size) }
+                items(timeline.unknown, key = { "unknown-${it.recordId}" }) { entry ->
+                    TimelineRow(entry, controller)
+                }
+            }
+        }
+    }
+    // The year range is chosen in a dialog: two rows of chips would crowd a header that already carries the
+    // modes, the date-column state and the ordering action.
+    val endpoint = state.timelineYearPicker
+    if (endpoint != null) {
+        TimelineYearPickerDialog(
+            endpoint = endpoint,
+            years = state.timelineYears,
+            current = if (endpoint == TimelineYearEndpoint.FROM) filter.fromYear else filter.toYear,
+            onPick = { year -> controller.pickTimelineYear(endpoint, year) },
+            onDismiss = controller::closeTimelineYearPicker,
+        )
+    }
+}
+
+/**
+ * Choosing one end of the timeline's year range.
+ *
+ * Only years the selected timeline actually has are offered, so a range can never be set to a year that
+ * would produce an empty result by construction; "Any year" clears the bound.
+ */
+@Composable
+private fun TimelineYearPickerDialog(
+    endpoint: TimelineYearEndpoint,
+    years: List<Int>,
+    current: Int?,
+    onPick: (Int?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp)).padding(12.dp),
+        ) {
+            Text(
+                if (endpoint == TimelineYearEndpoint.FROM) "From year" else "To year",
+                color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                "Years that exist on this timeline: ${years.size}. Only a year the workbook really has is " +
+                    "listed; a record without a usable date is never given one.",
+                color = Palette.Muted, fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 3.dp),
+            )
+            LazyColumn(
+                Modifier.fillMaxWidth().heightIn(max = 260.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                item(key = "any") { PickRow("Any year", current == null) { onPick(null) } }
+                items(years, key = { "year-$it" }) { year ->
+                    PickRow(year.toString(), current == year) { onPick(year) }
+                }
+            }
+            InsightAction("Cancel", onDismiss)
+        }
+    }
+}
+
+/** One line per worksheet: the chosen column, its letter, and what it actually contains. */
+@Composable
+private fun DateColumnLine(report: DateColumnReport) {
+    val ready = report.isUsable
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            report.sheetName,
+            color = Palette.Text, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.widthIn(min = 44.dp),
+        )
+        Text(
+            if (report.hasChoice) " \u00B7 ${report.columnLabel}" else " \u00B7 no column chosen",
+            color = if (ready) Palette.Accent else Palette.Warn,
+            fontSize = 9.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            report.state.label,
+            color = if (ready) Palette.Ok else Palette.Warn,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/**
+ * Choosing the Published and the Acquired column: two slots, one list of the worksheet's own columns.
+ *
+ * Nothing is pre-selected from a header name, and nothing is saved until Save: the drafts live in the UI
+ * state, so closing the dialog leaves the stored assignment exactly as it was. Each slot reports how many
+ * values of its column can be read before the user commits to it.
+ */
+@Composable
+private fun DateColumnsDialog(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    if (!state.dateSetupOpen) return
+    val table = state.dateSetupTable
+    val target = state.dateSetupTarget
+    val current = if (target == TimelineMode.PUBLICATION) state.dateSetupPublished else state.dateSetupAcquired
+    Dialog(onDismissRequest = controller::closeDateSetup) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp)).padding(12.dp),
+        ) {
+            Text("Date columns", color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                "${state.workbookName} \u00B7 ${table?.sheetName ?: "no worksheet"}. " +
+                    "The app never picks these columns for you.",
+                color = Palette.Muted, fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 3.dp),
+            )
+            val sheets = state.catalog?.sheetNames.orEmpty()
+            if (sheets.size > 1) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    for (sheet in sheets) {
+                        ChoiceChip(sheet, state.dateSetupSheet == sheet) { controller.selectDateSetupSheet(sheet) }
+                    }
+                }
+            }
+            DateSlot(
+                TimelineMode.PUBLICATION,
+                state.dateSetupPublished,
+                state.dateSetupReport(TimelineMode.PUBLICATION),
+                target == TimelineMode.PUBLICATION,
+            ) { controller.setDateSetupTarget(TimelineMode.PUBLICATION) }
+            DateSlot(
+                TimelineMode.ACQUISITION,
+                state.dateSetupAcquired,
+                state.dateSetupReport(TimelineMode.ACQUISITION),
+                target == TimelineMode.ACQUISITION,
+            ) { controller.setDateSetupTarget(TimelineMode.ACQUISITION) }
+            Text(
+                "Choose the ${target.label.lowercase()} column:",
+                color = Palette.Text, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+            )
+            LazyColumn(
+                Modifier.fillMaxWidth().heightIn(max = 208.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                item(key = "none") {
+                    PickRow("Not set", current == null) { controller.assignDateColumn(null) }
+                }
+                items(state.dateSetupColumns, key = { it.column }) { field ->
+                    val selected = current != null && field.name == current
+                    PickRow("${field.letter} \u00B7 ${field.label}", selected) {
+                        // Tapping the chosen column again clears the slot instead of leaving a stale name.
+                        controller.assignDateColumn(if (selected) null else field.name)
+                    }
+                }
+            }
+            state.dateSetupReport(target)?.let { report -> DatePreview(report) }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                InsightAction("Save") { controller.saveDateSetup() }
+                InsightAction("Clear both") { controller.clearDateColumns() }
+                InsightAction("Cancel") { controller.closeDateSetup() }
+            }
+        }
+    }
+}
+
+/** One of the dialog's two slots: its name, its column, and the state of that column. */
+@Composable
+private fun DateSlot(
+    mode: TimelineMode,
+    header: String?,
+    report: DateColumnReport?,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    val ready = report?.isUsable == true
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (active) Palette.Accent.copy(alpha = 0.16f) else Palette.Navy700)
+            .border(1.dp, if (active) Palette.Accent else Palette.Line, RoundedCornerShape(8.dp))
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "${mode.label} timeline",
+                color = Palette.Text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                when {
+                    header == null -> "Not set"
+                    report?.column != null -> report.columnLabel
+                    else -> header
+                },
+                color = if (header == null) Palette.Muted else Palette.Accent,
+                fontSize = 9.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            report?.state?.label ?: DateColumnState.NOT_SET.label,
+            color = if (ready) Palette.Ok else Palette.Warn,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/** What the chosen column holds: the counts as a sentence, and a few real values as stored. */
+@Composable
+private fun DatePreview(report: DateColumnReport) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 4.dp)
+            .clip(RoundedCornerShape(8.dp)).background(Palette.Navy700).padding(8.dp),
+    ) {
+        Text(
+            report.message,
+            color = if (report.isUsable) Palette.Text.copy(alpha = 0.9f) else Palette.Warn,
+            fontSize = 9.5.sp,
+        )
+        if (report.samples.isNotEmpty()) {
+            Text(
+                report.samples.joinToString("   ") { sample -> "${sample.raw} \u2192 ${sample.label}" },
+                color = Palette.Muted,
+                fontSize = 9.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        if (report.state == DateColumnState.HEADER_MISSING || report.state == DateColumnState.HEADER_AMBIGUOUS) {
+            Text(
+                "That column is no longer usable in this worksheet, so the timeline stays in its setup state " +
+                    "until another one is chosen.",
+                color = Palette.Warn,
+                fontSize = 9.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun YearHeader(label: String, count: Int) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(6.dp))
+        Text("$count record(s)", color = Palette.Muted, fontSize = 9.5.sp)
+    }
+}
+
+@Composable
+private fun TimelineRow(entry: TimelineEntry, controller: WorkbookCommentsController) {
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp))
+            .padding(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).background(Palette.Navy700),
+            contentAlignment = Alignment.Center,
+        ) {
+            val path = entry.mediaPath
+            if (path != null) CoverThumb(path, controller) else Text("\u2014", color = Palette.Muted, fontSize = 10.sp)
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(entry.dateLabel, color = Palette.Accent, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(6.dp))
+                Text(entry.locationLabel, color = Palette.Muted, fontSize = 9.sp)
+            }
+            Text(
+                entry.title.ifEmpty { "No title" },
+                color = Palette.Text,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 1.dp),
+            )
+            val meta = listOfNotNull(
+                entry.circle,
+                entry.artist?.let { "Artist: $it" },
+                entry.identifier,
+            ).joinToString(" \u00B7 ")
+            if (meta.isNotEmpty()) {
+                Text(meta, color = Palette.Muted, fontSize = 9.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                entry.mediaPath?.let { path -> InsightAction("Open image") { controller.openViewer(path) } }
+                InsightAction("Go to row") { controller.openTimelineEntry(entry) }
+            }
+        }
+    }
+}
+// ---------------------------------------------------------------------------------------------
+// Feature C: Column Mapping Profiles
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun FieldsPanel(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    val catalog = state.catalog ?: return
+    var picking by remember { mutableStateOf<CatalogField?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            ChoiceChip("Detected", state.isDetectedMapping) { controller.selectProfile(null) }
+            for (profile in state.profiles) {
+                ChoiceChip(profile.name, state.activeProfile == profile.name) { controller.selectProfile(profile.name) }
+            }
+        }
+        if (catalog.sheetNames.size > 1) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (sheet in catalog.sheetNames) {
+                    ChoiceChip(sheet, state.mappingSheet == sheet) { controller.selectMappingSheet(sheet) }
+                }
+            }
+        }
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            item {
+                InfoLine(
+                    "Showing ${if (state.isDetectedView) "Detected" else "\u201C${state.activeProfile}\u201D"} for " +
+                        "${state.mappingSheet ?: "this worksheet"}: ${state.mappingSourceLabel}. Selecting a " +
+                        "profile switches which saved configuration is shown and used \u2014 it never exchanges, " +
+                        "merges or rewrites a profile. A profile stores header names per worksheet, so inserting a " +
+                        "column does not shift the mapping, and saving a new one keeps every other worksheet's " +
+                        "mapping as it is. The workbook is never modified.",
+                )
+            }
+            items(CatalogField.ordered.filter { it != CatalogField.DEFAULT_ORDER }, key = { it.name }) { field ->
+                FieldRow(field, state.mappingDraft[field]) { picking = field }
+            }
+            // Default order has its own card below — the value preview and its own Change / Clear / Use-detected
+            // buttons — so the field is not listed twice with two controls that could disagree.
+            item {
+                DefaultOrderCard(
+                    state = state,
+                    onChange = { picking = CatalogField.DEFAULT_ORDER },
+                    onClear = { controller.mapField(CatalogField.DEFAULT_ORDER, null) },
+                    onDetect = { state.detectedHeader(CatalogField.DEFAULT_ORDER)?.let { header ->
+                        controller.mapField(CatalogField.DEFAULT_ORDER, header)
+                    } },
+                )
+            }
+            if (state.mappingIssues.isNotEmpty()) {
+                item { IssueBlock(state.mappingIssues) }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    InsightAction("Apply mapping") { controller.applyMapping() }
+                    InsightAction("Reset") { controller.resetMapping() }
+                    InsightAction("Save profile\u2026") { saving = true }
+                    val active = state.activeProfile
+                    if (active != null) {
+                        InsightAction("Delete profile") { controller.deleteProfile(active) }
+                    }
+                }
+            }
+            item {
+                Text(
+                    "Preview \u00B7 first ${state.mappingPreview.size} record(s) of ${state.mappingSheet ?: "-"}",
+                    color = Palette.Text,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            if (state.mappingPreview.isEmpty()) {
+                item { InsightNote("This worksheet has no records to preview.") }
+            }
+            items(state.mappingPreview, key = { it.id }) { entry -> PreviewRow(entry) }
+        }
+    }
+    val field = picking
+    if (field != null) {
+        HeaderPickerDialog(
+            field = field,
+            headers = state.mappingHeaders,
+            current = state.mappingDraft[field],
+            onPick = { header -> controller.mapField(field, header); picking = null },
+            onDismiss = { picking = null },
+        )
+    }
+    if (saving) {
+        SaveProfileDialog(
+            defaultName = state.mappingSheet ?: "",
+            onSave = { name -> controller.saveProfile(name); saving = false },
+            onDismiss = { saving = false },
+        )
+    }
+}
+
+/**
+ * The Default Order column of the Fields screen, with the control that changes it.
+ *
+ * It is a **row like any other field**, with its own visible buttons, because a label alone left the one column
+ * the timeline depends on looking read-only: Change opens the same column picker the other fields use, Clear
+ * unsets it, and Use detected puts back the column automatic detection found. The value statistics below the
+ * buttons come from the draft mapping's own preview, so what is shown is what the timeline will read once the
+ * mapping is applied — and nothing here writes a file.
+ */
+@Composable
+private fun DefaultOrderCard(
+    state: WorkbookCommentsUi,
+    onChange: () -> Unit,
+    onClear: () -> Unit,
+    onDetect: () -> Unit,
+) {
+    val header = state.defaultOrderHeader
+    val detected = state.detectedHeader(CatalogField.DEFAULT_ORDER)
+    val values = state.defaultOrderValues
+    val numbers = values.count { it.group == 0 }
+    val texts = values.count { it.group == 1 }
+    val blanks = values.count { it.isMissing }
+    val samples = values.mapNotNull { it.text }.distinct().take(4)
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Default order",
+                color = Palette.Text,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            // The current column, in the same accent the other mapped headers use.
+            Text(
+                header ?: "Not mapped",
+                color = if (header == null) Palette.Muted else Palette.Accent,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            if (header == null) {
+                "Not mapped. Records with the same date fall back to their worksheet row, and the workbook keeps " +
+                    "every value it has."
+            } else {
+                "Read from \u201C$header\u201D in this preview: $numbers number(s), $texts text value(s), " +
+                    "$blanks blank. A blank one sorts after the records that have a value."
+            },
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+        )
+        if (samples.isNotEmpty()) {
+            Text("Examples: " + samples.joinToString(" \u00B7 "), color = Palette.Accent, fontSize = 9.5.sp)
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MappingButton(if (header == null) "Choose column" else "Change") { onChange() }
+            if (header != null) MappingButton("Clear") { onClear() }
+            if (header != null && detected != null && !state.defaultOrderIsDetected) {
+                MappingButton("Use detected") { onDetect() }
+            }
+        }
+        Text(
+            when {
+                detected == null -> "Automatic detection found no order column in this worksheet; pick one if it exists."
+                state.defaultOrderIsDetected -> "This is the column detection found (\u201C$detected\u201D)."
+                else -> "Detection would use \u201C$detected\u201D. A column you choose wins until you reset it."
+            },
+            color = Palette.Muted,
+            fontSize = 9.sp,
+        )
+    }
+}
+
+@Composable
+private fun FieldRow(field: CatalogField, header: String?, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                field.label + if (field.required) " *" else "",
+                color = Palette.Text,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                if (header == null) "Not mapped" else header,
+                color = if (header == null) Palette.Muted else Palette.Accent,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        MappingButton("Change", onClick = onClick)
+    }
+}
+
+@Composable
+private fun IssueBlock(issues: List<MappingIssue>) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Palette.Navy800)
+            .border(1.dp, Palette.Warn, RoundedCornerShape(8.dp)).padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text("Mapping issues", color = Palette.Warn, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        for (issue in issues) {
+            val label = when (issue.kind) {
+                MappingIssueKind.HEADER_MISSING -> "Missing column"
+                MappingIssueKind.HEADER_AMBIGUOUS -> "Ambiguous column"
+                MappingIssueKind.SHARED_HEADER -> "Shared column"
+                MappingIssueKind.REQUIRED_UNMAPPED -> "Required field unmapped"
+            }
+            Text("$label \u00B7 ${issue.detail}", color = Palette.Text.copy(alpha = 0.85f), fontSize = 9.5.sp)
+        }
+    }
+}
+
+@Composable
+private fun PreviewRow(entry: CatalogEntry) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Palette.Navy800)
+            .border(1.dp, Palette.Line, RoundedCornerShape(8.dp)).padding(8.dp),
+    ) {
+        Text(entry.title ?: "No title", color = Palette.Text, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(
+            listOfNotNull(entry.text(CatalogField.CIRCLE), entry.text(CatalogField.ARTIST), entry.text(CatalogField.IDENTIFIER))
+                .joinToString(" \u00B7 ")
+                .ifEmpty { entry.locationLabel },
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        val missing = CatalogField.ordered.count { entry.state(it) == FieldState.MISSING }
+        val unmapped = CatalogField.ordered.count { entry.state(it) == FieldState.UNMAPPED }
+        Text(
+            "${entry.locationLabel} \u00B7 missing $missing \u00B7 unmapped $unmapped",
+            color = Palette.Muted,
+            fontSize = 9.sp,
+        )
+    }
+}
+/** Which worksheet column feeds one canonical field: explicit, never guessed. */
+@Composable
+private fun HeaderPickerDialog(
+    field: CatalogField,
+    headers: List<String>,
+    current: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(12.dp)).padding(12.dp),
+        ) {
+            Text(
+                "Map ${field.label}" + if (field.required) " (required)" else "",
+                color = Palette.Text,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "Columns of this worksheet, exactly as the workbook spells them.",
+                color = Palette.Muted,
+                fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                item(key = "none") { PickRow("Not mapped", current == null) { onPick(null) } }
+                // Two columns can carry the same header; keying by position keeps the picker from failing on a
+                // duplicate key, and both entries stay choosable (the resolver then reports the ambiguity).
+                itemsIndexed(headers) { index, header ->
+                    PickRow(header, current == header) { onPick(header) }
+                }
+            }
+            InsightAction("Cancel", onDismiss)
+        }
+    }
+}
+
+@Composable
+private fun PickRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        color = if (selected) Palette.OnAccent else Palette.Text,
+        fontSize = 11.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (selected) Palette.Accent else Palette.Navy700)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+    )
+}
+
+@Composable
+private fun SaveProfileDialog(defaultName: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(defaultName) }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(12.dp)).padding(12.dp),
+        ) {
+            Text("Save mapping profile", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "The profile keeps the header names of this mapping so it can be reused on another workbook " +
+                    "with the same columns. The workbook itself is not changed.",
+                color = Palette.Muted,
+                fontSize = 9.5.sp,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            SearchField(name, { name = it }, "Profile name")
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                InsightAction("Save") { onSave(name) }
+                InsightAction("Cancel", onDismiss)
+            }
+        }
+    }
+}

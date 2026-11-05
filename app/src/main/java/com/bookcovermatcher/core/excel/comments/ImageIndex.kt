@@ -190,7 +190,8 @@ object ImageIndex {
             val field = table.fields.firstOrNull { it.column == filter.column } ?: return@all false
             row.catalogue.any { hit ->
                 hit.sheetName == filter.sheetName &&
-                    table.recordAt(hit.row)?.value(field)?.trim() == filter.value.trim()
+                    // The picker offers displayed values (a date, a percentage), so match on the same text.
+                    table.recordAt(hit.row)?.display(field)?.trim() == filter.value.trim()
             }
         }
     }
