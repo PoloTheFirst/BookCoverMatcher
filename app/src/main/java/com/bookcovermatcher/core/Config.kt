@@ -32,7 +32,17 @@ object Config {
 
     const val WISHLIST_PROMPT_MS = 5000L
 
-    const val DEFAULT_RANGE = "A1:B20"
+    /**
+     * The range the matcher reads pictures from.
+     *
+     * It must cover the layout this app documents as authentic: the doujin catalogue's 24 columns
+     * (`LIST!A:X`) with its cover pictures in the title column, `D`. The old default, `A1:B20`, was
+     * narrower than that layout, so a first run against a real workbook found no pictures at all and
+     * only said so in a toast (QA defect UI-01). Planning an extraction reads the workbook's own
+     * drawing/comment anchors and keeps the ones inside the range, so a wider default costs nothing
+     * per empty cell; 5000 rows cover the authentic catalogue's 124 records with room to spare.
+     */
+    const val DEFAULT_RANGE = "A1:Z5000"
 
     /**
      * v1 read both cell-note ("comment-fill") pictures and anchored/floating pictures of the first

@@ -2,13 +2,22 @@ package com.bookcovermatcher.core.excel.comments
 
 import com.bookcovermatcher.core.excel.ZipSource
 
-/** One worksheet as the previewer shows it: display name, workbook order and Excel's own visibility. */
+/**
+ * One worksheet as the previewer shows it: display name, workbook order and Excel's own visibility.
+ *
+ * [partPath] is the worksheet's stable identity inside the package (`xl/worksheets/sheet3.xml`). The
+ * display name is exactly the workbook's spelling — it is never trimmed, so a name with a trailing
+ * space keeps the identity it has in the file. Two worksheets can never share a name in Excel, but the
+ * path is what a saved location is resolved against.
+ */
 data class SheetInfo(
     val name: String,
     /** `visible`, `hidden` or `veryhidden` — exactly what `xl/workbook.xml` declares. */
     val visibility: String,
     /** The worksheet's declared used range (`A1:P120`), or null when the part declares none. */
     val dimension: String? = null,
+    /** The package part this worksheet lives in, when the analysis could read it. */
+    val partPath: String = "",
 ) {
     val hidden: Boolean get() = !visibility.equals("visible", ignoreCase = true)
     val label: String get() = when (visibility.lowercase()) {
@@ -26,6 +35,13 @@ data class WorkbookAnalysis(
     val coverage: ImageCoverage,
     /** Sheets that could not be read at all (missing/corrupt part); reported, never hidden. */
     val unreadableSheets: List<String>,
+    /**
+     * True when the workbook counts serial dates from 1904-01-01 instead of 1900-01-01.
+     *
+     * Read from `xl/workbook.xml` (`workbookPr@date1904`), so the Catalogue table, the date-column preview
+     * and the timelines all interpret a serial the same way the workbook does.
+     */
+    val date1904: Boolean = false,
 )
 
 /**
@@ -39,6 +55,9 @@ object WorkbookAnalyzer {
     fun analyze(zip: ZipSource, model: WorkbookCommentImages): WorkbookAnalysis {
         val sheetRefs = runCatching { WorkbookSheets.list(zip) }.getOrDefault(emptyList())
         val shared = runCatching { SheetCells.sharedStrings(zip) }.getOrDefault(emptyList())
+        // Read once for the whole package: a cell's style index is resolved against the same table for
+        // every worksheet, so two sheets cannot disagree about what a number means.
+        val styles = runCatching { WorkbookStyles.read(zip) }.getOrDefault(WorkbookStyles.EMPTY)
         val tables = ArrayList<CatalogueTable>()
         val unreadable = ArrayList<String>()
 
@@ -48,7 +67,7 @@ object WorkbookAnalyzer {
             // relationship, so this is structural — no sheet name or column index is assumed.
             if (hostsPivotTable(zip, sheet.partPath)) continue
             val table = try {
-                CatalogueReader.read(zip, sheet.partPath, sheet.name, shared)
+                CatalogueReader.read(zip, sheet.partPath, sheet.name, shared, styles = styles)
             } catch (e: Exception) {
                 unreadable.add(sheet.name)
                 null
@@ -59,12 +78,18 @@ object WorkbookAnalyzer {
         val images = ImageIndex.build(model, tables)
         return WorkbookAnalysis(
             sheets = sheetRefs.map { sheet ->
-                SheetInfo(sheet.name, sheet.visibility, SheetCells.dimension(zip, sheet.partPath))
+                SheetInfo(
+                    name = sheet.name,
+                    visibility = sheet.visibility,
+                    dimension = SheetCells.dimension(zip, sheet.partPath),
+                    partPath = sheet.partPath,
+                )
             },
             tables = tables,
             images = images,
             coverage = ImageIndex.coverage(tables, images),
             unreadableSheets = unreadable,
+            date1904 = styles.date1904,
         )
     }
 

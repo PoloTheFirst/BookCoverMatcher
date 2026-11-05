@@ -75,7 +75,8 @@ object CatalogueFiltering {
         return filters.all { filter ->
             if (filter.sheetName != table.sheetName) return@all false
             val field = table.fields.firstOrNull { it.column == filter.column } ?: return@all false
-            record.value(field).trim() == filter.value.trim()
+            // The picker offers displayed values (a date, a percentage), so the comparison uses the same.
+            record.display(field).trim() == filter.value.trim()
         }
     }
 

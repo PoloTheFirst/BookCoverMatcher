@@ -2,13 +2,80 @@ package com.bookcovermatcher.core.excel.comments
 
 import com.bookcovermatcher.core.excel.ZipSource
 
-/** One header column of a catalogue table, as the workbook spells it. [index] is its position. */
-data class CatalogueField(val name: String, val index: Int, val column: Int = index)
+/**
+ * One column of a catalogue table, as the workbook spells it.
+ *
+ * [index] is the column's position in [CatalogueTable.fields] and therefore in every record's
+ * [CatalogueRecord.values]; [column] is its zero-based source column. The two are only equal while no
+ * column is skipped, so nothing may use one as the other.
+ *
+ * A column can exist **without** a header: a blank header cell between two named columns is still a
+ * column of the table, and dropping it would shift every value to its right by one. [name] is then empty
+ * and [label] falls back to the column letter, so nothing in the UI prints an unnamed blank.
+ */
+data class CatalogueField(val name: String, val index: Int, val column: Int = index) {
+
+    /** False when the workbook left this column's header cell blank. The column is still real. */
+    val hasHeader: Boolean get() = name.trim().isNotEmpty()
+
+    /** What the UI prints: the workbook's own header, or `Column F` when the header cell is blank. */
+    val label: String get() = if (hasHeader) name.trim() else "Column " + CatalogueFiltering.columnLetter(column)
+
+    /** Excel's letter for this column, so a header can be read as a cell reference. */
+    val letter: String get() = CatalogueFiltering.columnLetter(column)
+}
 
 /** One catalogue row: the values of [CatalogueTable.fields], in field order. */
-data class CatalogueRecord(val row: Int, val values: List<String>) {
+data class CatalogueRecord(
+    val row: Int,
+    val values: List<String>,
+    /**
+     * The same cells as the workbook **displays** them — a date-formatted serial as `2026-10-31`, a
+     * percentage-formatted fraction as `12.35%`. Empty when the parser had no styles to read (or was built
+     * from fixture cells), and [display] then falls back to [values].
+     *
+     * [values] is never replaced: the raw stored text is what filters, searches and the canonical catalog
+     * keep using, and the formatted text exists only for the screen.
+     */
+    val displayValues: List<String> = emptyList(),
+    /**
+     * The workbook's own hyperlinks of this row, keyed by source column. A cell without an entry simply has
+     * no link — nothing is inferred from its text.
+     */
+    val links: Map<Int, CellLink> = emptyMap(),
+) {
+    /** The stored text of [field]; what the workbook actually contains. */
     fun value(field: CatalogueField): String = values.getOrNull(field.index)?.trim().orEmpty()
+
+    /** The text of [field] as the workbook shows it; falls back to [value] when nothing is formatted. */
+    fun display(field: CatalogueField): String =
+        displayValues.getOrNull(field.index)?.trim()?.takeIf { it.isNotEmpty() } ?: value(field)
+
+    /** Every column's display text, aligned with [values] — what the table view draws. */
+    fun displays(): List<String> = if (displayValues.size == values.size) displayValues else values
+
+    /** The link the workbook stores for [field]'s cell, or null when that cell has none. */
+    fun linkOf(field: CatalogueField): CellLink? = links[field.column]
 }
+
+/**
+ * What a catalogue reader left **below** the empty row that ended the table.
+ *
+ * A sheet ends a table with a blank row, so the reader stops at the first all-empty row after data
+ * has started. That is the documented rule (and the authentic workbook never breaks it), but when
+ * data *does* continue below such a row the user would otherwise be shown fewer records than the
+ * sheet holds, with nothing explaining the difference (QA defect XLS-01). This value carries the
+ * fact to the report instead of changing the stop rule, which would risk merging two unrelated
+ * tables that share a sheet.
+ */
+data class CatalogueTruncation(
+    /** The all-empty row the table stopped at, zero-based, as the sheet stores it. */
+    val blankRow: Int,
+    /** How many rows below it carry data in this table's columns. */
+    val skippedRows: Int,
+    /** The first of those rows, zero-based — what a message points the user at. */
+    val firstSkippedRow: Int,
+)
 
 /**
  * A worksheet that looks like a catalogue table.
@@ -26,6 +93,8 @@ data class CatalogueTable(
     val headerRow: Int,
     val fields: List<CatalogueField>,
     val records: List<CatalogueRecord>,
+    /** Rows the blank-row stop rule left unread, or null when the table ended with the sheet. */
+    val truncation: CatalogueTruncation? = null,
 ) {
     private fun alias(vararg needles: String): CatalogueField? = fields.firstOrNull { field ->
         val name = field.name.lowercase()
@@ -55,15 +124,17 @@ data class CatalogueTable(
     }
 
     fun valuesOf(field: CatalogueField): List<String> =
-        records.asSequence().map { it.value(field) }.filter { it.isNotEmpty() }.distinct().sorted().toList()
+        records.asSequence().map { it.display(field) }.filter { it.isNotEmpty() }.distinct().sorted().toList()
 
     fun recordAt(row: Int): CatalogueRecord? = records.firstOrNull { it.row == row }
 
-    /** Case-insensitive search across every column of [record]. */
+    /** Case-insensitive search across every column of [record], by stored text and by displayed text. */
     fun matches(record: CatalogueRecord, needle: String): Boolean {
         val n = needle.trim()
         if (n.isEmpty()) return true
-        return fields.any { field -> record.value(field).contains(n, ignoreCase = true) }
+        return fields.any { field ->
+            record.value(field).contains(n, ignoreCase = true) || record.display(field).contains(n, ignoreCase = true)
+        }
     }
 }
 
@@ -86,36 +157,102 @@ object CatalogueReader {
         sheetName: String,
         shared: List<String> = SheetCells.sharedStrings(zip),
         maxRecords: Int = MAX_RECORDS,
+        styles: WorkbookStyles = WorkbookStyles.EMPTY,
     ): CatalogueTable? {
         val cells = SheetCells.read(zip, sheetPath, shared)
-        return fromCells(cells, sheetName, maxRecords)
+        // The workbook's own hyperlinks, kept beside the values so a cell's destination never replaces its text.
+        val links = runCatching { SheetLinks.read(zip, sheetPath) }.getOrDefault(emptyMap())
+        return fromCells(cells, sheetName, maxRecords, styles, links)
     }
 
     /** Same detection over already-read cells, so a caller that scanned a sheet once can reuse them. */
-    fun fromCells(cells: List<CellValue>, sheetName: String, maxRecords: Int = MAX_RECORDS): CatalogueTable? {
+    fun fromCells(
+        cells: List<CellValue>,
+        sheetName: String,
+        maxRecords: Int = MAX_RECORDS,
+        styles: WorkbookStyles = WorkbookStyles.EMPTY,
+        links: Map<Long, CellLink> = emptyMap(),
+    ): CatalogueTable? {
         if (cells.isEmpty()) return null
         val byRow = cells.groupBy { it.row }
         val headerRow = detectHeaderRow(byRow) ?: return null
         val headerCells = byRow[headerRow].orEmpty().sortedBy { it.col }
         if (headerCells.size < MIN_HEADER_CELLS) return null
 
-        val fields = headerCells.mapIndexed { index, cell -> CatalogueField(cell.text, index, cell.col) }
-        val columns = headerCells.map { it.col }
+        // Every column between the first and the last header belongs to the table. A blank header cell is
+        // still a column: dropping it would shift every value to its right one column to the left, which
+        // is exactly how the columns at the right edge of a wide worksheet end up unreadable. A gap column
+        // is kept when it has a header or carries data; a completely empty one adds nothing and is skipped.
+        val firstColumn = headerCells.first().col
+        val lastColumn = headerCells.last().col
+        val dataColumns = cells.asSequence()
+            .filter { it.row > headerRow && it.col in firstColumn..lastColumn }
+            .map { it.col }
+            .toSet()
+        val columns = (firstColumn..lastColumn).filter { col ->
+            headerCells.any { it.col == col } || col in dataColumns
+        }
+        val headerByColumn = headerCells.associateBy { it.col }
+        val fields = columns.mapIndexed { index, col ->
+            CatalogueField(headerByColumn[col]?.text.orEmpty(), index, col)
+        }
         val byRowCol = cells.associateBy { it.row * 100_000L + it.col }
-        val headerTexts = headerCells.map { it.text.trim() }
+        val headerTexts = columns.map { col -> headerByColumn[col]?.text?.trim().orEmpty() }
 
         val records = ArrayList<CatalogueRecord>()
-        for (row in (headerRow + 1)..(headerRow + maxRecords)) {
-            val values = columns.map { col -> byRowCol[row * 100_000L + col]?.text.orEmpty() }
+        var truncation: CatalogueTruncation? = null
+        val lastRow = headerRow + maxRecords
+        for (row in (headerRow + 1)..lastRow) {
+            val rowCells = columns.map { col -> byRowCol[row * 100_000L + col] }
+            val values = rowCells.map { cell -> cell?.text.orEmpty() }
             if (values.all { it.isEmpty() }) {
-                if (records.isNotEmpty()) break else continue
+                if (records.isNotEmpty()) {
+                    // The table ends here — but say so when data continues below, instead of silently
+                    // reporting fewer records than the sheet holds.
+                    truncation = truncationBelow(byRowCol, columns, row, lastRow)
+                    break
+                } else continue
             }
             // A repeated header row is not a record.
             if (values.map { it.trim() } == headerTexts) continue
-            records.add(CatalogueRecord(row, values))
+            // The display spelling comes from each cell's own number format; the stored value above is
+            // left untouched, so a filter or a stored record still sees exactly what Excel stored.
+            val displays = rowCells.map { cell ->
+                if (cell == null) "" else styles.display(cell.styleIndex, cell.text, cell.numeric) ?: cell.text
+            }
+            // Hyperlinks are attached by source column, so a cell can never show its neighbour's link.
+            val rowLinks = LinkedHashMap<Int, CellLink>()
+            for (col in columns) {
+                links[SheetLinks.key(row, col)]?.let { rowLinks[col] = it }
+            }
+            records.add(CatalogueRecord(row, values, displays, rowLinks))
         }
         if (records.isEmpty()) return null
-        return CatalogueTable(sheetName, headerRow, fields, records)
+        return CatalogueTable(sheetName, headerRow, fields, records, truncation)
+    }
+
+    /**
+     * Counts the rows below [blankRow] that carry data in the table's own columns.
+     *
+     * Only rows the reader would have read ([blankRow] + 1 .. [lastRow]) are examined, and only the table's
+     * columns count: a note written in a far column, or a comment shape, is not a record. Returns null when
+     * nothing follows the blank row, which is the normal end of a table.
+     */
+    private fun truncationBelow(
+        byRowCol: Map<Long, CellValue>,
+        columns: List<Int>,
+        blankRow: Int,
+        lastRow: Int,
+    ): CatalogueTruncation? {
+        var skipped = 0
+        var first = 0
+        for (row in (blankRow + 1)..lastRow) {
+            val hasData = columns.any { col -> byRowCol[row * 100_000L + col]?.text?.isNotBlank() == true }
+            if (!hasData) continue
+            if (skipped == 0) first = row
+            skipped++
+        }
+        return if (skipped == 0) null else CatalogueTruncation(blankRow, skipped, first)
     }
 
     /** The row with the most short, text-like, distinct cells near the top of the sheet. */

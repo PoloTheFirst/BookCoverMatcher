@@ -7,6 +7,33 @@
 > and the source are authoritative. The Phase 1 panel numbering (`1 · ...`, `2.5 · ...`) described
 > below no longer exists in the UI: the Search destination now shows `Workbook (n) / Online (n) /
 > Bookmarks (n)` tabs, and the numbered panel titles were removed.
+>
+> **Current development build: `2.4.0-rc.7` (2026-11-05, versionCode 214).** Since this prompt was written, the
+> wishlist/bookmark model landed, v2.3.x added the offline workbook-comments preview, v2.4.0-dev.1
+> added **verified source navigation** (image/catalogue record → worksheet cell or row, via
+> `core/excel/comments/SourceLocation` + `SheetWindow` and the `WorkbookCommentsUi.source` overlay),
+> v2.4.0-dev.2 added the **workbook insights** built on one shared `core/catalog/` layer (`WorkbookCatalog`,
+> `ColumnMappingProfile`, `HealthReportBuilder`, `CollectionAnalyticsBuilder`, `CollectionTimelineBuilder`,
+> `GalleryView`) shown as the `InsightsTab` sub-tabs of the existing preview, v2.4.0-dev.3 completed the
+> column and date model: every worksheet column is kept and drawn (`CatalogueView.TABLE`, all columns in the
+> source window), blank headers no longer shift a column, the Published and Acquired timelines read the two
+> columns the user assigns in the *Choose date columns* dialog (`TimelineDates` + `TimelineDateStore`, Excel
+> serials accepted there), the four section labels wrap instead of truncating, and the gallery resets its
+> scroll when the order changes. v2.4.0-dev.4 then made the reports scopeable and the timeline filterable:
+> `SheetScope` limits the Health report and the analytics (recalculated, not hidden) to any set of
+> worksheets, `TimelineFilter`/`TimelineFiltering` add a text search and a year range per date meaning, the
+> timeline resets its scroll on a mode switch (`timelineOrderKey`), the Insights directory is ordered
+> Health → Analytics → Gallery → Timeline → Fields with a two-line name/count entry, and the gallery search
+> bar is separated from its filter chips. **2.4.0** then gave the Gallery its own worksheet selection
+> (`GalleryFilter.sheets` as a `SheetScope`), removed the Imported timeline mode (`TimelineMode` has
+> Published and Acquired only), and made the Catalogue table read dates and percentages from each cell's own
+> number format (`NumberFormats`/`WorkbookStyles`), with the stored values untouched. The stable-release
+> rounds then closed the release: the Source location preview reads its cells through that same number-format
+> rule, styles the workbook's hyperlinks and opens the shared **Copy / Open Link / Back** dialog by source
+> identity, and the *Fields* mapping — the Default order column included — has a real picker and is remembered
+> per workbook (`WorkbookMapping` + `WorkbookMappingStore`). Do not
+> re-implement any of those as if they were missing; read `README.md`, `ARCHITECTURE.md`, `USER_GUIDE.md`
+> and `CHANGELOG.md` first. Real workbook fixtures live in `test_excel/` and are read-only.
 
 > **How to use this file.** Everything below is the prompt. Give it to the coding agent as the task
 > description, together with `workflow_image.png` if you have it. It is self-contained: it does not
