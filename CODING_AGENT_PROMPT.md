@@ -8,7 +8,7 @@
 > below no longer exists in the UI: the Search destination now shows `Workbook (n) / Online (n) /
 > Bookmarks (n)` tabs, and the numbered panel titles were removed.
 >
-> **Current development build: `2.4.0-rc.7` (2026-11-05, versionCode 214).** Since this prompt was written, the
+> **Current release: `2.4.0` (2026-11-05, versionCode 215); next development line `online_improvement`.** Since this prompt was written, the
 > wishlist/bookmark model landed, v2.3.x added the offline workbook-comments preview, v2.4.0-dev.1
 > added **verified source navigation** (image/catalogue record → worksheet cell or row, via
 > `core/excel/comments/SourceLocation` + `SheetWindow` and the `WorkbookCommentsUi.source` overlay),
