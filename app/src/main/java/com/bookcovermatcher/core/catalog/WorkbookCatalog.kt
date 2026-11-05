@@ -39,6 +39,9 @@ data class CatalogEntry(
     val hasVerifiedCover: Boolean get() = images.any { it.isVerified }
     val hasUnresolvedImage: Boolean get() = images.any { it.state == ImageState.UNRESOLVED }
 
+    /** The workbook's own ordering value for this record, exactly as the cell spells it (null = none). */
+    val defaultOrder: String? get() = text(CatalogField.DEFAULT_ORDER)?.takeIf { it.isNotBlank() }
+
     /** `LIST!128` — the worksheet and the one-based row, for display. */
     val locationLabel: String get() = "$sheetName!${row + 1}"
 }
@@ -78,6 +81,12 @@ data class WorkbookCatalog(
  * through the resolved mapping, and an image comes from the association the comment scanner already
  * verified. A field the profile leaves unmapped, a field whose column disappeared, and a field whose
  * header is ambiguous are all reported as their own state instead of a blank.
+ *
+ * Each worksheet is resolved with **its own** mapping: the entry in [sheetMappings] for its identity, else
+ * [profile]. A **null** [profile] means "no workbook-wide mapping": every worksheet without an entry is detected
+ * from its own headers, which is the state an untouched workbook is in — and the reason one worksheet's applied
+ * columns can never unmap another worksheet's fields. A non-null profile (even one with no columns, meaning
+ * "nothing is mapped") is used for every worksheet that has no entry of its own.
  */
 object WorkbookCatalogBuilder {
 
@@ -86,26 +95,30 @@ object WorkbookCatalogBuilder {
         sheets: List<SheetInfo>,
         tables: List<CatalogueTable>,
         images: List<ImageRow>,
-        profile: ColumnMappingProfile,
+        profile: ColumnMappingProfile? = null,
+        sheetMappings: Map<String, SheetMapping> = emptyMap(),
     ): WorkbookCatalog {
         val identityBySheet = sheets.associate { it.name to it.partPath.ifEmpty { "name:${it.name}" } }
         val imagesByRecord = indexImages(images, identityBySheet)
         val mappings = LinkedHashMap<String, ResolvedMapping>()
         val issues = LinkedHashMap<String, MappingIssue>()
         val entries = ArrayList<CatalogEntry>()
+        val usedNames = LinkedHashSet<String>()
 
         for (table in tables) {
-            val mapping = ColumnMappings.resolve(table, profile)
-            mappings[table.sheetName] = mapping
-            mapping.issues.forEach { issues.putIfAbsent(it.id(), it) }
-
             val sheetPath = sheets.firstOrNull { it.name == table.sheetName }?.partPath.orEmpty()
             val identitySheet = sheetPath.ifEmpty { "name:${table.sheetName}" }
+            // The worksheet's own mapping, never the one that happens to be on screen in another worksheet.
+            val sheetProfile = profileFor(table, identitySheet, profile, sheetMappings)
+            usedNames.add(sheetProfile.name)
+            val mapping = ColumnMappings.resolve(table, sheetProfile)
+            mappings[table.sheetName] = mapping
+            mapping.issues.forEach { issues.putIfAbsent(it.id(), it) }
 
             for (record in table.records) {
                 val values = LinkedHashMap<CatalogField, FieldValue>()
                 for (field in CatalogField.ordered) {
-                    values[field] = resolveValue(table, record, mapping, profile, field)
+                    values[field] = resolveValue(table, record, mapping, sheetProfile, field)
                 }
                 val id = "$identitySheet#${record.row}"
                 entries.add(
@@ -124,7 +137,11 @@ object WorkbookCatalogBuilder {
 
         return WorkbookCatalog(
             workbookSha256 = workbookSha256,
-            profileName = profile.name,
+            profileName = when {
+                usedNames.size == 1 -> usedNames.first()
+                usedNames.isEmpty() -> profile?.name ?: ColumnMappingProfile.DETECTED_NAME
+                else -> ColumnMappingProfile.PER_SHEET_NAME
+            },
             entries = entries,
             sheetNames = tables.map { it.sheetName },
             tables = tables.associateBy { it.sheetName },
@@ -134,6 +151,27 @@ object WorkbookCatalogBuilder {
             unreferencedImages = images.count { it.state == ImageState.UNREFERENCED },
             sheets = sheets,
         )
+    }
+
+    /**
+     * The profile one worksheet is read with.
+     *
+     * Its own applied entry wins; otherwise [fallback] decides — and a null fallback means "detect this
+     * worksheet", which is a decision about **this** table's headers, so it is taken here rather than by the
+     * caller for the whole workbook. A profile is asked for **this worksheet's** entry
+     * ([ColumnMappingProfile.columnsFor]), so a profile that carries per-worksheet mappings never hands one
+     * worksheet's columns to another.
+     */
+    private fun profileFor(
+        table: CatalogueTable,
+        sheetKey: String,
+        fallback: ColumnMappingProfile?,
+        sheetMappings: Map<String, SheetMapping>,
+    ): ColumnMappingProfile {
+        sheetMappings.entryFor(sheetKey)?.let { return it.asProfile() }
+        val profile = fallback ?: return ColumnMappings.detectedProfile(table)
+        val columns = profile.columnsFor(sheetKey) ?: return ColumnMappings.detectedProfile(table)
+        return ColumnMappingProfile(profile.name, columns = columns)
     }
 
     private fun resolveValue(

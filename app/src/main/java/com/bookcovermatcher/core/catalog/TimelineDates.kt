@@ -27,8 +27,6 @@ data class SheetDateChoice(
     fun headerFor(mode: TimelineMode): String? = when (mode) {
         TimelineMode.PUBLICATION -> publishedHeader
         TimelineMode.ACQUISITION -> acquiredHeader
-        // The import date comes from the saved-workbook library, never from a worksheet column.
-        TimelineMode.IMPORT -> null
     }
 
     fun withHeader(mode: TimelineMode, header: String?): SheetDateChoice {
@@ -36,7 +34,6 @@ data class SheetDateChoice(
         return when (mode) {
             TimelineMode.PUBLICATION -> copy(publishedHeader = cleaned)
             TimelineMode.ACQUISITION -> copy(acquiredHeader = cleaned)
-            TimelineMode.IMPORT -> this
         }
     }
 }
@@ -178,7 +175,7 @@ object TimelineDates {
      * A serial number is accepted here because the user said this column holds dates; outside these
      * configured columns a bare number is never read as a date.
      */
-    fun inspect(table: CatalogueTable, mode: TimelineMode, header: String?): DateColumnReport {
+    fun inspect(table: CatalogueTable, mode: TimelineMode, header: String?, date1904: Boolean = false): DateColumnReport {
         if (header.isNullOrBlank()) {
             return DateColumnReport(table.sheetName, mode, null, null, DateColumnState.NOT_SET)
         }
@@ -193,7 +190,7 @@ object TimelineDates {
         val field = matches.single()
         val texts = table.records.map { record -> record.value(field).trim() }
         val filled = texts.filter { it.isNotEmpty() }
-        val parsed = filled.map { raw -> DateSample(raw, CatalogDates.parse(raw, allowSerial = true)) }
+        val parsed = filled.map { raw -> DateSample(raw, CatalogDates.parse(raw, allowSerial = true, date1904 = date1904)) }
         val readable = parsed.count { it.isReadable }
         val malformed = parsed.size - readable
         return DateColumnReport(
@@ -214,8 +211,9 @@ object TimelineDates {
         catalog: WorkbookCatalog,
         settings: TimelineDateSettings,
         mode: TimelineMode,
+        date1904: Boolean = false,
     ): List<DateColumnReport> = catalog.tables.values.map { table ->
-        inspect(table, mode, settings.choiceOf(table.sheetName).headerFor(mode))
+        inspect(table, mode, settings.choiceOf(table.sheetName).headerFor(mode), date1904)
     }
 
     /**

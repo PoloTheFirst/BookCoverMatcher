@@ -8,7 +8,7 @@
 > below no longer exists in the UI: the Search destination now shows `Workbook (n) / Online (n) /
 > Bookmarks (n)` tabs, and the numbered panel titles were removed.
 >
-> **Current development build: `v2.4.0-dev.4` (2026-10-30).** Since this prompt was written, the
+> **Current release: `v2.4.0` (2026-10-31).** Since this prompt was written, the
 > wishlist/bookmark model landed, v2.3.x added the offline workbook-comments preview, v2.4.0-dev.1
 > added **verified source navigation** (image/catalogue record → worksheet cell or row, via
 > `core/excel/comments/SourceLocation` + `SheetWindow` and the `WorkbookCommentsUi.source` overlay),
@@ -24,7 +24,14 @@
 > worksheets, `TimelineFilter`/`TimelineFiltering` add a text search and a year range per date meaning, the
 > timeline resets its scroll on a mode switch (`timelineOrderKey`), the Insights directory is ordered
 > Health → Analytics → Gallery → Timeline → Fields with a two-line name/count entry, and the gallery search
-> bar is separated from its filter chips. Do not
+> bar is separated from its filter chips. **2.4.0** then gave the Gallery its own worksheet selection
+> (`GalleryFilter.sheets` as a `SheetScope`), removed the Imported timeline mode (`TimelineMode` has
+> Published and Acquired only), and made the Catalogue table read dates and percentages from each cell's own
+> number format (`NumberFormats`/`WorkbookStyles`), with the stored values untouched. The stable-release
+> rounds then closed the release: the Source location preview reads its cells through that same number-format
+> rule, styles the workbook's hyperlinks and opens the shared **Copy / Open Link / Back** dialog by source
+> identity, and the *Fields* mapping — the Default order column included — has a real picker and is remembered
+> per workbook (`WorkbookMapping` + `WorkbookMappingStore`). Do not
 > re-implement any of those as if they were missing; read `README.md`, `ARCHITECTURE.md`, `USER_GUIDE.md`
 > and `CHANGELOG.md` first. Real workbook fixtures live in `test_excel/` and are read-only.
 

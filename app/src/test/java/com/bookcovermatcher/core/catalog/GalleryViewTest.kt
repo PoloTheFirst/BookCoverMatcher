@@ -38,10 +38,16 @@ class GalleryViewTest {
     }
 
     @Test
-    fun `cover first puts the record with a verified cover on top`() {
-        val rows = GalleryView.rows(entries(), GalleryFilter(), GallerySort.COVER)
-        assertEquals(1, rows.first().row)
-        assertTrue(rows.first().hasVerifiedCover)
+    fun `cover state is a filter, and no cover-first order is offered`() {
+        // The cover filters still work from the verified association…
+        val withCover = GalleryView.rows(entries(), GalleryFilter(onlyWithCover = true), GallerySort.TITLE)
+        assertEquals(listOf(1), withCover.map { it.row })
+        assertTrue(withCover.single().hasVerifiedCover)
+        // …and the orders the user can pick are the four that describe the workbook, not the cover.
+        assertEquals(
+            listOf("Title", "Circle", "Artist", "Source order"),
+            GallerySort.entries.map { it.label },
+        )
     }
 
     @Test
@@ -70,10 +76,13 @@ class GalleryViewTest {
     }
 
     @Test
-    fun `a worksheet filter keeps only that sheet`() {
-        val rows = GalleryView.rows(entries(), GalleryFilter(sheetName = "EXTRA"), GallerySort.ROW)
-        assertTrue(rows.isEmpty())
-        assertEquals(3, GalleryView.rows(entries(), GalleryFilter(sheetName = "LIST"), GallerySort.ROW).size)
+    fun `a worksheet selection keeps only the chosen worksheets`() {
+        val one = GalleryFilter(sheets = SheetScope(setOf("xl/worksheets/sheet2.xml")))
+        assertTrue(GalleryView.rows(entries(), one, GallerySort.ROW).isEmpty())
+        val list = GalleryFilter(sheets = SheetScope(setOf("xl/worksheets/sheet1.xml")))
+        assertEquals(3, GalleryView.rows(entries(), list, GallerySort.ROW).size)
+        // An empty selection means every worksheet, which is also the honest state of a stale one.
+        assertEquals(3, GalleryView.rows(entries(), GalleryFilter(sheets = SheetScope(emptySet())), GallerySort.ROW).size)
     }
 
     @Test
@@ -81,6 +90,7 @@ class GalleryViewTest {
         assertFalse(GalleryFilter().isActive)
         assertTrue(GalleryFilter(query = "x").isActive)
         assertTrue(GalleryFilter(onlyWithCover = true).isActive)
+        assertTrue(GalleryFilter(sheets = SheetScope(setOf("xl/worksheets/sheet1.xml"))).isActive)
     }
 
     @Test

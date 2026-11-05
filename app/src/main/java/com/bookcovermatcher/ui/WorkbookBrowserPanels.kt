@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +50,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -56,8 +58,10 @@ import com.bookcovermatcher.CatalogueRow
 import com.bookcovermatcher.CatalogueView
 import com.bookcovermatcher.WorkbookCommentsController
 import com.bookcovermatcher.WorkbookCommentsUi
+import com.bookcovermatcher.core.excel.comments.CatalogueField
 import com.bookcovermatcher.core.excel.comments.CatalogueRecord
 import com.bookcovermatcher.core.excel.comments.CatalogueTable
+import com.bookcovermatcher.core.excel.comments.CellLink
 import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
 import com.bookcovermatcher.core.excel.comments.ImageState
@@ -621,7 +625,9 @@ fun CatalogueBrowser(state: WorkbookCommentsUi, controller: WorkbookCommentsCont
         Spacer(Modifier.height(4.dp))
         when (state.catalogueView) {
             CatalogueView.CARDS -> RecordCards(records, state, controller)
-            CatalogueView.TABLE -> WorksheetTables(tables, records) { table, record ->
+            CatalogueView.TABLE -> WorksheetTables(tables, records, onCellClick = { table, record, field ->
+                controller.peekCell(table.sheetName, record, field)
+            }) { table, record ->
                 controller.openSource(
                     "${table.sheetName} row ${record.row + 1}",
                     SourceLocations.ofRecord(table, record, state.sheets),
@@ -653,7 +659,8 @@ private fun RecordCards(
             ) {
                 Text("${table.sheetName}!${record.row + 1}", color = Palette.Muted, fontSize = 8.5.sp)
                 table.identifyingFields.forEach { field ->
-                    val value = record.value(field)
+                    // Displayed text: a card must not show a raw serial where the sheet shows a date.
+                    val value = record.display(field)
                     if (value.isNotEmpty()) {
                         Text(
                             // A column without a header is labelled by its letter, never left blank.
@@ -700,6 +707,7 @@ private val TABLE_ROW_LABEL_WIDTH = 40.dp
 private fun WorksheetTables(
     tables: List<CatalogueTable>,
     records: List<CatalogueRow>,
+    onCellClick: (CatalogueTable, CatalogueRecord, CatalogueField) -> Unit,
     onGoToRow: (CatalogueTable, CatalogueRecord) -> Unit,
 ) {
     val horizontal = rememberScrollState()
@@ -712,7 +720,13 @@ private fun WorksheetTables(
             item(key = "head-${table.sheetName}") { TableHeaderRow(table, horizontal) }
             items(count = rows.size, key = { index -> "${table.sheetName}#${rows[index].row}" }) { index ->
                 val record = rows[index]
-                TableDataRow(record, table, horizontal) { onGoToRow(table, record) }
+                TableDataRow(
+                    record = record,
+                    table = table,
+                    horizontal = horizontal,
+                    onCellClick = { field -> onCellClick(table, record, field) },
+                    onClick = { onGoToRow(table, record) },
+                )
             }
             if (rows.isEmpty()) {
                 item(key = "empty-${table.sheetName}") {
@@ -780,12 +794,19 @@ private fun TableHeaderRow(table: CatalogueTable, horizontal: ScrollState) {
     }
 }
 
-/** One worksheet record, aligned cell by cell with [table]'s header row. */
+/**
+ * One worksheet record, aligned cell by cell with [table]'s header row.
+ *
+ * Each cell is its own touch target: tapping it opens the cell dialog (value, Copy, Open Link), while the
+ * frozen row number still opens the whole row in the source view. A cell the workbook links is drawn in the
+ * accent colour and underlined, so a linked value is recognisable before it is tapped.
+ */
 @Composable
 private fun TableDataRow(
     record: CatalogueRecord,
     table: CatalogueTable,
     horizontal: ScrollState,
+    onCellClick: (CatalogueField) -> Unit,
     onClick: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth()) {
@@ -801,23 +822,114 @@ private fun TableDataRow(
         }
         Row(Modifier.horizontalScroll(horizontal)) {
             // One cell per column of the table, in the table's own order: values are aligned with
-            // [table].fields by index, so a cell can never sit under its neighbour's header.
-            record.values.forEach { value ->
-                Text(
-                    value,
-                    color = if (value.isEmpty()) Palette.Muted else Palette.Text,
-                    fontSize = 9.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .width(TABLE_CELL_WIDTH)
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                )
+            // [table].fields by index, so a cell can never sit under its neighbour's header. The text is
+            // the workbook's own display spelling — a date-formatted serial, a percentage-formatted
+            // fraction — while the record keeps the stored value for filtering and search.
+            val displays = record.displays()
+            table.fields.forEachIndexed { index, field ->
+                val value = displays.getOrNull(index).orEmpty()
+                TableCell(value, record.linkOf(field)) { onCellClick(field) }
             }
         }
     }
 }
 
+/** One cell of the table: tappable, and visibly linked when the workbook stores a destination for it. */
+@Composable
+private fun TableCell(value: String, link: CellLink?, onClick: () -> Unit) {
+    val linked = link != null
+    Box(
+        Modifier.width(TABLE_CELL_WIDTH)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+    ) {
+        Text(
+            value,
+            color = when {
+                linked -> Palette.Accent
+                value.isEmpty() -> Palette.Muted
+                else -> Palette.Text
+            },
+            fontSize = 9.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textDecoration = if (linked) TextDecoration.Underline else null,
+        )
+    }
+}
+
+
+/**
+ * The cell dialog of the Catalogue table: the value, then Copy, Open Link (only for a real link) and Back.
+ *
+ * A centred dialog with the actions stacked vertically, as the requirement describes. The value keeps its own
+ * line breaks and scrolls when it is longer than the card, and the dialog is dismissed by Back, by the system
+ * Back gesture or by a tap on the area around it — a tap inside the card never closes it.
+ */
+@Composable
+fun CellPeekDialog(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+    val peek = state.cellPeek ?: return
+    Dialog(onDismissRequest = controller::closeCellPeek) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Palette.Navy800)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp))
+                // A tap inside the card must not reach the dialog's dismiss handler.
+                .clickable(enabled = false) {}
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                peek.locationLabel,
+                color = Palette.Muted,
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "${peek.fieldLabel} \u00B7 column ${peek.columnLetter}",
+                color = Palette.Text,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Box(
+                Modifier.fillMaxWidth()
+                    .heightIn(max = 240.dp)
+                    .background(Palette.Navy700, RoundedCornerShape(9.dp))
+                    .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
+                    .verticalScroll(rememberScrollState())
+                    .horizontalScroll(rememberScrollState())
+                    .padding(10.dp),
+            ) {
+                Text(
+                    if (peek.isBlank) "This cell is empty." else peek.value,
+                    color = if (peek.isBlank) Palette.Muted else Palette.Text,
+                    fontSize = 11.5.sp,
+                )
+            }
+            if (peek.link != null) {
+                Text(
+                    "Link: ${peek.link.label}" + if (peek.link.internal) " (inside this workbook)" else "",
+                    color = Palette.Muted,
+                    fontSize = 9.5.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            InsightAction("Copy") { controller.copyPeekedCell() }
+            // Only a destination the workbook really stores, and the app can act on, offers this action.
+            if (peek.canOpenLink) {
+                InsightAction("Open Link") { controller.openPeekedLink() }
+            }
+            InsightAction("Back") { controller.closeCellPeek() }
+        }
+    }
+}
 
 /** Searchable worksheet picker: every sheet, in workbook order, hidden ones labelled. */
 @Composable

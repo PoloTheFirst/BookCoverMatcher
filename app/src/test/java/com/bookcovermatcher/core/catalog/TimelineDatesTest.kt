@@ -167,10 +167,14 @@ class TimelineDatesTest {
     }
 
     @Test
-    fun `the import timeline has no worksheet column to choose`() {
-        val settings = TimelineDateSettings("sha").withHeader("LIST", TimelineMode.IMPORT, "発行日")
-        assertFalse(settings.isConfigured)
-        assertNull(settings.choiceOf("LIST").headerFor(TimelineMode.IMPORT))
+    fun `the two date meanings are chosen independently and neither can be filled in automatically`() {
+        val settings = TimelineDateSettings("sha")
+            .withHeader("LIST", TimelineMode.PUBLICATION, "発行日")
+            .withHeader("LIST", TimelineMode.ACQUISITION, "発行日")
+        // The same column may hold both meanings, and each assignment stays as the user made it.
+        assertEquals("発行日", settings.choiceOf("LIST").headerFor(TimelineMode.PUBLICATION))
+        assertEquals("発行日", settings.choiceOf("LIST").headerFor(TimelineMode.ACQUISITION))
+        assertEquals(2, TimelineMode.entries.size)
     }
 
     @Test

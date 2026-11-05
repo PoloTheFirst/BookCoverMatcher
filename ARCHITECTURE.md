@@ -1,4 +1,4 @@
-# Architecture and developer notes (v2.4.0-dev.4)
+# Architecture and developer notes (v2.4.0)
 
 ## Layers
 
@@ -56,7 +56,8 @@ dialogs                      │            CatalogIndex              └─ Wis
   verified `MediaAssociation`s, a `LegacyCommentEntry`'s own `ref`, a detected `CatalogueRecord`) into a
   `Candidate(sheetName, sheetPath, cell, row, column)` — or into `Unreferenced`, `Unresolved` or `Unknown`
   when nothing is proven. `SheetWindow`/`SheetWindows` turn the cells of one sheet into a small window
-  around a target row (nearest columns, the catalogue header carried separately). The controller reads a
+  around a target row (every column the worksheet uses, the catalogue header carried separately, each cell with
+  its own format and hyperlink — see the v2.4.0 note below). The controller reads a
   sheet once into `sheetCells` (cleared on open/rescan/close) and guards the result with the workbook
   hash, so a late read for another workbook is dropped. `WorkbookCommentsUi.source` holds the overlay and
   its transitions are pure functions (`openSource`, `sourceLoading`, `sourceWindow`, `sourceFailed`,
@@ -64,11 +65,12 @@ dialogs                      │            CatalogIndex              └─ Wis
 * **v2.4.0-dev.2** adds one shared layer, `core/catalog/`, instead of five feature-specific pipelines:
   * `CatalogField` is the canonical field list (Title, Circle, Artist, Product ID, URL, Price, Description,
     Publication date, Tags). Circle and Artist are two fields and nothing merges them.
-  * `ColumnMappingProfile` maps a header **name** to a field; `ColumnMappings.resolve` turns it into a
+  * `ColumnMappingProfile` maps a header **name** to a field — one column set per worksheet identity, plus the
+    optional workbook-wide set a schema-1 profile carries; `ColumnMappings.resolve` turns it into a
     `ResolvedMapping` per worksheet and reports `HEADER_MISSING`, `HEADER_AMBIGUOUS`, `SHARED_HEADER` and
     `REQUIRED_UNMAPPED`. A field is resolved only when exactly one column carries the mapped header, so an
     ambiguous mapping leaves the field **unmapped** rather than picking a column. `ColumnMappingCodec` is a
-    pure JSON codec over the existing `MiniJson`; `data/ColumnMappingStore` writes
+    pure JSON codec over the existing `MiniJson` (schema 2, both forms read); `data/ColumnMappingStore` writes
     `files/mappings/profiles.json` (temp file + rename, never overwritten on a read failure).
   * `WorkbookCatalogBuilder.build(sha, sheets, tables, images, profile)` produces `CatalogEntry`s keyed by
     **worksheet part path + row** (the same identity v2.4.0-dev.1 used for a source location) and attaches
@@ -129,6 +131,122 @@ dialogs                      │            CatalogIndex              └─ Wis
     filter change return to the top, and nothing else moves the list.
   * `InsightsTab` order is HEALTH, ANALYTICS, GALLERY, TIMELINE, FIELDS — the displayed order **is** the
     enum order, so there is no second list to keep in sync (pinned by `InsightsOrderTest`).
+* **v2.4.0** adds the number-format layer and the gallery's own worksheet scope, and removes a mode:
+  * `core/excel/comments/NumberFormats` reads what a numeric cell **is** from the workbook rather than from
+    its value: `WorkbookStyles.read(zip)` parses `xl/styles.xml` (`numFmts/numFmt` + `cellXfs/xf@numFmtId`,
+    resolved through the ECMA-376 built-in table) and `workbookPr@date1904` once per package;
+    `NumberFormatCodes` classifies a custom code by its own tokens (`y`/`d`/`h`/`s`/`m`, `%`) after removing
+    quoted literals, escapes and colour brackets; `CellNumberFormat.display` renders a serial as
+    `2024-01-01` / `2024-01-01 14:30` (honouring the 1900/1904 epoch, and refusing serials 0 and 60) or a
+    fraction as `12.35%` (scaled once, capped at two decimals).
+  * `SheetCells` now keeps each cell's `s` index and whether it is numeric (`CellValue.styleIndex/numeric`);
+    `CatalogueReader.fromCells` fills `CatalogueRecord.displayValues` beside the untouched `values`, and the
+    Catalogue table and cards draw `display`, while filters, search, the canonical catalog, the timelines and
+    the export keep the stored text. `CatalogueTable.valuesOf`/`matches` and
+    `ImageIndex.matchesCatalogueFilters` read the display text, so the filter picker and its matching agree.
+  * `WorkbookAnalysis.date1904` carries the workbook's own date system into `CatalogDates.parse`, so the
+    table, the date-column preview, both timelines and the analytics' year buckets read a serial the same way.
+  * `GalleryFilter.sheets` is a `SheetScope`, so the Gallery selects all/one/several worksheets by
+    **identity**; `GalleryView.rows` filters on it before any other filter, `WorkbookCommentsUi.galleryEligible`
+    is the count line's denominator, and `galleryOrderKey` includes `SheetScope.key` so a scope change resets
+    the grid while an unrelated recomposition does not. `ScopeTarget.GALLERY` reuses the one worksheet picker;
+    the gallery's selection lives in its filter (`WorkbookCommentsUi.scopeOf`/`scopeCommitted` read and write
+    it there), so the bar and the dialog cannot disagree.
+  * `TimelineMode` has exactly `PUBLICATION` and `ACQUISITION`: the `IMPORT` mode and
+    `CollectionTimelineBuilder.imported` are gone. Import timestamps remain workbook metadata
+    (`WorkbookLibraryEntry.importedAt`, `WorkbookCommentsUi.importedAt`); nothing turns them into a timeline.
+  * `CatalogField.DEFAULT_ORDER` + `core/catalog/DefaultOrder` give the Timeline its tie-break: the date stays
+    the primary key, and records that share one are ordered by the user's chosen column (`DefaultOrderValue`:
+    numbers as numbers, text after numbers, blanks last), then by the verified source identity.
+    `CollectionTimelineBuilder.entriesInOrder`/`ordered` apply that in either direction, so flipping
+    newest/oldest never reverses the tie-break; `TimelineEntry.defaultOrder` carries the workbook's own text.
+  * `core/catalog/InsightsView` + `data/InsightsViewStore` persist the three worksheet scopes and each
+    timeline's year range per workbook (SHA-256) in `files/mappings/insights-views.json`. `WorkbookCommentsUi`
+    maps them in both directions (`persistableView`/`restoredView`), and the controller writes only from the
+    actions that change them — never from a rebuild — so opening, scrolling or restoring cannot rewrite it.
+  * Numeric display is one rule: `Formatting.decimal` (≤ 2 decimals, trailing zeros dropped) is used by
+    `NumberFormats` for a cell whose format declares decimals (`CellFormatKind.NUMBER`) and by the similarity
+    score, while `General`/integer cells and identifiers are never reformatted. `GallerySort` lost its
+    `COVER` entry: cover state is a filter over the verified association, not an ordering.
+  * `core/excel/comments/SheetLinks` reads a worksheet's `<hyperlinks>` with its `.rels`: an external target
+    comes from the relationship (`TargetMode="External"`), an internal one from `location`, a `ref` range is
+    expanded (bounded by `CellLink.MAX_RANGE_CELLS`) and anything unresolvable yields no link.
+    `CatalogueRecord.links` holds them **by source column**, `CellPeekUi` carries one cell's value and link
+    (identified by worksheet + row + column, never by screen position), and `WorkbookCommentsController`
+    copies the displayed text or opens the destination (browser for `http(s)`/`mailto`, the source overlay for
+    `Sheet!Cell`). `ui/WorkbookBrowserPanels.TableCell` is the tappable, underlined cell.
+  * A rescan rebuilds in place: `reloadingForRescan()` drops everything derived from the old bytes and keeps
+    every user choice, `analysisLoaded()`/`reloadFailed()` settle the busy state, and the controller calls
+    `refreshInsights()` after a successful scan when `wantsInsights` — the report screens no longer depend on
+    a re-entry into the directory. `analyticsLoaded`/`reloaded` deliberately do not touch profiles, scopes,
+    filters or the mapping draft.
+  * `WorkbookCommentsUi.mappingFor(table)` is the mapping one worksheet is read with — what was applied to it, else
+    the selected profile's entry for it, else its detected headers — so a manual choice (including a different
+    Default order column) survives a rebuild or a rescan; `isDetectedMapping` and `mappingSourceLabel` are what the
+    Fields screen shows. The shared header no longer has a "Sheets" button: the worksheet picker belongs to the
+    section that filters by it.
+  * **v2.4.0 final round — the source preview reads through the same layer, and the mapping is persisted:**
+    * `SheetWindowCell(text, display, link)` is one cell of the source window: the **stored** text (never
+      rewritten), the same cell as the workbook **displays** it, and the workbook's own hyperlink. `display`
+      comes from `WorkbookStyles.display(styleIndex, text, numeric)` — the identical call
+      `CatalogueReader.fromCells` makes — so the two views cannot disagree; `SheetWindowRow.values`/`displays`
+      stay aligned with `SheetWindow.columns`, and `SheetWindow.headerCells` carries the header row's cells
+      (with their links) when it sits outside the window, with `headerValues` derived from them.
+    * `SheetWindows.build(…, styles, links)` is the only builder; omitting both parameters (a fixture, or a
+      package without `xl/styles.xml`) leaves every cell showing exactly the stored text. `SheetWindow.cellAt(row,
+      column)` looks a cell up by **source identity** — the header row included — and returns null for anything
+      the window does not draw, which is what keeps a tap from ever describing a different cell.
+    * `WorkbookCommentsUi.peekSourceCell(window, row, column)` opens the **existing** `CellPeekUi`, so one
+      dialog serves both previews (`CellPeekDialog` is rendered once at the root of the screen). The value is
+      the displayed text (Copy puts what the user sees), the link is that cell's own, and the label is the
+      worksheet's header or `Cell <letter>`.
+    * The controller caches what it reads for the preview — `styles: WorkbookStyles?` and
+      `sheetLinks: HashMap<sheetPath, Map<Long, CellLink>>` — beside the existing `sheetCells`, and
+      `clearCellMetadata()` drops them on open, rescan and close, so cells from one workbook can never be
+      formatted or linked with another's metadata. `ui/WorkbookCommentsScreen.WindowCell` is the tappable,
+      underlined cell.
+    * `core/catalog/WorkbookMapping` + `data/WorkbookMappingStore` persist the mapping **in effect** per
+      workbook (SHA-256) in `files/mappings/workbook-mappings.json`, beside the profiles and the date columns:
+      a stored profile name is applied as that profile, a manual mapping (or a deleted profile) is restored as
+      a manual one, and *Detected* removes the entry. `WorkbookCommentsUi.persistableMapping`/`restoredMapping`
+      map it in both directions; the controller writes it only from `applyMapping`, `saveProfile`,
+      `selectProfile` and `deleteProfile`, never from a rebuild.
+    * `Map<CatalogField, String?>.withField(field, header)` is the picker's single edit rule
+      (`WorkbookCommentsController.mapField` uses it), so the Default order column is changed by exactly the
+      same code as every other field. The Fields screen gives that column its own card with a bordered
+      `MappingButton` (**Change**/**Choose column**, **Clear**, **Use detected**), driven by
+      `WorkbookCommentsUi.detectedHeader`/`defaultOrderIsDetected`, and `HeaderPickerDialog` keys its rows by
+      position so two columns sharing a header cannot break it.
+  * **v2.4.0 final (rc.6) — Detected and a profile are views, and a profile is a per-worksheet snapshot:**
+    * Three separate things, never one mutable mapping: **Detected** (`ColumnMappings.detectedProfile(worksheet)`,
+      computed whenever it is needed and never stored), each **saved profile**
+      (`ColumnMappingProfile.sheets: Map<worksheetKey, columns>` in `files/mappings/profiles.json`), and the
+      **per-worksheet edits** applied on top of the selected view (`WorkbookCommentsUi.sheetMappings`, keyed by
+      `SheetScope.keyOf(partPath, name)`).
+    * `WorkbookCommentsUi.activeProfile` is which view is selected (null = Detected); `selectProfileView(name)` is
+      the whole switch, setting the view and dropping the edits that belonged to the previous one, and it copies,
+      merges and rewrites no profile. `profileOf`/`selectedProfile`/`isDetectedView` read it.
+    * Resolution is one path: `activeColumnsFor(sheet)` = the edit applied to it → the selected profile's entry for
+      **that** worksheet (`ColumnMappingProfile.columnsFor(key)`) → its detected headers; `baselineColumnsFor` is
+      the same without the edit. `WorkbookCatalogBuilder.build(…, profile, sheetMappings)` applies exactly this per
+      table. A profile with no entry for a worksheet (added later, or another workbook's) is not applied to it; a
+      schema-1 profile (no `sheets` at all) still is, per worksheet, narrowed to the headers it really has.
+    * `MappingEquality` stays the one rule for "do these mean the same thing" (blank = unassigned, headers
+      normalized as `ColumnMappings.resolve` does, a field on one side only is a difference), and
+      `isDetectedMapping = sameColumns(effectiveMappingColumns, detectedMappingColumns)` stays a statement about
+      the mapping, not about a click. `applySheetMapping` compares the draft with `baselineColumnsFor(mappingSheet)`
+      and stores an edit **only** when it differs: an unchanged mapping writes nothing and keeps the chip blue,
+      while a real edit changes one worksheet.
+    * `profileSnapshot(name)` builds what **Save profile** writes: one entry per worksheet — the inspected one from
+      the draft, every other from the edit applied to it, the selected profile's entry, or its own detection. That
+      is the inheritance rule, and it is why the worksheet on screen is never a template for the others. The new
+      profile then becomes the selected view, so nothing is shown twice and no other profile is touched.
+    * `ColumnMappingProfile` is schema **2** (`sheets` plus the optional workbook-wide `columns` that schema-1
+      files carry); `ColumnMappingCodec` reads and writes both. `WorkbookMapping`/`WorkbookMappingCodec` are schema
+      2 as well, storing the selected view (`profile`) beside the per-worksheet edits; a schema-1 file still
+      decodes into `legacy` and is migrated by `restoredMapping(mapping, tables)` **per worksheet** (only the
+      columns that worksheet really has). The controller restores it *after* the analysis is known
+      (`restoreMapping()`), and a view whose profile has been deleted falls back to Detected.
 * The five features are sub-tabs of `CommentsSection.INSIGHTS` (`InsightsTab.HEALTH`/`ANALYTICS`/`GALLERY`/
   `TIMELINE`/`FIELDS`) rendered by `ui/WorkbookInsightsPanels`, not new top-level destinations.
   A gallery card, a timeline entry and a finding with a record or an image open the row/cell through the
@@ -311,7 +429,7 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
 
 ## Testing
 
-* `app/src/test`: **658** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
+* `app/src/test`: **721** JVM tests. Repository/model/migration/workflow tests are in `LibraryTest.kt`;
   parsers/aggregator/cache in `OnlineSearchTest.kt`; legacy-comment parsing and its cache in
   `LegacyCommentScanTest.kt`, `LegacyCommentEdgeCaseTest.kt`, `CommentImageCacheTest.kt` and
   `WorkbookCommentsUiTest.kt`; the source-location mapping, worksheet identity and worksheet window in
@@ -320,12 +438,42 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
   `ColumnMappingStoreTest.kt`, `WorkbookCatalogTest.kt`, `HealthReportTest.kt`,
   `CollectionAnalyticsTest.kt`, `CollectionTimelineTest.kt`, `GalleryViewTest.kt` and
   `WorkbookInsightsUiTest.kt` (87 tests, all against `CatalogFixtures` — no workbook file is staged);
-  the v2.4.0-dev.3 column and date work in `WorksheetColumnsTest.kt` (7), `TimelineDatesTest.kt` (17),
-  `TimelineDateUiTest.kt` (9) and `GalleryScrollTest.kt` (6), plus `SampleWorkbookColumnsTest.kt` (5), which
+  the v2.4.0-dev.3 column and date work in `WorksheetColumnsTest.kt` (7), `TimelineDatesTest.kt` (18),
+  `TimelineDateUiTest.kt` (9) and `GalleryScrollTest.kt` (6), plus `SampleWorkbookColumnsTest.kt` (8), which
   runs through the production reader on `test_excel/doujin.xlsx` and is skipped when that 40 MB file is
   absent, exactly like `RealWorkbookIntegrationTest.kt`;
   the v2.4.0-dev.4 filters and scopes in `TimelineFilterTest.kt` (10), `SheetScopeTest.kt` (5),
   `ScopedReportsTest.kt` (8), `InsightsFilterUiTest.kt` (11) and `InsightsOrderTest.kt` (3);
+  the v2.4.0 work in `GallerySheetFilterTest.kt` (11: the four selection modes, the composition with every
+  gallery filter and the search, sorting, stale keys, workbook replacement and the scroll key),
+  `CatalogueNumberFormatTest.kt` (11: both date systems, date-time, percentages, decimal measurements,
+  ordinary numbers and the code classifier) and `CatalogueFormattingWorkbookTest.kt` (4: a real OOXML package
+  with a `styles.xml`, read end to end), and `CollectionTimelineTest.kt` (15, the 1904 date system included);
+  `DefaultOrderTest.kt` (10: the mapping, numeric/text/blank ordering, both date meanings, both directions,
+  the fallback without a mapping and the value type) and `InsightsViewPersistenceTest.kt` (8: codec, store and
+  the state in both directions, stale keys included);
+  the latest round in `SheetLinksTest.kt` (7: external/internal links, ranges, missing relationships,
+  odd destinations, and a real package end to end), `RescanStateTest.kt` (4: a rescan keeps every choice,
+  rebuilds in place, and settles its busy state) and `CellPeekAndMappingTest.kt` (5: the cell dialog's
+  identity, value and link, and the precedence of a manual mapping);
+  the final round in `SourceWindowFormattingTest.kt` (14: a real package with its own `styles.xml` and
+  hyperlinks — the same cell reading identically in the table and the window, dates, percentages, currency and
+  `General` cells, links attached to their own cells, blank cells, the original row/column identity of a
+  nearby row, a header carried outside the window, and the dialog's value, label, link and silence for a cell
+  the window does not draw), `MappingPersistenceTest.kt` (13: both codecs' tolerance, the selected view beside
+  the per-worksheet edits, the store, `persistableMapping`/`restoredMapping` for an edit and for a deleted
+  profile, an entry that means the selected view, both migrations, the `withField` edit rule and
+  `detectedHeader`/`defaultOrderIsDetected`), plus the real workbook's table-versus-window check in
+  `SampleWorkbookColumnsTest.kt`;
+  the mapping and profile-view fixes in `DetectedStatusTest.kt` (14: the whole status matrix — applied unchanged,
+  equivalent objects, changed assignments, restored assignments, cleared fields, blanks, per-worksheet status,
+  navigation, restored state, and semantic equality including empty values), `WorksheetMappingIsolationTest.kt`
+  (11: three worksheets with different header rows, saving while each of them is inspected, the inheritance of
+  untouched worksheets, an empty value that must not unmap a sibling, deriving a profile from a profile,
+  isolation through the catalog and a profile that knows none of these worksheets) and
+  `ProfileViewSwitchingTest.kt` (7: Detected → profile → Detected → profile, two profiles in turn, the draft
+  following the view, an unknown profile name, no profile changed by any switch, an applied edit not leaking into
+  a profile and being dropped with the view, and an unsaved draft never written into a profile);
   the existing offline pipeline tests remain.
   Seven tests are opt-in: four live catalogue checks (`-DonlineCheck=1`) and the three real-workbook tests.
 * `app/src/androidTest`: three tests on a device/emulator:
@@ -340,11 +488,14 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
   answer can be discarded).
 * Workbooks sharing a cell share a workbook-item identity; documented limitation of `wb:<cell>`.
 * Online results are catalogue records, not shopping listings; no price/stock provider exists.
-* The source view is a window (six rows of context, the sixteen columns nearest the verified cell), not a
-  spreadsheet renderer: a location outside it is reached by opening that location, not by scrolling.
-* The health report, analytics and timeline analyse **one workbook** at a time and only what the parser can
-  see. There is no cross-workbook aggregate, no month-level timeline grouping, and no acquisition-date
-  timeline, because the app never records an acquisition date.
+* The source view is a window (six rows of context, every column the worksheet uses up to a hard bound), not
+  a spreadsheet renderer: a location outside it is reached by opening that location, not by scrolling.
+* The health report, analytics and timelines analyse **one workbook** at a time and only what the parser can
+  see. There is no cross-workbook aggregate and no month-level timeline grouping; the timeline groups by year,
+  and Published/Acquired exist only when the user assigned a column to each of them.
+* Formatted dates and percentages are a **display** layer: `CatalogueRecord.values` keeps the stored text, and
+  the CSV export and the canonical catalog read that. The source window shows the stored cell, because it is
+  a view of the worksheet part rather than of the display layer.
 * A mapping profile stores header names, so a *renamed* column is reported as `HEADER_MISSING` rather than
   re-matched by position. That is deliberate: a wrong guess is worse than an unmapped field.
 * No database was introduced: the single JSON store keeps backup/migration simple and is adequate

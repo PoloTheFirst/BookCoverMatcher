@@ -7,23 +7,75 @@ import com.bookcovermatcher.core.excel.comments.CatalogueFiltering
 import com.bookcovermatcher.core.excel.comments.CatalogueTable
 
 /**
- * A reusable mapping from a workbook's own headers to the canonical [CatalogField]s.
+ * A reusable mapping configuration: what each worksheet's columns are, as the user saved them.
  *
- * The profile stores **header names**, not column positions: a column inserted at the left of a sheet
- * must not silently shift every mapping by one. [schemaVersion] is written so an older app can refuse,
- * rather than misread, a newer profile.
+ * A profile stores **header names**, not column positions: a column inserted at the left of a sheet must not
+ * silently shift every mapping by one. [schemaVersion] is written so an older app can refuse, rather than
+ * misread, a newer profile.
+ *
+ * A profile is a snapshot of **several worksheets**, keyed by worksheet identity ([sheets], see
+ * `SheetScope.keyOf`), because two worksheets of one workbook rarely share a header row: `LIST` has 24 columns
+ * and a notes sheet has three. Saving a profile therefore records each worksheet's own mapping — including the
+ * ones the user did not touch, which are inherited from the configuration it was created from — instead of one
+ * column set that would be applied to all of them.
+ *
+ * [columns] is the older single column set: what a schema-1 profile holds, and the fallback used for a
+ * worksheet that has no entry of its own (another workbook, or a worksheet added after the profile was saved).
+ * It is never a template for the worksheets that do have an entry.
  */
 data class ColumnMappingProfile(
     val name: String,
-    /** Canonical field -> the workbook's header text, exactly as the workbook spells it. */
-    val columns: Map<CatalogField, String>,
+    /** Worksheet identity -> that worksheet's own columns. */
+    val sheets: Map<String, Map<CatalogField, String>> = emptyMap(),
+    /** Canonical field -> the workbook's header text, for a workbook/worksheet with no entry of its own. */
+    val columns: Map<CatalogField, String> = emptyMap(),
     val schemaVersion: Int = SCHEMA_VERSION,
 ) {
+    /** A profile with one workbook-wide column set — the schema-1 form, still accepted and still written. */
+    constructor(name: String, columns: Map<CatalogField, String>) : this(name, emptyMap(), columns)
+
+    /**
+     * The columns this profile gives [sheetKey], or null when it says nothing about that worksheet.
+     *
+     * A profile with per-worksheet entries answers for the worksheets it recorded; one it does not know (a
+     * worksheet added later, or another workbook) is not covered by it and falls back to those headers' own
+     * detection, which is the only answer that is not a guess. A profile with **no** entries at all is the
+     * schema-1 form: its single column set applies to every worksheet, even when that set is empty ("nothing is
+     * mapped").
+     */
+    fun columnsFor(sheetKey: String?): Map<CatalogField, String>? = when {
+        sheets.isEmpty() -> columns
+        sheetKey == null -> null
+        else -> sheets[sheetKey] ?: columns.takeIf { it.isNotEmpty() }
+    }
+
+    /** The entry saved for [key], or null when this profile says nothing about that worksheet. */
+    fun sheet(key: String?): Map<CatalogField, String>? = if (key == null) null else sheets[key]
+
+    val isEmpty: Boolean get() = sheets.isEmpty() && columns.isEmpty()
+
+    /** True when this profile carries per-worksheet entries (rather than one workbook-wide column set). */
+    val hasSheets: Boolean get() = sheets.isNotEmpty()
+
+    /** Every worksheet identity this profile has an entry for, in stable order. */
+    val sheetKeys: Set<String> get() = sheets.keys
+
+    /** This profile with [key]'s entry replaced (or added). The receiver is never modified. */
+    fun withSheet(key: String, columns: Map<CatalogField, String>): ColumnMappingProfile {
+        val assigned = columns.filterValues { it.isNotBlank() }
+        val next = LinkedHashMap(sheets)
+        if (assigned.isEmpty()) next.remove(key) else next[key] = assigned
+        return copy(sheets = next)
+    }
+
     companion object {
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
 
         /** The name the auto-detected mapping carries; it is never written to the profile store. */
         const val DETECTED_NAME = "Detected headers"
+
+        /** The name a catalog carries when two worksheets are read with different mappings. */
+        const val PER_SHEET_NAME = "Per-worksheet mapping"
     }
 }
 

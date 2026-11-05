@@ -2,7 +2,10 @@
 
 package com.bookcovermatcher
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.bookcovermatcher.core.catalog.CatalogEntry
@@ -20,14 +23,21 @@ import com.bookcovermatcher.core.catalog.HealthFinding
 import com.bookcovermatcher.core.catalog.HealthReport
 import com.bookcovermatcher.core.catalog.HealthReportBuilder
 import com.bookcovermatcher.core.catalog.HealthSeverity
+import com.bookcovermatcher.core.catalog.InsightsView
+import com.bookcovermatcher.core.catalog.SheetMapping
 import com.bookcovermatcher.core.catalog.SheetScope
 import com.bookcovermatcher.core.catalog.TimelineDateSettings
 import com.bookcovermatcher.core.catalog.TimelineEntry
 import com.bookcovermatcher.core.catalog.TimelineMode
 import com.bookcovermatcher.core.catalog.WorkbookCatalog
 import com.bookcovermatcher.core.catalog.WorkbookCatalogBuilder
+import com.bookcovermatcher.core.catalog.WorkbookMapping
+import com.bookcovermatcher.core.catalog.withSheets
 import com.bookcovermatcher.core.excel.JavaZipSource
+import com.bookcovermatcher.core.excel.comments.CatalogueField
+import com.bookcovermatcher.core.excel.comments.CatalogueRecord
 import com.bookcovermatcher.core.excel.comments.CatalogueTable
+import com.bookcovermatcher.core.excel.comments.CellLink
 import com.bookcovermatcher.core.excel.comments.CellValue
 import com.bookcovermatcher.core.excel.comments.CommentImageScanner
 import com.bookcovermatcher.core.excel.comments.CommentScanLimits
@@ -37,6 +47,7 @@ import com.bookcovermatcher.core.excel.comments.ImageRow
 import com.bookcovermatcher.core.excel.comments.ImageSort
 import com.bookcovermatcher.core.excel.comments.ImageState
 import com.bookcovermatcher.core.excel.comments.SheetCells
+import com.bookcovermatcher.core.excel.comments.SheetLinks
 import com.bookcovermatcher.core.excel.comments.SheetWindow
 import com.bookcovermatcher.core.excel.comments.SheetWindows
 import com.bookcovermatcher.core.excel.comments.SourceLocation
@@ -44,10 +55,13 @@ import com.bookcovermatcher.core.excel.comments.SourceLocations
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalysis
 import com.bookcovermatcher.core.excel.comments.WorkbookCommentImages
 import com.bookcovermatcher.core.excel.comments.WorkbookAnalyzer
+import com.bookcovermatcher.core.excel.comments.WorkbookStyles
 import com.bookcovermatcher.core.export.ImageManifest
 import com.bookcovermatcher.data.ColumnMappingStore
 import com.bookcovermatcher.data.CommentImageCache
+import com.bookcovermatcher.data.InsightsViewStore
 import com.bookcovermatcher.data.TimelineDateStore
+import com.bookcovermatcher.data.WorkbookMappingStore
 import java.io.File
 import java.util.zip.ZipFile
 import kotlinx.coroutines.CoroutineScope
@@ -90,10 +104,28 @@ class WorkbookCommentsController(
      */
     private val sheetCells = HashMap<String, List<CellValue>>()
 
+    /**
+     * The workbook's own number formats and hyperlinks, read once per open for the source preview.
+     *
+     * The formats are the same table the Catalogue table reads, so a date cell reads identically in both
+     * views; the links are kept per worksheet part, so a cell can never show its neighbour's destination.
+     * Both are cleared whenever the workbook is opened, rescanned or closed.
+     */
+    private var styles: WorkbookStyles? = null
+    private val sheetLinks = HashMap<String, Map<Long, CellLink>>()
+
     /** The saved column-mapping profiles; small JSON file, read once per open. */
     private val mappingStore = ColumnMappingStore(File(appContext.filesDir, "mappings"))
     /** The user's date-column choices, stored beside the mapping profiles but scoped per workbook. */
     private val dateStore = TimelineDateStore(File(appContext.filesDir, "mappings"))
+    /** The mapping each workbook was last left with, so a manual choice survives a restart. */
+    private val mappingStateStore = WorkbookMappingStore(File(appContext.filesDir, "mappings"))
+    /** The worksheet selections and timeline year ranges this workbook was last left with. */
+    private val viewStore = InsightsViewStore(File(appContext.filesDir, "mappings"))
+    /** The last view written, so an unchanged state is not rewritten on every rebuild. */
+    private var savedView: InsightsView? = null
+    /** The mappings stored for this workbook, applied once the worksheets are parsed (per-worksheet entries). */
+    private var storedMapping: WorkbookMapping? = null
 
     /** Opens the preview for [file], using the cache when the workbook hash is unchanged. */
     fun open(file: File, sha256: String, displayName: String, importedAt: Long = 0L) {
@@ -102,6 +134,7 @@ class WorkbookCommentsController(
         if (_ui.value.open && _ui.value.sha256 == sha256 && !_ui.value.loading) return
         job?.cancel()
         sheetCells.clear()
+        clearCellMetadata()
         source = file
         _ui.update {
             WorkbookCommentsUi(
@@ -116,13 +149,27 @@ class WorkbookCommentsController(
             val profiles = withContext(Dispatchers.IO) { mappingStore.load() }
             // The date-column choices belong to this workbook, so they load with it and not with a profile.
             val dates = withContext(Dispatchers.IO) { dateStore.load(sha256) }
+            // So does what the Insights screens were last left with: three worksheet scopes and the year
+            // ranges. They are restored before any report is built, so the first numbers already respect them.
+            val view = withContext(Dispatchers.IO) { viewStore.load(sha256) }
+            savedView = view
+            // And the mappings it was last left with, one entry per worksheet: a manual choice — the Default Order
+            // column included — is in effect again after a restart, and no worksheet inherits another's columns.
+            // They are applied once the worksheets (and their header rows) are known.
+            val mapping = withContext(Dispatchers.IO) { mappingStateStore.load(sha256) }
+            storedMapping = mapping
             _ui.update {
-                if (it.sha256 == sha256) it.copy(profiles = profiles, dateSettings = dates) else it
+                if (it.sha256 == sha256) {
+                    it.copy(profiles = profiles, dateSettings = dates).restoredView(view)
+                } else {
+                    it
+                }
             }
             val cached = withContext(Dispatchers.IO) { cache.read(sha256) }
             if (cached != null) {
                 val analysis = withContext(Dispatchers.IO) { analyze(file, cached) }
                 _ui.update { it.copy(loading = false, model = cached, analysis = analysis) }
+                restoreMapping(sha256, analysis)
                 return@launch
             }
             val result = withContext(Dispatchers.IO) { scan(file, sha256, displayName) }
@@ -135,7 +182,32 @@ class WorkbookCommentsController(
         job = null
         source = null
         sheetCells.clear()
+        clearCellMetadata()
+        savedView = null
+        storedMapping = null
         _ui.value = WorkbookCommentsUi()
+    }
+
+    /**
+     * Re-applies the mappings stored for this workbook, once its worksheets and their header rows are known.
+     *
+     * The stored entries are per worksheet, so nothing is merged or borrowed: a worksheet with no stored entry stays
+     * on its own detected headers. An open that already has applied mappings (a rebuild after a rescan) keeps them
+     * instead, so the in-session choice is never overwritten by an older file.
+     */
+    private fun restoreMapping(sha256: String, analysis: WorkbookAnalysis?) {
+        val mapping = storedMapping ?: return
+        val tables = analysis?.tables.orEmpty()
+        _ui.update { current ->
+            if (current.sha256 != sha256 || current.sheetMappings.isNotEmpty()) current
+            else current.restoredMapping(mapping, tables)
+        }
+    }
+
+    /** Drops the number formats and hyperlinks read for the source preview (a new workbook, or new bytes). */
+    private fun clearCellMetadata() {
+        styles = null
+        sheetLinks.clear()
     }
 
     /** Forces a fresh scan, ignoring and replacing the cached entry for this workbook. */
@@ -145,23 +217,11 @@ class WorkbookCommentsController(
         if (state.sha256.isBlank()) return
         job?.cancel()
         sheetCells.clear()
-        _ui.update {
-            it.copy(
-                loading = true,
-                error = null,
-                source = null,
-                // The parsed data is about to change: every derived result is dropped, not kept stale.
-                catalog = null,
-                health = null,
-                analytics = null,
-                publicationTimeline = null,
-                acquisitionTimeline = null,
-                importTimeline = null,
-                insightsError = null,
-                mappingPreview = emptyList(),
-                mappingIssues = emptyList(),
-            )
-        }
+        // New bytes: the formats and links read from the old ones must not be shown beside the new ones.
+        clearCellMetadata()
+        // Only what came from the old bytes is dropped: profiles, the mapping draft, the three worksheet
+        // scopes, both filters and the chosen date columns survive the rescan.
+        _ui.update { it.reloadingForRescan() }
         job = scope.launch {
             apply(withContext(Dispatchers.IO) { scan(file, state.sha256, state.workbookName) }, state.sha256)
         }
@@ -171,18 +231,27 @@ class WorkbookCommentsController(
         when (result) {
             is CommentScanResult.Success -> {
                 withContext(Dispatchers.IO) { cache.write(result.workbook) }
+                val analysis = withContext(Dispatchers.IO) { analyze(source, result.workbook) }
                 _ui.update { state ->
                     // A newer workbook won the race: keep its state, do not overwrite it.
                     if (state.sha256 != sha256) state
-                        else state.copy(
-                            loading = false,
-                            model = result.workbook,
-                            analysis = withContext(Dispatchers.IO) { analyze(source, result.workbook) }
-                        )
+                        else state.analysisLoaded(result.workbook, analysis)
                 }
+                // The stored per-worksheet mappings are applied here, where the header rows are known (a fresh
+                // open); an in-session choice from a rescan is kept as it is.
+                restoreMapping(sha256, analysis)
+                // The reports are derived from the analysis, so a rescan must rebuild them *here*: waiting
+                // for the user to leave and re-enter Insights was the bug. The mapping draft is re-previewed
+                // against the new tables so the Fields screen cannot point at a worksheet that is gone.
+                val current = _ui.value
+                if (current.sha256 != sha256 || !current.wantsInsights) return
+                if (current.mappingDraft.isNotEmpty() || current.mappingSheet != null) {
+                    startMapping(current.mappingSheet)
+                }
+                refreshInsights()
             }
             is CommentScanResult.Failure -> _ui.update { state ->
-                if (state.sha256 != sha256) state else state.copy(loading = false, error = result.message)
+                if (state.sha256 != sha256) state else state.reloadFailed(result.message)
             }
         }
     }
@@ -282,6 +351,14 @@ class WorkbookCommentsController(
     ): SheetWindow? = try {
         JavaZipSource(ZipFile(file)).use { zip ->
             val cells = sheetCells.getOrPut(candidate.sheetPath) { SheetCells.read(zip, candidate.sheetPath) }
+            // The same number formats the Catalogue table reads, so a date or a percentage is spelled the same
+            // in both views; and the worksheet's own hyperlinks, so a linked cell is recognisable here too.
+            val formats = styles ?: runCatching { WorkbookStyles.read(zip) }
+                .getOrDefault(WorkbookStyles.EMPTY)
+                .also { styles = it }
+            val links = sheetLinks.getOrPut(candidate.sheetPath) {
+                runCatching { SheetLinks.read(zip, candidate.sheetPath) }.getOrDefault(emptyMap())
+            }
             val headerRow = analysis?.tables?.firstOrNull { it.sheetName == candidate.sheetName }?.headerRow
             SheetWindows.build(
                 sheetName = candidate.sheetName,
@@ -290,6 +367,8 @@ class WorkbookCommentsController(
                 targetRow = candidate.row,
                 targetColumn = candidate.column,
                 headerRow = headerRow,
+                styles = formats,
+                links = links,
             )
         }
     } catch (e: Exception) {
@@ -528,7 +607,6 @@ class WorkbookCommentsController(
         val analytics: CollectionAnalytics,
         val publication: CollectionTimeline,
         val acquisition: CollectionTimeline,
-        val imported: CollectionTimeline,
     )
 
     /**
@@ -536,8 +614,13 @@ class WorkbookCommentsController(
      *
      * The parsed analysis and the scan result are reused — nothing is re-read from the workbook — and a
      * build that finishes after the user switched workbooks is dropped.
+     *
+     * The mapping comes from the state, **per worksheet**: every worksheet is read with its own applied mapping or
+     * its own detected headers, so applying (or saving) the columns of one worksheet cannot change what another
+     * worksheet means. There is no parameter for it on purpose — a caller-supplied profile would be exactly the
+     * workbook-wide mapping that used to leak between worksheets.
      */
-    fun refreshInsights(profile: ColumnMappingProfile? = null) {
+    fun refreshInsights() {
         val state = _ui.value
         val analysis = state.analysis
         val model = state.model
@@ -546,9 +629,7 @@ class WorkbookCommentsController(
             return
         }
         val sha256 = state.sha256
-        val chosen = profile
-            ?: state.profiles.firstOrNull { it.name == state.activeProfile }
-            ?: detectedProfile(analysis)
+        val mappings = state.sheetMappings
         val dates = state.dateSettings
         // A worksheet selection is reconciled before it is used, so the numbers and the visible scope agree.
         val available = analysis.sheets.map { SheetScope.keyOf(it.partPath, it.name) }.toSet()
@@ -557,7 +638,7 @@ class WorkbookCommentsController(
         _ui.update { it.copy(healthScope = healthScope, analyticsScope = analyticsScope).insightsStarted() }
         scope.launch {
             val bundle = withContext(Dispatchers.IO) {
-                buildInsights(sha256, analysis, model, chosen, state.importedAt, dates, healthScope, analyticsScope)
+                buildInsights(sha256, analysis, model, mappings, dates, healthScope, analyticsScope)
             }
             _ui.update { current ->
                 if (!current.insightsBelongTo(sha256)) {
@@ -569,10 +650,12 @@ class WorkbookCommentsController(
                         analytics = bundle.analytics,
                         publication = bundle.publication,
                         acquisition = bundle.acquisition,
-                        imported = bundle.imported,
                     )
                 }
             }
+            // A worksheet that no longer exists is dropped from a saved selection here, so the file on disk
+            // and the scope on screen agree from the first build onwards.
+            persistView()
         }
     }
 
@@ -580,8 +663,7 @@ class WorkbookCommentsController(
         sha256: String,
         analysis: WorkbookAnalysis,
         model: WorkbookCommentImages,
-        profile: ColumnMappingProfile,
-        importedAt: Long,
+        sheetMappings: Map<String, SheetMapping>,
         dates: TimelineDateSettings,
         healthScope: SheetScope,
         analyticsScope: SheetScope,
@@ -591,18 +673,21 @@ class WorkbookCommentsController(
             sheets = analysis.sheets,
             tables = analysis.tables,
             images = analysis.images,
-            profile = profile,
+            // "No workbook-wide mapping": each worksheet falls back to its **own** detected headers unless it has
+            // an applied mapping of its own. This is what keeps one worksheet's columns out of the others.
+            profile = null,
+            sheetMappings = sheetMappings,
         )
         return InsightsBundle(
             catalog = catalog,
             // Both reports are calculated for the worksheets the user selected, not filtered afterwards:
             // the summary counts and every breakdown come from the same scoped record list.
             health = HealthReportBuilder.build(catalog, analysis, model, healthScope),
-            analytics = CollectionAnalyticsBuilder.build(catalog, analyticsScope),
-            // Both timelines read the columns the user chose for this workbook — never a guessed header.
-            publication = CollectionTimelineBuilder.published(catalog, dates),
-            acquisition = CollectionTimelineBuilder.acquired(catalog, dates),
-            imported = CollectionTimelineBuilder.imported(catalog, importedAt.takeIf { it > 0L }),
+            analytics = CollectionAnalyticsBuilder.build(catalog, analyticsScope, analysis.date1904),
+            // Both timelines read the columns the user chose for this workbook — never a guessed header,
+            // and serials are read in the workbook's own date system.
+            publication = CollectionTimelineBuilder.published(catalog, dates, date1904 = analysis.date1904),
+            acquisition = CollectionTimelineBuilder.acquired(catalog, dates, date1904 = analysis.date1904),
         )
     }
 
@@ -630,7 +715,7 @@ class WorkbookCommentsController(
                 HealthReportBuilder.build(catalog, analysis, model, healthScope)
             }
             val analytics = withContext(Dispatchers.IO) {
-                CollectionAnalyticsBuilder.build(catalog, analyticsScope)
+                CollectionAnalyticsBuilder.build(catalog, analyticsScope, analysis.date1904)
             }
             _ui.update { current ->
                 if (revision != scopeRevision || current.sha256 != sha256 || current.catalog !== catalog) {
@@ -642,52 +727,95 @@ class WorkbookCommentsController(
         }
     }
 
-    /** The mapping the workbook suggests for its own headers. */
-    private fun detectedProfile(analysis: WorkbookAnalysis?): ColumnMappingProfile {
-        val table = analysis?.tables?.firstOrNull()
-            ?: return ColumnMappingProfile(ColumnMappingProfile.DETECTED_NAME, emptyMap())
-        return ColumnMappings.detectedProfile(table)
-    }
-
     fun showInsights(tab: InsightsTab) = _ui.update { it.showInsights(tab) }
 
     // ---- mapping profiles ---------------------------------------------------------------------
 
-    /** Applies a saved profile (null = the auto-detected mapping) and rebuilds every report. */
+    /**
+     * Selects the profile **view**: null is Detected, a name is that saved profile's configuration.
+     *
+     * This is a view switch, not a data exchange: the Detected baseline is computed, every saved profile keeps its
+     * own record untouched, and the per-worksheet edits applied in the previous view are dropped with it. The
+     * draft is re-seeded from the newly selected configuration, and every report is rebuilt from it.
+     */
     fun selectProfile(name: String?) {
         val state = _ui.value
-        val saved = state.profiles.firstOrNull { it.name == name }
-        _ui.update { it.copy(activeProfile = saved?.name, mappingDirty = false) }
-        refreshInsights(saved)
-        startMapping(base = saved)
+        val saved = state.profileOf(name)
+        _ui.update { it.selectProfileView(saved?.name) }
+        persistMapping()
+        refreshInsights()
+        startMapping()
+        onMessage(
+            if (saved == null) {
+                "Showing the detected headers for this workbook."
+            } else {
+                "Showing the mapping saved in \u201C${saved.name}\u201D."
+            },
+            ToastKind.INFO,
+        )
     }
 
-    /** Saves the draft under [name] and applies it. The workbook itself is never modified. */
+    /**
+     * Saves the current configuration as a reusable profile under [name], and selects it.
+     *
+     * The snapshot is built by [profileSnapshot] from the configuration **in effect**, one entry per worksheet: the
+     * worksheet on screen takes the draft (the user's changes), and the other worksheets keep their own mappings —
+     * inherited from the selected profile or from their detected headers. Saving therefore cannot copy the inspected
+     * worksheet's columns (or its blanks) into another worksheet, and it cannot reset a workbook's other
+     * worksheets to detection. Saved profiles that already exist are not modified except by re-using their name.
+     */
     fun saveProfile(name: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
             onMessage("Give the profile a name first.", ToastKind.INFO)
             return
         }
-        val columns = mappedColumns(_ui.value.mappingDraft)
-        if (columns.isEmpty()) {
+        val state = _ui.value
+        if (mappedColumns(state.mappingDraft).isEmpty()) {
             onMessage("Map at least one column before saving a profile.", ToastKind.INFO)
             return
         }
+        val sheetName = state.mappingSheet
+        val snapshot = state.profileSnapshot(trimmed)
+        if (snapshot == null) {
+            onMessage("There is no worksheet mapping to save yet.", ToastKind.INFO)
+            return
+        }
         scope.launch {
-            val profiles = withContext(Dispatchers.IO) { mappingStore.save(ColumnMappingProfile(trimmed, columns)) }
-            _ui.update { it.copy(profiles = profiles, activeProfile = trimmed, mappingDirty = false) }
-            refreshInsights(ColumnMappingProfile(trimmed, columns))
-            onMessage("Saved the profile \u201C$trimmed\u201D.", ToastKind.OK)
+            val profiles = withContext(Dispatchers.IO) { mappingStore.save(snapshot) }
+            // The new profile now holds the whole configuration, so the view switches to it and the per-worksheet
+            // edits that were folded into it are dropped: nothing is shown twice, and no other profile changed.
+            _ui.update {
+                it.copy(profiles = profiles).selectProfileView(trimmed)
+            }
+            persistMapping()
+            refreshInsights()
+            startMapping(sheetName)
+            onMessage(
+                "Saved the profile \u201C$trimmed\u201D: ${snapshot.sheetKeys.size} worksheet(s). " +
+                    "Other profiles are unchanged.",
+                ToastKind.OK,
+            )
         }
     }
 
+    /**
+     * Deletes a saved profile. Worksheets it was selected for fall back to the Detected view; no other profile and
+     * no applied edit is touched.
+     */
     fun deleteProfile(name: String) {
         scope.launch {
             val profiles = withContext(Dispatchers.IO) { mappingStore.delete(name) }
-            val stillActive = _ui.value.activeProfile == name
-            _ui.update { it.copy(profiles = profiles, activeProfile = if (stillActive) null else it.activeProfile) }
-            if (stillActive) refreshInsights(null)
+            val wasSelected = _ui.value.activeProfile == name
+            _ui.update { state ->
+                val next = state.copy(profiles = profiles)
+                if (wasSelected) next.selectProfileView(null) else next
+            }
+            if (wasSelected) {
+                persistMapping()
+                refreshInsights()
+                startMapping()
+            }
             onMessage("Deleted the profile \u201C$name\u201D.", ToastKind.OK)
         }
     }
@@ -697,10 +825,12 @@ class WorkbookCommentsController(
     fun selectMappingSheet(sheetName: String) = startMapping(sheetName)
 
     /**
-     * Starts (or restarts) the draft for [sheetName] from the applied profile, and previews it.
+     * Starts (or restarts) the draft for [sheetName] from **that worksheet's** mapping, and previews it.
      *
-     * The preview is computed by the same builder the reports use, so what the user confirms is what the
-     * other screens will read.
+     * The base is the worksheet's own applied mapping when it has one, otherwise its own detected headers — never
+     * the mapping of whichever worksheet was open last, which is how one worksheet's columns used to appear in
+     * another's Fields screen. The preview is computed by the same builder the reports use, so what the user
+     * confirms is what the other screens will read.
      */
     fun startMapping(sheetName: String? = null, base: ColumnMappingProfile? = null) {
         val state = _ui.value
@@ -720,9 +850,7 @@ class WorkbookCommentsController(
             }
             return
         }
-        val profile = base
-            ?: state.profiles.firstOrNull { it.name == state.activeProfile }
-            ?: ColumnMappings.detectedProfile(table)
+        val profile = base ?: state.mappingFor(table)
         previewDraft(CatalogField.ordered.associateWith { profile.columns[it] }, table)
     }
 
@@ -730,9 +858,7 @@ class WorkbookCommentsController(
     fun mapField(field: CatalogField, header: String?) {
         val state = _ui.value
         val table = state.analysis?.tables?.firstOrNull { it.sheetName == state.mappingSheet } ?: return
-        val draft = LinkedHashMap(state.mappingDraft)
-        draft[field] = header
-        previewDraft(draft, table)
+        previewDraft(state.mappingDraft.withField(field, header), table)
     }
 
     private fun previewDraft(draft: Map<CatalogField, String?>, table: CatalogueTable) {
@@ -760,7 +886,16 @@ class WorkbookCommentsController(
                 issues = ColumnMappings.resolve(table, profile).issues,
             )
         }
-    }    /** Applies the draft to every worksheet and rebuilds the reports. Nothing is written to the file. */
+    }
+
+    /**
+     * Applies the draft to the **worksheet being inspected** and rebuilds the reports. Nothing is written to the
+     * workbook file.
+     *
+     * A mapping that turns out to be exactly what this worksheet's headers already detect is not stored as an
+     * applied mapping: the worksheet stays on detection, the **Detected** status keeps its blue, and the persisted
+     * file gains nothing. Any other worksheet is untouched — its own entry, or its own detection, stays as it was.
+     */
     fun applyMapping() {
         val state = _ui.value
         val columns = mappedColumns(state.mappingDraft)
@@ -768,11 +903,37 @@ class WorkbookCommentsController(
             onMessage("Map at least one column first.", ToastKind.INFO)
             return
         }
-        val saved = state.profiles.firstOrNull { it.columns == columns }
-        val profile = saved ?: ColumnMappingProfile("Mapping on ${state.mappingSheet ?: "workbook"}", columns)
-        _ui.update { it.copy(activeProfile = saved?.name, mappingDirty = false) }
-        refreshInsights(profile)
-        onMessage("Applied the mapping to this workbook. The file itself is unchanged.", ToastKind.OK)
+        // Only the worksheet on screen is touched: the other worksheets keep the mapping they have in the
+        // selected profile view, or their own detection.
+        _ui.update { it.applySheetMapping(columns) }
+        refreshInsights()
+        persistMapping()
+        val sheet = state.mappingSheet ?: "this worksheet"
+        onMessage(
+            if (_ui.value.isDetectedMapping) {
+                "Applied the mapping: $sheet now matches its detected headers. The file itself is unchanged."
+            } else {
+                "Applied the mapping to $sheet. The file itself is unchanged."
+            },
+            ToastKind.OK,
+        )
+    }
+    /**
+     * Remembers the mappings now in effect, one entry per worksheet, or forgets the workbook when every worksheet
+     * is back on its detected headers.
+     *
+     * Written only from an explicit action (apply mapping, save a profile, pick a profile, delete a profile, pick
+     * **Detected**) — never from a recomposition — so the file cannot record a choice the user did not make.
+     */
+    private fun persistMapping() {
+        val mapping = _ui.value.persistableMapping()
+        if (mapping.workbookSha256.isBlank()) return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                if (mapping.isEmpty) mappingStateStore.delete(mapping.workbookSha256)
+                else mappingStateStore.save(mapping)
+            }
+        }
     }
 
     fun resetMapping() = startMapping(_ui.value.mappingSheet)
@@ -792,15 +953,20 @@ class WorkbookCommentsController(
     fun setTimelineQuery(text: String) = _ui.update { it.filterTimeline(it.currentTimelineFilter.withQuery(text)) }
 
     /** Restores the whole eligible timeline of the meaning on screen. */
-    fun clearTimelineFilters() = _ui.update { it.clearTimelineFilter() }
+    fun clearTimelineFilters() {
+        _ui.update { it.clearTimelineFilter() }
+        persistView()
+    }
 
     fun openTimelineYearPicker(endpoint: TimelineYearEndpoint) = _ui.update { it.timelineYearPicker(endpoint) }
 
     fun closeTimelineYearPicker() = _ui.update { it.timelineYearPicker(null) }
 
-    /** Sets one end of the year range; null clears that bound. */
-    fun pickTimelineYear(endpoint: TimelineYearEndpoint, year: Int?) =
+    /** Sets one end of the year range; null clears that bound. The choice is saved with the workbook. */
+    fun pickTimelineYear(endpoint: TimelineYearEndpoint, year: Int?) {
         _ui.update { it.pickTimelineYear(endpoint, year) }
+        persistView()
+    }
 
     // ---- worksheet scopes of Health and Analytics (v2.4.0-dev.4) ------------------------------
 
@@ -813,14 +979,16 @@ class WorkbookCommentsController(
     fun closeScopeDialog() = _ui.update { it.closeScopeDialog() }
 
     /**
-     * Commits the dialog's selection to its own report and recalculates that report.
+     * Commits the dialog's selection to its own screen and recalculates what it covers.
      *
-     * Health and Analytics each own their scope, so this updates exactly one of them.
+     * Health and Analytics each own their scope and are rebuilt for it; the gallery's scope is part of its
+     * filter and the visible cards are derived from the catalog, so nothing has to be recalculated there.
      */
     fun applyScopeDialog() {
         val before = _ui.value.scopeDialog ?: return
         _ui.update { it.scopeCommitted() }
-        rebuildScopedReports()
+        if (before.target != ScopeTarget.GALLERY) rebuildScopedReports()
+        persistView()
         onMessage(
             "The ${before.target.label} report now covers " +
                 (if (before.draft.isEmpty()) "all worksheets." else "${before.draft.size} worksheet(s)."),
@@ -834,9 +1002,31 @@ class WorkbookCommentsController(
             when (target) {
                 ScopeTarget.HEALTH -> it.copy(healthScope = scope)
                 ScopeTarget.ANALYTICS -> it.copy(analyticsScope = scope)
+                ScopeTarget.GALLERY -> it.copy(galleryFilter = it.galleryFilter.withSheets(scope))
             }
         }
-        rebuildScopedReports()
+        // Only the two calculated reports need a rebuild; the gallery derives its cards from the catalog.
+        if (target != ScopeTarget.GALLERY) rebuildScopedReports()
+        persistView()
+    }
+
+    // ---- persisted worksheet scopes and year ranges (v2.4.0) ----------------------------------
+
+    /**
+     * Writes this workbook's selections — the three worksheet scopes and each timeline's year range — when
+     * they actually changed.
+     *
+     * Called only from the actions that change them, never from a recomposition, so scrolling, a thumbnail
+     * or a rebuilt report never rewrites the file. A workbook opened for the first time keeps no entry until
+     * the user chooses something.
+     */
+    private fun persistView() {
+        val state = _ui.value
+        if (state.sha256.isBlank()) return
+        val view = state.persistableView()
+        if (view == savedView) return
+        savedView = view
+        scope.launch { withContext(Dispatchers.IO) { viewStore.save(view) } }
     }
 
     // ---- date columns (v2.4.0-dev.3) ----------------------------------------------------------
@@ -890,6 +1080,100 @@ class WorkbookCommentsController(
     /** Catalogue tab: compact cards, or the whole worksheet with every column. */
     fun setCatalogueView(view: CatalogueView) = _ui.update { it.showCatalogueView(view) }
 
+    // ---- Catalogue table: the cell dialog (Copy / Open Link / Back) ---------------------------
+
+    /**
+     * Opens the cell dialog for one table cell.
+     *
+     * The cell is identified by its worksheet, source row and source column — not by where it happens to be
+     * drawn — so the value, the link and the "go to source" action all describe the same workbook cell.
+     */
+    fun peekCell(sheetName: String, record: CatalogueRecord, field: CatalogueField) =
+        _ui.update { it.peekCell(sheetName, record, field) }
+
+    fun closeCellPeek() = _ui.update { it.closeCellPeek() }
+
+    /**
+     * Opens the same cell dialog from the Source location preview.
+     *
+     * The row and column are the **worksheet's own** (not the position on screen), and the value and the link
+     * are read from the window's cell at that identity, so the dialog cannot describe a neighbouring cell.
+     */
+    fun peekSourceCell(window: SheetWindow, row: Int, column: Int) =
+        _ui.update { it.peekSourceCell(window, row, column) }
+
+    /**
+     * Copies the **displayed** value of the open cell to the clipboard.
+     *
+     * The value is copied exactly as the table shows it — never the link's destination, never a trimmed or
+     * re-formatted version — so what the user sees is what they paste. An empty cell copies an empty string
+     * and says so instead of copying something unrelated.
+     */
+    fun copyPeekedCell() {
+        val peek = _ui.value.cellPeek ?: return
+        val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard == null) {
+            onMessage("This device has no clipboard service.", ToastKind.ERR)
+            return
+        }
+        clipboard.setPrimaryClip(ClipData.newPlainText("BookCoverMatcher cell ${peek.locationLabel}", peek.value))
+        onMessage(
+            if (peek.isBlank) "${peek.locationLabel} is empty; copied an empty value." else "Copied ${peek.locationLabel}.",
+            ToastKind.OK,
+        )
+    }
+
+    /**
+     * Follows the open cell's link.
+     *
+     * A web link goes to the system browser through an ordinary `ACTION_VIEW` intent; an internal workbook
+     * link opens that cell in the app's own source view instead of being handed to a browser. Anything the
+     * app cannot follow (a defined name, a missing worksheet, a scheme with no handler) is reported, never
+     * guessed.
+     */
+    fun openPeekedLink() {
+        val peek = _ui.value.cellPeek ?: return
+        val link = peek.link ?: return
+        if (!link.isOpenable) {
+            onMessage("This cell's link cannot be opened.", ToastKind.INFO)
+            return
+        }
+        if (link.isWeb) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.target))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val opened = runCatching { appContext.startActivity(intent) }.isSuccess
+            if (!opened) {
+                onMessage("No app on this device can open ${link.target}.", ToastKind.ERR)
+                return
+            }
+            _ui.update { it.closeCellPeek() }
+            return
+        }
+        val (sheetName, cell) = link.internalTarget() ?: run {
+            onMessage("That link points at a defined name, which the app cannot follow.", ToastKind.INFO)
+            return
+        }
+        val sheet = SourceLocations.sheetOf(sheetName, _ui.value.sheets)
+        val (row, column) = SheetCells.refToCell(cell) ?: run {
+            onMessage("The link's cell reference \u201C$cell\u201D cannot be read.", ToastKind.INFO)
+            return
+        }
+        if (sheet == null) {
+            onMessage("That link points at \u201C$sheetName\u201D, which this workbook does not have.", ToastKind.INFO)
+            return
+        }
+        _ui.update { it.closeCellPeek() }
+        openSourceCell(
+            SourceLocation.Candidate(
+                sheetName = sheet.name,
+                sheetPath = sheet.partPath,
+                cell = SheetCells.cellRef(row, column),
+                row = row,
+                column = column,
+            ),
+        )
+    }
+
     fun setHealthFilter(severity: HealthSeverity?, category: HealthCategory? = null) =
         _ui.update { it.filterHealth(severity, category) }
 
@@ -899,7 +1183,17 @@ class WorkbookCommentsController(
 
     fun toggleGalleryOrder() = _ui.update { it.toggleGalleryOrder() }
 
-    fun setGallerySheet(sheet: String?) = _ui.update { it.copy(galleryFilter = it.galleryFilter.copy(sheetName = sheet)) }
+    /**
+     * The gallery's worksheet selection: all, one, or any combination.
+     *
+     * The whole selection is replaced at once (the picker commits a set), and the visible cards come from
+     * the canonical catalog filtered by worksheet identity, so the change reaches the dataset rather than
+     * hiding cards that were already selected.
+     */
+    fun setGalleryScope(scope: SheetScope) {
+        _ui.update { it.copy(galleryFilter = it.galleryFilter.withSheets(scope)) }
+        persistView()
+    }
 
     fun setGalleryQuery(text: String) = _ui.update { it.copy(galleryFilter = it.galleryFilter.copy(query = text)) }
 

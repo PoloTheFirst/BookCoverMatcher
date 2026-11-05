@@ -64,7 +64,6 @@ class WorkbookInsightsUiTest {
             analytics = CollectionAnalyticsBuilder.build(catalog),
             publication = CollectionTimelineBuilder.published(catalog, CatalogFixtures.dates()),
             acquisition = CollectionTimelineBuilder.acquired(catalog, CatalogFixtures.dates()),
-            imported = CollectionTimelineBuilder.imported(catalog, null),
         )
     }
 
@@ -77,7 +76,7 @@ class WorkbookInsightsUiTest {
         assertNotNull(state.health)
         assertNotNull(state.analytics)
         assertNotNull(state.publicationTimeline)
-        assertNotNull(state.importTimeline)
+        assertNotNull(state.acquisitionTimeline)
         assertEquals(2, state.catalog?.entries?.size)
     }
 
@@ -134,9 +133,11 @@ class WorkbookInsightsUiTest {
         val state = loaded()
         assertEquals(TimelineMode.PUBLICATION, state.timeline?.mode)
         assertEquals(TimelineMode.ACQUISITION, state.selectTimeline(TimelineMode.ACQUISITION).timeline?.mode)
-        val imported = state.selectTimeline(TimelineMode.IMPORT).timeline
-        assertEquals(TimelineMode.IMPORT, imported?.mode)
-        assertFalse(imported?.available ?: true)
+        // The import timeline is gone: only the two date meanings the workbook can supply remain.
+        assertEquals(
+            listOf(TimelineMode.PUBLICATION, TimelineMode.ACQUISITION),
+            TimelineMode.entries.toList(),
+        )
     }
 
     @Test

@@ -3,14 +3,13 @@
 package com.bookcovermatcher.core.catalog
 
 import com.bookcovermatcher.core.excel.comments.CatalogueRecord
-import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Date meanings stay apart: publication, acquisition and import are never substituted for each other. */
+/** Date meanings stay apart: Published and Acquired are never substituted for each other. */
 class CollectionTimelineTest {
 
     private fun timeline(
@@ -183,27 +182,39 @@ class CollectionTimelineTest {
     }
 
     @Test
-    fun `an import date from the library is a real timeline`() {
-        val millis = java.time.LocalDate.of(2025, 3, 9).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
-        val result = CollectionTimelineBuilder.imported(
-            CatalogFixtures.catalog(),
-            millis,
-            ZoneId.of("UTC"),
+    fun `the Timeline offers Published and Acquired only`() {
+        // The Imported mode was removed from the enum itself, so no screen can offer it again by accident.
+        assertEquals(2, TimelineMode.entries.size)
+        assertEquals(listOf("Published", "Acquired"), TimelineMode.entries.map { it.label })
+        // Import metadata is not a timeline: it survives on the library entry, untouched.
+        assertTrue(
+            TimelineMode.entries.none { it.name.contains("IMPORT", ignoreCase = true) },
         )
-        assertTrue(result.available)
-        assertEquals(TimelineMode.IMPORT, result.mode)
-        assertEquals(listOf(2025), result.sections.map { it.year })
-        assertEquals(2, result.datedCount)
-        assertEquals(0, result.unknownCount)
-        assertEquals("2025-03-09", result.sections.single().entries.first().dateLabel)
     }
 
     @Test
-    fun `a staged workbook has no import date and says so`() {
-        val result = CollectionTimelineBuilder.imported(CatalogFixtures.catalog(), null)
-        assertFalse(result.available)
-        assertTrue(result.unavailableReason!!.contains("saved-workbook library"))
-        assertEquals(2, result.unknownCount)
+    fun `a 1904 workbook reads its serial dates in its own system`() {
+        val catalog = CatalogFixtures.catalog(
+            records = listOf(
+                CatalogFixtures.catalogueRecord(1, published = "43465"),
+                CatalogFixtures.catalogueRecord(2, published = "2024-05-17"),
+            ),
+        )
+        val settings = CatalogFixtures.dates(published = "発行日")
+        val default = CollectionTimelineBuilder.published(catalog, settings)
+        assertEquals("2018-12-31", entryOf(default, 1).dateLabel)
+
+        val shifted = CollectionTimelineBuilder.published(catalog, settings, date1904 = true)
+        // 43465 is 2023-01-01 in the 1904 system: the same serial is a different day, and the app says so.
+        assertEquals("2023-01-01", entryOf(shifted, 1).dateLabel)
+        // A text date is a text date in either system.
+        assertEquals("2024-05-17", entryOf(shifted, 2).dateLabel)
+
+        // The analytics' year buckets follow the same epoch instead of disagreeing with the timeline.
+        val defaultYears = CollectionAnalyticsBuilder.build(catalog)
+        val shiftedYears = CollectionAnalyticsBuilder.build(catalog, date1904 = true)
+        assertTrue(defaultYears.byPublicationYear.any { it.label == "2018" })
+        assertTrue(shiftedYears.byPublicationYear.any { it.label == "2023" })
     }
 
     @Test
@@ -218,4 +229,9 @@ class CollectionTimelineTest {
         assertEquals("Artist 1", entry.artist)
         assertEquals("ID-1", entry.identifier)
     }
+
+    /** The entry for one source row, wherever its year group happens to be. */
+    private fun entryOf(timeline: CollectionTimeline, row: Int): TimelineEntry =
+        timeline.sections.flatMap { it.entries }.first { it.row == row }
 }
+

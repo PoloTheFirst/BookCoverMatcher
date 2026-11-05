@@ -81,7 +81,6 @@ class InsightsFilterUiTest {
             analytics = CollectionAnalyticsBuilder.build(catalog),
             publication = CollectionTimelineBuilder.published(catalog, CatalogFixtures.dates()),
             acquisition = CollectionTimelineBuilder.acquired(catalog, CatalogFixtures.dates()),
-            imported = CollectionTimelineBuilder.imported(catalog, null),
         )
     }
 
@@ -228,7 +227,6 @@ class InsightsFilterUiTest {
             analytics = stale.analytics!!,
             publication = stale.publicationTimeline!!,
             acquisition = stale.acquisitionTimeline!!,
-            imported = stale.importTimeline!!,
         )
         assertTrue(reconciled.healthScope.isAll)
     }
