@@ -13,18 +13,31 @@ path must never become the default.
 
 | Module | Contents | State |
 |---|---|---|
-| `dict` | PP-OCR `CTCLabelDecode` index space (`blank = 0`, dictionary from 1, optional trailing space), greedy CTC decode with repeat collapsing, blank skipping and per-character confidence | done, 7 tests |
+| `dict` | PP-OCR `CTCLabelDecode` index space (`blank = 0`, dictionary from 1, optional trailing space), greedy CTC decode with repeat collapsing and per-character confidence | done, 7 tests |
 | `geom` | corner ordering with PaddleOCR's `get_mini_boxes` rule, quad size + vertical/horizontal classification, affine solve, bilinear perspective crop with edge clamping | done, 6 tests |
+| `image` | `RgbaImage` validation, bilinear resize, clamped crop, quad crop | done, 4 tests |
+| `det` | detector preprocessing (aspect-preserving resize → pad to 32 → ImageNet mean/std → CHW) and DB post-processing (threshold, 8-connected components, mean-score filter, `box_thresh`, `unclip_ratio`, source-coordinate mapping) | done, 7 tests |
+| `order` | reading order: horizontal bands left-to-right, vertical Japanese columns right-to-left then top-to-bottom, deterministic | done, 6 tests |
 
 ```
-cargo test          # 13 tests, host (x86_64-pc-windows-msvc)
+cargo test          # 30 tests, host (x86_64-pc-windows-msvc)
 ```
+
+Cross-compiled for Android (NDK r27d, API 26): `libbc_ocr.so` **300.8 KB** (arm64-v8a) and
+**326.5 KB** (x86_64).
 
 ## What is not implemented yet
 
-`det`, `rec`, `order`, the ONNX Runtime session layer and the JNI exports
-(`Java_com_bookcovermatcher_online_NativeOcr_*`). Their exact specification is recorded in
-`historical_prompt/v2.5.0-dev.5-ag.md` §6–§11 so the next session does not have to rediscover it.
+| Stage | Why it is not here |
+|---|---|
+| `rec` (48×320 recogniser preprocessing + CTC wiring) | needs the session layer first; the CTC decoder it feeds is already done and tested |
+| ONNX Runtime session layer (`ort`) | decision recorded: `ort = "=2.0.0-rc.15"`, `default-features = false`, `features = ["api-20", "load-dynamic", "std"]` — `api-20` matches the 1.20.0 runtime the app already ships, `load-dynamic` links nothing so a second runtime cannot appear. API notes for rc.15: `Session::builder(&env)` takes the environment, `ort::init().with_name("libonnxruntime.so").commit()` returns it, `session.run(ort::inputs![...])` takes `&mut self` |
+| `jni` exports (`Java_com_bookcovermatcher_online_NativeOcr_*`) | depends on the session layer |
+| Kotlin wiring, model distribution, device validation | depend on JNI |
+
+Because none of that exists, **the application still performs OCR through the embedded Python
+engine** and `app/` is untouched. The migration is **incomplete**; `historical_prompt/v2.5.0-dev.5-ag.md`
+records the remaining work in order.
 
 ## Building for Android
 

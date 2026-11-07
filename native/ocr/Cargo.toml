@@ -10,13 +10,11 @@ name = "bc_ocr"
 # `cdylib` is what Android loads (libbc_ocr.so); `rlib` keeps `cargo test` working on the host.
 crate-type = ["cdylib", "rlib"]
 
-# No dependencies yet: this commit carries the platform-independent core (charset + CTC decode,
-# quad ordering and perspective crop) which is fully unit-tested. The ONNX Runtime bindings,
-# JNI bridge and detector/recogniser stages are described in `native/ocr/README.md` and
-# `historical_prompt/v2.5.0-dev.5-ag.md`; they are deliberately NOT added as unverified
-# dependencies, because a crate that cannot be built is worse than one that stops at a clean
-# boundary.
 [dependencies]
+# Empty on purpose: everything in this crate is platform-independent image/geometry/decoding
+# logic. The ONNX Runtime session layer (ort `api-20` + `load-dynamic`) is the next step and is
+# specified in `native/ocr/README.md` and the agent report; it is not added until the session and
+# recogniser code exists, so the crate always builds.
 
 [profile.release]
 opt-level = 3
