@@ -1,0 +1,5 @@
+# The PP-OCRv6 vocabulary is pinned by content hash (git blob 270082aa29aec1ff3ac74d0d575c90399216f74d,
+# sha256 B5F2BFE2BDD9448429E3E82B51C789775D9B42F2403D082B00662EB77E401C5D). This repository sets
+# core.autocrlf=true on Windows, which would otherwise check the file out with CRLF and change its
+# bytes. The parser tolerates CRLF, but the documented hash would no longer reproduce.
+native/ocr/assets/ppocrv6_dict.txt eol=lf
