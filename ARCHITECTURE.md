@@ -550,6 +550,31 @@ always resets it — the hash guard in `sourceBelongsTo` drops a late read.
   * real OCR through Chaquopy on a bundled cover (`OcrDeviceTest`);
   * real catalogue sources;
   * `OnlineSearchController` search → merged `CatalogueUi.Found`.
+## Native OCR core (v2.5.0-dev.5 — staged, not yet the production path)
+
+The migration described in `historical_prompt/v2.5.0-dev.5.md` (PP-OCRv6 on ONNX Runtime through Rust + JNI) has
+started in `native/ocr`. It is deliberately **not** wired into the app yet: nothing under `app/` loads `libbc_ocr.so`,
+so the OCR path remains the Chaquopy/`chrome-lens-py` bridge described above.
+
+```text
+native/ocr/                 Rust crate `bc_ocr` (cdylib + rlib, no dependencies yet)
+  src/dict.rs               PP-OCR CTCLabelDecode index space + greedy decoder   (implemented, 7 tests)
+  src/geom.rs               quad ordering, orientation, affine bilinear crop     (implemented, 6 tests)
+  README.md                 toolchain, NDK build commands, model provenance
+tools/fetch-ppocrv6-models.ps1   size-checked download of the official ONNX artifacts + dictionary extraction
+```
+
+* **Build proof:** `cargo test` 13/13 on the host; `cargo build --release --target {aarch64,x86_64}-linux-android`
+  with NDK r27d produces `libbc_ocr.so` (300.4 KB / 326.2 KB) at API 26.
+* **Models (measured, not committed):** `PP-OCRv6_medium_det_onnx` 62,032,837 B and `PP-OCRv6_medium_rec_onnx`
+  76,554,979 B, with an 18,704-character dictionary taken from the recogniser's own `inference.yml`
+  (`CTCLabelDecode`, input `[3, 48, 320]`, BGR). Detector post-processing: `thresh 0.2`, `box_thresh 0.45`,
+  `unclip_ratio 1.4`.
+* **Runtime decision:** `ort` `api-20` + `load-dynamic`, so the crate would use the process's existing ONNX Runtime
+  1.20.0 (the one OpenCLIP already ships) instead of adding a second native runtime.
+* **Not implemented:** detector/recogniser inference, JNI exports, Kotlin engine selection, model packaging,
+  benchmarks. `historical_prompt/v2.5.0-dev.5-ag.md` §17 lists the ordered remaining work.
+
 * `tools/lens_bridge_check.py` tests the Python envelope and input conversion without network.
 
 ## Known architectural limits

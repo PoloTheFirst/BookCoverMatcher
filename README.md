@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.4.0** (stable, versionCode 215; development build `2.5.0-dev.1`, versionCode 216) · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py
+**Version 2.5.0-dev.5** (development; versionCode 220. The 2.4.0 stable release is versionCode 215) · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py · Rust OCR core in progress (`native/ocr`)
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -43,7 +43,7 @@ a connection; every online feature is opt-in.
 | Capability | What actually happens | Needs network? |
 |---|---|---|
 | **Offline matching** | CameraX capture (or a picked photo) → OpenCLIP embedding → cosine comparison against the pictures in the chosen workbook range → top 5 matches with cell, cosine and percent | No |
-| **OCR** | The captured cover is sent to Google Lens through the embedded `chrome-lens-py` package; text, language and glyph heights come back | Yes |
+| **OCR** | The captured cover is sent to Google Lens through the embedded `chrome-lens-py` package; text, language and glyph heights come back (a native PP-OCRv6 engine is being staged — see `native/ocr/README.md`) | Yes |
 | **Online platform search** | The OCR text (or text you type) is searched in the platforms you select. **Open Library**, **Google Books** and **DLsite** are queried in the app. **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**, **Doujinshi.info**, **MyAnimeList**, **nhentai** and **Toranoana** are browser-only cards with their own link and can never be selected: Melonbooks is a product decision, Suruga-ya and Doujin no Mori disallow their search route in `robots.txt`, E-Hentai/nhentai are adult sites that block automated access, Doujinshi.info answers HTTP 403, MyAnimeList has no unauthenticated API and Toranoana publishes no documented public API (its page is an undocumented storefront, 18+). Every card has its own `Open` link, the link always uses the text currently in the query field, and the result maximum is configurable (5-50) | Yes |
 | **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
