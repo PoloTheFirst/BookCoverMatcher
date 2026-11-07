@@ -7,6 +7,14 @@
 //! loaded; here [`RuntimeConfig`] lets the caller name it (`init_from(path)`) or leave it to the
 //! default search (`init()`), which honours `ORT_DYLIB_PATH` on the host.
 //!
+//! ONNX Runtime (and therefore `ort`) allows **one environment per process**: once built, the
+//! environment is recorded for the lifetime of the process and a second build fails with
+//! `only one environment is allowed per process`. [`OcrEngine::open`] therefore keeps the environment
+//! in a process-wide singleton and clones it (an `Arc`) for every engine, so re-opening the engine —
+//! after a settings change, or from a second test in the same binary — reuses the runtime instead of
+//! failing. A failed initialization is not cached, so a caller can retry with a better
+//! [`RuntimeConfig`].
+//!
 //! # Session ownership and concurrency
 //!
 //! `Session::run` requires `&mut self` in this release of `ort` (ONNX Runtime sessions are not safe
@@ -15,7 +23,9 @@
 //! instead of by an unverifiable lock. Callers that need parallelism create more engines.
 
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
+use ort::environment::Environment;
 use ort::session::Session;
 use ort::value::Tensor;
 
@@ -62,6 +72,18 @@ pub struct OcrLine {
     pub vertical: bool,
     /// 1-based reading position.
     pub rank: usize,
+}
+
+/// What the detector stage produced, without recognition.
+#[derive(Debug, Clone, Default)]
+pub struct DetectorReport {
+    /// Probability-map width and height (after the resize/pad to multiples of 32).
+    pub map_width: usize,
+    pub map_height: usize,
+    /// How many map values exceeded the DB threshold (`DetSettings::thresh`).
+    pub hot_values: usize,
+    /// Regions in source-image coordinates, before reading order.
+    pub regions: Vec<det::Detection>,
 }
 
 /// The whole result of one image.
@@ -115,18 +137,7 @@ impl OcrEngine {
                 return Err(format!("model file is missing: {}", path.display()));
             }
         }
-        let environment = match runtime {
-            RuntimeConfig::Default => ort::init()
-                .build()
-                .map_err(|e| format!("ONNX Runtime could not be initialized: {e}"))?,
-            RuntimeConfig::FromPath(library) => {
-                let shown = library.display().to_string();
-                ort::init_from(library)
-                    .map_err(|e| format!("ONNX Runtime could not be loaded from {shown}: {e}"))?
-                    .build()
-                    .map_err(|e| format!("ONNX Runtime could not be initialized: {e}"))?
-            }
-        };
+        let environment = environment(&runtime)?;
 
         let detector = load_session(&environment, &paths.detector, "detector")?;
         let recognizer = load_session(&environment, &paths.recognizer, "recognizer")?;
@@ -210,35 +221,43 @@ impl OcrEngine {
         &self.info
     }
 
+    /// Runs only the detector: preprocessing, real inference, DB post-processing.
+    ///
+    /// Split out of [`recognise`] so a caller (or a test) can inspect detection on its own without
+    /// building a second ONNX Runtime environment — which the runtime forbids.
+    pub fn detect(&mut self, image: &RgbaImage) -> Result<DetectorReport, String> {
+        let det_input = det::preprocess(image, self.settings.limit_side);
+        let shape = [1i64, 3, det_input.height as i64, det_input.width as i64];
+        let tensor = Tensor::from_array((shape, det_input.tensor.clone().into_boxed_slice()))
+            .map_err(|e| format!("detector input tensor: {e}"))?;
+        let name = self.info.det_input.clone();
+        let outputs = self
+            .detector
+            .run(ort::inputs![name.as_str() => tensor])
+            .map_err(|e| format!("detector inference failed: {e}"))?;
+        let (det_shape, prob) = outputs[0]
+            .try_extract_tensor::<f32>()
+            .map_err(|e| format!("detector output could not be read: {e}"))?;
+        let dims: Vec<i64> = det_shape.to_vec();
+        let (map_height, map_width) = match dims.len() {
+            4 if dims[2] > 0 && dims[3] > 0 => (dims[2] as usize, dims[3] as usize),
+            3 if dims[1] > 0 && dims[2] > 0 => (dims[1] as usize, dims[2] as usize),
+            _ => {
+                // Fully dynamic spatial output: derive a square map from the element count.
+                let side = ((prob.len() as f32).sqrt()).round().max(1.0) as usize;
+                (side, side)
+            }
+        };
+        let hot_values = prob.iter().filter(|value| **value > self.settings.thresh).count();
+        let regions = det::postprocess(prob, map_width, map_height, &det_input, image, &self.settings);
+        Ok(DetectorReport { map_width, map_height, hot_values, regions })
+    }
 
     /// Runs the whole pipeline on one image.
     pub fn recognise(&mut self, image: &RgbaImage) -> Result<OcrOutcome, String> {
-        let det_input = det::preprocess(image, self.settings.limit_side);
-        // The detector borrow ends with this block, so the recogniser can be borrowed mutably below.
-        let detections = {
-            let shape = [1i64, 3, det_input.height as i64, det_input.width as i64];
-            let tensor = Tensor::from_array((shape, det_input.tensor.clone().into_boxed_slice()))
-                .map_err(|e| format!("detector input tensor: {e}"))?;
-            let name = self.info.det_input.clone();
-            let outputs = self
-                .detector
-                .run(ort::inputs![name.as_str() => tensor])
-                .map_err(|e| format!("detector inference failed: {e}"))?;
-            let (det_shape, prob) = outputs[0]
-                .try_extract_tensor::<f32>()
-                .map_err(|e| format!("detector output could not be read: {e}"))?;
-            let dims: Vec<i64> = det_shape.to_vec();
-            let (prob_h, prob_w) = match dims.len() {
-                4 if dims[2] > 0 && dims[3] > 0 => (dims[2] as usize, dims[3] as usize),
-                3 if dims[1] > 0 && dims[2] > 0 => (dims[1] as usize, dims[2] as usize),
-                _ => {
-                    // Fully dynamic spatial output: derive a square map from the element count.
-                    let side = ((prob.len() as f32).sqrt()).round().max(1.0) as usize;
-                    (side, side)
-                }
-            };
-            det::postprocess(prob, prob_w, prob_h, &det_input, image, &self.settings)
-        };
+        // The detector borrow ends with this call, so the recogniser can be borrowed mutably below.
+        let report = self.detect(image)?;
+        let detections = report.regions;
         let mut outcome = OcrOutcome { regions_detected: detections.len(), ..Default::default() };
         if detections.is_empty() {
             return Ok(outcome);
@@ -303,6 +322,43 @@ impl OcrEngine {
         };
         rec::decode_output(logits, steps, classes, &self.charset)
     }
+}
+
+/// The one ONNX Runtime environment of this process, plus the lock that serializes its creation.
+///
+/// `ort` permits exactly one environment per process (`EnvironmentBuilder::build` records it for the
+/// process lifetime), so the first successful build is kept here and later engines clone it. The lock
+/// covers initialization only: inference is serialized by `&mut self`, so no lock is on the hot path.
+static ENVIRONMENT: OnceLock<Environment> = OnceLock::new();
+static ENVIRONMENT_INIT: Mutex<()> = Mutex::new(());
+
+/// Returns the process environment, building it on first use.
+///
+/// A failed build is deliberately **not** cached: if the runtime library was not found, the caller can
+/// retry with another [`RuntimeConfig`] (e.g. once `ORT_DYLIB_PATH` is set) instead of being stuck.
+fn environment(runtime: &RuntimeConfig) -> Result<Environment, String> {
+    if let Some(environment) = ENVIRONMENT.get() {
+        return Ok(environment.clone());
+    }
+    let _guard = ENVIRONMENT_INIT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(environment) = ENVIRONMENT.get() {
+        return Ok(environment.clone());
+    }
+    let built = match runtime {
+        RuntimeConfig::Default => ort::init()
+            .build()
+            .map_err(|e| format!("ONNX Runtime could not be initialized: {e}"))?,
+        RuntimeConfig::FromPath(library) => {
+            let shown = library.display().to_string();
+            ort::init_from(library)
+                .map_err(|e| format!("ONNX Runtime could not be loaded from {shown}: {e}"))?
+                .build()
+                .map_err(|e| format!("ONNX Runtime could not be initialized: {e}"))?
+        }
+    };
+    // `ENVIRONMENT_INIT` is held, so this cannot race; if it did, the stored instance is equivalent.
+    let _ = ENVIRONMENT.set(built.clone());
+    Ok(built)
 }
 
 /// Input/output name and shape, keeping `-1` for a dynamic dimension.
