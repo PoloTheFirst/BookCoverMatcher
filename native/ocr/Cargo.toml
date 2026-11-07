@@ -11,10 +11,16 @@ name = "bc_ocr"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Empty on purpose: everything in this crate is platform-independent image/geometry/decoding
-# logic. The ONNX Runtime session layer (ort `api-20` + `load-dynamic`) is the next step and is
-# specified in `native/ocr/README.md` and the agent report; it is not added until the session and
-# recogniser code exists, so the crate always builds.
+# ONNX Runtime bindings, pinned to the API level of the runtime the app already ships
+# (com.microsoft.onnxruntime:onnxruntime-android:1.20.0) and built with `load-dynamic`:
+# the crate links no ONNX Runtime of its own and resolves `libonnxruntime.so` from the
+# process at run time, so two runtimes can never coexist.
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["api-20", "load-dynamic", "std"] }
+
+[dev-dependencies]
+# Only the integration test decodes a real JPEG (the app decodes with BitmapFactory, so the crate
+# itself needs no codec). Dev-dependencies never reach the Android build.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 
 [profile.release]
 opt-level = 3
