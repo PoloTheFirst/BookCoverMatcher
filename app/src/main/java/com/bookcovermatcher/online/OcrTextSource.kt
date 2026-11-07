@@ -35,6 +35,22 @@ enum class OcrFailure {
 
     /** A bug in the bridge or an unreadable reply. Not something the user can fix. */
     INTERNAL,
+
+    /**
+     * The native Rust OCR library (`libbc_ocr.so`) is not in this build or could not be loaded.
+     *
+     * Development-stage category: it means the APK was built without the native library, or on an
+     * ABI it was not built for.
+     */
+    OCR_ENGINE_MISSING,
+
+    /**
+     * The native engine's PP-OCRv6 models are not installed, or failed their SHA-256 check.
+     *
+     * Development-stage category: the models are installed deliberately (see
+     * `native/ocr/README.md`), not downloaded by the app.
+     */
+    OCR_MODELS_MISSING,
 }
 
 /**

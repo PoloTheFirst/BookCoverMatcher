@@ -69,6 +69,21 @@ class OnlineSearchPrefs(context: Context) {
         set(value) { sp.edit().putBoolean(KEY_AUTO_SEARCH, value).apply() }
 
     /**
+     * Which OCR engine to use.
+     *
+     * [ENGINE_PYTHON] is the shipped path and the default: `chrome-lens-py` through Chaquopy.
+     * [ENGINE_RUST] is the native PP-OCRv6 engine, which is only exposed in debug builds while the
+     * migration is unfinished. Any unknown stored value falls back to Python, so a stray preference
+     * can never silently change what reads the user's covers.
+     */
+    var ocrEngine: String
+        get() = if (sp.getString(KEY_OCR_ENGINE, ENGINE_PYTHON) == ENGINE_RUST) ENGINE_RUST else ENGINE_PYTHON
+        set(value) {
+            val kept = if (value == ENGINE_RUST) ENGINE_RUST else ENGINE_PYTHON
+            sp.edit().putString(KEY_OCR_ENGINE, kept).apply()
+        }
+
+    /**
      * Whether the supplementary general-book sources (Open Library, Google Books) take part in a search.
      *
      * On by default, because they are genuinely useful for general books; off is a real choice, because for
@@ -80,14 +95,21 @@ class OnlineSearchPrefs(context: Context) {
         get() = sp.getBoolean(KEY_SECONDARY_SOURCES, true)
         set(value) { sp.edit().putBoolean(KEY_SECONDARY_SOURCES, value).apply() }
 
-    private companion object {
-        const val STORE = "bookcover_online"
-        const val KEY_ENABLED = "online_enabled"
-        const val KEY_OCR_LANGUAGE = "online_ocr_language"
-        const val KEY_TARGET_LANGUAGE = "online_target_language"
-        const val KEY_LIMIT = "online_limit"
-        const val KEY_PROVIDERS = "online_providers"
-        const val KEY_AUTO_SEARCH = "online_auto_search"
-        const val KEY_SECONDARY_SOURCES = "online_secondary_sources"
+    companion object {
+        /** `chrome-lens-py` through Chaquopy — the shipped engine. */
+        const val ENGINE_PYTHON = "python"
+
+        /** The native PP-OCRv6 Rust engine — development only. */
+        const val ENGINE_RUST = "rust"
+
+        private const val STORE = "bookcover_online"
+        private const val KEY_ENABLED = "online_enabled"
+        private const val KEY_OCR_LANGUAGE = "online_ocr_language"
+        private const val KEY_TARGET_LANGUAGE = "online_target_language"
+        private const val KEY_LIMIT = "online_limit"
+        private const val KEY_PROVIDERS = "online_providers"
+        private const val KEY_AUTO_SEARCH = "online_auto_search"
+        private const val KEY_SECONDARY_SOURCES = "online_secondary_sources"
+        private const val KEY_OCR_ENGINE = "online_ocr_engine"
     }
 }

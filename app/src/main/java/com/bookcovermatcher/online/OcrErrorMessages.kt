@@ -26,6 +26,8 @@ object OcrErrorMessages {
         OcrFailure.TIMEOUT -> "Google Lens timed out"
         OcrFailure.API_ERROR -> "Google Lens reported an error"
         OcrFailure.INTERNAL -> "Could not read the cover"
+        OcrFailure.OCR_ENGINE_MISSING -> "Native OCR not in this build"
+        OcrFailure.OCR_MODELS_MISSING -> "OCR model not installed"
     }
 
     fun detail(failure: OcrFailure): String = when (failure) {
@@ -47,5 +49,11 @@ object OcrErrorMessages {
             "Google Lens answered with an error. Try again, or type the title below."
         OcrFailure.INTERNAL ->
             "The Lens bridge failed unexpectedly. You can still type a title below."
+        OcrFailure.OCR_ENGINE_MISSING ->
+            "The native OCR library is missing from this build. Switch the OCR engine back to the " +
+                "Python bridge, or reinstall a build that includes it."
+        OcrFailure.OCR_MODELS_MISSING ->
+            "The PP-OCRv6 model files are not installed on this device (or failed their checksum). " +
+                "Switch the OCR engine back to the Python bridge."
     }
 }
