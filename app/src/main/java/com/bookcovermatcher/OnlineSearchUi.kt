@@ -19,7 +19,14 @@ import com.bookcovermatcher.core.online.reverse.ReverseImageState
  * before, and `UiState.online` is the only new field.
  */
 
-/** Status of the embedded `chrome-lens-py` runtime. */
+/**
+ * Status of the **selected** OCR engine.
+ *
+ * Availability and selection are different things: this reports whether the engine the user chose
+ * can run right now. It never reports PaddleOCR merely because its identifier is stored, and it never
+ * reports Chrome Lens merely because that is the default — `availability()` is asked of the engine
+ * that is actually selected.
+ */
 sealed interface BridgeUi {
     data object Checking : BridgeUi
     data class Ready(val library: String, val version: String) : BridgeUi
@@ -32,11 +39,22 @@ sealed interface OcrUi {
     data object Idle : OcrUi
     data class Running(val label: String) : OcrUi
 
-    /** Text was recognised. [text] is editable: the user may fix it before searching. */
-    data class Done(val text: String, val language: String?, val suggestion: String, val libraryVersion: String) : OcrUi
+    /**
+     * Text was recognised. [text] is editable: the user may fix it before searching.
+     *
+     * [engine] is the **human-readable name of the engine that actually produced this result** — not
+     * whichever engine is selected now, which may have changed while the request was in flight.
+     */
+    data class Done(
+        val text: String,
+        val language: String?,
+        val suggestion: String,
+        val libraryVersion: String,
+        val engine: String = "",
+    ) : OcrUi
 
-    /** The cover came back with no readable text. */
-    data class NoText(val libraryVersion: String) : OcrUi
+    /** The cover came back with no readable text. [engine] is the engine that ran, as in [Done]. */
+    data class NoText(val libraryVersion: String, val engine: String = "") : OcrUi
 
     data class Failed(val message: String) : OcrUi
 }

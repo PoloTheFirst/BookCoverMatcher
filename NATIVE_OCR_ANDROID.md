@@ -3,8 +3,9 @@
 This document describes how the verified Rust PP-OCRv6 pipeline (`native/ocr`) is wired into the
 Android app, what has actually been proven on a device, and what is deliberately still missing.
 
-**Shipped OCR is unchanged.** `chrome-lens-py` through Chaquopy remains the engine normal users get.
-The native engine exists behind a **debug-only** switch while the migration is unfinished.
+**Shipped OCR is unchanged.** `chrome-lens-py` through Chaquopy remains the default engine. The
+native engine is a second, user-selectable engine in Online → READ THE COVER; neither engine replaces
+or silently stands in for the other.
 
 ## 1 · Layers
 
@@ -102,13 +103,19 @@ The detector and recogniser are ~139 MB, so they are **not bundled** and **not d
 * A user-facing download flow is deliberately **out of scope** here; it needs status UI, cancellation,
   retry and resume, and is a separate product decision.
 
-## 6 · Engine selection (debug only)
+## 6 · Engine selection
 
-* `OnlineSearchPrefs.ocrEngine` — `"python"` (default) or `"rust"`; unknown values fall back to
-  Python, so a stray preference cannot change what reads a cover.
-* The switch appears in the Online panel **only when `BuildConfig.DEBUG`**.
+* The Online panel shows an **OCR engine** selector under the feature switch: `Chrome Lens` (default)
+  and `PaddleOCR (PP-OCRv6 Medium)`. It is part of the READ THE COVER section, not a hidden switch.
+* `OnlineSearchPrefs.ocrEngine` persists the choice: `"python"` (kept for upgrades, means Chrome
+  Lens) or `"rust"` (PaddleOCR). `OcrEngineChoice` resolves aliases (`paddle`, `paddleocr`, …) and
+  treats an unknown value as Chrome Lens without rewriting it; only an explicit selection writes.
 * `SwitchingOcrTextSource` reads the preference on each call and closes the previous engine when the
   selection changes, so a switch does not leave two engines resident.
+* Selection and availability are separate: the chips show what is selected, the line below shows
+  whether that engine can run (`PaddleOCR unavailable — <reason>` when the library or models are
+  missing or invalid). The engine that actually ran is recorded per request in the UI result and in
+  the log (`adb logcat -s OnlineSearch` → `ocr engine request/result id=…`).
 
 ## 7 · What was verified, and where
 
