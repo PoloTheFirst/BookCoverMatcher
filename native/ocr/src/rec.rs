@@ -16,12 +16,22 @@
 //! the detector). The channel order stays **BGR** because the decoder produced BGR, and the padding
 //! value is 0 — mid-grey after normalisation, which is what PaddleOCR writes.
 //!
-//! # Class count
+//! # Class layout (reconciled against the model, not assumed)
 //!
-//! The decoder space is `[blank][dictionary][optional space]`, so an output width of `n` classes is
-//! compatible with a `Charset` of `n` classes and nothing else. [`decode_output`] refuses to run when
-//! the two disagree instead of silently truncating either side — that mismatch would otherwise turn
-//! into plausible-looking text with every character shifted.
+//! The exported graph ends in `MatMul(linear_8.w_0 [192, 18710]) + bias [18710]` followed by
+//! `Softmax(axis = 2)`, so the recogniser emits **probabilities**, not logits, over 18,710 classes.
+//! Those classes are PaddleOCR's `CTCLabelDecode` index space:
+//!
+//! ```text
+//! class 0                CTC blank                       (`["blank"] + dict_character`)
+//! classes 1..=18,708     character_dict[0..=18,707]      official ppocrv6_dict.txt, file order
+//! class 18,709           ' '                             (`use_space_char: true`)
+//! ```
+//!
+//! `18,708 + 1 blank + 1 space = 18,710` — exactly the graph's output width, so the dictionary is
+//! the model's own vocabulary and no class is truncated, padded or explained away. [`decode_output`]
+//! keeps refusing when the two disagree: that mismatch would otherwise turn into plausible-looking
+//! text with every character shifted.
 
 use crate::dict::Charset;
 use crate::image::RgbaImage;
@@ -90,11 +100,30 @@ fn softmax_into(row: &[f32], out: &mut Vec<f32>) {
     }
 }
 
+/// True when one output row is already a probability distribution.
+///
+/// The exported PP-OCRv6 graph ends in `Softmax`, so its rows are probabilities. Softmaxing those a
+/// second time would not change the text (argmax is unchanged) but would flatten every score towards
+/// `1 / classes`: with 18,710 classes a 0.99 probability would be reported as ~0.00005, i.e. "0 %".
+/// Detecting the row keeps the confidence honest and still handles an export whose head is a plain
+/// linear layer (raw logits: values outside 0..1 or a row that does not sum to 1).
+fn is_probability_row(row: &[f32]) -> bool {
+    let mut sum = 0.0f32;
+    for value in row {
+        if !(*value >= 0.0 && *value <= 1.0) {
+            return false;
+        }
+        sum += *value;
+    }
+    (sum - 1.0).abs() <= 1e-3
+}
+
 /// Decodes a CTC output tensor into text.
 ///
-/// `logits` is `[steps * classes]` row-major (logits or probabilities — argmax is identical, and
-/// softmax is applied so the reported confidence is a real probability). `classes` must equal
-/// `charset.class_count()`; the mismatch is reported rather than papered over.
+/// `logits` is `[steps * classes]` row-major logits **or** probabilities; each row is inspected, so
+/// the reported confidence is a real probability either way. `classes` must equal
+/// `charset.class_count()`; the mismatch is reported rather than papered over. A non-finite value is
+/// rejected instead of being decoded as blanks, because NaN/inf means the graph itself misbehaved.
 pub fn decode_output(
     logits: &[f32],
     steps: usize,
@@ -112,6 +141,12 @@ pub fn decode_output(
             classes
         ));
     }
+    if let Some(at) = logits[..steps * classes].iter().position(|v| !v.is_finite()) {
+        return Err(format!(
+            "recogniser produced a non-finite score ({}) at index {at}; refusing to decode",
+            logits[at]
+        ));
+    }
     let expected = charset.class_count();
     if classes != expected {
         return Err(format!(
@@ -125,8 +160,13 @@ pub fn decode_output(
     let mut probabilities: Vec<f32> = Vec::with_capacity(classes);
     for step in 0..steps {
         let row = &logits[step * classes..(step + 1) * classes];
-        softmax_into(row, &mut probabilities);
-        rows.push(probabilities.clone());
+        if is_probability_row(row) {
+            // The graph already ends in Softmax: use the distribution as it is.
+            rows.push(row.to_vec());
+        } else {
+            softmax_into(row, &mut probabilities);
+            rows.push(probabilities.clone());
+        }
     }
     Ok(charset.decode_ctc(&rows))
 }
@@ -236,6 +276,43 @@ mod tests {
         let (text, confidence) = decode_output(&logits, steps, classes, &cs).unwrap();
         assert_eq!(text, "");
         assert_eq!(confidence, 0.0);
+    }
+
+    #[test]
+    fn a_probability_row_from_the_graphs_softmax_is_used_as_it_is() {
+        // The PP-OCRv6 export ends in Softmax, so the tensor already holds probabilities. Softmaxing
+        // it again would keep argmax but collapse the score towards 1/classes: this test pins that
+        // the reported confidence stays the model's own 0.90 instead of ~0.0002.
+        let cs = charset();
+        let (steps, classes) = (2usize, 5usize);
+        let mut probs = vec![0f32; steps * classes];
+        probs[0..5].copy_from_slice(&[0.0, 0.90, 0.05, 0.05, 0.0]); // 'a'
+        probs[5..10].copy_from_slice(&[1.0, 0.0, 0.0, 0.0, 0.0]); // blank
+        let (text, confidence) = decode_output(&probs, steps, classes, &cs).unwrap();
+        assert_eq!(text, "a");
+        assert!((confidence - 0.90).abs() < 1e-6, "confidence is the row's own probability: {confidence}");
+    }
+
+    #[test]
+    fn a_non_finite_score_is_rejected_instead_of_decoded_as_blank() {
+        let cs = charset();
+        let (steps, classes) = (2usize, 5usize);
+        for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            let mut logits = vec![0f32; steps * classes];
+            logits[classes + 1] = bad;
+            let err = decode_output(&logits, steps, classes, &cs).expect_err("must refuse");
+            assert!(err.contains("non-finite"), "the error names the cause: {err}");
+        }
+    }
+
+    #[test]
+    fn a_tensor_longer_than_the_declared_shape_is_decoded_by_its_declared_rows() {
+        // The engine passes the graph's own dimensions; extra trailing values must not shift anything.
+        let cs = charset();
+        let (steps, classes) = (1usize, 5usize);
+        let mut logits = vec![0f32; classes + 3];
+        logits[2] = 9.0; // 'b'
+        assert_eq!(decode_output(&logits, steps, classes, &cs).unwrap().0, "b");
     }
 }
 
