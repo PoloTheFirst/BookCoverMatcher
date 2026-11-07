@@ -20,8 +20,16 @@ object OcrQueryExtractor {
 
     /** A best-effort reading of one cover. [confidence] is 0 (nothing), 1 (title) or 2 (title + author). */
     class Suggestion(val title: String, val author: String?, val confidence: Int) {
+        /**
+         * What is actually searched: the recognised title with width variants folded (see
+         * [SearchText]). [title] itself stays raw, so the panel and the log keep the model's own
+         * output while the catalogue sees `2` for `２`.
+         */
+        val searchTitle: String = SearchText.normalise(title)
+        val searchAuthor: String? = author?.let(SearchText::normalise)
+
         val query: String
-            get() = if (author == null) title else "$title $author"
+            get() = if (searchAuthor == null) searchTitle else "$searchTitle $searchAuthor"
     }
 
     private const val MIN_LINE = 3

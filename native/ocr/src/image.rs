@@ -83,6 +83,31 @@ impl RgbaImage {
         let data = crate::geom::crop_quad(&self.data, self.width, self.height, quad, out_w, out_h);
         RgbaImage { width: out_w, height: out_h, data }
     }
+
+    /// Rotates the image 90° counter-clockwise: `(x, y)` becomes `(y, width - 1 - x)`.
+    ///
+    /// PP-OCR's recogniser takes horizontal lines. A vertical Japanese/Chinese column is therefore
+    /// turned a quarter turn before recognition — the same handling PaddleOCR's predictor applies to
+    /// boxes that are at least 1.5× taller than they are wide — so the characters arrive as a row
+    /// instead of being squeezed into a narrow canvas.
+    ///
+    /// The direction matters and was measured, not assumed: clockwise puts the *bottom* of the column
+    /// first, so the text comes back reversed and garbled (`tools/ocr-reference/probe_vertical.py`
+    /// reads 0.313 'ccw-style' text the wrong way round, 0.877 correct text counter-clockwise, and an
+    /// exact reading when the column is split into character cells).
+    pub fn rotated_counter_clockwise(&self) -> RgbaImage {
+        let (new_w, new_h) = (self.height, self.width);
+        let mut out = vec![0u8; self.data.len()];
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let src = (y * self.width + x) * 4;
+                // (x, y) -> (y, width - 1 - x): the column's first character becomes leftmost.
+                let dst = ((self.width - 1 - x) * new_w + y) * 4;
+                out[dst..dst + 4].copy_from_slice(&self.data[src..src + 4]);
+            }
+        }
+        RgbaImage { width: new_w, height: new_h, data: out }
+    }
 }
 
 /// The four corners of a text region in source-image coordinates, in `geom::Quad` order.
@@ -140,5 +165,25 @@ mod tests {
         let crop = img.crop_quad(&quad, 4, 3);
         assert_eq!((crop.width, crop.height), (4, 3));
         assert!(crop.data.chunks(4).all(|p| p[0] == 33));
+    }
+
+    /// A 2-wide, 3-tall image whose top-left pixel is marked: after a counter-clockwise quarter turn
+    /// the marked pixel must be at the bottom-left, and the dimensions must swap.
+    #[test]
+    fn a_counter_clockwise_rotation_moves_the_top_left_pixel_to_the_bottom_left() {
+        let (w, h) = (2usize, 3usize);
+        let mut data = vec![9u8; w * h * 4];
+        data[0..4].copy_from_slice(&[200, 10, 20, 255]);
+        let img = RgbaImage::new(w, h, data).unwrap();
+
+        let rotated = img.rotated_counter_clockwise();
+
+        assert_eq!((rotated.width, rotated.height), (3, 2));
+        let at = |x: usize, y: usize| {
+            let start = (y * rotated.width + x) * 4;
+            rotated.data[start..start + 3].to_vec()
+        };
+        assert_eq!(at(0, 1), vec![200, 10, 20], "the marker lands bottom-left");
+        assert_eq!(at(2, 0), vec![9, 9, 9], "the rest is untouched");
     }
 }
