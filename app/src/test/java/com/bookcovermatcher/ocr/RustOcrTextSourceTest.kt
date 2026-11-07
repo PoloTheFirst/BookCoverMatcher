@@ -224,4 +224,63 @@ class RustOcrTextSourceTest {
         assertEquals(OcrFailure.OCR_MODELS_MISSING, (error as OcrException).failure)
         assertEquals(0, native.created)
     }
+
+    private fun fixtureSha(name: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update("fixture:$name".toByteArray())
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    @Test
+    fun aCleanInstallIsPreparedByTheInstallerBeforeTheEngineOpens() {
+        val root = temp.newFolder("fresh")
+        val pins = PpocrModels.NAMES.associateWith { fixtureSha(it) }
+        val models = PpocrModels(root, pins)
+        assertEquals(ModelState.Absent, models.state())
+        val native = FakeNative(payload = payload)
+        // Stands in for `PpocrModels.ensureInstalled(assets::open)`: copy the packaged files in.
+        val installer: (PpocrModels, (Long) -> Unit) -> ModelState = { store, _ ->
+            for (name in PpocrModels.NAMES) File(root, name).writeText("fixture:$name")
+            store.state()
+        }
+        val source = RustOcrTextSource(
+            models = models,
+            runtimeLibraryPath = "",
+            native = native,
+            installer = installer,
+            decode = { _, _ -> PixelImage(IntArray(100 * 200), 100, 200) },
+        )
+
+        val availability = source.availability()
+        assertTrue("expected Ready once the installer ran, got $availability", availability is OcrAvailability.Ready)
+        val text = source.recognise(byteArrayOf(1, 2, 3), "en", null, 30)
+        assertTrue(text.text.contains("THE HOBBIT"))
+        assertEquals("the engine opens once, after the models exist", 1, native.created)
+    }
+
+    @Test
+    fun aFailedExtractionIsReportedAsMissingModelsWithoutOpeningTheEngine() {
+        val native = FakeNative(payload = payload)
+        val installer: (PpocrModels, (Long) -> Unit) -> ModelState = { _, _ ->
+            ModelState.Invalid("det.onnx failed its checksum")
+        }
+        val source = RustOcrTextSource(
+            models = PpocrModels(temp.newFolder("broken")),
+            runtimeLibraryPath = "",
+            native = native,
+            installer = installer,
+            decode = { _, _ -> PixelImage(IntArray(100 * 200), 100, 200) },
+        )
+
+        val availability = source.availability()
+        assertTrue(availability is OcrAvailability.Unavailable)
+        val unavailable = availability as OcrAvailability.Unavailable
+        assertEquals(OcrFailure.OCR_MODELS_MISSING, unavailable.failure)
+        assertTrue(unavailable.reason.contains("failed its checksum"))
+
+        val error = runCatching { source.recognise(byteArrayOf(1), null, null, 30) }.exceptionOrNull()
+        assertTrue("expected OcrException, got $error", error is OcrException)
+        assertEquals(OcrFailure.OCR_MODELS_MISSING, (error as OcrException).failure)
+        assertEquals("no engine may open for unusable models", 0, native.created)
+    }
 }

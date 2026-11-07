@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.5.0-dev.5** (development; versionCode 220. The 2.4.0 stable release is versionCode 215) · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py · Rust OCR core in progress (`native/ocr`)
+**Version 2.5.0-dev.5** (development; versionCode 220. The 2.4.0 stable release is versionCode 215) · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py · native PaddleOCR (PP-OCRv6 Medium, models bundled in the APK) in `native/ocr`
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -43,7 +43,7 @@ a connection; every online feature is opt-in.
 | Capability | What actually happens | Needs network? |
 |---|---|---|
 | **Offline matching** | CameraX capture (or a picked photo) → OpenCLIP embedding → cosine comparison against the pictures in the chosen workbook range → top 5 matches with cell, cosine and percent | No |
-| **OCR** | The captured cover is read by the engine selected in the Online panel: **Chrome Lens** (default, the embedded `chrome-lens-py` package) or **PaddleOCR** (native PP-OCRv6 Medium in Rust, once its models are installed). Neither engine stands in for the other: a failure is reported for the engine you chose (see `NATIVE_OCR_ANDROID.md`) | Yes |
+| **OCR** | The captured cover is read by the engine selected in the Online panel: **Chrome Lens** (default, the embedded `chrome-lens-py` package) or **PaddleOCR** (native PP-OCRv6 Medium in Rust, with the models packaged in the APK and extracted on first use — nothing to install). Neither engine stands in for the other: a failure is reported for the engine you chose (see `NATIVE_OCR_ANDROID.md`) | Yes |
 | **Online platform search** | The OCR text (or text you type) is searched in the platforms you select. **Open Library**, **Google Books** and **DLsite** are queried in the app. **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**, **Doujinshi.info**, **MyAnimeList**, **nhentai** and **Toranoana** are browser-only cards with their own link and can never be selected: Melonbooks is a product decision, Suruga-ya and Doujin no Mori disallow their search route in `robots.txt`, E-Hentai/nhentai are adult sites that block automated access, Doujinshi.info answers HTTP 403, MyAnimeList has no unauthenticated API and Toranoana publishes no documented public API (its page is an undocumented storefront, 18+). Every card has its own `Open` link, the link always uses the text currently in the query field, and the result maximum is configurable (5-50) | Yes |
 | **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
@@ -681,11 +681,19 @@ chaquopy.buildPython=C:\\path\\to\\Python\\3.12\\python.exe
 ```
 
 ```powershell
-.\gradlew.bat assembleDebug
+.\gradlew.bat assembleDebug                     # fetches + SHA-256-verifies the PP-OCRv6 models first
 .\gradlew.bat testDebugUnitTest                 # JVM suite, live checks skipped
 .\gradlew.bat testDebugUnitTest -DonlineCheck=1 # adds the four live provider checks
 .\gradlew.bat connectedDebugAndroidTest         # on-device OCR routing, native engine, catalogue and controller tests
+powershell -ExecutionPolicy Bypass -File tools\verify-ocr-apk.ps1   # APK really contains the models
 ```
+
+The first build downloads the two PP-OCRv6 ONNX models (~132 MB) from their pinned HuggingFace
+revisions into the git-ignored `app/src/main/assets/ocr/ppocrv6/`; every build re-verifies size and
+SHA-256 and **fails** if a file is missing or different, so an APK that cannot run PaddleOCR is never
+produced. Verified copies are reused, so only the first build (or a clean CI checkout) needs network.
+The models are packaged uncompressed, and on first use the app copies them into private storage with
+the same hashes checked, which is why a clean installation needs no ADB, script or download.
 
 The build uses `androidx.compose:compose-bom:2024.10.01`, CameraX 1.3.4, ONNX Runtime 1.20.0,
 Chaquopy 17.1.0 and `chrome-lens-py==3.8.2` (protobuf pinned to 6.33.6). Shrinking is intentionally

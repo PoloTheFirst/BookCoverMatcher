@@ -57,6 +57,14 @@ class RustOcrTextSource(
     private val native: NativeOcrApi = NativeOcr,
     /** Long edge the picture is decoded at; the detector resizes to 736 internally anyway. */
     private val maxEdge: Int = DEFAULT_MAX_EDGE,
+    /**
+     * Prepares the model files on disk, extracting them from the APK on a clean install.
+     *
+     * The Android factory passes `PpocrModels::ensureInstalled` with the packaged assets; host tests
+     * leave it null and rely on files that already exist. Kept as a function so this class never
+     * needs an Android `AssetManager` and stays unit-testable on a desktop JVM.
+     */
+    private val installer: ((PpocrModels, (Long) -> Unit) -> ModelState)? = null,
     /** Decodes JPEG/PNG bytes to pixels. Injected so this class stays JVM-testable. */
     private val decode: (ByteArray, Int) -> PixelImage?,
 ) : OcrTextSource, AutoCloseable {
@@ -78,11 +86,12 @@ class RustOcrTextSource(
                 "The native OCR library loaded but could not be used: ${failure.message}",
             )
         }
-        return when (val state = models.state()) {
+        return when (val state = resolvedModels()) {
             is ModelState.Ready -> OcrAvailability.Ready(LIBRARY_NAME, "$version · ${state.models.fingerprint}")
             ModelState.Absent -> OcrAvailability.Unavailable(
                 OcrFailure.OCR_MODELS_MISSING,
-                "The PP-OCRv6 models are not installed on this device. See native/ocr/README.md.",
+                "The PP-OCRv6 models are missing from this build (no packaged assets were found). " +
+                    "Reinstall the app.",
             )
             is ModelState.Invalid -> OcrAvailability.Unavailable(OcrFailure.OCR_MODELS_MISSING, state.reason)
         }
@@ -158,7 +167,7 @@ class RustOcrTextSource(
         }
     }
 
-    private fun installedModels(): PpocrModels.Installed = when (val state = models.state()) {
+    private fun installedModels(): PpocrModels.Installed = when (val state = resolvedModels()) {
         is ModelState.Ready -> state.models
         ModelState.Absent -> throw OcrException(
             OcrFailure.OCR_MODELS_MISSING,
@@ -170,6 +179,18 @@ class RustOcrTextSource(
             OcrErrorMessages.detail(OcrFailure.OCR_MODELS_MISSING),
             state.reason,
         )
+    }
+
+    /**
+     * The model state, extracting from the packaged assets first when an installer is configured.
+     *
+     * A throw here is turned into `Invalid` rather than propagating: a failed extraction is a model
+     * problem the UI already has wording for, not an internal error.
+     */
+    private fun resolvedModels(): ModelState = try {
+        installer?.invoke(models) { } ?: models.state()
+    } catch (t: Throwable) {
+        ModelState.Invalid("the packaged PP-OCRv6 models could not be prepared: ${t.message ?: t.javaClass.simpleName}")
     }
 
     private fun handleLocked(installed: PpocrModels.Installed): Long {

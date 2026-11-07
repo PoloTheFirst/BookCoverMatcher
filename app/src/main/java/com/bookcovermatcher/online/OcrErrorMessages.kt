@@ -29,7 +29,7 @@ object OcrErrorMessages {
         OcrFailure.API_ERROR -> "Google Lens reported an error"
         OcrFailure.INTERNAL -> "Could not read the cover"
         OcrFailure.OCR_ENGINE_MISSING -> "Native OCR not in this build"
-        OcrFailure.OCR_MODELS_MISSING -> "OCR model not installed"
+        OcrFailure.OCR_MODELS_MISSING -> "PaddleOCR models unavailable"
     }
 
     fun detail(failure: OcrFailure): String = when (failure) {
@@ -55,7 +55,7 @@ object OcrErrorMessages {
             "The native OCR library is missing from this build. Switch the OCR engine back to the " +
                 "Python bridge, or reinstall a build that includes it."
         OcrFailure.OCR_MODELS_MISSING ->
-            "The PP-OCRv6 model files are not installed on this device (or failed their checksum). " +
-                "Switch the OCR engine back to the Python bridge."
+            "The PP-OCRv6 model files bundled in this build are missing or failed their checksum. " +
+                "Try reading the cover again; if it keeps failing, reinstall the app."
     }
 }
