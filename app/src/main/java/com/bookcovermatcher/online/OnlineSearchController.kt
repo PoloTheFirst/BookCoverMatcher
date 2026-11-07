@@ -51,6 +51,7 @@ import com.bookcovermatcher.toUi
 import com.bookcovermatcher.data.CandidateDecisionStore
 import com.bookcovermatcher.data.OnlineSearchPrefs
 import com.bookcovermatcher.data.SauceNaoKeyStore
+import com.bookcovermatcher.ocr.OcrEngineChoice
 import com.bookcovermatcher.ocr.OcrEngines
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -759,14 +760,17 @@ class OnlineSearchController(
     }
 
     /**
-     * Selects the OCR engine. **Debug builds only** — the panel only shows the switch there.
+     * Selects the OCR engine for READ THE COVER.
      *
-     * The engine id is validated by [OnlineSearchPrefs], so an unknown value cannot be stored. The
-     * status line describes the *selected* engine, so it is re-checked instead of being left to
+     * The choice is persisted, validated by [OcrEngineChoice], and announced in the log with the
+     * identifier that will be stored — which is how a device log can be tied to a selection. The
+     * availability line describes the *selected* engine, so it is re-checked instead of being left to
      * describe the engine that was used a moment ago.
      */
-    fun setOcrEngine(engine: String) {
-        prefs.ocrEngine = engine
+    fun selectOcrEngine(engine: String) {
+        val choice = OcrEngineChoice.fromId(engine)
+        prefs.ocrEngine = choice.id
+        OnlineSearchLog.ocrEngineSelection(choice.id, choice.label)
         _ui.update { it.copy(ocrEngine = prefs.ocrEngine, bridge = BridgeUi.Checking) }
         bridgeChecked = false
         if (_ui.value.enabled) checkBridge()
@@ -788,14 +792,30 @@ class OnlineSearchController(
     fun checkBridge() {
         if (bridgeChecked || !_ui.value.enabled) return
         bridgeChecked = true
+        // Resolve the engine this check is for: a slow availability call must not be labelled with a
+        // different engine's name if the user switches while it runs.
+        val engine = OcrEngineChoice.fromId(_ui.value.ocrEngine)
         scope.launch(Dispatchers.IO) {
             val status = try {
                 val a = bridge.availability()
-                if (a is OcrAvailability.Ready) BridgeUi.Ready(a.libraryName, a.libraryVersion)
-                else BridgeUi.Unavailable((a as? OcrAvailability.Unavailable)?.reason ?: "The Lens bridge is unavailable.")
+                if (a is OcrAvailability.Ready) {
+                    BridgeUi.Ready(a.libraryName, a.libraryVersion)
+                } else {
+                    BridgeUi.Unavailable(
+                        (a as? OcrAvailability.Unavailable)?.reason ?: "${engine.shortLabel} is unavailable.",
+                    )
+                }
             } catch (t: Throwable) {
                 BridgeUi.Unavailable(t.message ?: t.javaClass.simpleName)
             }
+            OnlineSearchLog.ocrEngineResult(
+                engine.id,
+                "availability " + when (status) {
+                    is BridgeUi.Ready -> "ready ${status.library} ${status.version}"
+                    is BridgeUi.Unavailable -> "unavailable ${status.reason}"
+                    BridgeUi.Checking -> "checking"
+                },
+            )
             _ui.update { it.copy(bridge = status) }
         }
     }
@@ -863,23 +883,33 @@ class OnlineSearchController(
             return
         }
         if (_ui.value.isBusy) {
-            onMessage("Still working â€” tap Cancel to stop.", ToastKind.INFO)
+            onMessage("Still working — tap Cancel to stop.", ToastKind.INFO)
             return
         }
+
+        // The engine is fixed for the whole request: if the user switches while it runs, this request
+        // is still reported as — and labelled with — the engine it actually used. A later request
+        // picks up the new selection, because `bridge` re-reads the preference when it is next called.
+        val engine = OcrEngineChoice.fromId(_ui.value.ocrEngine)
+        OnlineSearchLog.ocrEngineRequest(engine.id, engine.label, bytes.size)
 
         job?.cancel()
         job = scope.launch {
             val token = session.token()
-            _ui.update { it.copy(ocr = OcrUi.Running("Reading the cover with Google Lensâ€¦")) }
+            _ui.update { it.copy(ocr = OcrUi.Running("Reading the cover with ${engine.shortLabel}…")) }
             val result = withContext(Dispatchers.IO) {
                 runCatching { bridge.recognise(bytes, _ui.value.ocrLanguage, _ui.value.targetLanguage, OCR_TIMEOUT_SECONDS) }
             }
-            // A Lens request already inside Python cannot be preempted; its answer is ignored when
-            // another cover has been selected in the meantime, which is what the token checks.
+            // An OCR call already inside Python or ONNX cannot be preempted; its answer is ignored
+            // when another cover has been selected in the meantime, which is what the token checks.
             result.fold(
-                onSuccess = { text -> if (session.isCurrent(token)) applyOcrText(text) },
+                onSuccess = { text ->
+                    OnlineSearchLog.ocrEngineResult(engine.id, "ok blocks=${text.blockCount} library=${text.libraryVersion}")
+                    if (session.isCurrent(token)) applyOcrText(text, engine)
+                },
                 onFailure = { e ->
                     if (e is CancellationException) throw e
+                    OnlineSearchLog.ocrEngineResult(engine.id, "failed ${e.javaClass.simpleName}: ${e.message}")
                     if (session.isCurrent(token)) reportOcrFailure(e)
                 },
             )
@@ -899,13 +929,15 @@ class OnlineSearchController(
         val category = ocr?.failure ?: OcrFailure.INTERNAL
         val shown = ocr?.message ?: e.message ?: OcrErrorMessages.detail(OcrFailure.INTERNAL)
         if (ocr == null) OnlineSearchLog.ocrFailed(0, e)
+        // No fallback: the selected engine's own failure is what the user sees, so switching engines
+        // stays an explicit choice rather than something the app does behind their back.
         _ui.update { it.copy(ocr = OcrUi.Failed(shown)) }
         onMessage(OcrErrorMessages.brief(category), ToastKind.ERR)
     }
 
-    private fun applyOcrText(text: OcrText) {
+    private fun applyOcrText(text: OcrText, engine: OcrEngineChoice) {
         if (text.isEmpty) {
-            _ui.update { it.copy(ocr = OcrUi.NoText(text.libraryVersion), query = "") }
+            _ui.update { it.copy(ocr = OcrUi.NoText(text.libraryVersion, engine.shortLabel), query = "") }
             onMessage("No text found on the cover.", ToastKind.INFO)
             return
         }
@@ -916,7 +948,13 @@ class OnlineSearchController(
 
         _ui.update {
             it.copy(
-                ocr = OcrUi.Done(searchable, text.detectedLanguage, suggestion?.query.orEmpty(), text.libraryVersion),
+                ocr = OcrUi.Done(
+                    searchable,
+                    text.detectedLanguage,
+                    suggestion?.query.orEmpty(),
+                    text.libraryVersion,
+                    engine.shortLabel,
+                ),
                 query = suggestion?.query.orEmpty(),
             )
         }

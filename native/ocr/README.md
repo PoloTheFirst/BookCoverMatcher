@@ -4,9 +4,10 @@ This crate is the native half of the migration described in
 `historical_prompt/v2.5.0-dev.5.md`: PP-OCRv6 text detection + recognition on ONNX Runtime,
 called from Kotlin through JNI, replacing the embedded-Python `chrome-lens-py` OCR.
 
-**It is not the application's default OCR engine yet.** `chrome-lens-py` still ships and still runs;
-the native engine is selected by a **debug-only** switch while the migration is unfinished. Nothing
-in a release build offers it, and there is no automatic fallback in either direction.
+**It is not the application's default OCR engine yet.** `chrome-lens-py` still ships and is still the
+default; the native engine is a second engine that the user picks in **Online → OCR engine**
+(`Chrome Lens` / `PaddleOCR (PP-OCRv6 Medium)`). There is no automatic fallback in either direction,
+and an unavailable PaddleOCR reports why instead of handing the cover to Lens.
 
 ## Android integration (added in `v2.5.0-dev.5-crash-fix-6`)
 

@@ -30,6 +30,24 @@ object OnlineSearchLog {
     }
 
     /**
+     * The engine the user picked. Logged when the selection changes, so a device log can be tied to
+     * the setting that produced a request instead of guessing from timing.
+     */
+    fun ocrEngineSelection(id: String, label: String) {
+        Log.i(TAG, "ocr engine selected id=$id label=\"$label\"")
+    }
+
+    /** Which engine a READ THE COVER request was sent to — the routing evidence. */
+    fun ocrEngineRequest(id: String, label: String, byteCount: Int) {
+        Log.i(TAG, "ocr engine request id=$id label=\"$label\" bytes=$byteCount")
+    }
+
+    /** How that request ended, and which library version answered. No OCR text is ever logged. */
+    fun ocrEngineResult(id: String, outcome: String) {
+        Log.i(TAG, "ocr engine result id=$id $outcome")
+    }
+
+    /**
      * A failed bridge call. [throwable] carries the category and, in
      * [OcrException.detail], the Python traceback — both go to the log, neither to the UI.
      */

@@ -43,7 +43,7 @@ a connection; every online feature is opt-in.
 | Capability | What actually happens | Needs network? |
 |---|---|---|
 | **Offline matching** | CameraX capture (or a picked photo) → OpenCLIP embedding → cosine comparison against the pictures in the chosen workbook range → top 5 matches with cell, cosine and percent | No |
-| **OCR** | The captured cover is sent to Google Lens through the embedded `chrome-lens-py` package; text, language and glyph heights come back (a native PP-OCRv6 engine is being staged — see `native/ocr/README.md`) | Yes |
+| **OCR** | The captured cover is read by the engine selected in the Online panel: **Chrome Lens** (default, the embedded `chrome-lens-py` package) or **PaddleOCR** (native PP-OCRv6 Medium in Rust, once its models are installed). Neither engine stands in for the other: a failure is reported for the engine you chose (see `NATIVE_OCR_ANDROID.md`) | Yes |
 | **Online platform search** | The OCR text (or text you type) is searched in the platforms you select. **Open Library**, **Google Books** and **DLsite** are queried in the app. **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**, **Doujinshi.info**, **MyAnimeList**, **nhentai** and **Toranoana** are browser-only cards with their own link and can never be selected: Melonbooks is a product decision, Suruga-ya and Doujin no Mori disallow their search route in `robots.txt`, E-Hentai/nhentai are adult sites that block automated access, Doujinshi.info answers HTTP 403, MyAnimeList has no unauthenticated API and Toranoana publishes no documented public API (its page is an undocumented storefront, 18+). Every card has its own `Open` link, the link always uses the text currently in the query field, and the result maximum is configurable (5-50) | Yes |
 | **Visual / image-similarity search** | **Not implemented.** It needs a third-party image-similarity service and credentials this app does not ship. OCR + text search is not visual matching and is never labelled as such | — |
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
@@ -437,7 +437,9 @@ the other. Undo on the green bar removes exactly the session/memberships that th
 
 ### Pipeline
 ```
-capture → AndroidImageCodec JPEG → ChromeLensPyBridge (Chaquopy) → lens_bridge.py → chrome-lens-py
+capture → AndroidImageCodec JPEG → the OCR engine selected in the Online panel
+        ├── Chrome Lens: ChromeLensPyBridge (Chaquopy) → lens_bridge.py → chrome-lens-py
+        └── PaddleOCR:   RustOcrTextSource → JNI → libbc_ocr.so (PP-OCRv6 Medium, ONNX Runtime)
         → OCR text + block heights → OcrQueryExtractor → query
         → OpenLibraryBooksSource + GoogleBooksSource + DlsiteSource (concurrent, own deadline each)
         → per-provider parsers → ProductSearchResult → OnlineAggregator (key, dedupe, promote, limit)
@@ -682,7 +684,7 @@ chaquopy.buildPython=C:\\path\\to\\Python\\3.12\\python.exe
 .\gradlew.bat assembleDebug
 .\gradlew.bat testDebugUnitTest                 # JVM suite, live checks skipped
 .\gradlew.bat testDebugUnitTest -DonlineCheck=1 # adds the four live provider checks
-.\gradlew.bat connectedDebugAndroidTest         # 3 on-device OCR/catalogue/controller tests
+.\gradlew.bat connectedDebugAndroidTest         # on-device OCR routing, native engine, catalogue and controller tests
 ```
 
 The build uses `androidx.compose:compose-bom:2024.10.01`, CameraX 1.3.4, ONNX Runtime 1.20.0,

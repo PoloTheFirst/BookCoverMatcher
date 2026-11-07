@@ -41,12 +41,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookcovermatcher.BridgeUi
-import com.bookcovermatcher.BuildConfig
 import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.OcrUi
 import com.bookcovermatcher.OnlineSearchUi
 import com.bookcovermatcher.online.OnlineSearchController
-import com.bookcovermatcher.ocr.OcrEngines
+import com.bookcovermatcher.ocr.OcrEngineChoice
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
@@ -57,7 +56,8 @@ import com.bookcovermatcher.ui.theme.Palette
  * Online-search panel: OCR, the editable query and the catalogue results.
  *
  * Two clearly separated steps, because they are two different services:
- *  * **A · Read the cover** — OCR through the embedded `chrome-lens-py` package.
+ *  * **A · Read the cover** — OCR through the engine selected in [OcrEngineSection]: Chrome Lens by
+ *    default, PaddleOCR (native PP-OCRv6) as the alternative. No silent fallback either way.
  *  * **B · Search the catalogues** — structured book records from Open Library and Google Books.
  *
  * The switch is off by default and the panel says so: the app used to ship with no `INTERNET`
@@ -88,7 +88,8 @@ fun OnlineSearchPanel(
             Column(Modifier.weight(1f)) {
                 Text("Use online services", color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Off by default. Sends the cover to Google Lens; the text goes to Open Library and Google Books.",
+                    "Off by default. The cover is read by the selected OCR engine; the recognised text goes to " +
+                        "Open Library and Google Books.",
                     color = Palette.Muted,
                     fontSize = 10.5.sp,
                 )
@@ -116,10 +117,7 @@ fun OnlineSearchPanel(
             return@Panel
         }
 
-        BridgeLine(ui.bridge)
-        if (BuildConfig.DEBUG) {
-            NativeEngineRow(ui, controller)
-        }
+        OcrEngineSection(ui, controller)
         Spacer(Modifier.height(12.dp))
         OcrSection(ui, controller)
         Spacer(Modifier.height(12.dp))
@@ -151,39 +149,65 @@ fun OnlineSearchPanel(
 }
 
 /**
- * Debug-only engine switch.
+ * The OCR engine selector for READ THE COVER.
  *
- * The native engine is under development, so normal users must not be offered it: this row exists
- * only in a debug build. It writes the same preference the tests use, and the status line above then
- * describes the newly selected engine.
+ * Two named engines, one selected at a time, persisted by [OnlineSearchController.selectOcrEngine].
+ * Selection and availability are shown separately: the chips say what is *selected*, the line below
+ * says whether that engine can actually run. A selected engine that cannot run is reported as
+ * unavailable — it is never swapped for the other one behind the user's back.
  */
 @Composable
-private fun NativeEngineRow(ui: OnlineSearchUi, controller: OnlineSearchController) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("Native OCR engine (debug)", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text(
-                "PP-OCRv6 in Rust instead of chrome-lens-py. Applies to the next cover read; " +
-                    "the models and libbc_ocr.so must be installed.",
-                color = Palette.Muted,
-                fontSize = 10.sp,
+private fun OcrEngineSection(ui: OnlineSearchUi, controller: OnlineSearchController) {
+    val selected = OcrEngineChoice.fromId(ui.ocrEngine)
+    FieldLabel("OCR engine")
+    Text(
+        "READ THE COVER uses the engine selected here. Neither engine falls back to the other.",
+        color = Palette.Muted,
+        fontSize = 10.5.sp,
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (choice in OcrEngineChoice.ALL) {
+            EngineChip(
+                choice = choice,
+                selected = choice == selected,
+                modifier = Modifier.weight(1f),
+                onClick = { controller.selectOcrEngine(choice.id) },
             )
         }
-        Spacer(Modifier.width(10.dp))
-        Switch(
-            checked = ui.ocrEngine == OcrEngines.RUST,
-            onCheckedChange = { on ->
-                controller.setOcrEngine(if (on) OcrEngines.RUST else OcrEngines.PYTHON)
+    }
+    BridgeLine(selected, ui.bridge)
+}
+
+/** One selectable engine. Radio-button semantics, because exactly one can be active. */
+@Composable
+private fun EngineChip(
+    choice: OcrEngineChoice,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) Palette.Accent.copy(alpha = 0.16f) else Color.Transparent)
+            .border(1.dp, if (selected) Palette.Accent else Palette.Line, RoundedCornerShape(10.dp))
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Text(
+            choice.label,
+            color = if (selected) Palette.Text else Palette.Muted,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            when (choice) {
+                OcrEngineChoice.CHROME_LENS -> "Default · online (Google Lens)"
+                OcrEngineChoice.PADDLE_OCR -> "PP-OCRv6 Medium · on device"
             },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Palette.OnAccent,
-                checkedTrackColor = Palette.Accent,
-                uncheckedThumbColor = Palette.Muted,
-                uncheckedTrackColor = Palette.Navy650,
-            ),
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
         )
     }
 }
@@ -228,11 +252,12 @@ private fun SecondarySourcesRow(ui: OnlineSearchUi, controller: OnlineSearchCont
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun BridgeLine(bridge: BridgeUi) {
+private fun BridgeLine(choice: OcrEngineChoice, bridge: BridgeUi) {
     val (dot, text) = when (bridge) {
-        BridgeUi.Checking -> Palette.Muted to "Starting the embedded Python runtime…"
-        is BridgeUi.Ready -> Palette.Ok to "${bridge.library} ${bridge.version} · OCR only, no product search"
-        is BridgeUi.Unavailable -> Palette.Danger to bridge.reason
+        // Availability, not selection: the chips above already say what is selected.
+        BridgeUi.Checking -> Palette.Muted to "Checking ${choice.shortLabel}…"
+        is BridgeUi.Ready -> Palette.Ok to "${choice.label} ready · ${bridge.library} ${bridge.version}"
+        is BridgeUi.Unavailable -> Palette.Danger to "${choice.shortLabel} unavailable — ${bridge.reason}"
     }
     Row(
         Modifier
@@ -248,7 +273,8 @@ private fun BridgeLine(bridge: BridgeUi) {
 
 @Composable
 private fun OcrSection(ui: OnlineSearchUi, controller: OnlineSearchController) {
-    FieldLabel("A · Read the cover (Google Lens OCR)")
+    val selected = OcrEngineChoice.fromId(ui.ocrEngine)
+    FieldLabel("A · Read the cover (${selected.shortLabel} OCR)")
 
     when (val ocr = ui.ocr) {
         is OcrUi.Running -> BusyRow(ocr.label, controller::cancel)
@@ -264,7 +290,8 @@ private fun OcrSection(ui: OnlineSearchUi, controller: OnlineSearchController) {
             ) { ButtonLabel("Try again", Palette.Text, 13.5f) }
         }
         is OcrUi.NoText -> Text(
-            "Lens found no text on this cover (v${ocr.libraryVersion}). Type a title below instead.",
+            "${ocr.engine.ifBlank { selected.shortLabel }} found no text on this cover " +
+                "(v${ocr.libraryVersion}). Type a title below instead.",
             color = Palette.Warn,
             fontSize = 11.sp,
         )
@@ -273,7 +300,8 @@ private fun OcrSection(ui: OnlineSearchUi, controller: OnlineSearchController) {
                 buildString {
                     append("Recognised")
                     ocr.language?.let { append(" · language $it") }
-                    append(" · chrome-lens-py ${ocr.libraryVersion}")
+                    // The engine that actually ran, from the result itself — not the current selection.
+                    append(" · ${ocr.engine.ifBlank { selected.shortLabel }} ${ocr.libraryVersion}")
                 },
                 color = Palette.Muted,
                 fontSize = 10.5.sp,
@@ -295,7 +323,8 @@ private fun OcrSection(ui: OnlineSearchUi, controller: OnlineSearchController) {
             }
         }
         OcrUi.Idle -> Text(
-            "Scan a cover, then read its text. chrome-lens-py only does OCR and translation — it has no product search.",
+            "Scan a cover, then read its text. The selected OCR engine only reads and translates " +
+                "text — it has no product search.",
             color = Palette.Muted,
             fontSize = 11.sp,
         )

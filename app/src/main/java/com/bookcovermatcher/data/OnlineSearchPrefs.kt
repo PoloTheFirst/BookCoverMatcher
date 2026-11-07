@@ -5,6 +5,7 @@ package com.bookcovermatcher.data
 import android.content.Context
 import com.bookcovermatcher.core.online.SearchLimits
 import com.bookcovermatcher.core.online.SearchRouting
+import com.bookcovermatcher.ocr.OcrEngineChoice
 
 /**
  * User-controlled settings for the online-search feature.
@@ -71,18 +72,16 @@ class OnlineSearchPrefs(context: Context) {
         set(value) { sp.edit().putBoolean(KEY_AUTO_SEARCH, value).apply() }
 
     /**
-     * Which OCR engine to use.
+     * Which OCR engine READ THE COVER uses.
      *
-     * [ENGINE_PYTHON] is the shipped path and the default: `chrome-lens-py` through Chaquopy.
-     * [ENGINE_RUST] is the native PP-OCRv6 engine, which is only exposed in debug builds while the
-     * migration is unfinished. Any unknown stored value falls back to Python, so a stray preference
-     * can never silently change what reads the user's covers.
+     * Stored as [OcrEngineChoice.id] and resolved through [OcrEngineChoice.fromId], so an unknown or
+     * corrupted value reads back as Chrome Lens (the default) instead of selecting something else.
+     * Writing normalises the value, which is the only place a legacy alias is rewritten.
      */
     var ocrEngine: String
-        get() = if (sp.getString(KEY_OCR_ENGINE, ENGINE_PYTHON) == ENGINE_RUST) ENGINE_RUST else ENGINE_PYTHON
+        get() = OcrEngineChoice.fromId(sp.getString(KEY_OCR_ENGINE, ENGINE_PYTHON)).id
         set(value) {
-            val kept = if (value == ENGINE_RUST) ENGINE_RUST else ENGINE_PYTHON
-            sp.edit().putString(KEY_OCR_ENGINE, kept).apply()
+            sp.edit().putString(KEY_OCR_ENGINE, OcrEngineChoice.fromId(value).id).apply()
         }
 
     /**
@@ -98,10 +97,15 @@ class OnlineSearchPrefs(context: Context) {
         set(value) { sp.edit().putBoolean(KEY_SECONDARY_SOURCES, value).apply() }
 
     companion object {
-        /** `chrome-lens-py` through Chaquopy — the shipped engine. */
+        /**
+         * The value stored for Chrome Lens.
+         *
+         * Deliberately still `"python"`: that is what every installation written by an earlier build
+         * contains, so upgrades keep using the engine they already had.
+         */
         const val ENGINE_PYTHON = "python"
 
-        /** The native PP-OCRv6 Rust engine — development only. */
+        /** The value stored for the native PaddleOCR engine. */
         const val ENGINE_RUST = "rust"
 
         private const val STORE = "bookcover_online"
