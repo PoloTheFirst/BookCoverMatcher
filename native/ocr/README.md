@@ -19,10 +19,11 @@ and an unavailable PaddleOCR reports why instead of handing the cover to Lens.
 | Kotlin wrapper | `app/src/main/java/com/bookcovermatcher/ocr/NativeOcr.kt` |
 | Parser (pure Kotlin) | `…/ocr/NativeOcrProtocol.kt` |
 | Adapter | `…/ocr/RustOcrTextSource.kt` (`OcrTextSource`) |
-| Models | `…/ocr/PpocrModels.kt` — pinned SHA-256, atomic install |
+| Models | `…/ocr/PpocrModels.kt` — pinned SHA-256, atomic install from the APK's assets |
 | Engine selection | `…/ocr/OcrEngines.kt` — `SwitchingOcrTextSource`, reads the preference per call |
 | Build + packaging | `tools/build-native-ocr.ps1` → `app/src/main/jniLibs/<abi>/libbc_ocr.so` (git-ignored) |
-| Model install | `tools/push-ocr-models.ps1` → app-internal `files/ocr-import/ppocrv6` |
+| Model packaging | `preparePaddleOcrAssets` in `app/build.gradle.kts` → `app/src/main/assets/ocr/ppocrv6` (git-ignored) |
+| Model install (developer builds only) | `tools/push-ocr-models.ps1` → app-internal `files/ocr-import/ppocrv6` |
 | APK check | `tools/verify-ocr-apk.ps1` |
 | Device tests | `app/src/androidTest/.../NativeOcrDeviceTest.kt` |
 
@@ -204,7 +205,7 @@ resolves `libonnxruntime.so` from the process at run time, so two runtimes can n
 `jni` feature is on by default and can be switched off for a host build
 (`cargo build --no-default-features`).
 
-## Models and dictionary (downloaded, not committed) — except the dictionary
+## Models and dictionary (downloaded at build time, packaged in the APK) — the dictionary is committed
 
 `tools/fetch-ppocrv6-models.ps1` fetches the official artifacts and verifies the dictionary. Sizes
 measured on 2026-11-05:
@@ -216,6 +217,17 @@ measured on 2026-11-05:
 
 The 139 MB of weights stay out of git (`models/` is ignored). The **dictionary is committed**: it is
 75 KB of text, Apache-2.0, and the recognition model cannot be interpreted without it.
+
+### How the Android app gets them
+
+`preparePaddleOcrAssets` (in `app/build.gradle.kts`, wired into `preBuild`) resolves the same three
+artifacts — the two pinned HuggingFace revisions above plus the committed dictionary — into
+`app/src/main/assets/ocr/ppocrv6/`, verifying **size and SHA-256** and failing the build on any
+mismatch. Every APK therefore carries the models; on first use `PpocrModels.ensureInstalled` copies
+them into app-private storage with the same hashes checked, so a clean install needs no
+`fetch-ppocrv6-models.ps1`, no `push-ocr-models.ps1`, no ADB and no network.
+`tools/verify-ocr-apk.ps1` re-hashes the assets inside the built APK and reports the native libraries
+per ABI. The host-side `fetch-ppocrv6-models.ps1` remains for the Rust test suite (`BC_OCR_MODELS`).
 
 | File | Source | Identity |
 |---|---|---|
@@ -236,4 +248,32 @@ cargo test --test real_models -- --ignored --nocapture ppocrv6_medium_reads_mult
 The crops are rendered with system fonts (Meiryo / Microsoft JhengHei / Microsoft YaHei / Arial), and
 `manifest.json` records each source string so the printed output can be compared honestly. They are
 synthetic, so the test is a **qualitative smoke test**, not an accuracy measurement, and the script's
+
+## Accuracy: the vertical-column fix and the measurement harness (crash-fix-9)
+
+`engine::recognise_region` now turns a crop that is at least 1.5× taller than it is wide a quarter turn
+**counter-clockwise** before recognition (`RgbaImage::rotated_counter_clockwise`). PP-OCR only reads
+horizontal lines: without the turn a 73×347 Japanese column is resized into a 12-pixel-wide canvas and
+comes back as one stray character. Measured on that crop, feeding the recogniser directly:
+
+| input | score | text |
+|---|---|---|
+| as-is | 0.074 | `试验` |
+| rotated clockwise | 0.313 | `修青小站` |
+| **rotated counter-clockwise** | **0.877** | `縱書き小説` |
+| per-character cells | — | `縦書き小説` |
+
+Direction matters, so it is fixed in code rather than left to chance, and a unit test asserts the pixel
+mapping (`a_counter_clockwise_rotation_moves_the_top_left_pixel_to_the_bottom_left`).
+
+The detector tensor is now **BGR**, matching PaddleOCR's `DecodeImage(img_mode='BGR')` and the
+recogniser's own order. This is a parity change: on the fixture suite the difference is one character
+(0.161 BGR vs 0.149 RGB overall CER), recorded in `tools/ocr-reference/README.md` rather than claimed
+as a gain.
+
+`tools/ocr-reference/` holds the harness used for all of this — fixtures with hand-written ground truth,
+an independent implementation of the official algorithm, CER/recall scoring, and stage bisectors — plus
+`cargo run --example eval` on the Rust side. See `NATIVE_OCR_ANDROID.md` §10 for the numbers and the
+blocked cases.
+
 source is ASCII-only (CJK written as `\u` escapes) so no console or editor can transcode it.

@@ -30,3 +30,4 @@ app/src/main/jniLibs/*/libbc_ocr.so
 # PP-OCRv6 Medium model weights: fetched, SHA-256-verified and packaged by the Gradle task
 # `preparePaddleOcrAssets` (app/build.gradle.kts). ~139 MB of binaries do not belong in git.
 app/src/main/assets/ocr/
+tools/ocr-reference/out/

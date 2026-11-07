@@ -192,3 +192,78 @@ adb -s <serial> logcat -d -s NativeOcrTest:I
 `connectedDebugAndroidTest` runs these suites too. There is no model-push step any more: the APK
 carries the models, and `NativeOcrDeviceTest.aCleanInstallPreparesPaddleOcrFromTheApkAndReadsOffline`
 deletes the private copy first, so the extraction path is what gets exercised.
+
+## 10 · Accuracy: what was measured (crash-fix-9)
+
+The reported symptom was poor recognition on illustrated Japanese covers: substitutions, stray
+fragments, and no title. Investigating it needed a reproducible measurement, so
+`tools/ocr-reference/` now holds one (see its `README.md` for commands, environment and the full
+tables). Nothing in it is packaged in the APK and no third-party cover is committed.
+
+### The harness
+
+* 7 synthetic covers with hand-written ground truth (Japanese horizontal / vertical / rotated /
+  scattered-decorative, Traditional Chinese, Simplified Chinese, English) generated deterministically
+  by `make_fixtures.py`;
+* an independent Python implementation of the **official PaddleOCR algorithm** over the same pinned
+  ONNX files, with switches for one preprocessing variable at a time;
+* `metrics.py` scoring CER / exact match / detection recall, and `native/ocr/examples/eval.rs` for the
+  Rust side;
+* stage bisectors (`rec_on_crops.py`, `probe_crop.py`, `probe_vertical.py`, `debug_rec.py`).
+
+Parity was established where it matters most: feeding the Rust engine's own dumped crops to the Python
+recogniser reproduced its text character for character on all 10 lines of the real cover, which pins
+preprocessing, BGR order, resize/padding, the 18,710-class CTC mapping and the dictionary down as
+correct. Detector geometry was compared the same way (same image, both pipelines).
+
+### Root causes found
+
+1. **Vertical columns were squeezed into a 12-pixel-wide canvas** (`ja_vertical` read one stray
+   character). PP-OCR recognises horizontal lines; a region at least 1.5× taller than wide must be
+   turned a quarter turn first. The direction is not arbitrary — measured on the real column crop:
+   as-is 0.074 `试验`, clockwise 0.313 `修青小站`, **counter-clockwise 0.877 `縱書き小説`**, per-character
+   cells exact `縦書き小説`. `engine::recognise_region` now rotates counter-clockwise
+   (`RgbaImage::rotated_counter_clockwise`), and `ja_vertical` went from CER 1.000 to 0.000.
+2. **The detector tensor was RGB** while PaddleOCR's `DecodeImage(img_mode='BGR')` + ImageNet stats
+   expect BGR. Fixed for parity (`det::preprocess`); the measured effect on the fixture suite is
+   ±1 character (0.161 BGR vs 0.149 RGB overall CER), so this is reported as a parity fix, not a win.
+3. **Full-width digits reach the search query verbatim** (`じれったい２`). Searching is now NFKC-folded
+   (`core/online/SearchText.kt`) while the raw recognised text stays untouched in the result, the log
+   and `OcrText.text`.
+
+Not defects: PaddleOCR's `min` resize policy scored the same as the engine's `max` (0.161 both), so the
+engine keeps `max`; detector threshold/unclip parameters already match the model's `inference.yml`; the
+dictionary and CTC mapping were already correct.
+
+### Numbers (fake-clean fixtures, this machine)
+
+| Fixture | lang | before | after | after text |
+|---|---|---|---|---|
+| `ja_horizontal` | ja | 0.000 | 0.000 | `じれったい、2ギルR` |
+| `ja_vertical` | ja | 1.000 | **0.000** | `縦書き小説` |
+| `ja_rotated` | ja | 0.091 | 0.091 | `じれったい２` |
+| `ja_decorative` | ja | 0.000 | 0.200 | `じれつたい` |
+| `zh_hant` | zh-Hant | 0.000 | 0.000 | `繁體中文測試封面` |
+| `zh_hans` | zh-Hans | 0.000 | 0.000 | `简体中文测试封面` |
+| `en` | en | 0.000 | 0.000 | `FINAL FANTASY SEVEN` / `Tifa Lockhart FAN BOOK` / `R-18` |
+| **overall** | | 0.069 | **0.063** | |
+
+Real-model host run (`cargo test --test real_models -- --ignored`, ONNX Runtime 1.20.0): 3/3 pass,
+including `日本語のテキスト認識` and `吾輩は猫である 第1巻` read exactly from the multilingual crops, and the
+Hobbit cover reading `THE AUTHORIZED EDITION` / `THE` / `HOBBIT` / `THE ENCHANTING PRELUDE TO` /
+`"THE LORD OF THE RINGS"`.
+
+### Blocked and unmeasured
+
+* **The user's own cover was not supplied as a file.** The Tifa / FINAL FANTASY VII regression case is
+  therefore **blocked**, not passed; its reported outputs stay user-reported baselines.
+* **Chrome Lens was not run** on these fixtures (needs a device for the Python path), so there is no
+  Lens-vs-PaddleOCR comparison, only the user's account.
+* **`ja_decorative` regressed by one character** (`っ` → `つ`) after the BGR change; it is a model
+  weakness on a small stroked kana over artwork, recorded rather than explained away.
+* **No multi-scale passes, orientation search or batching were added.** The measurements did not
+  justify them: detection recall was 1.00 on every fixture before and after, so extra passes would have
+  bought latency, not text.
+* **`ja_rotated` still returns a full-width digit** and one scattered title character is still wrong:
+  model limitations on this domain, mitigated downstream by the search-side folding.
+

@@ -301,7 +301,15 @@ impl OcrEngine {
         let (width, height) = quad.rect_size();
         let crop_w = width.round().max(8.0) as usize;
         let crop_h = height.round().max(8.0) as usize;
-        let crop = image.crop_quad(quad, crop_w, crop_h);
+        let mut crop = image.crop_quad(quad, crop_w, crop_h);
+        // PP-OCR recognises horizontal lines. A column at least 1.5× taller than it is wide is
+        // therefore turned a quarter turn first — PaddleOCR's predictor applies the same rule to
+        // vertical boxes, and counter-clockwise keeps the reading order (top character leftmost).
+        // Without it a 73×347 Japanese column is squeezed into a 12-pixel-wide recogniser canvas and
+        // reads as a single stray character.
+        if crop_h as f32 >= 1.5 * crop_w as f32 {
+            crop = crop.rotated_counter_clockwise();
+        }
         let input = rec::preprocess(&crop)?;
         let shape = [1i64, 3, rec::REC_HEIGHT as i64, rec::REC_MAX_WIDTH as i64];
         let tensor = Tensor::from_array((shape, input.tensor.into_boxed_slice()))
