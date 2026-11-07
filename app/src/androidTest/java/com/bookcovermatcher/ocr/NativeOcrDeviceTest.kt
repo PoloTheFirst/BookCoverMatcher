@@ -43,16 +43,22 @@ class NativeOcrDeviceTest {
     }
 
     /**
-     * Installs from the developer drop path when the models were pushed but not yet copied, so the
-     * test exercises the same install path the app uses.
+     * Installs the PP-OCRv6 models from the APK when they are not ready yet — the same path a clean
+     * installation takes. The developer drop directory is kept as a fallback for builds made without
+     * the Gradle asset task.
      */
     private fun ensureModels(): ModelState {
         val store = ppocrModels(context)
         val current = store.state()
         if (current is ModelState.Ready) return current
+        val assets = context.assets
+        val fromApk = runCatching {
+            store.ensureInstalled({ name -> assets.open("${PpocrModels.ASSET_DIR}/$name") })
+        }.getOrElse { return ModelState.Invalid("asset extraction failed: ${it.message}") }
+        if (fromApk is ModelState.Ready) return fromApk
         val import = ppocrImportDirectory(context)
         if (File(import, PpocrModels.DETECTOR).isFile) return store.installFromDirectory(import)
-        return current
+        return fromApk
     }
 
     private fun requireModels() {
@@ -149,6 +155,32 @@ class NativeOcrDeviceTest {
                 assertTrue("round ${round + 1} read no text", text.text.isNotBlank())
             }
         }
+    }
+
+    /**
+     * The APK's own copy of the models, extracted and verified — exactly what a clean installation
+     * does on its first OCR call. No ADB, no script, no network.
+     */
+    @Test
+    fun aCleanInstallPreparesPaddleOcrFromTheApkAndReadsOffline() {
+        val packaged = context.assets.list(PpocrModels.ASSET_DIR)?.toSet().orEmpty()
+        assertTrue("the detector must be packaged in the APK", packaged.contains(PpocrModels.DETECTOR))
+        assertTrue("the recogniser must be packaged in the APK", packaged.contains(PpocrModels.RECOGNIZER))
+        assertTrue("the dictionary must be packaged in the APK", packaged.contains(PpocrModels.DICTIONARY))
+        log("packaged assets: ${packaged.sorted()}")
+
+        // Wipe private storage: from the engine's point of view this is a fresh installation.
+        ppocrModels(context).remove()
+        assertEquals(ModelState.Absent, ppocrModels(context).state())
+
+        val bytes = testAssets.assets.open("cover.jpg").use { it.readBytes() }
+        val started = System.currentTimeMillis()
+        val text = rustOcrTextSource(context).use { it.recognise(bytes, "en", null, 60) }
+        val elapsed = System.currentTimeMillis() - started
+        log("clean install: extracted + recognised in $elapsed ms, ${text.blockCount} blocks")
+
+        assertTrue("the title must be read after extraction, got '${text.text}'", text.text.contains("HOBBIT", ignoreCase = true))
+        assertTrue("the extracted models must verify", ppocrModels(context).state() is ModelState.Ready)
     }
 
     @Test

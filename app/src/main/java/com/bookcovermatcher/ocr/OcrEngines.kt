@@ -98,14 +98,23 @@ class SwitchingOcrTextSource(
  * dynamic loader for `libonnxruntime.so`; loading Maven's copy first means that request reuses the
  * mapping that already exists. One runtime per process, which is the invariant the crate was built
  * around.
+ *
+ * The models come from the APK: every build packages them under `assets/ocr/ppocrv6` (see
+ * `preparePaddleOcrAssets` in `app/build.gradle.kts`), and the first OCR call extracts the three
+ * files into private storage, verifying each SHA-256. A clean installation therefore needs no ADB,
+ * no script and no network.
  */
 fun rustOcrTextSource(context: Context): RustOcrTextSource {
     val codec = AndroidImageCodec()
     // Idempotent; the ONNX Runtime Java API would do this lazily anyway.
     runCatching { System.loadLibrary("onnxruntime") }
+    val assets = context.assets
     return RustOcrTextSource(
         models = ppocrModels(context),
         runtimeLibraryPath = "",
+        installer = { store, onProgress ->
+            store.ensureInstalled({ name -> assets.open("${PpocrModels.ASSET_DIR}/$name") }, onProgress)
+        },
         decode = { bytes, maxEdge -> codec.decodePhoto(bytes, maxEdge) },
     )
 }
@@ -114,13 +123,11 @@ fun rustOcrTextSource(context: Context): RustOcrTextSource {
 fun ppocrModels(context: Context): PpocrModels = PpocrModels(File(context.filesDir, "ocr/ppocrv6"))
 
 /**
- * Where a developer drops the three files for [PpocrModels.installFromDirectory].
+ * Where a developer can drop the three files for [PpocrModels.installFromDirectory].
  *
- * **Internal** app storage, not the external files directory: `adb push` can only write
- * `/sdcard/Android/data/<pkg>/…` as the `shell` user, and Android 11+ makes those shell-owned
- * directories invisible to the app (`exists=false`), so an external drop silently looks missing.
- * `tools/push-ocr-models.ps1` therefore streams the files through `run-as`, which writes them with
- * the app's own UID. This requires a debuggable build, which is the only place the native engine is
- * offered anyway.
+ * Only needed for builds made **without** the Gradle asset task (for example a quick local experiment
+ * with `-x preparePaddleOcrAssets`): a normal build packages the models and the app extracts them from
+ * the APK by itself. Internal storage, because `adb push` into the app's external directory produces
+ * shell-owned files that Android 11+ hides from the app.
  */
 fun ppocrImportDirectory(context: Context): File = File(context.filesDir, "ocr-import/ppocrv6")

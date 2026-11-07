@@ -8,8 +8,8 @@ import com.bookcovermatcher.data.OnlineSearchPrefs
 import com.bookcovermatcher.ocr.ModelState
 import com.bookcovermatcher.ocr.OcrEngineChoice
 import com.bookcovermatcher.ocr.OcrEngines
+import com.bookcovermatcher.ocr.PpocrModels
 import com.bookcovermatcher.ocr.SwitchingOcrTextSource
-import com.bookcovermatcher.ocr.ppocrImportDirectory
 import com.bookcovermatcher.ocr.ppocrModels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -88,18 +88,15 @@ class OcrEngineRoutingTest {
     private fun coverJpeg(): ByteArray = testAssets.assets.open("cover.jpg").use { it.readBytes() }
 
     /**
-     * Installs the PP-OCRv6 models from the developer drop path when they were pushed but not yet
-     * copied, so this test does not depend on another test having run first.
+     * Installs the PP-OCRv6 models from the APK when they are missing, the same path a clean
+     * installation takes, so this test does not depend on another test having run first.
      */
     private fun ensurePaddleModels(): ModelState {
         val store = ppocrModels(context)
         val current = store.state()
         if (current !is ModelState.Absent) return current
-        val import = ppocrImportDirectory(context)
-        if (java.io.File(import, com.bookcovermatcher.ocr.PpocrModels.DETECTOR).isFile) {
-            return store.installFromDirectory(import)
-        }
-        return current
+        val assets = context.assets
+        return store.ensureInstalled({ name -> assets.open("${PpocrModels.ASSET_DIR}/$name") })
     }
 
     private fun text(library: String, body: String): OcrText = OcrText(

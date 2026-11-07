@@ -25,19 +25,19 @@ sealed interface ModelState {
  * while copying, promote only when the hash matches, and remember the verification so the 139 MB is
  * not re-hashed on every launch.
  *
+ * ### Where the files come from
+ *
+ * The three files are **packaged into every APK** under `assets/ocr/ppocrv6` (the Gradle task
+ * `preparePaddleOcrAssets` fetches them at build time and refuses to build without them). On a clean
+ * installation the first OCR call copies them into app-private storage here, verifying each SHA-256,
+ * so a normal user never needs ADB, a script, a download or a directory picker. See `ensureInstalled`.
+ *
  * ### Why the hashes are pinned here
  *
  * The recogniser's class count (18,710) only means anything together with *this* dictionary
  * (18,708 entries), and the detector was verified against *these* weights. A swapped or truncated
  * file would not fail loudly at inference time; it would produce plausible, wrong text. Pinning the
  * hashes turns that into a startup error naming the file that is wrong.
- *
- * ### Distribution
- *
- * The models are **not** bundled in the APK (139 MB would triple it) and are **not** downloaded
- * (the app must not pull that much data on its own). They are installed from a directory the
- * developer supplies — see `tools/push-ocr-models.ps1` and `native/ocr/README.md`. A user-facing
- * download flow is deliberately out of scope for this development version.
  */
 class PpocrModels(
     private val root: File,
@@ -65,6 +65,28 @@ class PpocrModels(
             return ModelState.Ready(installed(files))
         }
         return verify(files)
+    }
+
+    /**
+     * Verifies the installed files, or installs them from [open] when they are not usable yet.
+     *
+     * [open] returns one packaged asset by file name — on Android, `AssetManager.open("ocr/ppocrv6/x")`.
+     * This is what makes a clean install work: the first OCR call extracts the APK's copies into
+     * app-private storage, verifies every SHA-256, and only then reports them ready. Every later
+     * launch costs one marker read.
+     *
+     * One extraction per process ([INSTALL_LOCK]), so two engine instances cannot write the same
+     * files concurrently; an interrupted extraction leaves only `.part` files, which the next call
+     * deletes and redoes.
+     */
+    fun ensureInstalled(open: (String) -> InputStream, onProgress: (Long) -> Unit = {}): ModelState {
+        val current = state()
+        if (current is ModelState.Ready) return current
+        synchronized(INSTALL_LOCK) {
+            val again = state()
+            if (again is ModelState.Ready) return again
+            return install(NAMES.associateWith { open(it) }, onProgress)
+        }
     }
 
     /**
@@ -126,6 +148,10 @@ class PpocrModels(
             File(root, MARKER).writeText(marker.toString())
             return ModelState.Ready(installed(files()))
         } catch (e: IOException) {
+            // Nothing half-written may survive: a `.part` file is unrecognisable to a reader, and an
+            // interrupted extraction must be retryable from scratch.
+            staged.values.forEach { it.delete() }
+            root.listFiles()?.filter { it.name.endsWith(".part") }?.forEach { it.delete() }
             return ModelState.Invalid("the model files could not be stored: ${e.message}")
         } finally {
             staged.values.forEach { it.delete() }
@@ -194,6 +220,12 @@ class PpocrModels(
         const val DICTIONARY = "ppocrv6_dict.txt"
         const val MARKER = "verified.txt"
         const val FINGERPRINT = "ppocrv6-medium"
+
+        /** Where the packaged assets live inside the APK. */
+        const val ASSET_DIR = "ocr/ppocrv6"
+
+        /** One extraction at a time, process-wide; see [ensureInstalled]. */
+        private val INSTALL_LOCK = Any()
 
         val NAMES = listOf(DETECTOR, RECOGNIZER, DICTIONARY)
 

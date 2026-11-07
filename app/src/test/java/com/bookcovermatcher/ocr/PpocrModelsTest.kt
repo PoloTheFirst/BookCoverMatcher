@@ -6,6 +6,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.io.IOException
+import java.io.InputStream
 import java.security.MessageDigest
 
 /**
@@ -118,6 +120,52 @@ class PpocrModelsTest {
         val models = PpocrModels(temp.newFolder("root"), emptyMap())
         val state = models.install(mapOf("other.onnx" to "x".byteInputStream()))
         assertTrue(state is ModelState.Invalid)
+    }
+
+    private fun openerFor(dir: File): (String) -> InputStream = { name -> File(dir, name).inputStream() }
+
+    @Test
+    fun ensuringInstallsFromTheProvidedSourceWhenNothingIsInstalled() {
+        val source = sourceFixture()
+        val root = temp.newFolder("root")
+        val models = PpocrModels(root, expectedFor(source))
+        assertEquals(ModelState.Absent, models.state())
+
+        val state = models.ensureInstalled(openerFor(source))
+
+        assertTrue("expected Ready, got $state", state is ModelState.Ready)
+        for (name in PpocrModels.NAMES) {
+            assertTrue("$name was not installed", File(root, name).isFile)
+        }
+        var opened = 0
+        val second = models.ensureInstalled({ opened++; File(source, it).inputStream() })
+        assertTrue(second is ModelState.Ready)
+        assertEquals("a verified installation must not re-open the source", 0, opened)
+    }
+
+    @Test
+    fun anInterruptedExtractionLeavesNothingBehindAndCanBeRetried() {
+        val source = sourceFixture()
+        val root = temp.newFolder("root")
+        val models = PpocrModels(root, expectedFor(source))
+
+        val interrupted: (String) -> InputStream = { name ->
+            if (name == PpocrModels.RECOGNIZER) {
+                object : InputStream() {
+                    override fun read(): Int = throw IOException("storage full")
+                }
+            } else {
+                File(source, name).inputStream()
+            }
+        }
+
+        val failed = models.ensureInstalled(interrupted)
+        assertTrue("expected Invalid, got $failed", failed is ModelState.Invalid)
+        assertEquals(0, root.listFiles()!!.count { it.name.endsWith(".part") })
+        assertTrue("nothing may be promoted", !File(root, PpocrModels.DETECTOR).exists())
+
+        val retried = models.ensureInstalled(openerFor(source))
+        assertTrue("the retry must succeed, got $retried", retried is ModelState.Ready)
     }
 
     @Test
