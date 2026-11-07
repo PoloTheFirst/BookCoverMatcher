@@ -74,7 +74,55 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
 * Camera content scenarios (angled, low light, blurry, obstructed, several books) remain blocked on the
   emulator: its virtual scene cannot be posed over adb, so those were neither tested nor claimed.
 
-## v2.5.0-dev.4 (2026-11-05)
+## v2.5.0-dev.5 (2026-11-05)
+
+**Version code/name: 220 / 2.5.0-dev.5.** The first stage of the OCR-engine migration: the native Rust
+PP-OCRv6 core is started, builds for both Android ABIs and is unit-tested, and the feasibility of the whole
+migration was verified against the real model artifacts. **The application's OCR behaviour is unchanged in this
+build** — the existing embedded-Python engine is still the only OCR path the app uses, because the native inference
+pipeline is not finished or device-verified yet.
+
+### Added
+
+* **`native/ocr`, a Rust crate for the native OCR core.** `cdylib` + `rlib`, no dependencies yet, `cargo test`
+  green (13 tests) and cross-compiled for `aarch64-linux-android` and `x86_64-linux-android` with NDK r27d
+  (`libbc_ocr.so`, 300.4 KB and 326.2 KB). Implemented and tested so far:
+  * `dict` — PP-OCR `CTCLabelDecode` index space (`blank = 0`, dictionary from class 1, optional trailing space
+    class), greedy CTC decoding with repeat collapsing, blank skipping and an honest per-character confidence;
+  * `geom` — corner ordering by PaddleOCR's `get_mini_boxes` rule, quad size and vertical/horizontal
+    classification (a vertical Japanese column must be recognisable as vertical), the affine solve and the
+    bilinear perspective crop that turns a detected quad into an upright recogniser input, with clamping for
+    degenerate or out-of-bounds quads.
+* **`tools/fetch-ppocrv6-models.ps1`** — reproducible download of the official ONNX artifacts with size checks,
+  plus extraction of the recognition dictionary from the model's own `inference.yml`.
+* **`native/ocr/README.md`** — toolchain, build commands, model provenance and an explicit statement of what is
+  and is not implemented.
+
+### Verified (feasibility, not implementation)
+
+* `PaddlePaddle/PP-OCRv6_medium_det_onnx` → `inference.onnx`, **62,032,837 bytes**; DB post-processing parameters
+  from its `inference.yml`: `thresh 0.2`, `box_thresh 0.45`, `unclip_ratio 1.4`, `max_candidates 3000`.
+* `PaddlePaddle/PP-OCRv6_medium_rec_onnx` → `inference.onnx`, **76,554,979 bytes**; `PostProcess: CTCLabelDecode`
+  with an inline **18,704-character** dictionary; `RecResizeImg` input `[3, 48, 320]`.
+* `ort` 2.0.0-rc.15 offers `api-17` … `api-31`, `load-dynamic` and `nnapi`; the app already ships ONNX Runtime
+  **1.20.0**, so the only conflict-free arrangement is `api-20` + `load-dynamic` against that existing runtime.
+* Toolchain obtained on this machine: NDK r27d, Rust Android targets `aarch64-linux-android` /
+  `x86_64-linux-android`, host `cargo test`.
+
+### Not done (and why)
+
+* Detector/recogniser stages, ONNX session layer, JNI exports and Kotlin wiring are **not** implemented; there is
+  therefore **no** native inference, **no** dictionary-vs-graph validation, and **no** NNAPI/CPU-fallback
+  measurement yet. `historical_prompt/v2.5.0-dev.5-ag.md` records the exact remaining work.
+* `chrome-lens-py`, Chaquopy and the Python runtime are **retained**: removing them before the native engine is
+  proven would leave the app without OCR, which the release instructions forbid.
+* No claim is made about OCR accuracy, latency or memory of the native path — nothing was measured.
+
+### Known limitations
+
+* The 139 MB of model weights are downloaded on demand and git-ignored; they are not bundled in the APK.
+* `libbc_ocr.so` is built but not packaged into the app; `assembleDebug` does not depend on the Rust toolchain.
+
 
 **Version code/name: 219 / 2.5.0-dev.4.** Discovery parity: a SauceNAO result is now as usable in the collection
 workflow as an IQDB result. Every discovery card can carry a picture, be dismissed, be bookmarked and be added to a

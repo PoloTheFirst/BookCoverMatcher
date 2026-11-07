@@ -1,0 +1,25 @@
+[package]
+name = "bc_ocr"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Native PP-OCRv6 text detection + recognition core for BookCoverMatcher"
+
+[lib]
+name = "bc_ocr"
+# `cdylib` is what Android loads (libbc_ocr.so); `rlib` keeps `cargo test` working on the host.
+crate-type = ["cdylib", "rlib"]
+
+# No dependencies yet: this commit carries the platform-independent core (charset + CTC decode,
+# quad ordering and perspective crop) which is fully unit-tested. The ONNX Runtime bindings,
+# JNI bridge and detector/recogniser stages are described in `native/ocr/README.md` and
+# `historical_prompt/v2.5.0-dev.5-ag.md`; they are deliberately NOT added as unverified
+# dependencies, because a crate that cannot be built is worse than one that stops at a clean
+# boundary.
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

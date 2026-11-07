@@ -1,0 +1,7 @@
+# Rust build output
+target/
+**/*.rs.bk
+
+# Downloaded PP-OCRv6 artifacts are fetched on demand (tools/fetch-ppocrv6-models.ps1),
+# never committed: ~139 MB of weights do not belong in git.
+models/
