@@ -41,10 +41,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookcovermatcher.BridgeUi
+import com.bookcovermatcher.BuildConfig
 import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.OcrUi
 import com.bookcovermatcher.OnlineSearchUi
 import com.bookcovermatcher.online.OnlineSearchController
+import com.bookcovermatcher.ocr.OcrEngines
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
@@ -115,6 +117,9 @@ fun OnlineSearchPanel(
         }
 
         BridgeLine(ui.bridge)
+        if (BuildConfig.DEBUG) {
+            NativeEngineRow(ui, controller)
+        }
         Spacer(Modifier.height(12.dp))
         OcrSection(ui, controller)
         Spacer(Modifier.height(12.dp))
@@ -141,6 +146,44 @@ fun OnlineSearchPanel(
             onToggleBookmark = onToggleDiscoveryBookmark,
             onAddToWishlist = onAddDiscoveryToWishlist,
             onBookmarkAllDiscovery = onBookmarkAllDiscovery,
+        )
+    }
+}
+
+/**
+ * Debug-only engine switch.
+ *
+ * The native engine is under development, so normal users must not be offered it: this row exists
+ * only in a debug build. It writes the same preference the tests use, and the status line above then
+ * describes the newly selected engine.
+ */
+@Composable
+private fun NativeEngineRow(ui: OnlineSearchUi, controller: OnlineSearchController) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Native OCR engine (debug)", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "PP-OCRv6 in Rust instead of chrome-lens-py. Applies to the next cover read; " +
+                    "the models and libbc_ocr.so must be installed.",
+                color = Palette.Muted,
+                fontSize = 10.sp,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Switch(
+            checked = ui.ocrEngine == OcrEngines.RUST,
+            onCheckedChange = { on ->
+                controller.setOcrEngine(if (on) OcrEngines.RUST else OcrEngines.PYTHON)
+            },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Palette.OnAccent,
+                checkedTrackColor = Palette.Accent,
+                uncheckedThumbColor = Palette.Muted,
+                uncheckedTrackColor = Palette.Navy650,
+            ),
         )
     }
 }

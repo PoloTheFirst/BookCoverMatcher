@@ -28,8 +28,12 @@ pub mod dict;
 pub mod engine;
 pub mod geom;
 pub mod image;
+#[cfg(feature = "jni")]
+pub mod jni;
 pub mod order;
 pub mod rec;
+pub mod registry;
+pub mod wire;
 
 /// The version recorded in logs and in the agent report, so a device log can be tied to a build.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

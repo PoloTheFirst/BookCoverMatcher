@@ -16,6 +16,15 @@ crate-type = ["cdylib", "rlib"]
 # the crate links no ONNX Runtime of its own and resolves `libonnxruntime.so` from the
 # process at run time, so two runtimes can never coexist.
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["api-20", "load-dynamic", "std"] }
+# JNI bindings for the Android entry points (`src/jni.rs`). Optional so a host build can be done
+# without them (`--no-default-features`); `default-features = false` drops the JVM-invocation API,
+# which a native library never uses.
+jni = { version = "=0.21.1", default-features = false, optional = true }
+
+[features]
+# Android packages the JNI exports; host tests run them too (they are pure Rust until called).
+default = ["jni"]
+jni = ["dep:jni"]
 
 [dev-dependencies]
 # Only the integration test decodes a real JPEG (the app decodes with BitmapFactory, so the crate

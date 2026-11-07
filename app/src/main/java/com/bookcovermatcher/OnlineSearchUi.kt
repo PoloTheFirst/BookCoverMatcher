@@ -333,6 +333,11 @@ data class OnlineSearchUi(
     val providers: List<ProviderStatusUi> = emptyList(),
     /** The reverse-image section: two providers, their states, and the candidates they produced. */
     val reverse: ReverseImageUi = ReverseImageUi(),
+    /**
+     * Which OCR engine the next cover read will use: `"python"` (the shipped `chrome-lens-py`) or
+     * `"rust"` (the native PP-OCRv6 engine). Only a debug build exposes the switch that changes it.
+     */
+    val ocrEngine: String = "python",
 ) {
     /** True while either half of the feature is working. */
     val isBusy: Boolean get() = ocr is OcrUi.Running || catalogue is CatalogueUi.Running

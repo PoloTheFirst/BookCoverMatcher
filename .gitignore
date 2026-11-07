@@ -22,3 +22,7 @@ sample_covers/
 # Android build outputs
 app/release/
 *.apk
+
+# Native OCR library: a build output, produced by tools/build-native-ocr.ps1 and packaged through
+# Gradle's jniLibs mechanism. Never committed.
+app/src/main/jniLibs/*/libbc_ocr.so

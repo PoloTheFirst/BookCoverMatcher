@@ -51,6 +51,7 @@ import com.bookcovermatcher.toUi
 import com.bookcovermatcher.data.CandidateDecisionStore
 import com.bookcovermatcher.data.OnlineSearchPrefs
 import com.bookcovermatcher.data.SauceNaoKeyStore
+import com.bookcovermatcher.ocr.OcrEngines
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,8 +75,9 @@ import kotlinx.coroutines.withTimeout
  * the app have to share one captured cover and one toast channel.
  *
  * Two independent network steps, deliberately kept apart:
- *  1. **OCR** of the captured cover through the embedded `chrome-lens-py` package
- *     ([OcrTextSource]) â€” the only thing that library actually does.
+ *  1. **OCR** of the captured cover through the selected engine ([OcrTextSource]): the embedded
+ *     `chrome-lens-py` package by default, or the native Rust PP-OCRv6 engine when the debug-only
+ *     engine setting says so. Neither is used for anything else.
  *  2. **Product search** through a catalogue ([ProductSearchDataSource]) â€” a different service
  *     with a different failure model. `chrome-lens-py` returns no products, so nothing here asks
  *     it for any.
@@ -86,7 +88,7 @@ class OnlineSearchController(
     context: Context,
     private val scope: CoroutineScope,
     private val prefs: OnlineSearchPrefs = OnlineSearchPrefs(context),
-    private val bridge: OcrTextSource = ChromeLensPyBridge(PythonRuntime(context)),
+    private val bridge: OcrTextSource = OcrEngines.create(context),
     /**
      * Every provider the app can query itself, each through its own adapter:
      *  * **Open Library** â€” library catalogue, JSON API;
@@ -164,6 +166,7 @@ class OnlineSearchController(
             autoSearch = prefs.autoSearch,
             ocrLanguage = prefs.ocrLanguage,
             targetLanguage = prefs.targetLanguage,
+            ocrEngine = prefs.ocrEngine,
             selectedProviders = prefs.selectedProviders,
             resultLimit = prefs.resultLimit,
             providers = providerStatuses(query = "", selected = prefs.selectedProviders),
@@ -753,6 +756,20 @@ class OnlineSearchController(
     fun setTargetLanguage(code: String) {
         prefs.targetLanguage = code
         _ui.update { it.copy(targetLanguage = prefs.targetLanguage) }
+    }
+
+    /**
+     * Selects the OCR engine. **Debug builds only** — the panel only shows the switch there.
+     *
+     * The engine id is validated by [OnlineSearchPrefs], so an unknown value cannot be stored. The
+     * status line describes the *selected* engine, so it is re-checked instead of being left to
+     * describe the engine that was used a moment ago.
+     */
+    fun setOcrEngine(engine: String) {
+        prefs.ocrEngine = engine
+        _ui.update { it.copy(ocrEngine = prefs.ocrEngine, bridge = BridgeUi.Checking) }
+        bridgeChecked = false
+        if (_ui.value.enabled) checkBridge()
     }
 
     /**
