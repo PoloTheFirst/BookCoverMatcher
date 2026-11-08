@@ -110,12 +110,15 @@ fn ppocrv6_medium_reads_a_real_cover() {
     assert!(outcome.regions_detected > 0, "the detector must find text on a real cover");
     assert!(!outcome.lines.is_empty(), "recognition must produce at least one line");
 
-    // Ground truth that is not self-referential: the bundled cover is The Hobbit, and the existing
-    // Python/Chaquopy device test (OcrDeviceTest) asserts the same word with a different engine.
+    // Ground truth that is not self-referential: the bundled cover is now a generated synthetic
+    // image (tools/make-synthetic-fixtures.py) that prints large Latin lines, and the existing
+    // Python/Chaquopy device tests assert the same words through a different engine. The fixture
+    // carries no third-party artwork, so the ground truth is content this project owns.
     let text = outcome.text();
+    let flat = text.to_lowercase().replace([' ', '\n', '\r'], "");
     assert!(
-        text.to_lowercase().contains("hobbit"),
-        "the cover's title must be decoded, got: {text:?}"
+        flat.contains("synthetic") && flat.contains("bookcover"),
+        "the cover's printed lines must be decoded, got: {text:?}"
     );
     for line in &outcome.lines {
         assert!(

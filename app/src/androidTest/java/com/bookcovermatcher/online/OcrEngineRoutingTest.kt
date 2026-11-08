@@ -300,7 +300,8 @@ class OcrEngineRoutingTest {
 
         assertTrue("expected the native engine to read the cover, got $result", result is OcrUi.Done)
         result as OcrUi.Done
-        assertTrue("the title must be read, got '${result.text}'", result.text.contains("HOBBIT", ignoreCase = true))
+        assertTrue("the title must be read, got '${result.text}'",
+            result.text.uppercase().replace(" ", "").contains("BOOKCOVER"))
         assertEquals("PaddleOCR", result.engine)
         assertTrue(
             "the identity must name the native library, got '${result.libraryVersion}'",
@@ -324,7 +325,8 @@ class OcrEngineRoutingTest {
 
         when (result) {
             is OcrUi.Done -> {
-                assertTrue("the title must be read, got '${result.text}'", result.text.contains("HOBBIT", ignoreCase = true))
+                assertTrue("the title must be read, got '${result.text}'",
+                    result.text.uppercase().replace(" ", "").contains("BOOKCOVER"))
                 assertEquals("Chrome Lens", result.engine)
             }
             is OcrUi.Failed -> assumeTrue("Lens could not be reached (network): ${result.message}", false)

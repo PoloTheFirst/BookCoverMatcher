@@ -121,6 +121,13 @@ class NativeOcrDeviceTest {
         }
     }
 
+    /**
+     * The generated cover prints `SYNTHETIC`, `TEST COVER`, `BOOK COVER`, `MATCHER` … in large Latin
+     * letters. A recogniser may drop or merge the spaces between them, so the check ignores spaces.
+     */
+    private fun readsTheSyntheticCover(text: String): Boolean =
+        text.uppercase().replace(" ", "").contains("BOOKCOVER")
+
     @Test
     fun theEngineReadsTheBundledCover() {
         requireModels()
@@ -137,7 +144,7 @@ class NativeOcrDeviceTest {
             log("native OCR ${text.blockCount} blocks, ${text.wordCount} words")
             log("native text: ${text.text.replace("\n", " / ")}")
             log("native heights: ${text.blockHeights}")
-            assertTrue("the title must be read, got '${text.text}'", text.text.contains("HOBBIT", ignoreCase = true))
+            assertTrue("the title must be read, got '${text.text}'", readsTheSyntheticCover(text.text))
             assertTrue("block heights must be present for the title picker", text.blockHeights.isNotEmpty())
             assertTrue("the engine identity must be reported", text.libraryVersion.contains("bc_ocr"))
             assertEquals("a repeated run must read the same cover the same way", text.text, warmText.text)
@@ -181,7 +188,7 @@ class NativeOcrDeviceTest {
         val elapsed = System.currentTimeMillis() - started
         log("clean install: extracted + recognised in $elapsed ms, ${text.blockCount} blocks")
 
-        assertTrue("the title must be read after extraction, got '${text.text}'", text.text.contains("HOBBIT", ignoreCase = true))
+        assertTrue("the title must be read after extraction, got '${text.text}'", readsTheSyntheticCover(text.text))
         assertTrue("the extracted models must verify", ppocrModels(context).state() is ModelState.Ready)
     }
 
@@ -221,11 +228,11 @@ class NativeOcrDeviceTest {
 
         log("python: $pythonMs ms · ${pythonText?.blockCount} blocks · ${pythonText?.text?.replace("\n", " / ")}")
         log("native: $nativeMs ms · ${nativeText.blockCount} blocks · ${nativeText.text.replace("\n", " / ")}")
-        assertTrue("the native engine must read the title", nativeText.text.contains("HOBBIT", ignoreCase = true))
+        assertTrue("the native engine must read the title", readsTheSyntheticCover(nativeText.text))
         if (pythonText != null) {
             assertTrue(
-                "both engines must agree that the cover says HOBBIT",
-                pythonText.text.contains("HOBBIT", ignoreCase = true),
+                "both engines must agree that the cover says BOOKCOVER",
+                readsTheSyntheticCover(pythonText.text),
             )
         }
     }

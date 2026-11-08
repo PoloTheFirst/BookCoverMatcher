@@ -12,8 +12,9 @@ import org.junit.runner.RunWith
  * On-device proof of the complete Kotlin → Chaquopy → chrome-lens-py path.
  *
  * Run with `./gradlew connectedDebugAndroidTest` on an emulator or phone with network access.
- * The bundled cover is The Hobbit (Open Library cover id 14627509); the assertion is on text that
- * Lens actually reads from it, not on a fake bridge.
+ * The bundled cover is a generated synthetic one (`tools/make-synthetic-fixtures.py`): flat colour
+ * blocks and large Latin text, no third-party artwork. The assertion is on text Lens actually reads
+ * from it, not on a fake bridge.
  *
  * This test intentionally fails when Lens cannot be reached: an unverified OCR path must not be
  * reported as working. It is not part of `testDebugUnitTest`.
@@ -37,7 +38,7 @@ class OcrDeviceTest {
         val text = bridge.recognise(bytes, "en", null, 60)
         assertTrue(
             "Lens should read the cover title, got: ${text.text}",
-            text.text.contains("HOBBIT", ignoreCase = true),
+            text.text.uppercase().replace(" ", "").contains("BOOKCOVER"),
         )
         assertTrue("block geometry must be present for the title picker", text.blockHeights.isNotEmpty())
     }
