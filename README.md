@@ -786,7 +786,8 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 ## 10. What was broken and what changed (2.2.0 → 2.2.3)
 
-> This section records the 2.2.x corrections. Later releases live in `CHANGELOG.md`: **2.2.4** added the
+> This section records the 2.2.x corrections. The releases after it live in the Git tags and the GitHub
+> Releases: **2.2.4** added the
 > Toranoana browser-only card and made every card link follow the query field; **2.3.0** added the
 > offline legacy-comment image preview; **2.3.1** is a fix patch for the Wishlist bookmark card, its
 > control drawer and the bookmark form's price sample.
