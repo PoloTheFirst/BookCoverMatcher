@@ -285,6 +285,12 @@ data class UiState(
     val libraryBytes: Long = 0L,
     val cacheBytes: Long = 0L,
 
+    /** The OneDrive import surface (v2.6.0-dev.1 Phase 4). */
+    val oneDrive: OneDriveUi = OneDriveUi(),
+
+    /** The explicit remote check of the open workbook (v2.6.0-dev.1 Phase 5). */
+    val remoteUpdate: RemoteUpdateUi = RemoteUpdateUi(),
+
     /** Two-workbook metadata comparison (v2.3.0). */
     val comparison: WorkbookComparisonUi = WorkbookComparisonUi(),
 

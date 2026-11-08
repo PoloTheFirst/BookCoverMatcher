@@ -97,7 +97,7 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize().background(Palette.Navy800)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            CommentsHeader(state, controller)
+            CommentsHeader(state, controller, vm::rescanOpenWorkbook)
             // Two lines per directory entry: the name on top, its count underneath. The count is a
             // separate Text, so opening or reloading a spreadsheet cannot push it out of the entry, and a
             // zero is still shown (`0 errors`) instead of disappearing.
@@ -194,11 +194,14 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
         // The cell dialog belongs to the Catalogue table but is drawn here so it can never be clipped by a
         // scroll container; it is a plain dialog, dismissed by Back or by a tap outside it.
         CellPeekDialog(state, controller)
+        // The explicit remote check of a saved OneDrive workbook (v2.6.0-dev.1 Phase 5): the question
+        // before any download, and the progress of the replacement itself.
+        RemoteUpdateDialogs(ui, vm)
     }
 }
 
 @Composable
-private fun CommentsHeader(state: WorkbookCommentsUi, controller: WorkbookCommentsController) {
+private fun CommentsHeader(state: WorkbookCommentsUi, controller: WorkbookCommentsController, onRescan: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -213,8 +216,11 @@ private fun CommentsHeader(state: WorkbookCommentsUi, controller: WorkbookCommen
         // No global "Sheets" button: the worksheet picker is opened from the section that filters by it
         // (Comments, Images, Catalogue), because a single button in the shared header implied a filter that
         // applied to every directory — including the ones that keep their own independent worksheet scope.
+        //
+        // Rescan goes through the ViewModel (v2.6.0-dev.1 Phase 5) so a saved OneDrive workbook can be
+        // checked remotely first; a local workbook reaches exactly the same reload it always used.
         GradientButton(
-            onClick = controller::reload,
+            onClick = onRescan,
             colors = Palette.NavyGradient,
             contentColor = Palette.Text,
             modifier = Modifier.width(84.dp),

@@ -35,3 +35,14 @@ app/src/main/assets/licenses/
 
 # The personal catalogue workbook stays on the owner's machine; it is not distributed.
 test_excel/doujin.xlsx
+
+# Machine-local Azure app-registration values for the OneDrive sign-in (v2.6.0).
+# Copy `.env.example` to `.env` in the repository root and fill in the three values. The file is never
+# committed, never pushed and never packaged: `app/build.gradle.kts` reads it at build time and writes
+# the generated configuration into the module's build directory, not into the APK.
+/.env
+
+# Generated at build time from the git-ignored `.env` above (see `generateAzureAppConfig` in
+# app/build.gradle.kts). It is a *packaged* MSAL resource — public application identifiers only —
+# but it is still generated, so it stays out of source control.
+app/src/main/res/raw/msal_config_default.json

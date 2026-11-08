@@ -11,7 +11,20 @@ import java.security.DigestInputStream
 import java.security.MessageDigest
 
 /** A spreadsheet copied into the app's cache so it can be read as a random-access zip. */
-class StagedWorkbook(val file: File, val displayName: String, val sizeBytes: Long, val sha256: String)
+/**
+ * The workbook the app is currently working on: a copy the app made in its own cache, its metadata, and
+ * — when it came from the saved-workbook library — the entry it came from (v2.6.0-dev.1 Phase 5).
+ *
+ * [entryId] is what lets Rescan find the library entry (and therefore its OneDrive origin) without
+ * matching on names or guessing from the hash. It is null for a workbook picked from a file.
+ */
+class StagedWorkbook(
+    val file: File,
+    val displayName: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val entryId: String? = null,
+)
 
 object WorkbookFiles {
 

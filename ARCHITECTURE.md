@@ -1,4 +1,7 @@
-# Architecture and developer notes (v2.4.0)
+# Architecture and developer notes (v2.6.0)
+
+Behaviour is documented for v2.6.0 (the OneDrive feature); earlier sections describe the layers as they
+stand in this tree and were not rewritten.
 
 ## Layers
 
@@ -577,6 +580,86 @@ tools/fetch-ppocrv6-models.ps1   size-checked download of the official ONNX arti
 
 * `tools/lens_bridge_check.py` tests the Python envelope and input conversion without network.
 
+## OneDrive (v2.6.0)
+
+The OneDrive feature is built as a layer *beside* the offline app, never underneath it. The rule that shapes
+every decision: **a saved workbook is a file on the device, and no remote code path may be able to make it
+unavailable.**
+
+### Boundaries and components
+
+| Component | Package | Responsibility |
+|---|---|---|
+| `ConnectivityMonitor` / `UsableNetwork` | `core/net` | The single answer to "may a remote operation start?". `isOnline` (flow) for screens, `isUsableNow()` (fresh query) for a preflight. "Online" = a validated default network with `INTERNET`; it is *not* a claim that OneDrive is reachable. |
+| `RemoteWorkbookSource` | `core/remote` | Read-only remote abstraction: `listFolder`, `probe`, `download`. No upload/move/delete member exists. |
+| `GraphWorkbookSource` | `data/onedrive` | The Graph implementation: URL choice, page-token validation, JSON parsing, filtering to `.xlsx`/`.xlsm`. |
+| `GraphHttp` / `GraphFailures` | `data/onedrive` | The only socket to Microsoft. Attaches the bearer token **after** `GraphUrls.isTrustedApi` accepts the URL; follows the content 302 **without** the token; maps every status and `IOException` to a `RemoteFailure` (pure, unit-tested). |
+| `AccessTokenSource` / `OneDriveAuth` / `MsalOneDriveAuth` | `core/remote`, `data/onedrive` | MSAL owns the token cache and renewal. The Graph layer depends on the *token* only; reading an account label, signing in and signing out live behind the wider interface that only the UI uses. |
+| `OneDriveSession` | `data/onedrive` | The import flow's decisions: preflight → list → download → validate → commit into `WorkbookLibrary`. |
+| `OneDriveUpdateSession` | `data/onedrive` | The explicit check and update: probe → compare → (after consent) download → validate → `replaceFrom`. |
+| `SafeWorkbookDownload` / `WorkbookDownloadValidator` | `data/onedrive` | Streams to `<itemId>.part`, validates (extension, ZIP signature, OOXML parts), deletes the temporary file on every failure path. |
+| `WorkbookLibrary` | `data` | The device's own store: `library.json` (schema 2) + `<id>.<xlsx\|xlsm>` copies + `replaceFrom` for verified replacements. |
+| `MainViewModel` | root | Owns immutable `UiState` (`oneDrive`, `remoteUpdate`), one coroutine per flow and a sequence counter per flow. The UI can only call it; it cannot reach Graph, MSAL or a file. |
+
+### Invariants (asserted where they can break)
+
+1. **Offline-first is structural.** `WorkbookLibrary` cannot hold a `ConnectivityMonitor` or any auth object
+   (reflection guards in `LocalWorkbookOperationsTest` / `OneDriveIntegrationInvariantsTest`), so no local
+   operation can consult the network.
+2. **Opening a saved OneDrive workbook touches nothing remote.** The open path is `library.byId` →
+   `library.fileOf` → parse, with zero Graph calls (asserted).
+3. **Only an explicit action may reach the network.** Constructing the sessions sends nothing (asserted); the
+   UI has exactly two triggers — *From OneDrive* and *Rescan*.
+4. **The token never leaves a trusted Graph API URL.** Untrusted URLs are refused before a connection exists;
+   the pre-authenticated download URL is opened with no credentials at all.
+5. **A failed remote operation leaves a usable workbook**, and **no failure advances** `syncedAt`/`etag`/
+   `ctag` (only `checkedAt` moves on a real check).
+6. **A replacement is validated before it becomes active**, and the workbook is then re-opened under the
+   **new** SHA-256 (`comments.open(...)`), never `reload()` on changed bytes.
+7. **Stale results cannot win.** Each flow has a sequence number: a superseded or cancelled coroutine cannot
+   write state or install bytes, and `settled()` clears the in-flight flags in every `finally`.
+8. **Sign-out cannot damage data.** It touches `UiState` and MSAL only.
+
+### Error classification and retry policy
+
+Two pure objects, both unit-tested: `RemoteFailure` (11 categories with one sentence each) and
+`RemoteNotices` (the same failure worded for the context — import, check or download).
+`RemoteFailure.isRetryable()` decides every Retry affordance: **true** for `Offline`, `Timeout`, `Unstable`,
+`Throttled`, `ServerError`; **false** for `AuthRequired`, `AuthExpired`, `NotFound`, `NoStorage`,
+`InvalidWorkbook`, `BadRequest`, `NotConfigured`. **Nothing is retried automatically** — no loop, no backoff,
+no queue — and `Retry-After` is communicated to the user, not enforced as a cool-down.
+
+### Replacement and rollback (`WorkbookLibrary.replaceFrom`)
+
+1. Copy the new bytes to `<file>.replacing` and hash them first — a failure here changes nothing.
+2. Same hash as the saved copy → only the remote metadata moves (`SameContent`), the file is not rewritten.
+3. Copy the current file to `<file>.previous`.
+4. One `ATOMIC_MOVE` inside the library directory replaces the target (the target is never missing).
+5. One atomic `writeAll` records the new hash, size and version and clears the parse counts; if it fails the
+   backup is restored, so the index and the file cannot disagree.
+6. Delete the backup; the `.part` is deleted by the caller in a `finally`.
+
+### Persistence limitations (documented, not fixed — see `historical_prompt/v2.6.0-dev.1-ag.md` §24.10)
+
+* **A** — a process death between the swap (4) and the index write (5) leaves the file newer than the
+  metadata. The workbook still opens, but it is parsed and cached under the **old** SHA-256 until a later
+  replacement rewrites the entry; the next Rescan + Update heals it. A plain Rescan does not rewrite it.
+* **B** — an orphaned workbook file (index lost or quarantined) cannot be re-imported: `import` refuses the
+  name it finds on disk ("A workbook with this identity already exists."). The bytes survive; the entry does
+  not.
+* **C** — a listed entry whose file is missing answers `AlreadySaved` when the same file is re-imported, so
+  ordinary re-import cannot restore it.
+* **D** — nothing sweeps `.part` / `.previous` / `.replacing` at startup. They are invisible to the library
+  (not listed, not counted) but they occupy storage. **Do not delete a `.previous` file blindly**: it can be
+  the only surviving copy.
+* **E** — no `fsync` is issued, so the ordering above relies on the filesystem's own journalling; an atomic
+  rename is not by itself a durability guarantee across a power loss.
+* **Recovery guard (Phase 7, hardened in Phase 9):** if the target file is gone but `<file>.previous` survives,
+  `replaceFrom` restores the backup **before** any cleanup, so a recovery attempt can no longer delete the only
+  copy. If that restore itself fails, the backup is left untouched and the replacement is refused (the caller
+  gets `ReplaceResult.Rejected`), because the backup is then the last surviving copy. This guard does not
+  resolve A–E.
+
 ## Known architectural limits
 
 * The Python interpreter is process-wide and a running Lens call cannot be preempted (only its
@@ -595,3 +678,11 @@ tools/fetch-ppocrv6-models.ps1   size-checked download of the official ONNX arti
   re-matched by position. That is deliberate: a wrong guess is worse than an unmapped field.
 * No database was introduced: the single JSON store keeps backup/migration simple and is adequate
   for the app's data volume; it is not intended for concurrent writers.
+* **OneDrive adds a remote dependency without adding a background one.** There is no scheduler, no worker and
+  no automatic refresh: every remote call traces back to a tap (*From OneDrive* or *Rescan*), which is what
+  keeps the offline path provably independent.
+* **The MSAL/sign-in layer cannot be exercised on the desktop JVM.** `MainViewModel`, the MSAL wrapper and the
+  Compose screens are covered by inspection and by the pure/session-level tests around them, not by executed
+  tests; the instrumented test sources compile but have not been run (no device in this environment).
+* **One transitive Microsoft artifact (`display-mask:0.3.0`) has no established licence** and is packaged;
+  see `THIRD_PARTY_NOTICES.md` §1.1. It is a release blocker, not a documentation gap.

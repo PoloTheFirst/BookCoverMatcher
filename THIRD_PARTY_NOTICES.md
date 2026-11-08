@@ -27,6 +27,32 @@ cannot grant licences for.
 | JUnit 4.13.2 | 4.13.2 | EPL-1.0 | Test classpath only | **Verified**; not in the release APK |
 | `androidx.test:runner` 1.6.2, `androidx.test.ext:junit` 1.2.1 | as listed | Apache-2.0 | Test APK only | **Verified**; the test APK is not distributed |
 
+### 1.1 · Microsoft sign-in (MSAL) — added in v2.6.0
+
+The OneDrive import needs Microsoft's MSAL for Android. It is a public client (authorization code +
+PKCE, no client secret) and requests only the delegated Graph scopes `Files.Read` and `User.Read`.
+
+| Component | Version | Licence | Status / notes |
+|---|---|---|---|
+| `com.microsoft.identity.client:msal` | 8.6.0 | **MIT** | **Verified** — the published POM carries `<licenses><license><name>MIT License</name>`, and `AzureAD/microsoft-authentication-library-for-android` publishes the same MIT `LICENSE` (Copyright (c) Microsoft Corporation). Ships in the APK. |
+| `com.microsoft.identity:common` | 25.0.0 | **MIT** | **Verified** — POM `<name>MIT License</name>`; the submodule's own repository `AzureAD/microsoft-authentication-library-common-for-android` publishes an MIT `LICENSE`. Ships in the APK. |
+| `com.microsoft.identity:common4j` | 25.0.0 | **MIT** | **Verified in Phase 8** — the cached POM carries `<name>MIT License</name>` (the Phase 3 note said "not separately verified"; it now is). Ships in the APK. |
+| `com.microsoft.device.display:display-mask` | 0.3.0 | **Unresolved — release blocker** | **Could not be established from any authoritative declaration available to this audit.** Evidence, all re-checked in Phase 8: the published POM (the 421-byte file Gradle cached from Microsoft's feed) contains **only** coordinates — no `<licenses>`, no `<url>`, no `<developers>`; the artifact is a 1,591-byte JAR holding a single class (`DisplayMask`) with **no `META-INF/LICENSE*` or `NOTICE*`** and a manifest that says only `Created-By: soong_zip`; Maven Central publishes **nothing** under the `com.microsoft.device.display` group (`search.maven.org` → `numFound: 0`), so there is no Central metadata either; it exists only on Microsoft's public `MicrosoftDeviceSDK/DuoSDK-Public` "Duo-SDK-Feed" Azure Artifacts feed, which exposes no licence metadata. The two Microsoft repositories that could plausibly own it were checked and **neither contains it**: `microsoft/surface-duo-sdk` has no `display-mask` path (HTTP 404; its modules are bottomnavigation, fragmentshandler, inksdk, layouts, navigation, navigationrail, recyclerview, screenmanager, snackbar, tabs, utils) and `AzureAD/microsoft-authentication-library-common-for-android` includes only common, testutils, uiautomationutilities, common4j, keyvault, labapi, LabApiUtilities. Both of those repositories declare **MIT**, which licenses *their* code — it does **not** license this artifact, and this audit does not infer one from the other. It arrives as a runtime dependency of `com.microsoft.identity:common` (`:app:dependencies --configuration debugRuntimeClasspath`) and it **is packaged**: the string `com/microsoft/device/display/DisplayMask` occurs in `classes18.dex` and `classes19.dex` of the debug APK. Phase 9 re-checked every one of those findings and added one it had not established before: the class is **on the interactive sign-in path**. `com.microsoft.identity.common.internal.ui.DualScreenActivity` is the **superclass** of `com.microsoft.identity.common.internal.providers.oauth2.AuthorizationActivity` — an activity this app's *merged* manifest declares — and `DualScreenActivity#getHinge` calls `com.microsoft.device.display.DisplayMask.fromResourcesRect(...)` (read with `javap` out of the cached `common-25.0.0.aar`; `AuthorizationActivity.class` and `CurrentTaskAuthorizationActivity.class` both name `DualScreenActivity`). Excluding the artifact would therefore remove a class the sign-in UI can reach, so exclusion is **not** demonstrably safe without a real-device sign-in test — and no such test was performed. **Owner decision required before distributing a release** (option: keep the dependency and accept the risk, or ask Microsoft/publish a notice, or exclude it only after a device test proves MSAL works without it). |
+| `androidx.webkit` 1.14.0, `androidx.datastore:datastore-preferences` 1.0.0, `androidx.activity` 1.8.2, `androidx.appcompat` 1.1.0, `androidx.browser` 1.7.0, `androidx.core` 1.5.0, `androidx.constraintlayout` 1.1.3, `androidx.fragment` 1.3.2, `androidx.credentials` 1.2.2 (+`credentials-play-services-auth`), `androidx.lifecycle:lifecycle-runtime-ktx` 2.5.1 | as listed | **Apache-2.0** | **Verified row by row in Phase 8** — each POM's `<licenses><license><name>The Apache Software License, Version 2.0</name>` was read either from the Gradle cache (`webkit` 1.14.0, `browser` 1.7.0, `core` 1.5.0, `constraintlayout(-solver)` 1.1.3, `fragment` 1.3.2, `credentials` 1.2.2 and `credentials-play-services-auth` 1.2.2, `datastore`/`datastore-core`/`datastore-preferences`/`datastore-preferences-core` 1.0.0) or from the publisher's own repository `dl.google.com/dl/android/maven2` when Gradle had cached only module metadata (`activity` 1.8.2, `appcompat` 1.1.0, `lifecycle-runtime-ktx` 2.5.1). |
+| `com.squareup.moshi` 1.15.2 (+`moshi-adapters`), `com.squareup.okio` 3.7.0 (+`okio-jvm`), `com.google.code.gson:gson` 2.8.9, `com.nimbusds:nimbus-jose-jwt` 10.0.2, `org.apache.httpcomponents.core5:httpcore5` 5.4.3, `io.opentelemetry:opentelemetry-api` 1.62.0 (+`-common`, `-context`, `-extension-kotlin` 1.18.0), `com.yubico.yubikit:android` 2.5.0 (+`core`, `piv`), `com.google.android.libraries.identity.googleid:googleid` 1.1.0, `com.github.stephenc.jcip:jcip-annotations` 1.0-1, `org.jspecify:jspecify` 1.0.0, `org.slf4j:slf4j-api` 2.0.9 | as listed | **Apache-2.0**, except `slf4j-api` (**MIT**) | **Verified row by row in Phase 8.** POM `<licenses>` read for every artifact above except two, whose licence was taken from the shipped artifact itself: `httpcore5-5.4.3.jar` carries `META-INF/LICENSE` ("Apache License") plus `NOTICE`/`DEPENDENCIES` because its POM has no `<licenses>` block, and `slf4j-api-2.0.9.jar` carries the MIT `META-INF/LICENSE.txt` ("Copyright (c) 2004-2022 QOS.ch Sarl"). `jspecify` 1.0.0's POM was read from Maven Central. |
+| `com.google.android.gms:play-services-auth` 20.7.0, `-auth-api-phone` 18.0.1, `-auth-base` 18.0.4, `-base` 18.0.1, `-basement` 18.2.0, `-fido` 20.1.0, `-tasks` 18.0.1 | as listed | **Android Software Development Kit License** (not Apache-2.0) | **Verified from the POMs** in Phase 8. This is Google's own SDK licence, not an open-source one — recorded as declared, not re-licensed by this project. |
+| AndroidX/Compose/Camera set shared with the pre-existing app (Compose BOM 2024.10.01, CameraX 1.3.4, lifecycle 2.8.7, and the rest of the transitive AARs) | as listed | **Apache-2.0** | **Sampled and spot-verified in Phase 8** (`androidx.compose.ui:ui` 1.7.5 read from `dl.google.com`), and the same declaration was already verified for the rows above. Gradle had cached module metadata (not POMs) for many of these, so a full row-by-row pass would mean fetching ~200 POMs; the declaration is uniform across the AOSP-published set (`<name>The Apache Software License, Version 2.0</name>`, organisation "The Android Open Source Project") and **one** family (Compose) was verified to confirm it. Carried to Phase 9 as "complete the row-by-row pass" rather than claimed as done. |
+
+Enumerate the exact runtime set with:
+
+```powershell
+.\gradlew.bat :app:dependencies --configuration debugRuntimeClasspath
+```
+
+The MSAL stack was **not** present in v2.5.0; it entered with the OneDrive feature and is only
+initialised when the user asks for OneDrive.
+
+
 ## 2 · Build-time tools (not distributed)
 
 | Component | Version | Licence | Notes |
@@ -85,4 +111,27 @@ additive licensing commit swaps the flagged blobs, so no released snapshot distr
 `LICENSE` and this file are packaged into the APK (`assets/licenses/`) and shown in
 **More → Open-source licences**, so a binary distribution carries the same statements as the source.
 
-(`bc_ocr`), which is why it appears without a third-party licence.
+**Release gate (Phase 8):** `com.microsoft.device.display:display-mask:0.3.0` is the only packaged
+component whose licence this audit could not establish (see §1.1). Everything else that ships is either
+GPL-3.0-or-later (this project) or a licence verified from an authoritative declaration. A distribution
+of v2.6.0 is therefore **not** licence-clear until the project owner decides what to do about that one
+artifact; this document does not claim otherwise.
+
+**Release gate (Phase 9 — re-checked, still open).** The `display-mask` row above was re-verified, not
+re-labelled: the POM in the Gradle cache is still the 421-byte coordinates-only file, the artifact is still a
+1,591-byte JAR holding only `DisplayMask.class` and a `soong_zip` manifest with no `META-INF/LICENSE*` or
+`NOTICE*`, `search.maven.org` still reports `numFound: 0` for `com.microsoft.device.display`, and
+`microsoft/surface-duo-sdk` still has no `displaymask` path (HTTP 404). Phase 9 also re-derived the reason the
+artifact cannot simply be excluded: `javap` on the cached `common-25.0.0.aar` shows
+`AuthorizationActivity extends DualScreenActivity`, and `DualScreenActivity` bytecode calls
+`com/microsoft/device/display/DisplayMask.fromResourcesRect(...)` and
+`DisplayMask.getBoundingRectsForRotation(...)`. The class is on the interactive sign-in path, so exclusion
+remains unprovable as safe without a real sign-in on a device. The row-by-row pass over the shared
+AndroidX/Compose/Play-services set is also still outstanding. In Phase 9 a **debug** APK was built for the
+emulator run and does contain the class in `classes18.dex`/`classes19.dex`; **no release or distributable
+artifact was built, inspected as a release, or distributed.**
+
+The on-device OCR library (`libbc_ocr.so`, built from the project's own `bc_ocr` Rust crate in `native/ocr`)
+is the project's own GPL-3.0-or-later code (`native/ocr/Cargo.toml`), which is why it appears in the
+inventory without a third-party licence of its own. (This sentence replaces an orphaned fragment that had
+read only "(`bc_ocr`), which is why it appears without a third-party licence." since the first release.)

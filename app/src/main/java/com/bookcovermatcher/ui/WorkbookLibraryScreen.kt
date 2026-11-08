@@ -67,7 +67,7 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
     Box(Modifier.fillMaxSize().background(Palette.Navy800)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(
-                Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
+                Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
@@ -78,15 +78,6 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                     )
                 }
                 GradientButton(
-                    onClick = { pickWorkbook.launch(arrayOf("*/*")) },
-                    colors = Palette.NavyGradient,
-                    contentColor = Palette.Text,
-                    modifier = Modifier.width(96.dp),
-                    minHeight = 36.dp,
-                    enabled = !ui.libraryBusy,
-                ) { ButtonLabel("Import", Palette.Text, 11f) }
-                Spacer(Modifier.width(6.dp))
-                GradientButton(
                     onClick = vm::closeLibrary,
                     colors = Palette.GreyGradient,
                     contentColor = Palette.Text,
@@ -94,6 +85,29 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                     minHeight = 36.dp,
                 ) { ButtonLabel("Back", Palette.Text, 11f) }
             }
+
+            // The two ways in: a file on this device, or one from OneDrive (v2.6.0-dev.1 Phase 4). Both
+            // end in the same library; neither replaces the other, and Import keeps its exact behaviour.
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
+                GradientButton(
+                    onClick = { pickWorkbook.launch(arrayOf("*/*")) },
+                    colors = Palette.NavyGradient,
+                    contentColor = Palette.Text,
+                    modifier = Modifier.weight(1f),
+                    minHeight = 36.dp,
+                    enabled = !ui.libraryBusy,
+                ) { ButtonLabel("Import", Palette.Text, 11f) }
+                Spacer(Modifier.width(8.dp))
+                GradientButton(
+                    onClick = vm::openOneDriveBrowser,
+                    colors = Palette.NavyGradient,
+                    contentColor = Palette.Text,
+                    modifier = Modifier.weight(1f),
+                    minHeight = 36.dp,
+                    enabled = !ui.libraryBusy && ui.oneDrive.entryEnabled,
+                ) { ButtonLabel("From OneDrive", Palette.Text, 11f) }
+            }
+            Spacer(Modifier.height(4.dp))
 
             if (ui.savedWorkbooks.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -163,6 +177,10 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                 onDismiss = { removeId = null },
             )
         }
+
+        // The OneDrive import panel (v2.6.0-dev.1 Phase 4). A dialog over this screen, so Back closes it
+        // and the library underneath is unchanged.
+        OneDriveBrowserDialog(ui, vm)
     }
 }
 

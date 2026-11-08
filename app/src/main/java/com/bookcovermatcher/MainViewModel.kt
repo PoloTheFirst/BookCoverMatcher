@@ -2,6 +2,7 @@
 
 package com.bookcovermatcher
 
+import android.app.Activity
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -24,7 +25,17 @@ import com.bookcovermatcher.core.excel.comments.WorkbookAnalyzer
 import com.bookcovermatcher.core.excel.comments.WorkbookComparison
 import com.bookcovermatcher.core.excel.comments.WorkbookMetrics
 import com.bookcovermatcher.core.format.Formatting
+import com.bookcovermatcher.core.net.ConnectivityMonitor
 import com.bookcovermatcher.core.online.DiscoveryDrafts
+import com.bookcovermatcher.core.remote.AuthState
+import com.bookcovermatcher.core.remote.RemoteFailure
+import com.bookcovermatcher.core.remote.RemoteItem
+import com.bookcovermatcher.core.remote.RemoteNotices
+import com.bookcovermatcher.core.remote.RemoteWorkbookSource
+import com.bookcovermatcher.core.remote.failureOrNull
+import com.bookcovermatcher.core.remote.isRetryable
+import com.bookcovermatcher.core.remote.isUsable
+import com.bookcovermatcher.core.remote.message
 import com.bookcovermatcher.core.search.CatalogBuilder
 import com.bookcovermatcher.core.search.CatalogIndex
 import com.bookcovermatcher.core.search.CatalogIndexStore
@@ -50,13 +61,28 @@ import com.bookcovermatcher.core.wishlist.WishlistFolder
 import com.bookcovermatcher.core.wishlist.FolderCreation
 import com.bookcovermatcher.core.wishlist.WishlistRepository
 import com.bookcovermatcher.data.ImageFiles
+import com.bookcovermatcher.data.AndroidConnectivityMonitor
 import com.bookcovermatcher.data.CommentImageCache
 import com.bookcovermatcher.data.ImportResult
 import com.bookcovermatcher.data.ModelStore
 import com.bookcovermatcher.data.Prefs
+import com.bookcovermatcher.data.SavedWorkbook
 import com.bookcovermatcher.data.StagedWorkbook
 import com.bookcovermatcher.data.WorkbookFiles
 import com.bookcovermatcher.data.WorkbookLibrary
+import com.bookcovermatcher.data.WorkbookOrigin
+import com.bookcovermatcher.data.onedrive.GraphWorkbookSource
+import com.bookcovermatcher.data.onedrive.MsalOneDriveAuth
+import com.bookcovermatcher.data.onedrive.OneDriveAuth
+import com.bookcovermatcher.data.onedrive.OneDriveBrowse
+import com.bookcovermatcher.data.onedrive.OneDriveImportOutcome
+import com.bookcovermatcher.data.onedrive.OneDriveListing
+import com.bookcovermatcher.data.onedrive.OneDriveNavigation
+import com.bookcovermatcher.data.onedrive.OneDriveSession
+import com.bookcovermatcher.data.onedrive.OneDriveUpdateSession
+import com.bookcovermatcher.data.onedrive.RemoteCheck
+import com.bookcovermatcher.data.onedrive.SafeWorkbookDownload
+import com.bookcovermatcher.data.onedrive.UpdateOutcome
 import com.bookcovermatcher.online.OnlineSearchController
 import com.bookcovermatcher.vision.AndroidImageCodec
 import com.bookcovermatcher.vision.OrtClipEmbedder
@@ -118,9 +144,74 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     val comments = WorkbookCommentsController(app, viewModelScope, onMessage = ::showToast)
 
+    /**
+     * Device connectivity (v2.6.0-dev.1), injected rather than read where it is needed.
+     *
+     * The OneDrive import and the explicit remote check are its **only** call sites: opening,
+     * parsing, rescanning, renaming and removing a saved workbook must keep working with no network,
+     * so no local path may consult it. It is a plain object with one callback, closed in [onCleared]
+     * so a finished screen leaves no platform listener registered.
+     */
+    val connectivity: ConnectivityMonitor = AndroidConnectivityMonitor(app)
+
     /** Saved workbooks: app-managed copies under files/workbooks, with their own JSON index. */
     private val library = WorkbookLibrary(File(app.filesDir, "workbooks"))
     private val commentsCacheDir = File(app.filesDir, "comments")
+
+    /**
+     * OneDrive import (v2.6.0-dev.1 Phase 4).
+     *
+     * The pieces are the Phase 3 ones, wired once: MSAL sign-in behind [OneDriveAuth], the Graph source
+     * behind [RemoteWorkbookSource], and [OneDriveSession] which owns every decision (preflight, listing,
+     * download, commit). Nothing here is a second library or a second remote abstraction — the import
+     * lands in [library], the same store the local `Import` uses.
+     *
+     * The downloader writes `*.part` files into the library directory: the library ignores files it did
+     * not record, so a partial download is invisible to it, and the file is deleted after the commit.
+     */
+    private val oneDriveAuth: OneDriveAuth = MsalOneDriveAuth(app)
+    private val oneDriveSource: RemoteWorkbookSource = GraphWorkbookSource(oneDriveAuth)
+
+    /** The one downloader both OneDrive flows use: `*.part` files in the library directory. */
+    private val downloads = SafeWorkbookDownload(File(app.filesDir, "workbooks"))
+
+    private val oneDriveSession = OneDriveSession(
+        source = oneDriveSource,
+        connectivity = connectivity,
+        library = library,
+        downloader = downloads,
+    )
+
+    /** The explicit remote check and the verified replacement (v2.6.0-dev.1 Phase 5). */
+    private val oneDriveUpdates = OneDriveUpdateSession(
+        source = oneDriveSource,
+        connectivity = connectivity,
+        library = library,
+        downloader = downloads,
+    )
+
+    /** The one OneDrive operation in flight: a listing page, or a download+import. */
+    private var oneDriveJob: Job? = null
+
+    /**
+     * Counter for the import flow (v2.6.0-dev.1 Phase 6).
+     *
+     * Every job takes a number, and only the job holding the current number may clear the "in flight"
+     * flags — so a superseded or cancelled job can neither erase the spinner of the job that replaced it
+     * nor leave its own spinner running for ever.
+     */
+    private var oneDriveSeq = 0L
+
+    /** The one remote check/update in flight (v2.6.0-dev.1 Phase 5). */
+    private var rescanJob: Job? = null
+
+    /**
+     * Counter for the rescan/update flow.
+     *
+     * Every state write and every commit compares it, so a result that belongs to a superseded or
+     * cancelled attempt can never overwrite newer state or install bytes the user cancelled.
+     */
+    private var rescanSeq = 0L
 
     /** Fires once per accepted cover (flash + haptic in the UI). */
     private val _captureEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
@@ -183,6 +274,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             online.ui.collect { onlineState ->
                 _ui.update { state -> state.copy(online = onlineState) }
+            }
+        }
+        // The OneDrive sign-in component owns its own flow too. Mirroring it here keeps the panel's
+        // signed-in state truthful (a silent renewal that expired shows "signed out") without the UI
+        // ever touching MSAL. Only a user-facing label crosses over — never a token.
+        viewModelScope.launch {
+            oneDriveAuth.state.collect { auth ->
+                _ui.update { state ->
+                    state.copy(
+                        oneDrive = state.oneDrive.copy(
+                            signedIn = auth is AuthState.SignedIn,
+                            accountLabel = labelOf(auth),
+                        ),
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -541,7 +647,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // Same fail-early validation as a picked file: a corrupt copy must not become the source.
                 withContext(Dispatchers.IO) { openWorkbook(file).close() }
                 val size = withContext(Dispatchers.IO) { file.length() }
-                staged = StagedWorkbook(file, entry.displayName, size, entry.sha256)
+                staged = StagedWorkbook(file, entry.displayName, size, entry.sha256, entryId = entry.id)
                 val duplicates = _ui.value.savedWorkbooks.count {
                     it.displayName.equals(entry.displayName, ignoreCase = true)
                 } > 1
@@ -672,8 +778,574 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // =====================================================================================
+    // OneDrive import (v2.6.0-dev.1 Phase 4)
+    // =====================================================================================
+
+    /**
+     * Opens the OneDrive browser.
+     *
+     * The connectivity preflight happens before anything remote: the dialog opens with the offline
+     * sentence instead of a spinner that will never resolve. Signing in is only started when the user
+     * asks for it — opening the panel never pops an account prompt on its own.
+     */
+    fun openOneDriveBrowser() {
+        if (_ui.value.oneDrive.downloading) return
+        _ui.update {
+            it.copy(oneDrive = it.oneDrive.copy(open = true, error = null, canRetry = false, imported = null))
+        }
+        if (!connectivity.isUsableNow()) {
+            failOneDrive(RemoteFailure.Offline)
+            return
+        }
+        viewModelScope.launch {
+            val seq = ++oneDriveSeq
+            try {
+                // Reading the cached account is local, and the result decides whether the panel asks for a
+                // sign-in or lists the drive: no folder request is made without an account, so the user
+                // never sees an authentication error they did not cause.
+                runCatching { oneDriveAuth.refreshState() }
+                val auth = oneDriveAuth.state.value
+                val signedIn = auth.isUsable()
+                _ui.update {
+                    it.copy(
+                        oneDrive = it.oneDrive.copy(
+                            signedIn = signedIn,
+                            accountLabel = labelOf(auth),
+                        ),
+                    )
+                }
+                if (signedIn) loadOneDrivePage(OneDriveBrowse.root(), appendPage = false)
+            } finally {
+                settleOneDrive(seq)
+            }
+        }
+    }
+
+    /** Closes the browser and stops whatever was in flight. A running download is cancelled. */
+    fun closeOneDriveBrowser() {
+        // Advancing the sequence first means the cancelled job cannot write anything after this point.
+        oneDriveSeq++
+        oneDriveJob?.cancel()
+        oneDriveJob = null
+        _ui.update {
+            it.copy(
+                oneDrive = OneDriveUi(
+                    // The account survives closing the panel; nothing else does.
+                    signedIn = it.oneDrive.signedIn,
+                    accountLabel = it.oneDrive.accountLabel,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Starts the interactive sign-in. [activity] is the Activity the UI is running in — MSAL needs one to
+     * launch the browser and receive the redirect; nothing else about the UI reaches this layer.
+     */
+    fun signInToOneDrive(activity: Activity?) {
+        if (_ui.value.oneDrive.signingIn) return
+        _ui.update { it.copy(oneDrive = it.oneDrive.copy(signingIn = true, error = null, canRetry = false)) }
+        viewModelScope.launch {
+            val seq = ++oneDriveSeq
+            val result = try {
+                oneDriveAuth.signIn(activity)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A broken sign-in is "still signed out", never a crash and never a token in a message.
+                AuthState.SignedOut
+            } finally {
+                settleOneDrive(seq)
+            }
+            if (seq != oneDriveSeq) return@launch
+            _ui.update {
+                it.copy(
+                    oneDrive = it.oneDrive.copy(
+                        signingIn = false,
+                        signedIn = result.isUsable(),
+                        accountLabel = labelOf(result),
+                    ),
+                )
+            }
+            when {
+                result.isUsable() -> loadOneDrivePage(OneDriveBrowse.root(), appendPage = false)
+                // A cancelled sign-in has no failure to report: the panel simply still offers the button.
+                // Only an account that exists but needs an interactive sign-in gets a message.
+                else -> result.failureOrNull()?.let { failure -> failOneDrive(failure) }
+            }
+        }
+    }
+
+    fun signOutOfOneDrive() {
+        viewModelScope.launch {
+            runCatching { oneDriveAuth.signOut() }
+            _ui.update {
+                it.copy(
+                    oneDrive = it.oneDrive.copy(
+                        signedIn = false,
+                        accountLabel = null,
+                        browse = OneDriveBrowse.root(),
+                        error = null,
+                        canRetry = false,
+                        imported = null,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Enters a folder row. Only the folder's **id** is used; its name is display only. */
+    fun openOneDriveFolder(folderId: String) {
+        val state = _ui.value.oneDrive
+        val folder = state.browse.folders.firstOrNull { it.id == folderId } ?: return
+        if (state.busy || state.downloading) return
+        loadOneDrivePage(OneDriveNavigation.into(state.browse, folder), appendPage = false)
+    }
+
+    /** Back to the parent folder. */
+    fun oneDriveUp() {
+        val state = _ui.value.oneDrive
+        if (!state.browse.canGoUp || state.busy || state.downloading) return
+        loadOneDrivePage(OneDriveNavigation.up(state.browse), appendPage = false)
+    }
+
+    /** The next page of the current folder. */
+    fun loadMoreOneDrive() {
+        val state = _ui.value.oneDrive
+        val token = state.browse.nextPageToken ?: return
+        if (state.busy || state.loadingMore || state.downloading) return
+        loadOneDrivePage(state.browse, appendPage = true, pageToken = token)
+    }
+
+    /** Retry whatever failed last: the page that was being loaded. */
+    fun retryOneDrive() {
+        val state = _ui.value.oneDrive
+        if (state.downloading) return
+        loadOneDrivePage(state.browse, appendPage = false)
+    }
+
+    private fun loadOneDrivePage(browse: OneDriveBrowse, appendPage: Boolean, pageToken: String? = null) {
+        oneDriveJob?.cancel()
+        oneDriveJob = viewModelScope.launch {
+            val seq = ++oneDriveSeq
+            try {
+                _ui.update {
+                    it.copy(
+                        oneDrive = it.oneDrive.copy(
+                            browse = browse,
+                            busy = !appendPage,
+                            loadingMore = appendPage,
+                            error = null,
+                            canRetry = false,
+                        ),
+                    )
+                }
+                when (val listing = oneDriveSession.list(browse.folderId, pageToken)) {
+                    is OneDriveListing.Loaded -> _ui.update { state ->
+                        val next = if (appendPage) {
+                            OneDriveNavigation.withNextPage(browse, listing.folders, listing.files, listing.nextPageToken)
+                        } else {
+                            OneDriveNavigation.withFirstPage(browse, listing.folders, listing.files, listing.nextPageToken)
+                        }
+                        state.copy(oneDrive = state.oneDrive.copy(browse = next, busy = false, loadingMore = false))
+                    }
+                    is OneDriveListing.Failed -> failOneDrive(listing.failure, stopBusy = true)
+                }
+            } finally {
+                // A dropped connection, a cancellation or a failure all end here: no spinner is left behind.
+                settleOneDrive(seq)
+            }
+        }
+    }
+
+    /**
+     * Downloads the selected workbook and commits it into the saved-workbooks library.
+     *
+     * Only the item **id** matters; the display name is what the user sees. Progress is published while
+     * the bytes stream, and Cancel stops the transfer — the temporary file is removed either way.
+     */
+    fun importOneDriveFile(itemId: String) {
+        val state = _ui.value.oneDrive
+        val item = state.browse.files.firstOrNull { it.id == itemId } ?: return
+        if (state.downloading || state.busy) return
+        oneDriveJob?.cancel()
+        oneDriveJob = viewModelScope.launch {
+            val seq = ++oneDriveSeq
+            _ui.update {
+                it.copy(
+                    oneDrive = it.oneDrive.copy(
+                        error = null,
+                        canRetry = false,
+                        imported = null,
+                        download = OneDriveDownloadUi(item.id, item.name, totalBytes = item.sizeBytes),
+                    ),
+                )
+            }
+            val outcome = try {
+                oneDriveSession.importItem(item) { progress ->
+                    if (seq == oneDriveSeq) {
+                        _ui.update { current ->
+                            val shown = current.oneDrive.download ?: return@update current
+                            current.copy(
+                                oneDrive = current.oneDrive.copy(
+                                    download = shown.copy(
+                                        bytesWritten = progress.bytesWritten,
+                                        totalBytes = progress.totalBytes ?: shown.totalBytes,
+                                    ),
+                                ),
+                            )
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } finally {
+                settleOneDrive(seq)
+            }
+            if (seq != oneDriveSeq) return@launch
+            when (outcome) {
+                is OneDriveImportOutcome.Imported -> {
+                    _ui.update {
+                        it.copy(
+                            oneDrive = it.oneDrive.copy(
+                                imported = OneDriveImportedUi(
+                                    outcome.workbookId,
+                                    outcome.displayName,
+                                    outcome.alreadySaved,
+                                ),
+                            ),
+                        )
+                    }
+                    showToast(
+                        if (outcome.alreadySaved) {
+                            "Already saved as \"${outcome.displayName}\"."
+                        } else {
+                            "Saved \"${outcome.displayName}\" from OneDrive."
+                        },
+                        if (outcome.alreadySaved) ToastKind.INFO else ToastKind.OK,
+                    )
+                    refreshSavedWorkbooks()
+                }
+                OneDriveImportOutcome.Cancelled ->
+                    showToast("Download cancelled. Nothing was saved.", ToastKind.INFO)
+                is OneDriveImportOutcome.Failed -> failOneDrive(
+                    outcome.failure,
+                    // The library's own sentence when it refused the file; otherwise the
+                    // download-specific wording, which names the file and says nothing was saved.
+                    message = outcome.detail ?: RemoteNotices.forDownload(outcome.failure, item.name),
+                )
+            }
+        }
+    }
+
+    /** Stops a download. The partial file is deleted by the downloader, not here. */
+    fun cancelOneDriveDownload() {
+        if (_ui.value.oneDrive.download == null) return
+        // Advancing the sequence first means the cancelled job cannot write state after this point.
+        oneDriveSeq++
+        oneDriveJob?.cancel()
+        oneDriveJob = null
+        _ui.update { it.copy(oneDrive = it.oneDrive.settled()) }
+    }
+
+    /** `Use it now`: the existing saved-workbook flow, unchanged — the local copy is the source. */
+    fun useOneDriveImportNow() {
+        val imported = _ui.value.oneDrive.imported ?: return
+        useSavedWorkbook(imported.workbookId)
+        _ui.update { it.copy(oneDrive = it.oneDrive.copy(imported = null, open = false)) }
+    }
+
+    /** Dismiss the "saved" panel without opening the workbook. */
+    fun dismissOneDriveImport() {
+        _ui.update { it.copy(oneDrive = it.oneDrive.copy(imported = null)) }
+    }
+
+    /**
+     * Records a remote failure for the panel.
+     *
+     * [message] is used when the caller has better words than the taxonomy (the library's own sentence for
+     * a refused file, or the download-specific wording that names the workbook).
+     *
+     * Two rules from Phase 6 live here:
+     *
+     *  * an authentication failure also clears [OneDriveUi.signedIn], so the panel goes back to its
+     *    **Sign in** button — signing in is the action, and retrying the same request would fail again;
+     *  * [OneDriveUi.canRetry] follows [isRetryable], so Retry appears for a bad moment (offline, timeout,
+     *    dropped connection, throttled, 5xx) and never for a state the user has to change (sign-in, disk
+     *    space, the file itself).
+     */
+    private fun failOneDrive(failure: RemoteFailure, stopBusy: Boolean = false, message: String? = null) {
+        val needsSignIn = failure == RemoteFailure.AuthRequired || failure == RemoteFailure.AuthExpired
+        _ui.update {
+            it.copy(
+                oneDrive = it.oneDrive.copy(
+                    busy = if (stopBusy) false else it.oneDrive.busy,
+                    loadingMore = if (stopBusy) false else it.oneDrive.loadingMore,
+                    signedIn = if (needsSignIn) false else it.oneDrive.signedIn,
+                    error = message ?: failure.message(),
+                    canRetry = failure.isRetryable(),
+                ),
+            )
+        }
+    }
+
+    /** Clears the in-flight flags of the OneDrive panel, unless a newer operation has taken over. */
+    private fun settleOneDrive(seq: Long) {
+        if (seq == oneDriveSeq) _ui.update { it.copy(oneDrive = it.oneDrive.settled()) }
+    }
+
+    /** Clears the in-flight flags of the rescan/update panel, unless a newer operation has taken over. */
+    private fun settleRescan(seq: Long) {
+        if (seq == rescanSeq) _ui.update { it.copy(remoteUpdate = it.remoteUpdate.settled()) }
+    }
+
+    private fun labelOf(state: AuthState): String? = when (state) {
+        is AuthState.SignedIn -> state.label
+        is AuthState.Expired -> state.label
+        AuthState.SignedOut -> null
+    }
+
+    // =====================================================================================
+    // Remote rescan and update (v2.6.0-dev.1 Phase 5)
+    // =====================================================================================
+
+    /**
+     * The Rescan action on the workbook screen.
+     *
+     * For a workbook that came from a file — or from anything this build cannot trace to a OneDrive
+     * source — this is exactly what it always was: `WorkbookCommentsController.reload()`, a local
+     * re-parse of the same bytes, with no network, no account and no connectivity check.
+     *
+     * For an OneDrive-origin workbook it is the **only** moment the remote copy is consulted. The local
+     * file stays the source either way; the probe only decides what to say, and a newer version is
+     * downloaded only after the user says yes.
+     */
+    fun rescanOpenWorkbook() {
+        val workbook = staged ?: return
+        if (!_ui.value.remoteUpdate.canRescan) return
+        if (rescanJob?.isActive == true) return
+
+        val entry = workbook.entryId?.let { id -> library.byId(id) }
+        val remote = entry?.remote
+        if (entry == null || entry.origin != WorkbookOrigin.ONEDRIVE || remote == null) {
+            // Local behaviour, unchanged.
+            comments.reload()
+            return
+        }
+
+        val seq = ++rescanSeq
+        rescanJob = viewModelScope.launch {
+            _ui.update { it.copy(remoteUpdate = it.remoteUpdate.copy(checking = true)) }
+            val check = try {
+                oneDriveUpdates.check(entry)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                RemoteCheck.Failed(RemoteFailure.Unstable)
+            } finally {
+                // Whatever happened — including a cancellation — the probe spinner goes away, and only the
+                // operation that still owns the sequence is allowed to clear it.
+                settleRescan(seq)
+            }
+            if (seq != rescanSeq) return@launch
+            when (check) {
+                is RemoteCheck.Unchanged -> {
+                    oneDriveUpdates.recordUnchanged(entry, check.remote)
+                    refreshSavedWorkbooks()
+                    reloadLocalWorkbook()
+                    showToast("Up to date with OneDrive.", ToastKind.OK)
+                }
+                is RemoteCheck.Changed -> {
+                    // Nothing is downloaded and nothing is reloaded yet: the question comes first.
+                    _ui.update {
+                        it.copy(
+                            remoteUpdate = it.remoteUpdate.copy(
+                                offer = RemoteUpdateOffer(
+                                    workbookId = entry.id,
+                                    displayName = entry.displayName,
+                                    remote = check.remote,
+                                    text = RemoteUpdatePrompt.text(check.remote),
+                                ),
+                            ),
+                        )
+                    }
+                }
+                RemoteCheck.Missing -> {
+                    reloadLocalWorkbook()
+                    // Only a genuine NOT_FOUND / Missing reaches here, so the deletion wording is honest.
+                    showToast(RemoteNotices.missing(), ToastKind.ERR)
+                }
+                RemoteCheck.Unknown -> {
+                    reloadLocalWorkbook()
+                    showToast(RemoteNotices.UNKNOWN_CHECK, ToastKind.INFO)
+                }
+                is RemoteCheck.Failed -> {
+                    reloadLocalWorkbook()
+                    onCheckFailed(check.failure)
+                }
+            }
+        }
+    }
+
+    /**
+     * Reports a failed check in the words that fit a *rescan* (v2.6.0-dev.1 Phase 6).
+     *
+     * Two things happen beyond the message: an authentication failure also drops the panel's signed-in
+     * state, so *From OneDrive* shows its **Sign in** button (the only place this build can sign in), and
+     * the local copy has already been reloaded by the caller either way — a failed check never costs the
+     * user their workbook.
+     */
+    private fun onCheckFailed(failure: RemoteFailure) {
+        if (failure == RemoteFailure.AuthRequired || failure == RemoteFailure.AuthExpired) {
+            _ui.update { it.copy(oneDrive = it.oneDrive.copy(signedIn = false)) }
+        }
+        showToast(RemoteNotices.forCheck(failure), ToastKind.ERR)
+    }
+
+    /** The existing local rescan path: same bytes, same hash, re-parsed from disk. */
+    private fun reloadLocalWorkbook() = comments.reload()
+
+    /**
+     * The user accepted the update.
+     *
+     * The download, the validation and the install all happen behind [OneDriveUpdateSession]; the old copy
+     * is only replaced once the new bytes are verified, and the workbook is then re-opened from the new
+     * file under its **new** SHA-256 — which is what gives it its own cache key.
+     */
+    fun acceptRemoteUpdate() {
+        val offer = _ui.value.remoteUpdate.offer ?: return
+        // The offer itself is not "busy": only a probe or another download blocks this.
+        if (_ui.value.remoteUpdate.busy) return
+        if (rescanJob?.isActive == true) return
+        val entry = library.byId(offer.workbookId) ?: run {
+            _ui.update { it.copy(remoteUpdate = it.remoteUpdate.copy(offer = null)) }
+            showToast("That workbook is no longer saved.", ToastKind.ERR)
+            refreshSavedWorkbooks()
+            return
+        }
+
+        val seq = ++rescanSeq
+        rescanJob = viewModelScope.launch {
+            _ui.update {
+                it.copy(
+                    remoteUpdate = it.remoteUpdate.copy(
+                        offer = null,
+                        download = OneDriveDownloadUi(
+                            offer.remote.id,
+                            offer.remote.name,
+                            totalBytes = offer.remote.sizeBytes,
+                        ),
+                    ),
+                )
+            }
+            val outcome = try {
+                oneDriveUpdates.apply(entry, offer.remote) { progress ->
+                    if (seq == rescanSeq) {
+                        _ui.update { current ->
+                            val shown = current.remoteUpdate.download ?: return@update current
+                            current.copy(
+                                remoteUpdate = current.remoteUpdate.copy(
+                                    download = shown.copy(
+                                        bytesWritten = progress.bytesWritten,
+                                        totalBytes = progress.totalBytes ?: shown.totalBytes,
+                                    ),
+                                ),
+                            )
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                if (seq == rescanSeq) {
+                    _ui.update { it.copy(remoteUpdate = it.remoteUpdate.settled()) }
+                }
+                throw e
+            } finally {
+                // No progress bar survives a terminal outcome, whatever the sequence says: `settled` only
+                // touches the in-flight fields, and a superseded job cannot clear a newer one's spinner
+                // because it does not own the sequence any more.
+                settleRescan(seq)
+            }
+            // A superseded or cancelled attempt must not touch the workbook, whatever it returned.
+            if (seq != rescanSeq) return@launch
+            when (outcome) {
+                is UpdateOutcome.Applied -> {
+                    installUpdatedWorkbook(outcome.workbook)
+                    refreshSavedWorkbooks()
+                    showToast("Updated \"${outcome.workbook.displayName}\" from OneDrive.", ToastKind.OK)
+                }
+                is UpdateOutcome.SameContent -> {
+                    // OneDrive's bytes matched ours; only the metadata moved, so nothing is re-opened.
+                    refreshSavedWorkbooks()
+                    reloadLocalWorkbook()
+                    showToast("OneDrive's copy is the same; the saved copy was not changed.", ToastKind.INFO)
+                }
+                is UpdateOutcome.Rejected -> {
+                    reloadLocalWorkbook()
+                    showToast(outcome.message, ToastKind.ERR)
+                }
+                is UpdateOutcome.Failed -> {
+                    reloadLocalWorkbook()
+                    if (outcome.failure == RemoteFailure.AuthRequired ||
+                        outcome.failure == RemoteFailure.AuthExpired
+                    ) {
+                        // Signing in again is the only way forward, and the panel is where that happens.
+                        _ui.update { it.copy(oneDrive = it.oneDrive.copy(signedIn = false)) }
+                    }
+                    showToast(
+                        RemoteNotices.forDownload(outcome.failure, offer.displayName),
+                        ToastKind.ERR,
+                    )
+                }
+                UpdateOutcome.Cancelled -> {
+                    reloadLocalWorkbook()
+                    showToast(RemoteNotices.CANCELLED_UPDATE, ToastKind.INFO)
+                }
+            }
+        }
+    }
+
+    /** The user kept the current copy: nothing is downloaded, and only the check itself is recorded. */
+    fun declineRemoteUpdate() {
+        val offer = _ui.value.remoteUpdate.offer ?: return
+        _ui.update { it.copy(remoteUpdate = it.remoteUpdate.copy(offer = null)) }
+        library.byId(offer.workbookId)?.let { entry -> oneDriveUpdates.recordCheckedOnly(entry, offer.remote) }
+        refreshSavedWorkbooks()
+        reloadLocalWorkbook()
+        showToast("Kept the saved copy. OneDrive's newer version was not downloaded.", ToastKind.INFO)
+    }
+
+    /**
+     * Stops an update download. The temporary file is the downloader's to delete, and nothing is
+     * installed: the sequence is advanced *before* the cancel so the attempt cannot commit afterwards.
+     */
+    fun cancelRemoteUpdate() {
+        if (_ui.value.remoteUpdate.download == null) return
+        rescanSeq++
+        rescanJob?.cancel()
+        rescanJob = null
+        _ui.update { it.copy(remoteUpdate = it.remoteUpdate.settled()) }
+        reloadLocalWorkbook()
+        showToast(RemoteNotices.CANCELLED_UPDATE, ToastKind.INFO)
+    }
+
+    /**
+     * Makes a replaced workbook the open one: the staged copy, the header label and the comments preview
+     * all move to the new file under its **new** SHA-256.
+     *
+     * Deliberately not `comments.reload()`: that re-parses the file under the *old* hash. Opening it with
+     * the new one is what keeps the two versions' caches apart.
+     */
+    private fun installUpdatedWorkbook(entry: SavedWorkbook) {
+        val file = library.fileOf(entry)
+        staged = StagedWorkbook(file, entry.displayName, entry.sizeBytes, entry.sha256, entryId = entry.id)
+        _ui.update { it.copy(workbook = WorkbookUi(entry.displayName, Formatting.fileSize(entry.sizeBytes))) }
+        comments.open(file, entry.sha256, entry.displayName, importedAt = entry.importedAt)
+    }
+
+    // =====================================================================================
     // Workbook comparison (v2.3.0)
     // =====================================================================================
+
 
     /** Ticks/untis a workbook for comparison; at most two distinct ids are kept. */
     fun toggleComparisonSelection(id: String) {
@@ -2348,6 +3020,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         camera.shutdown()
         online.shutdown()
         comments.close()
+        connectivity.close()
         embedder?.close()
         embedder = null
         wishlistExecutor.shutdown()

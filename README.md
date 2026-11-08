@@ -49,6 +49,7 @@ a connection; every online feature is opt-in.
 | **Bookmarks** | Individual online results or hand-typed links, stored in the reserved `Bookmarks` folder, independent of scans, sessions and wishlist folders | No (creation) |
 | **Workbook comments & images** | The legacy Excel notes of the chosen `.xlsx`/`.xlsm`: note text, author and the pictures stored with each note, plus every file under `xl/media`. Text-only, image-bearing and unresolved-image notes are marked differently; an image opens full-screen and exports byte-for-byte. Offline and read-only; `.xlsm` macros are never run | No |
 | **Source location** | An image or a catalogue record opens the worksheet cell (or row) the workbook itself proves it belongs to, with the neighbouring cells shown. Unreferenced, unresolved and stale sources are explained instead of guessed | No |
+| **OneDrive import** (v2.6.0, in preparation) | **More → Saved workbooks → From OneDrive**: sign in with a personal Microsoft account, browse your drive folder by folder, import an `.xlsx`/`.xlsm` as a saved workbook, and later have **Rescan** check whether OneDrive has a newer version and offer to replace the copy. The workbook is always read from the app's own copy — nothing syncs, nothing refreshes by itself, and nothing is ever written back to OneDrive. See §13 | Yes — only when you ask for OneDrive |
 
 The offline matcher is the original one: `Config.TOP_MATCHES = 5`, the same OpenCLIP model, the same
 workbook extraction (`.xlsx`/`.xlsm`, cell-note pictures and floating pictures) and the same score
@@ -312,7 +313,7 @@ and a finding with a record or image all open the verified worksheet row through
 Wishlist folder (user-created, persistent)
 ├── Session 1 (one matching/search operation)
 │   ├── result 1
-│   ├── result 2  â† bookmarked results are shown first
+│   ├── result 2  ← bookmarked results are shown first
 │   └── …
 ├── Session 2 …
 └── directly saved items (individual result/bookmark added to this folder)
@@ -933,7 +934,125 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 ---
 
+## 13. OneDrive: importing a workbook, and checking for a newer version (v2.6.0, in preparation)
+
+This section documents the v2.6.0 feature as it is implemented in this tree. The application version has
+**not** been bumped yet (it still reads 2.5.0 / 221), so nothing here describes a published release.
+
+### 13.1 What it does and does not do
+
+| | |
+|---|---|
+| **Personal Microsoft accounts only** | The sign-in uses the `consumers` authority. Work/school (organisational) accounts are not supported and are not planned. |
+| **Read-only** | The app requests exactly two delegated Graph permissions, `Files.Read` and `User.Read`. There is no upload, no write-back, no move, no rename and no remote deletion — the code has no member that could make one. |
+| **No synchronisation** | Nothing is fetched in the background, nothing refreshes when you open a workbook, and no scheduled check exists. The only moment OneDrive is contacted is when **you** tap *From OneDrive* or *Rescan*. |
+| **The local copy is the workbook** | An imported workbook is copied into the app's own storage (`files/workbooks/`) and is opened, parsed and matched from there. It opens with no network, and losing the network can never make it unreadable. |
+| **Offline-first is unchanged** | Local import, opening, rescanning, renaming and deleting never consult connectivity or the account. |
+
+### 13.2 Configuration (why a build may have no OneDrive)
+
+The Microsoft Graph client id and the redirect URI are **not** in the source tree. They come from a local
+`.env` file that is git-ignored, and a Gradle task (`generateAzureAppConfig`) turns them into the packaged
+MSAL configuration. A build made without that file still works — every offline feature is unaffected — but
+*From OneDrive* reports that sign-in is not configured. See `INSTALL.md` for the build prerequisites and
+`ARCHITECTURE.md` §"OneDrive" for the mechanism. No secret is involved: this is a public client (no client
+secret exists anywhere in the project), and the redirect is the Android broker-less custom scheme whose
+signature hash is bound to the signing certificate.
+
+### 13.3 Importing a workbook from OneDrive
+
+1. **More → Saved workbooks → From OneDrive.** If you are not signed in, the panel shows *Sign in*.
+2. **Sign in** opens Microsoft's page in your browser. Closing it without signing in is not an error: the
+   panel simply keeps its button.
+3. The panel lists your drive: folders first, then `.xlsx`/`.xlsm` workbooks. Tap a folder to go into it;
+   **↑ Up** and the breadcrumb path take you back. A folder with more entries than one page shows
+   **Load more**.
+4. Tap a workbook's row (or its *Import*) to download it. A determinate progress bar appears when OneDrive
+   reports the size, an indeterminate one when it does not; **Cancel** stops the transfer and deletes the
+   partial file.
+5. When it finishes, the panel says the workbook was saved and offers **Use it now**, which opens it as the
+   current workbook and adds it to the Saved workbooks list. Its origin is recorded, so Rescan can later
+   check it against OneDrive.
+6. **Sign out** clears the account from the app. It never touches the saved workbooks or their files.
+
+Only `.xlsx` and `.xlsm` files are listed and accepted. A file that is not a real OOXML workbook is
+rejected before it can become a saved workbook, and the rejected bytes are deleted.
+
+### 13.4 What Rescan does for a OneDrive workbook
+
+*Rescan* on the workbook screen has two behaviours, and which one you get depends on where the open
+workbook came from:
+
+* a workbook you picked from a file, or imported locally: **exactly the old behaviour** — the same bytes
+  are re-parsed from disk. No network, no account, no connectivity check.
+* a workbook imported from OneDrive: the local copy is still re-parsed, and OneDrive is asked once whether
+  it has a newer version. The outcomes stay distinct:
+
+| Outcome | What you see |
+|---|---|
+| same version | *Up to date with OneDrive.* and the copy is re-parsed |
+| newer version | the question in 13.5 |
+| could not compare (OneDrive returned no usable version metadata) | *Could not tell whether the OneDrive copy changed. The saved copy is unchanged.* — never "up to date" |
+| the remote file is gone | *This workbook is no longer in OneDrive. The saved copy still opens; rescan it locally, or import the file again.* |
+| offline | *Offline: showing the copy saved on this device. The workbook was not checked for changes on OneDrive.* |
+| slow or unstable | *OneDrive took too long to answer. The saved copy was rescanned instead.* |
+| sign-in expired | *Your OneDrive sign-in expired. Sign in again to check for changes.* |
+| throttled | *OneDrive is busy. Try again in about n second(s).* (or *… shortly.* when Microsoft sent no delay) |
+| server error / timeout / storage | the matching sentence from the app's OneDrive error list |
+
+In every one of those cases the workbook on the device is re-parsed and stays usable. A failed check never
+removes, empties or replaces it.
+
+### 13.5 Confirming or cancelling an update
+
+When a newer version exists the app asks, verbatim:
+
+> A newer version is on OneDrive (\<size\>, \<date\>). Update the saved copy? The current copy stays until
+> the new one is verified.
+
+* **Update** downloads the new version to a temporary file, validates it, and only then swaps it in. The old
+  file survives until the new one is verified; the workbook is then re-opened from the new bytes under
+  their **new** SHA-256, so caches keyed on the old content are not reused. If the download fails, is
+  cancelled, or the file turns out not to be a workbook, the old copy is kept byte-for-byte and the version
+  metadata is not advanced.
+* **Keep current** downloads nothing, leaves the saved copy and its version metadata exactly as they were,
+  and only records that the check happened — so the next Rescan still offers the update.
+* **Cancel** during a download stops it, deletes the temporary file, and reports *Update cancelled. The
+  saved copy was not changed.*
+
+If the bytes OneDrive returns turn out to be identical to the saved ones, nothing is copied: only the
+version metadata moves, and the app says so.
+
+### 13.6 Local deletion versus remote deletion
+
+* **Removing a saved workbook** (*More → Saved workbooks →* a row's remove action) deletes the app's own
+  copy, its parsed cache and its library entry. **It never deletes anything in OneDrive** — the app has no
+  remote-delete capability at all.
+* **A workbook that disappeared from OneDrive** (deleted, moved out of reach, or unshared) is only ever
+  *detected*: Rescan reports it and keeps the local copy. Nothing is deleted on either side. Only a genuine
+  `NOT_FOUND` answer produces that message; a network failure is never reported as a deletion.
+
+### 13.7 Known limitations of this feature
+
+* **Personal accounts only**; work/school accounts are unsupported.
+* **No background sync, no automatic refresh, no upload or write-back.** By design.
+* **Retry is manual.** Microsoft's `Retry-After` is shown as a sentence; the app does not enforce a
+  cool-down, and it never retries by itself.
+* **Not yet verified against the live service.** The Graph client, the MSAL flow and the update pipeline are
+  covered by automated tests against fakes and by static inspection. Phase 9 did run the app on an API 37
+  emulator (it starts, renders Home and More, and survives airplane mode without a crash), but a real
+  Microsoft sign-in, a real download and a real throttle response still need a live-account run. The same
+  applies to the rendered OneDrive panels, which no one has seen on a screen.
+* **A very large workbook** is limited only by free storage; there is no application-level size cap. If the
+  device runs out of space the import fails with *There is not enough device storage for this workbook…*
+  and the existing saved copy is untouched.
+* **Licensing blocker:** one transitive Microsoft artifact (`display-mask:0.3.0`) has no established
+  licence. See `THIRD_PARTY_NOTICES.md` §1.1 and the release-gate note there.
+
+---
+
 ## License
+
 
 BookCoverMatcher is free software: **every line of code written for this project is licensed under the
 GNU General Public License, version 3 or (at your option) any later version** — SPDX identifier
@@ -947,7 +1066,11 @@ published by the Free Software Foundation, either version 3 of the License, or a
 * **Third-party components keep their own licences** and are not relicensed by this project. See
   [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md): PaddleOCR models are Apache-2.0, ONNX Runtime is
   MIT, `chrome-lens-py` is MIT, AndroidX/Kotlin are Apache-2.0, the Rust dependency set is entirely
-  permissive, and the OpenCLIP weights shipped in the APK have **no declared licence** (unresolved).
+  permissive, MSAL and its Microsoft `common`/`common4j` artifacts are MIT, and the OpenCLIP weights
+  shipped in the APK are **MIT** as declared by LAION on the model card
+  (`cardData.license = "mit"`, revision `1a25a446…`; re-checked in Phase 8). One transitive Microsoft
+  artifact, `com.microsoft.device.display:display-mask:0.3.0`, has **no established licence** and is a
+  release blocker — it is recorded as unresolved, not re-licensed.
 * Assets this project cannot license — the test cover photograph, the sample workbook and the captured
   HTML fixtures — are listed separately in that file and are **not** covered by the GPL.
 * The licence text and the third-party notices are also packaged into the APK and shown in

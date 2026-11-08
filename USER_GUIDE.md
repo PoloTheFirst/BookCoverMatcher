@@ -1,7 +1,11 @@
-# BookCover Matcher - User Guide (v2.4.0)
+# BookCover Matcher - User Guide (v2.6.0)
 
-This guide covers the four tabs, the saved-data rules and the batch (multi-select) actions. For build
-instructions and architecture, see `README.md` and `ARCHITECTURE.md`.
+This guide covers the four tabs, the saved-data rules, the batch (multi-select) actions and, since
+v2.6.0, the OneDrive import and update workflow. For build instructions and architecture, see `README.md`
+and `ARCHITECTURE.md`.
+
+> The app version in this tree is still 2.5.0 while 2.6.0 is being prepared; the OneDrive section below
+> describes what this tree implements today.
 
 ## Home
 
@@ -527,7 +531,148 @@ last opened and (after the first open) how many sheets, comments and images it h
 * **Catalogue** finds the workbook's own table from its header row and searches all of its columns; each
   record says whether a verified image is linked to it, and **Go to row** opens its worksheet row.
 
+## OneDrive (v2.6.0)
+
+Saved workbooks can also come from your own OneDrive. The important rule first: **OneDrive is only used
+when you ask for it.** The app never syncs in the background, never refreshes a workbook when you open it
+and never writes anything back to OneDrive. An imported workbook is a normal saved workbook that lives on
+the device, and it opens with no connection at all.
+
+Only **personal Microsoft accounts** can sign in. Work or school accounts are not supported, and the app
+asks for read-only access (`Files.Read`, `User.Read`) — there is no delete, rename or upload anywhere in it.
+
+### 1. Import a workbook you already have on the device
+
+*More → Saved workbooks* → **Import** → pick an `.xlsx` or `.xlsm` file. Nothing about this changed in
+v2.6.0, and it needs no connection.
+
+### 2. Sign in to OneDrive
+
+*More → Saved workbooks* → **From OneDrive**. With no account the panel shows **Sign in**, which opens
+Microsoft's page in your browser. Closing that page without signing in is **not** an error: the panel just
+keeps its button. The header shows *Signed in as &lt;your account&gt;* once you are in, and **Sign out**
+clears the account at any time (it never deletes your saved workbooks).
+
+If the build you have was compiled without the Azure configuration, the panel says *OneDrive sign-in is
+not configured in this build.* — that is a build problem, not a sign-in problem.
+
+### 3. Browse your folders
+
+The panel opens at the top of your drive. Folders are listed first, then `.xlsx`/`.xlsm` workbooks; other
+file types are not shown and cannot be imported.
+
+* Tap a folder row (or its *Open*) to go into it. The breadcrumb at the top (`OneDrive / Catalogue / Covers`)
+  shows where you are.
+* **↑ Up** goes back one folder.
+* When a folder has more entries than fit on one page, a **Load more** row appears at the bottom; it loads
+  the next page and appends it.
+* An empty folder says so instead of showing nothing.
+* If a folder cannot be read, the panel shows the reason and a **Retry** action — except for a sign-in
+  problem, where the panel returns to **Sign in** instead (retrying cannot fix an expired sign-in).
+
+### 4. Import the workbook
+
+Tap a workbook's row (or its *Import*). A progress bar appears: it shows a percentage when OneDrive
+reported the file size, and an indeterminate bar with *size unknown* when it did not — the app never invents
+a percentage. **Cancel** stops the download and deletes the partial file; nothing is saved.
+
+When the download finishes and the bytes have been validated as a real workbook, the panel says the
+workbook was saved and offers:
+
+* **Use it now** — opens it as the current workbook (the same flow as *Saved* on Home/Search).
+* **Done** — closes the panel; the workbook is in *Saved workbooks* either way.
+
+A file that is not a genuine OOXML workbook is rejected, and the rejected bytes are deleted. If the same
+workbook is already saved, the app says *Already saved as "…"* and does not duplicate it.
+
+### 5. Open a saved workbook offline
+
+*More → Saved workbooks* → tap a row (or **Saved** on Home/Search). The workbook is read from the app's own
+copy. Airplane mode, a signed-out account and a deleted remote file all make no difference to opening it.
+
+### 6. Rescan a workbook that came from a file
+
+On the workbook screen, **Rescan** re-reads the same bytes from disk. No connection is needed and nothing
+remote is contacted.
+
+### 7. Rescan a workbook that came from OneDrive
+
+The same **Rescan** button, but for a OneDrive-origin workbook it also asks OneDrive once whether a newer
+version exists. The local copy is what you see either way; the check only decides what the app offers. One
+of these appears:
+
+| What the check found | What you see |
+|---|---|
+| the same version | *Up to date with OneDrive.* |
+| a newer version | the question in step 9 |
+| metadata it cannot compare | *Could not tell whether the OneDrive copy changed. The saved copy is unchanged.* |
+| the file is gone from OneDrive | *This workbook is no longer in OneDrive. The saved copy still opens; rescan it locally, or import the file again.* |
+| no connection | *Offline: showing the copy saved on this device. The workbook was not checked for changes on OneDrive.* |
+| slow or unstable connection | *OneDrive took too long to answer. The saved copy was rescanned instead.* |
+| the sign-in expired | *Your OneDrive sign-in expired. Sign in again to check for changes.* |
+| throttled by Microsoft | *OneDrive is busy. Try again in about n second(s).* (or *… shortly.*) |
+| other server problem | *OneDrive failed (HTTP n). Try again later.* |
+
+### 8. Read the outcome correctly
+
+* "Up to date" is only said when the app could actually compare the versions.
+* A **missing** file and a **network failure** are never confused: only a genuine "not found" produces the
+  deletion wording, and even then nothing is deleted — the saved copy stays and keeps working.
+* A cancelled or failed update is never reported as a successful one.
+
+### 9. Confirm or cancel an update
+
+The app asks, exactly:
+
+> A newer version is on OneDrive (&lt;size&gt;, &lt;date&gt;). Update the saved copy? The current copy stays
+> until the new one is verified.
+
+* **Update** downloads the new version, validates it, and only then replaces the copy on the device. During
+  the download a progress dialog appears; **Cancel** stops it and reports *Update cancelled. The saved copy
+  was not changed.*
+* **Keep current** changes nothing — not the copy, not its recorded version — and only notes that the check
+  happened, so the next Rescan offers the update again.
+
+If the update fails for any reason (no connection, a broken download, a full device, a file that is not a
+workbook), the **old copy is kept byte-for-byte**, its version information is not updated, and the app tells
+you why. The workbook is then reopened from the copy on the device.
+
+### 10. Understand the error messages
+
+| Situation | Message |
+|---|---|
+| import or browse with no connection | *No internet connection. OneDrive workbooks can only be imported online. Workbooks you already saved still open and rescan offline.* |
+| connection lost mid-download | *The connection was lost while downloading &lt;name&gt;. Nothing was saved. Retry when you are back online.* |
+| download timed out | *OneDrive took too long to answer while downloading &lt;name&gt;. Nothing was saved. Retry when you are back online.* |
+| expired sign-in | *Your OneDrive sign-in expired. Sign in again to check for changes.* |
+| no account yet | *Sign in with a personal Microsoft account to use OneDrive.* |
+| throttled | *OneDrive is busy. Try again in about n second(s).* |
+| file gone remotely | *This workbook is no longer in OneDrive. The saved copy still opens; rescan it locally, or import the file again.* |
+| device full | *There is not enough device storage for this workbook. Free some space and try again.* |
+| not a workbook | *That file is not a valid .xlsx or .xlsm workbook, so nothing was saved.* |
+| server problem | *OneDrive failed (HTTP n). Try again later.* |
+| request refused | *OneDrive rejected the request.* |
+| build without Azure configuration | *OneDrive sign-in is not configured in this build.* |
+
+**Retry** is offered only where retrying can help — a dropped connection, a timeout, a throttle or a server
+error. For a sign-in problem the panel goes back to **Sign in**; for a full device, a missing remote file or
+a file that is not a workbook you are told what to change instead.
+
+### 11. Sign out
+
+*From OneDrive →* **Sign out**. This clears the Microsoft account from the app (and its token cache). It
+does **not** touch your saved workbooks, their files or their caches — they keep opening exactly as before.
+
+### 12. Delete a saved workbook
+
+*More → Saved workbooks →* the row's remove action deletes the app's own copy, that workbook's parsed cache
+and its library entry. **Nothing is deleted in OneDrive** — the remote file you imported from is untouched,
+and you can import it again later.
+
 ## Three bookmark workflows
+
+
+
 
 1. **Wishlist first, bookmark second** - save results to a folder, then bookmark a result. It stays
    in both places.

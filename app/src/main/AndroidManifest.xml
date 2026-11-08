@@ -5,12 +5,18 @@
 
     <!--
       The camera is the only permission the offline matcher needs. INTERNET exists solely for the
-      opt-in "2.5 · Online search" panel, which is switched off by default; with it off the app
-      makes no request at all. Two hosts are ever contacted: lens.google.com (via the embedded
-      chrome-lens-py package) and openlibrary.org / covers.openlibrary.org.
+      features that are opt-in or that the user starts explicitly; with them off the app makes no
+      request at all — the hosts it may contact are listed in ONLINE_SEARCH.md, not enumerated here,
+      because this comment drifted out of date the last time a provider was added.
+
+      ACCESS_NETWORK_STATE (v2.6.0) lets the app read the default network's capabilities, so it can
+      tell a usable network from an unusable one *before* it starts such an operation. It never gates
+      opening, parsing, rescanning or removing a saved workbook: those read the app's own local copy
+      under files/workbooks/ and work with no network at all.
     -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
@@ -29,6 +35,27 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          MSAL returns the sign-in response to this activity through a custom-scheme redirect. The
+          scheme, host and path come from the registered Redirect_URL at build time (Gradle manifest
+          placeholders), so no application identifier is hardcoded in this tracked file and the filter
+          can never disagree with the configuration handed to MSAL. Everything else the library needs
+          (its own activities, INTERNET and ACCESS_NETWORK_STATE) arrives through manifest merging.
+        -->
+        <activity
+            android:name="com.microsoft.identity.client.BrowserTabActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="${azureRedirectHost}"
+                    android:path="${azureRedirectPath}"
+                    android:scheme="${azureRedirectScheme}" />
             </intent-filter>
         </activity>
     </application>

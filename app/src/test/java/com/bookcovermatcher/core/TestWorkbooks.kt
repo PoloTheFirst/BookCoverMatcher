@@ -3,6 +3,9 @@
 package com.bookcovermatcher.core
 
 import com.bookcovermatcher.core.excel.MapZipSource
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * Builds small but *real* OOXML packages for the legacy-comment tests: workbook, worksheet
@@ -124,5 +127,28 @@ object TestWorkbooks {
         media.forEach { (path, bytes) -> entries[path] = bytes }
         extra.forEach { (path, bytes) -> entries[path] = bytes }
         return MapZipSource(entries)
+    }
+
+    /**
+     * The same one-sheet package as [xlsx], written as real `.xlsx` **file bytes** (v2.6.0-dev.1 Phase 5).
+     *
+     * The library, the download validator and the replacement path all work on files and streams rather
+     * than on an in-memory ZIP source, so the tests need a genuine archive. [tag] changes one part, which
+     * is enough to give two versions of "the same workbook" different SHA-256 hashes.
+     */
+    fun xlsxBytes(tag: String = "x"): ByteArray {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            fun put(name: String, text: String) {
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(text.toByteArray())
+                zip.closeEntry()
+            }
+            put("[Content_Types].xml", "<Types/>")
+            put("xl/workbook.xml", workbook("Sheet1" to 1))
+            put("xl/_rels/workbook.xml.rels", workbookRels(1))
+            put("xl/worksheets/sheet1.xml", "<worksheet>$tag</worksheet>")
+        }
+        return out.toByteArray()
     }
 }

@@ -12,17 +12,72 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// One source of truth for the application id: the manifest merge uses it, and the Azure configuration
+// task below checks the redirect URI against the package name the app is actually installed under.
+val appPackageName = "com.bookcovermatcher"
+
+// ---- Azure app-registration values (consumed by the manifest and the generator task) ----------
+//
+// The three values are machine-local: they live in the repository root's git-ignored `.env` and are
+// never written into a tracked file, a log line or a report. They are read here so the MSAL intent
+// filter and the generated configuration always agree, and read again by `generateAzureAppConfig`,
+// which is where they are validated and written out.
+//
+// The client id and redirect URI are **public application identifiers** — MSAL cannot work without
+// them in the APK — while the `.env` file itself is never packaged. See the generator task below.
+val azureEnvFile = rootProject.file(".env")
+val azurePlaceholderValues = linkedMapOf(
+    "Application_ID" to "00000000-0000-0000-0000-000000000000",
+    "Directory_ID" to "00000000-0000-0000-0000-000000000000",
+    "Redirect_URL" to "msal00000000-0000-0000-0000-000000000000://auth",
+)
+
+fun azureEnvValues(): Map<String, String> {
+    val parsed = linkedMapOf<String, String>()
+    if (!azureEnvFile.isFile) return parsed
+    azureEnvFile.readLines().forEach { line ->
+        val trimmed = line.trim()
+        if (trimmed.isNotEmpty() && !trimmed.startsWith("#") && trimmed.contains('=')) {
+            val key = trimmed.substringBefore('=').trim()
+            if (key.isNotEmpty()) parsed[key] = trimmed.substringAfter('=').trim().trim('"', '\'')
+        }
+    }
+    return parsed
+}
+
+/** Splits a redirect URI into the scheme / host / path an intent filter needs. */
+fun redirectParts(redirect: String): Triple<String, String, String> {
+    val scheme = redirect.substringBefore("://")
+    val rest = redirect.substringAfter("://", "")
+    val host = rest.substringBefore('/')
+    val path = if (rest.contains('/')) "/" + rest.substringAfter('/') else "/"
+    return Triple(scheme, host, path)
+}
+
+val azureRedirectForManifest = azureEnvValues()["Redirect_URL"]?.takeIf { it.isNotBlank() }
+    ?: azurePlaceholderValues.getValue("Redirect_URL")
+val azureRedirectParts = redirectParts(azureRedirectForManifest)
+
 android {
     namespace = "com.bookcovermatcher"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.bookcovermatcher"
+        applicationId = appPackageName
         minSdk = 26
         targetSdk = 35
         // 220 is dev.5: 219 was dev.4, 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
         versionCode = 221
         versionName = "2.5.0"
+
+        // The custom-tab redirect is matched by MSAL's BrowserTabActivity intent filter. Its scheme,
+        // host and path are taken from the registered Redirect_URL at build time, so no value from
+        // `.env` is hardcoded in a tracked file and the filter cannot drift from the configuration
+        // MSAL is given. Without a `.env` the placeholders below are used and sign-in is simply not
+        // configured yet.
+        manifestPlaceholders["azureRedirectScheme"] = azureRedirectParts.first
+        manifestPlaceholders["azureRedirectHost"] = azureRedirectParts.second
+        manifestPlaceholders["azureRedirectPath"] = azureRedirectParts.third
 
         // ONNX Runtime ships four ABIs (~15 MB each). Real phones are arm64-v8a;
         // x86_64 keeps the emulator working. Add "armeabi-v7a" for old 32-bit phones.
@@ -255,6 +310,138 @@ val syncLicenseAssets = tasks.register("syncLicenseAssets") {
 tasks.named("preBuild") { dependsOn(syncLicenseAssets) }
 
 
+// ---------------------------------------------------------------------------------------------
+// Azure app-registration configuration for the OneDrive sign-in (v2.6.0).
+//
+// Two artefacts come out of the values read above, and they are deliberately different in status:
+//
+//  * `app/src/main/res/raw/msal_config_default.json` — **packaged**, because MSAL needs the public
+//    client id and redirect URI at runtime. Both are public application identifiers, not secrets; a
+//    public client cannot work without them in the app. The file is generated (git-ignored), so no
+//    value from `.env` is ever written into a tracked source file.
+//  * `app/build/generated/azure/msal_config_default.json` — a build-directory copy for inspection and
+//    for the report's verification steps. Never packaged.
+//
+// The `.env` file itself is never packaged and never tracked. `Directory_ID` is **not** written into
+// the runtime configuration: the intended authority is the personal-accounts endpoint
+// `https://login.microsoftonline.com/consumers`, which MSAL derives from the
+// `PersonalMicrosoftAccount` audience. Putting a tenant id beside that audience would be wrong — see
+// `historical_prompt/v2.6.0-dev.1-ag.md` §20.4.
+//
+// A missing `.env` (fresh clone, CI, another developer) is normal: the placeholders from
+// `.env.example` are used instead, so every build still works and no value is invented. A `.env` that
+// exists but is incomplete, or that carries a redirect this app cannot answer, fails the build with a
+// message naming the variable — never its value.
+// ---------------------------------------------------------------------------------------------
+
+val azureConfigDir = layout.buildDirectory.dir("generated/azure")
+val azureResRawDir = layout.projectDirectory.dir("src/main/res/raw").asFile
+val azureResRawFile = File(azureResRawDir, "msal_config_default.json")
+val azurePackageName = appPackageName
+
+val generateAzureAppConfig = tasks.register("generateAzureAppConfig") {
+    group = "build"
+    description = "Generates the MSAL app configuration from the git-ignored root .env (or placeholders)."
+    // Not `inputs.file(...).optional()`: Gradle 9 rejects a missing `@InputFile` outright ("input file
+    // does not exist"), and an optional file that is absent contributes nothing to the fingerprint — so
+    // adding or deleting `.env` would leave this task UP-TO-DATE with a stale configuration. A digest of
+    // the file (or the literal "absent") makes presence *and* content a proper input, and it is the
+    // digest — never a value — that Gradle records.
+    inputs.property("dotEnv", if (azureEnvFile.isFile) sha256OfFile(azureEnvFile) else "absent")
+    outputs.dir(azureConfigDir)
+    outputs.file(azureResRawFile)
+
+    doLast {
+        val fromEnv = azureEnvFile.isFile
+        val values = linkedMapOf<String, String>()
+        if (fromEnv) {
+            azureEnvFile.readLines().forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.isNotEmpty() && !trimmed.startsWith("#") && trimmed.contains('=')) {
+                    val key = trimmed.substringBefore('=').trim()
+                    if (key.isNotEmpty()) values[key] = trimmed.substringAfter('=').trim().trim('"', '\'')
+                }
+            }
+            val missing = azurePlaceholderValues.keys.filter { values[it].isNullOrBlank() }
+            if (missing.isNotEmpty()) {
+                throw GradleException(
+                    "the root .env does not define ${missing.joinToString(", ")}. Copy .env.example and " +
+                        "fill in the three values; the names must match exactly. The values themselves are " +
+                        "never printed by this build, which is why none appear here.",
+                )
+            }
+            val unsafe = values.filterValues { v -> v.any { it == '"' || it == '\\' || it.isISOControl() } }.keys
+            if (unsafe.isNotEmpty()) {
+                throw GradleException(
+                    ".env contains characters a JSON configuration cannot carry safely in: " +
+                        "${unsafe.joinToString(", ")}. Check for a stray quote or line break.",
+                )
+            }
+        }
+
+        // Directory_ID is read only to prove the file is complete; it is deliberately NOT written into
+        // the runtime configuration (see the header comment and §20.4 of the agent report).
+        val clientId = values["Application_ID"] ?: azurePlaceholderValues.getValue("Application_ID")
+        val redirect = values["Redirect_URL"] ?: azurePlaceholderValues.getValue("Redirect_URL")
+
+        // The redirect must be one this application can actually answer: either MSAL's derived scheme
+        // for this client id, or the Android-platform form the Azure portal generates from the package
+        // name and the signing certificate. A mismatch is a silent sign-in failure later, so it fails
+        // here instead — and the message names the shape, never the value.
+        val androidForm = Regex("^msauth://([^/]+)/(?:[A-Za-z0-9+/=_.-]|%[0-9A-Fa-f]{2})+$").find(redirect)
+        if (redirect != "msal$clientId://auth" &&
+            !(androidForm != null && androidForm.groupValues[1] == azurePackageName)
+        ) {
+            throw GradleException(
+                "Redirect_URL is not a redirect this application can answer. Expected " +
+                    "`msal<Application_ID>://auth` or `msauth://$azurePackageName/<signature-hash>` " +
+                    "matching the signing certificate. Fix the .env value or the app registration; the " +
+                    "value itself is not printed here on purpose.",
+            )
+        }
+
+        val config = buildString {
+            appendLine("{")
+            appendLine("  \"client_id\": \"$clientId\",")
+            appendLine("  \"authorization_user_agent\": \"DEFAULT\",")
+            appendLine("  \"account_mode\": \"MULTIPLE\",")
+            // No broker redirect URI is registered for this application, so asking MSAL to try a broker
+            // would fail and fall back; the browser flow with the registered custom-scheme redirect is
+            // the supported path here.
+            appendLine("  \"broker_redirect_uri_registered\": false,")
+            appendLine("  \"redirect_uri\": \"$redirect\",")
+            appendLine("  \"authorities\": [")
+            appendLine("    {")
+            appendLine("      \"type\": \"AAD\",")
+            appendLine("      \"audience\": {")
+            // Personal Microsoft accounts only. MSAL maps this audience to
+            // https://login.microsoftonline.com/consumers, so no tenant id belongs here.
+            appendLine("        \"type\": \"PersonalMicrosoftAccount\"")
+            appendLine("      }")
+            appendLine("    }")
+            appendLine("  ]")
+            append("}")
+            appendLine()
+        }
+        // The packaged resource MSAL loads (R.raw.msal_config_default) …
+        azureResRawDir.mkdirs()
+        azureResRawFile.writeText(config, Charsets.UTF_8)
+        // … and a build-directory copy used for inspection; never packaged.
+        val out = azureConfigDir.get().file("msal_config_default.json").asFile
+        out.parentFile.mkdirs()
+        out.writeText(config, Charsets.UTF_8)
+        logger.lifecycle(
+            "azure config: " + if (fromEnv) {
+                "generated from the root .env (values not printed)"
+            } else {
+                "generated from .env.example placeholders (no .env present)"
+            },
+        )
+    }
+}
+
+tasks.named("preBuild") { dependsOn(generateAzureAppConfig) }
+
 // Any packaging task (and therefore every ordinary build) needs the assets in place first.
 tasks.named("preBuild") { dependsOn(preparePaddleOcrAssets) }
 
@@ -285,6 +472,9 @@ dependencies {
 
     implementation(libs.androidx.exifinterface)
     implementation(libs.onnxruntime.android)
+    // Microsoft sign-in for the OneDrive import (v2.6.0). MIT-licensed, minSdk 24; see
+    // THIRD_PARTY_NOTICES.md and historical_prompt/v2.6.0-dev.1-ag.md §20.2.
+    implementation(libs.msal.android)
 
     testImplementation(libs.junit)
 
