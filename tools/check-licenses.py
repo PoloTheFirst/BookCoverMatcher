@@ -70,8 +70,20 @@ FIXTURES = [
     "app/src/test/resources/fixtures/melonbooks_empty.html",
 ]
 
+#: Blob ids of the flagged original assets as they were committed before the rewrite. Any of them
+#: reachable from a maintained ref means a distribution artefact could still carry the original.
+FLAGGED_BLOBS = {
+    "0cba0f17def5ff080b440d5cb75bd36e447920f5": "cover.jpg",
+    "f5ba892b7cf124af7e354dd9e52075352f2c06de": "doujin.xlsx",
+    "2bf85930a19ef8b4261b0b320d4e80a0f6946e2b": "dlsite_books_search.html",
+    "7f8e8068c46a6b2cc02b2a33fe5fc3c19a5a9435": "dlsite_books_empty.html",
+    "1f2c55641a12516164af1dd903b5e229485ceae6": "melonbooks_search.html",
+    "b9c5b4777c67c73fa87c85190781f3ac46920494": "melonbooks_empty.html",
+}
+
 #: Assets that must never be distributed again, and why (see THIRD_PARTY_NOTICES.md §4).
 REMOVED_ASSETS = ["test_excel/doujin.xlsx"]
+
 
 
 # Files that legitimately mention the old identifier: the migrator names it, the audit names it, and the
@@ -279,9 +291,39 @@ def check_refs() -> None:
         notes.append("every tag: canonical LICENSE, SPDX header, no flagged asset")
 
 
+def check_history() -> None:
+    """Every reachable commit of the maintained refs, not just the tips.
+
+    Slow on purpose-by-design: it asks Git once per commit, so the audit stays simple enough to trust.
+    """
+    refs = (git("for-each-ref", "--format=%(refname)", "refs/heads").splitlines()
+            + git("for-each-ref", "--format=%(refname)", "refs/tags").splitlines())
+    commits = git("rev-list", *refs).split()
+    if not commits:
+        fail("no commits reachable from the branches and tags")
+        return
+    without_license = [commit for commit in commits
+                       if rev(commit + ":LICENSE") != CANONICAL_LICENSE_BLOB]
+    if without_license:
+        fail("%d of %d reachable commit(s) lack the canonical LICENSE, e.g. %s"
+             % (len(without_license), len(commits), ", ".join(c[:9] for c in without_license[:5])))
+    leftover = []
+    for line in git("rev-list", "--objects", *refs).splitlines():
+        sha = line.split(" ", 1)[0]
+        if sha in FLAGGED_BLOBS:
+            leftover.append("%s (%s)" % (sha[:9], FLAGGED_BLOBS[sha]))
+    if leftover:
+        fail("flagged original blobs still reachable: " + ", ".join(sorted(set(leftover))))
+    notes.append("history scanned: %d reachable commit(s) across %d ref(s)" % (len(commits), len(refs)))
+    if not without_license and not leftover:
+        notes.append("every reachable commit carries the canonical LICENSE and no flagged asset")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--refs", action="store_true", help="also report tags and branch tips")
+    parser.add_argument("--history", action="store_true",
+                        help="also walk every reachable commit (slow, thorough)")
     parser.add_argument("--root", default=".")
     args = parser.parse_args()
     root = Path(args.root).resolve()
@@ -293,6 +335,8 @@ def main() -> int:
     check_flagged_assets(root)
     if args.refs:
         check_refs()
+    if args.history:
+        check_history()
 
     for note in notes:
         print("ok   " + note)
