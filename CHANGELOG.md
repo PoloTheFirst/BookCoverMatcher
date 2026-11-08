@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.5.0] — 2026-11-08
+## 2.5.0 — 2026-11-08
 
 **Version code/name: 221 / 2.5.0.** The first stable release of the 2.5 line. It carries two OCR engines
 (Chrome Lens and the native PP-OCRv6 medium engine, both selectable per READ THE COVER request), and this
