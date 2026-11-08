@@ -712,11 +712,13 @@ contradicts the first. Every claim must match code you actually wrote and ran.
   map; update the **Tests** count and what it covers; add the persistence/migration note and the new
   limitations; keep the *Honest status of this release* table truthful about what is tested, what is
   compiled-only and what has never run on a device.
-* **`CHANGELOG.md`** — one dated entry in the existing Keep-a-Changelog style (Added / Changed / Fixed /
-  Notes), covering bookmarking, the reserved collection, independent membership, bulk add, the three
-  outcomes, custom bookmarks, session/cache handling, UI changes, the v1→v2 migration, tests, and remaining
-  limitations. Follow the repo's versioning note (a user-visible feature set ⇒ minor version bump, e.g.
-  `2.2.0`). **Do not list anything you did not implement.**
+* **`CHANGELOG.md`** — **the current stable release only, never a cumulative history.** Replace the
+  previous release's entry with the new one: `# Changelog`, then one `## [<version>] — <date>` section
+  holding only the changes that belong to that release (Added / Changed / Fixed / Notes, in the existing
+  style), the version code/name, the tests, what was verified and the known limitations. The heading must
+  match `versionName` in `app/build.gradle.kts`. Earlier releases are **not** kept here: they live on in
+  the Git tags, the GitHub Releases and the release commits, and those records are never deleted or
+  rewritten to shorten this file. **Do not list anything you did not implement.**
 * **`ONLINE_SEARCH.md`** — revise, do not append: the two-halves table, the file map (§6), the result model,
   the aggregator/ranking, the identity rules, the cache and stale-response rules, and §7 limitations.
 * **New user guide** (e.g. `USER_GUIDE.md`) — step-by-step for capture → workbook and/or online → result
