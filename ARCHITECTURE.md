@@ -619,6 +619,14 @@ unavailable.**
 7. **Stale results cannot win.** Each flow has a sequence number: a superseded or cancelled coroutine cannot
    write state or install bytes, and `settled()` clears the in-flight flags in every `finally`.
 8. **Sign-out cannot damage data.** It touches `UiState` and MSAL only.
+9. **The browser handoff is a manifest invariant, not a detail.** `AndroidManifest.xml` declares
+   `com.microsoft.identity.client.BrowserTabActivity` with `${azureRedirectScheme}`, `${azureRedirectHost}` and
+   `${azureRedirectPath}`, and that path placeholder is the **percent-decoded** signature hash. Android compares
+   a filter's literal `android:path` with the decoded `Uri.getPath()`, so Azure's encoded hash (`…%2B…%3D`) in
+   the filter matches nothing: the browser then has no activity to hand the response to and sits on a blank page
+   while the app never resumes (v2.6.0-dev.1 crash-fix-3). `MsalRedirectPath` is the written rule,
+   `MsalRedirectPathTest` pins it, `app/build.gradle.kts` implements the same three lines, and `redirect_uri`
+   is still handed to MSAL exactly as Azure registered it.
 
 ### Error classification and retry policy
 

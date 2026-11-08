@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.security.MessageDigest
 import java.util.Properties
@@ -45,12 +46,50 @@ fun azureEnvValues(): Map<String, String> {
     return parsed
 }
 
+/**
+ * Percent-decodes a URI path the way `android.net.Uri.getPath()` does — and deliberately **not** the way
+ * `java.net.URLDecoder` does, because URLDecoder treats `+` as a space and a base64 signature hash
+ * contains real `+` characters.
+ *
+ * This exists because of v2.6.0-dev.1 crash-fix-3: Android matches an intent filter's literal
+ * `android:path` against the *decoded* `Uri.getPath()` of the incoming `msauth://` redirect, so a filter
+ * carrying Azure's percent-encoded hash (`…%2B…%3D`) can never match. The browser then finds no activity
+ * to hand the response to and shows a blank page while the app never resumes. Only the manifest
+ * placeholder is decoded; the `redirect_uri` handed to MSAL stays exactly as Azure registered it.
+ */
+fun decodeManifestPath(path: String): String {
+    if (!path.contains('%')) return path
+    val bytes = ByteArrayOutputStream(path.length)
+    var index = 0
+    while (index < path.length) {
+        val char = path[index]
+        if (char == '%' && index + 2 < path.length) {
+            val code = path.substring(index + 1, index + 3).toIntOrNull(16)
+            if (code != null) {
+                bytes.write(code)
+                index += 3
+                continue
+            }
+        }
+        bytes.write(char.toString().toByteArray(Charsets.UTF_8))
+        index += 1
+    }
+    return String(bytes.toByteArray(), Charsets.UTF_8)
+}
+
 /** Splits a redirect URI into the scheme / host / path an intent filter needs. */
 fun redirectParts(redirect: String): Triple<String, String, String> {
     val scheme = redirect.substringBefore("://")
     val rest = redirect.substringAfter("://", "")
     val host = rest.substringBefore('/')
-    val path = if (rest.contains('/')) "/" + rest.substringAfter('/') else "/"
+    val rawPath = if (rest.contains('/')) "/" + rest.substringAfter('/') else "/"
+    val path = decodeManifestPath(rawPath)
+    if (rawPath.contains('%') && path == rawPath) {
+        throw GradleException(
+            "The redirect path still carries percent escapes after decoding, so the intent filter " +
+                "could never match the redirect the browser returns. Check decodeManifestPath().",
+        )
+    }
     return Triple(scheme, host, path)
 }
 

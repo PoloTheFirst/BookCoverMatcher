@@ -107,8 +107,17 @@ object MsalConfigParser {
      */
     private fun redirectProblem(clientId: String, redirect: String): String? {
         if (redirect == "msal$clientId://auth") return null
-        val androidForm = Regex("^msauth://([^/]+)/(?:[A-Za-z0-9+/=_.-]|%[0-9A-Fa-f]{2})+$").find(redirect)
-        if (androidForm != null && androidForm.groupValues[1].isNotBlank()) return null
-        return "redirect_uri is neither msal<client-id>://auth nor msauth://<package>/<signature-hash>"
+        val androidForm = ANDROID_REDIRECT.find(redirect)
+        if (androidForm == null || androidForm.groupValues[1].isBlank()) {
+            return "redirect_uri is neither msal<client-id>://auth nor msauth://<package>/<signature-hash>"
+        }
+        // The hash must survive percent-decoding: that decoded value is what the manifest intent filter
+        // has to carry, and a redirect whose hash decodes to nothing can never reach the app.
+        val hash = MsalRedirectPath.signatureHash(redirect)
+        if (hash.isNullOrBlank()) return "redirect_uri has no usable signature hash"
+        return null
     }
+
+    /** The `msauth://` form, restricted to the characters a package name and base64 hash can contain. */
+    private val ANDROID_REDIRECT = Regex("^msauth://([^/]+)/(?:[A-Za-z0-9+/=_.-]|%[0-9A-Fa-f]{2})+$")
 }
