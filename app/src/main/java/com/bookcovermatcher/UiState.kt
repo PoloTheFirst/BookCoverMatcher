@@ -172,6 +172,11 @@ data class SessionDetailUi(
     val query: String?,
     val items: List<SavedItemUi>,
     val comparisonOnly: Boolean,
+    /**
+     * The original captured/uploaded image saved with this profile, shown at the top of the screen.
+     * Null for profiles saved before v2.5.0 and for sessions that never had a source image.
+     */
+    val original: File? = null,
 )
 
 /** One folder in the picker. [alreadyContains] is shown instead of silently skipping. */

@@ -9,9 +9,9 @@ problem is the APK or the device/transfer.
 | | Debug build | Release build |
 |---|---|---|
 | File | `app/build/outputs/apk/debug/app-debug.apk` | `app/build/outputs/apk/release/app-release.apk` (a copy also sits in `app/release/app-release.apk`) |
-| Size (v2.5.0-dev.5) | 336,203,213 B (320.63 MiB) | 331,118,159 B (315.78 MiB) |
-| SHA-256 (v2.5.0-dev.5) | `80812419206F0F2A29F8866C6A18549FD5CB5F54CF96194FFFF5D189BD083754` | `9604960C1BB2F6CBA11805E1C4B0C970201AAF6806FD48C09B394F89E271D284` |
-| Package / version | `com.bookcovermatcher` · `220` / `2.5.0-dev.5` | identical |
+| Size (v2.5.0) | 336,866,830 B (321.27 MiB) | 331,134,539 B (315.79 MiB) |
+| SHA-256 (v2.5.0) | `9037F6DB6A4E713EE4F18E2887163C8D2D5D6B3BF3DB71B27E098A0E790A0C36` | `FFA171DDBBD08F9647EA5B785C9B86D88F9310AC2E64636D46D78DF9CD0933A5` |
+| Package / version | `com.bookcovermatcher` · `221` / `2.5.0` | identical |
 | Signature | v2 only · `C=US, O=Android, CN=Android Debug` (`7a2510fd…`) | v2 only · `C=US, O=Android, CN=Android Debug` |
 | ABIs inside | `arm64-v8a`, `x86_64` | identical |
 | PaddleOCR models | bundled (132.2 MiB, hash-verified in the APK) | identical |
@@ -36,7 +36,7 @@ machine-local: an APK built elsewhere will not replace this one, and Android the
 
 ```powershell
 Get-FileHash app\build\outputs\apk\release\app-release.apk -Algorithm SHA256
-# must equal 33B89335D5B8B0C9B76C32AFAE65FEDA65451060F98A298F86E33C4C26A969CA for v2.5.0-dev.5
+# must equal FFA171DDBBD08F9647EA5B785C9B86D88F9310AC2E64636D46D78DF9CD0933A5 for v2.5.0
 
 & "$env:LOCALAPPDATA\Android\Sdk\build-tools\35.0.0\apksigner.bat" verify --verbose --print-certs `
     app\build\outputs\apk\release\app-release.apk
@@ -44,7 +44,7 @@ Get-FileHash app\build\outputs\apk\release\app-release.apk -Algorithm SHA256
 
 & "$env:LOCALAPPDATA\Android\Sdk\build-tools\35.0.0\aapt2.exe" dump badging `
     app\build\outputs\apk\release\app-release.apk | Select-Object -First 3
-# package: name='com.bookcovermatcher' versionCode='220' versionName='2.5.0-dev.5' … minSdkVersion:'26'
+# package: name='com.bookcovermatcher' versionCode='221' versionName='2.5.0' … minSdkVersion:'26'
 ```
 
 If any of those three disagree with the table above, the file you have is not the file that was built: re-copy it.
@@ -74,7 +74,7 @@ Verified on this machine, from the committed source:
 * `app-release.apk` (the exact file above) — `adb install` **succeeded**, app launched, Home screen rendered, the
   OCR panel reported `chrome-lens-py 3.8.2 · OCR only, no product search`.
 * Emulator: `Medium_Phone_API_37.0` / AVD `Pixel_8`, Android **API 37**, ABI **x86_64**
-  (`primaryCpuAbi=x86_64`, `versionCode=220`, `versionName=2.5.0-dev.5`).
+  (`primaryCpuAbi=x86_64`, `versionCode=221`, `versionName=2.5.0`).
 
 If the APK verifies here and the phone is Android 8.0+ with a complete copy, the remaining causes are: an existing
 install signed with another certificate (§1), or Play Protect blocking a sideloaded build

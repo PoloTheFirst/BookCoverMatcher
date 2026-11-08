@@ -14,7 +14,7 @@ import org.junit.Test
 class BookmarkFormTest {
 
     @Test fun theFolderAndBookmarkPlaceholdersAreTheExactSamples() {
-        assertEquals("ブルアカ", BookmarkForm.FOLDER_NAME_PLACEHOLDER)
+        assertEquals("e.g. ブルアカ", BookmarkForm.FOLDER_NAME_PLACEHOLDER)
         assertEquals("みつ", BookmarkForm.TITLE_PLACEHOLDER)
         assertEquals(
             "https://www.dlsite.com/maniax-touch/work/=/product_id/RJ01266914.html",

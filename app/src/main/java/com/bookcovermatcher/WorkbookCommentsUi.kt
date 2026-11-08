@@ -222,7 +222,7 @@ data class WorkbookCommentsUi(
      *
      * An override exists only where the applied mapping differs from the selected profile view (or from
      * detection); applying a mapping that changes nothing stores nothing, which is why an unchanged mapping
-     * leaves the Detected status blue. Switching the profile view clears these â€” they are the edits of one
+     * leaves the Detected status blue. Switching the profile view clears these — they are the edits of one
      * configuration, not saved data.
      */
     val sheetMappings: Map<String, SheetMapping> = emptyMap(),
@@ -231,7 +231,7 @@ data class WorkbookCommentsUi(
     /** Headers of the worksheet being mapped, in the workbook's own order. */
     val mappingHeaders: List<String> = emptyList(),
     val mappingSheet: String? = null,
-    /** Records as the draft mapping reads them â€” the preview before anything is applied. */
+    /** Records as the draft mapping reads them — the preview before anything is applied. */
     val mappingPreview: List<CatalogEntry> = emptyList(),
     val mappingIssues: List<MappingIssue> = emptyList(),
     val mappingDirty: Boolean = false,
@@ -286,7 +286,7 @@ data class WorkbookCommentsUi(
             sheetName = selectedSheet,
         )
 
-    /** The whole inventory, before filters â€” the number the filter chips compare against. */
+    /** The whole inventory, before filters — the number the filter chips compare against. */
     val allImages: List<ImageRow> get() = analysis?.images.orEmpty()
 
     val selectedRows: List<ImageRow> get() = allImages.filter { it.key in selectedImages }
@@ -301,7 +301,7 @@ data class WorkbookCommentsUi(
     /** Catalogue tables in the current worksheet scope: one sheet's tables, or all of them. */
     val scopedTables get() = CatalogueFiltering.tablesFor(tables, selectedSheet)
 
-    /** Selectable filter fields of the scoped catalogues (â‰¥2 distinct values, duplicate labels disambiguated). */
+    /** Selectable filter fields of the scoped catalogues (≥2 distinct values, duplicate labels disambiguated). */
     val filterFields: List<FilterField> get() = CatalogueFiltering.fields(scopedTables)
 
     /** The field whose values the picker is showing, when it is open. */
@@ -360,7 +360,7 @@ data class WorkbookCommentsUi(
      *
      * Profiles, the mapping draft, the three worksheet scopes, the gallery and timeline filters, the chosen
      * date columns and the selected section all survive, so a rescan cannot undo a preference. Only the
-     * results that came from the old bytes are cleared â€” and when the Insights directory is on screen the
+     * results that came from the old bytes are cleared — and when the Insights directory is on screen the
      * busy flag is raised at once, so the panels say "reading" instead of showing an empty report.
      */
     fun reloadingForRescan(): WorkbookCommentsUi = copy(
@@ -400,7 +400,7 @@ data class WorkbookCommentsUi(
 
     /**
      * A failed scan or rescan: the previous results are gone, the reason is on screen, and no rebuild is
-     * pending â€” an error must never leave the panels stuck in their "reading" state.
+     * pending — an error must never leave the panels stuck in their "reading" state.
      */
     fun reloadFailed(message: String): WorkbookCommentsUi = copy(
         loading = false,
@@ -507,8 +507,8 @@ data class WorkbookCommentsUi(
      *
      * This is a statement about the mapping, not about what the user clicked: an applied mapping whose assignments
      * equal the detected ones is *detected*, so **Apply mapping** on an unchanged mapping leaves the status blue,
-     * and restoring the detected assignments brings the blue back. Comparison is [MappingEquality]'s â€” semantic,
-     * blank-tolerant and header-normalized â€” so a different object representing the same assignments still counts
+     * and restoring the detected assignments brings the blue back. Comparison is [MappingEquality]'s — semantic,
+     * blank-tolerant and header-normalized — so a different object representing the same assignments still counts
      * as detected.
      */
     val isDetectedMapping: Boolean
@@ -539,13 +539,13 @@ data class WorkbookCommentsUi(
      * The Default Order values of the mapping preview, in the draft's own mapping.
      *
      * This is what the Fields screen shows before anything is applied: the workbook's own text, a number
-     * when the whole cell is one, and a blank when the cell is blank â€” nothing is invented.
+     * when the whole cell is one, and a blank when the cell is blank — nothing is invented.
      */
     val defaultOrderValues: List<DefaultOrderValue>
         get() = mappingPreview.map { DefaultOrdering.of(it) }
 
     /**
-     * The records the worksheet selection alone allows â€” the denominator of the gallery's count line, so
+     * The records the worksheet selection alone allows — the denominator of the gallery's count line, so
      * "12 of 40" never counts cards from a worksheet the user excluded.
      */
     val galleryEligible: List<CatalogEntry>
@@ -557,7 +557,7 @@ data class WorkbookCommentsUi(
     /** The timeline of the selected date meaning, with its filter applied (what the screen shows). */
     val timeline: CollectionTimeline? get() = timelineView?.timeline
 
-    /** The timeline as it was built, before the filter â€” the denominator of "x of y". */
+    /** The timeline as it was built, before the filter — the denominator of "x of y". */
     val unfilteredTimeline: CollectionTimeline? get() = timelineOf(timelineMode)
 
     /** The timeline of one meaning with its own filter applied. */
@@ -567,7 +567,7 @@ data class WorkbookCommentsUi(
     /** The filter of the selected meaning, or an empty one. */
     val currentTimelineFilter: TimelineFilter get() = timelineFilter(timelineMode)
 
-    /** The filter kept for [mode] â€” each date meaning has its own. */
+    /** The filter kept for [mode] — each date meaning has its own. */
     fun timelineFilter(mode: TimelineMode): TimelineFilter = timelineFilters[mode] ?: TimelineFilter()
 
     /** Years that actually exist on the selected timeline, newest first: the range a picker offers. */
@@ -575,7 +575,7 @@ data class WorkbookCommentsUi(
 
     /**
      * Identity of what the timeline is showing. The list watches this and returns to the top when the
-     * meaning, the ordering or the filter changes â€” never for an unrelated recomposition.
+     * meaning, the ordering or the filter changes — never for an unrelated recomposition.
      */
     val timelineOrderKey: String
         get() = listOf(
@@ -588,7 +588,7 @@ data class WorkbookCommentsUi(
     /** Selectable worksheets of the open workbook, in workbook order. */
     val sheetChoices: List<SheetChoice> get() = catalog?.sheetChoices.orEmpty()
 
-    /** `All worksheets`, `LIST`, or `2 of 3 worksheets` â€” a summary that fits a filter bar. */
+    /** `All worksheets`, `LIST`, or `2 of 3 worksheets` — a summary that fits a filter bar. */
     fun scopeLabel(scope: SheetScope): String {
         if (scope.isAll) return "All worksheets"
         val names = sheetChoices.filter { it.key in scope.keys }.map { it.name }
@@ -609,7 +609,7 @@ data class WorkbookCommentsUi(
     /**
      * The count the Insights directory shows.
      *
-     * It is never hidden â€” a zero is `0 errors`, an unbuilt report is `â€”`, a running build is `readingâ€¦` â€”
+     * It is never hidden — a zero is `0 errors`, an unbuilt report is `—`, a running build is `reading…` —
      * so the same directory entry cannot look count-less just because the spreadsheet was (re)opened.
      */
     val insightCountLabel: String
@@ -643,7 +643,7 @@ data class WorkbookCommentsUi(
     val dateSetupTable: CatalogueTable?
         get() = catalog?.tables?.let { tables -> dateSetupSheet?.let { tables[it] } ?: tables.values.firstOrNull() }
 
-    /** Every column of that worksheet, in workbook order â€” the list the dialog offers. */
+    /** Every column of that worksheet, in workbook order — the list the dialog offers. */
     val dateSetupColumns: List<CatalogueField> get() = dateSetupTable?.fields.orEmpty()
 
     /**
@@ -685,7 +685,7 @@ data class WorkbookCommentsUi(
     val thumbCellDp: Int get() = when (thumbSize) { 0 -> 84; 2 -> 168; else -> 112 }
     val thumbBoxDp: Int get() = when (thumbSize) { 0 -> 72; 2 -> 152; else -> 100 }
 
-    /** Per-worksheet counts, from parsed data only â€” a sheet with no verifiable link shows 0, not a guess. */
+    /** Per-worksheet counts, from parsed data only — a sheet with no verifiable link shows 0, not a guess. */
     val sheetSummaries: List<SheetSummary>
         get() = sheets.map { sheet ->
             val sheetComments = comments.filter { it.sheetName == sheet.name }
@@ -713,7 +713,7 @@ fun WorkbookCommentsUi.sheet(name: String?): SheetInfo? =
 /**
  * Opens the source overlay for [location].
  *
- * A verified location is offered as its parser-proven destination(s) â€” one opens straight away, several
+ * A verified location is offered as its parser-proven destination(s) — one opens straight away, several
  * are listed for the user to choose. Every other case opens the overlay with an explicit explanation
  * instead of a destination, because there is nothing honest to navigate to.
  */
@@ -786,7 +786,7 @@ private const val NO_STALE_LOCATION =
  * The cell-value dialog of the Catalogue table.
  *
  * [sheetName], [row] and [column] are the **source** identity of the cell, so the value, the hyperlink and
- * the navigation all describe the same workbook cell â€” never whatever sits at that screen position after a
+ * the navigation all describe the same workbook cell — never whatever sits at that screen position after a
  * sort, a filter or a scroll.
  */
 data class CellPeekUi(
@@ -800,10 +800,10 @@ data class CellPeekUi(
     /** The workbook's own hyperlink for this cell, or null when the cell has none. */
     val link: CellLink? = null,
 ) {
-    /** `D128` â€” the cell reference inside its worksheet. */
+    /** `D128` — the cell reference inside its worksheet. */
     val cell: String get() = SheetCells.cellRef(row, column)
 
-    /** `LIST!D128` â€” the location as a person reads it. */
+    /** `LIST!D128` — the location as a person reads it. */
     val locationLabel: String get() = "$sheetName!$cell"
 
     val isBlank: Boolean get() = value.isEmpty()
@@ -941,7 +941,7 @@ fun WorkbookCommentsUi.dateSettingsLoaded(settings: TimelineDateSettings): Workb
  * choice as the draft.
  *
  * No header is ever pre-selected by name: an unconfigured workbook opens with both slots empty, even when
- * a column is called `å‡ºç‰ˆæ—¥ä»˜`.
+ * a column is called `出版日付`.
  */
 fun WorkbookCommentsUi.openDateSetup(sheetName: String? = null): WorkbookCommentsUi {
     val tables = catalog?.tables.orEmpty()
@@ -995,7 +995,7 @@ fun WorkbookCommentsUi.dateSetupCleared(): WorkbookCommentsUi =
  * Restores what this workbook was last left with: the three worksheet selections and each timeline's year
  * range.
  *
- * Nothing is invented â€” a workbook with no saved entry keeps the defaults (all worksheets, no year range) â€”
+ * Nothing is invented — a workbook with no saved entry keeps the defaults (all worksheets, no year range) —
  * and the saved worksheet keys are reconciled against this workbook's real sheets, so a selection for a
  * sheet that has been renamed away cannot leave a screen filtered down to nothing.
  */
@@ -1022,7 +1022,7 @@ fun WorkbookCommentsUi.restoredView(view: InsightsView): WorkbookCommentsUi {
 
 /**
  * The selections worth remembering for this workbook: the three worksheet scopes and the year range of each
- * date meaning. The search text is deliberately **not** stored â€” it is a query, not a view setting.
+ * date meaning. The search text is deliberately **not** stored — it is a query, not a view setting.
  */
 fun WorkbookCommentsUi.persistableView(): InsightsView = InsightsView(
     workbookSha256 = sha256,
@@ -1107,7 +1107,7 @@ fun WorkbookCommentsUi.closeCellPeek(): WorkbookCommentsUi =
  * Opens the same cell dialog from the **Source location** preview.
  *
  * The identity comes from the source row and column that were drawn, and everything shown comes from
- * [SheetWindow.cellAt] â€” the value as the workbook displays it, and that cell's own hyperlink. A cell the
+ * [SheetWindow.cellAt] — the value as the workbook displays it, and that cell's own hyperlink. A cell the
  * window does not draw opens nothing rather than a dialog about a neighbour.
  */
 fun WorkbookCommentsUi.peekSourceCell(window: SheetWindow, row: Int, column: Int): WorkbookCommentsUi {
@@ -1142,7 +1142,7 @@ fun Map<CatalogField, String?>.withField(field: CatalogField, header: String?): 
 }
 
 /**
- * Applies [columns] to the **worksheet being inspected** â€” and to no other.
+ * Applies [columns] to the **worksheet being inspected** — and to no other.
  *
  * The comparison is against what that worksheet reads **without** the edit ([baselineColumnsFor]: the
  * selected profile's entry, or its detected headers). When the applied columns mean the same thing, no edit is
@@ -1170,8 +1170,8 @@ fun WorkbookCommentsUi.applySheetMapping(
  * Switches the profile **view**: null shows the Detected results, a name shows that saved profile's configuration.
  *
  * This only changes which configuration is displayed and read; it does not exchange, merge or rewrite any saved
- * profile. The applied edits of the previous view are dropped with it â€” they were edits *of that configuration*,
- * not saved data â€” so the newly selected view is displayed exactly as it was saved. A name this workbook no longer
+ * profile. The applied edits of the previous view are dropped with it — they were edits *of that configuration*,
+ * not saved data — so the newly selected view is displayed exactly as it was saved. A name this workbook no longer
  * has falls back to Detected, which is the honest state when a profile was deleted elsewhere.
  */
 fun WorkbookCommentsUi.selectProfileView(name: String?): WorkbookCommentsUi {
@@ -1184,7 +1184,7 @@ fun WorkbookCommentsUi.selectProfileView(name: String?): WorkbookCommentsUi {
  * The snapshot a new profile would save under [name], built from the configuration currently in effect.
  *
  * Every worksheet gets **its own** entry: the one being edited takes the draft (the user's intended changes), and
- * every other worksheet keeps the mapping it already has â€” the selected profile's entry, the columns applied to it,
+ * every other worksheet keeps the mapping it already has — the selected profile's entry, the columns applied to it,
  * or its detected headers. Nothing is inherited from *the worksheet on screen*: that worksheet is never a template
  * for the others, and an empty value stays where it is.
  *
@@ -1247,7 +1247,7 @@ fun WorkbookCommentsUi.persistableMapping(): WorkbookMapping = WorkbookMapping(
 /**
  * Restores the profile view and the applied edits this workbook was last left with.
  *
- * Saved profile data is **not** restored here â€” the profiles come from their own store, and this function only
+ * Saved profile data is **not** restored here — the profiles come from their own store, and this function only
  * selects one of them and replays the per-worksheet edits. A name whose profile has been deleted falls back to the
  * Detected view instead of showing a configuration that no longer exists.
  *

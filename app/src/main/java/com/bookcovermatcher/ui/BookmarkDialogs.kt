@@ -165,7 +165,7 @@ fun ProfilePickerDialog(
             FormField("Create new folder (optional)", newName, {
                 newName = it
                 if (it.isNotBlank()) selectedId = null
-            }, "e.g. Doujinshi")
+            }, BookmarkForm.FOLDER_NAME_PLACEHOLDER)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GradientButton(onCancel, Palette.GreyGradient, Color(0xFFEAEEF5), Modifier.weight(1f), minHeight = 46.dp) {

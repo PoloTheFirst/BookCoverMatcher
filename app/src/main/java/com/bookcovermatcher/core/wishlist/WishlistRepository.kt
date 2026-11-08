@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package com.bookcovermatcher.core.wishlist
+﻿package com.bookcovermatcher.core.wishlist
 
 import java.io.File
 import java.io.IOException
@@ -54,7 +54,19 @@ class WishlistRepository(
     private val recordsFile = File(root, "records.json")
     private val thumbDir = File(root, "thumbs")
 
+    /**
+     * The original captured/uploaded images, one file per result profile.
+     *
+     * A sibling of `thumbs/` rather than a bigger thumbnail: the two have different lifetimes and
+     * different purposes (a 44×58 row image versus the picture the user actually took), and keeping
+     * them apart is what stops a "thumbnail only" profile from being indistinguishable from a real one.
+     */
+    private val originalDir = File(root, "originals")
+
     fun thumbFile(name: String): File = File(thumbDir, File(name).name)
+
+    /** The original-image file for [name], or a path that simply does not exist yet. */
+    fun originalFile(name: String): File = File(originalDir, File(name).name)
 
     // =========================================================================================
     // Reading
@@ -130,7 +142,7 @@ class WishlistRepository(
         state.entries.removeAll { entry -> doomed.any { it.id == entry.sessionId } }
         prune(state)
         save(state)
-        doomed.forEach { removeScanThumb(it) }
+        doomed.forEach { removeSessionImages(it) }
         return true
     }
 
@@ -164,6 +176,7 @@ class WishlistRepository(
             query = draft.query?.trim()?.takeIf { it.isNotEmpty() },
             createdAtMillis = now,
             scanThumbName = draft.scanThumbJpeg?.let { writeThumb("${sessionId}_scan.jpg", it) },
+            originalImageName = draft.originalJpeg?.let { writeOriginal("${sessionId}_original.jpg", it) },
         )
         state.sessions.add(session)
 
@@ -187,6 +200,7 @@ class WishlistRepository(
             // every draft was a duplicate of another in the same request: do not keep an empty session
             state.sessions.removeAll { it.id == session.id }
             session.scanThumbName?.let { thumbFile(it).delete() }
+            session.originalImageName?.let { originalFile(it).delete() }
             throw InvalidItemException("Those results are already in this session.")
         }
         save(state)
@@ -201,7 +215,7 @@ class WishlistRepository(
         state.entries.removeAll { it.sessionId == id }
         prune(state)
         save(state)
-        removeScanThumb(session)
+        removeSessionImages(session)
         return true
     }
 
@@ -215,7 +229,7 @@ class WishlistRepository(
         val session = state.sessions[index]
         state.sessions[index] = SearchSession(
             session.id, folder.id, session.kind, session.title, session.query,
-            session.createdAtMillis, session.scanThumbName,
+            session.createdAtMillis, session.scanThumbName, session.originalImageName,
         )
         save(state)
         return true
@@ -229,7 +243,7 @@ class WishlistRepository(
         val trimmed = name.trim().ifEmpty { session.title }
         state.sessions[index] = SearchSession(
             session.id, session.folderId, session.kind, trimmed, session.query,
-            session.createdAtMillis, session.scanThumbName,
+            session.createdAtMillis, session.scanThumbName, session.originalImageName,
         )
         save(state)
         return true
@@ -607,14 +621,20 @@ class WishlistRepository(
                 .filter { it.folderId == source.id }
                 .sortedBy { it.createdAtMillis }
                 .forEach { session ->
+                    val copyId = uniqueSessionId(state)
                     val sessionCopy = SearchSession(
-                        id = uniqueSessionId(state),
+                        id = copyId,
                         folderId = copy.id,
                         kind = session.kind,
                         title = session.title,
                         query = session.query,
                         createdAtMillis = session.createdAtMillis,
                         scanThumbName = null,
+                        // A copy owns its own file: sharing one name would let deleting either copy
+                        // remove the other profile's picture.
+                        originalImageName = session.originalImageName?.let { name ->
+                            copyOriginal(name, "${copyId}_original.jpg")
+                        },
                     )
                     state.sessions.add(sessionCopy)
                     state.entries
@@ -652,7 +672,7 @@ class WishlistRepository(
 
     private fun withFolder(session: SearchSession, folderId: String): SearchSession = SearchSession(
         session.id, folderId, session.kind, session.title, session.query,
-        session.createdAtMillis, session.scanThumbName,
+        session.createdAtMillis, session.scanThumbName, session.originalImageName,
     )
 
     /** `"Name"` -> `"Name (copy)"`; copied names stay readable instead of stacking suffixes. */
@@ -678,7 +698,7 @@ class WishlistRepository(
         return try {
             save(state)
             // Only after the new file is safely in place may the old scan thumbnails go.
-            removedSessions.forEach { removeScanThumb(it) }
+            removedSessions.forEach { removeSessionImages(it) }
             report
         } catch (e: Exception) {
             BatchReport(
@@ -746,8 +766,50 @@ class WishlistRepository(
         return name
     }
 
-    private fun removeScanThumb(session: SearchSession) {
+    /**
+     * Writes one original image atomically: temp file first, then rename.
+     *
+     * The rename is what makes an interrupted save harmless — a half-written file never appears under
+     * the name a record points at, so a profile either has its real image or none. A failure here is
+     * reported as [IOException] to the caller (`saveSession` has not written `records.json` yet), which
+     * keeps the store consistent instead of leaving a dangling reference.
+     */
+    private fun writeOriginal(name: String, bytes: ByteArray): String {
+        originalDir.mkdirs()
+        val target = originalFile(name)
+        val tmp = File(originalDir, "$name.tmp")
+        tmp.writeBytes(bytes)
+        if (target.exists() && !target.delete()) {
+            tmp.delete()
+            throw IOException("cannot replace ${target.name}")
+        }
+        if (!tmp.renameTo(target)) {
+            tmp.delete()
+            throw IOException("cannot write ${target.name}")
+        }
+        return name
+    }
+
+    /**
+     * Duplicates one original image under a new name, used when a folder is copied.
+     *
+     * Null when the source file is gone or cannot be read or written: the copy then honestly has no
+     * original image, rather than pointing at a file the other profile owns and may delete.
+     */
+    private fun copyOriginal(source: String, name: String): String? {
+        val from = originalFile(source)
+        if (!from.isFile) return null
+        return try {
+            writeOriginal(name, from.readBytes())
+        } catch (e: IOException) {
+            null
+        }
+    }
+
+    /** Deletes the files a session owns: its row thumbnail and its original image. */
+    private fun removeSessionImages(session: SearchSession) {
         session.scanThumbName?.let { thumbFile(it).delete() }
+        session.originalImageName?.let { originalFile(it).delete() }
     }
 
     private fun ensureReservedIn(state: State): WishlistFolder {
@@ -1007,6 +1069,8 @@ class WishlistRepository(
                         "query" to s.query,
                         "createdAt" to s.createdAtMillis,
                         "scanThumb" to s.scanThumbName,
+                        // The original captured/uploaded image, separate from the row thumbnail.
+                        "originalImage" to s.originalImageName,
                     )
                 },
                 "items" to state.items.map { i ->
@@ -1130,6 +1194,9 @@ class WishlistRepository(
                 query = map["query"] as? String,
                 createdAtMillis = longOf(map["createdAt"]),
                 scanThumbName = map["scanThumb"] as? String,
+                // Absent in records written before v2.5.0: those profiles simply have no original
+                // image, and the UI shows a placeholder instead of inventing one from the thumbnail.
+                originalImageName = map["originalImage"] as? String,
             )
         }
 

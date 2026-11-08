@@ -1,18 +1,81 @@
-# Scope every report by worksheet, follow the workbook's own order, read dates as dates
+﻿# Scope every report by worksheet, follow the workbook's own order, read dates as dates
 
-**v2.4.0 is a stable release.** The Insights gallery can now be limited to **any set of worksheets** —
-all of them, one, or several — and that selection composes with its search, cover and missing-data
+**v2.4.0 is a stable release.** The Insights gallery can now be limited to **any set of worksheets** â€”
+all of them, one, or several â€” and that selection composes with its search, cover and missing-data
 filters. Every worksheet selection and every timeline year range is **remembered per workbook**, when two
 records share a date the timeline now follows the workbook's own **Default order** column, the rarely used
-**Imported** timeline is gone (Timeline keeps **Published** and **Acquired**), and in *Catalogue → Table* a
+**Imported** timeline is gone (Timeline keeps **Published** and **Acquired**), and in *Catalogue â†’ Table* a
 date-formatted cell is shown as a date (`2026-10-31`, or `2026-10-31 14:30`) with a percentage rounded to
 **two decimals at most** (`12.35%`). One display rule now caps every measurement at two decimals, while the
 stored values are left exactly as the workbook wrote them.
 
-The **Source location** preview reads its cells with that same rule and is now tappable like the table — every
-value, link and copy describes the **original worksheet cell**, not the position on screen — and the
-**Default order** column can be changed from *Insights → Fields* with a real button and is remembered per
+The **Source location** preview reads its cells with that same rule and is now tappable like the table â€” every
+value, link and copy describes the **original worksheet cell**, not the position on screen â€” and the
+**Default order** column can be changed from *Insights â†’ Fields* with a real button and is remembered per
 workbook.
+
+## v2.5.0 (2026-11-08)
+
+**Version code/name: 221 / 2.5.0.** The first stable release of the 2.5 line. It carries two OCR engines
+(Chrome Lens and the native PP-OCRv6 medium engine, both selectable per READ THE COVER request), and this
+release fixes four user-reported defects on top of that work. No feature was redesigned and no parsing,
+matching or catalogue rule was changed.
+
+### Fixed
+
+* **The cache-clear confirmation is readable again.** *More â†’ Clear online session cache* showed
+  `Session cache cleared Ã¢â‚¬" saved bookmarks and wishlist items are untouched.` because the Kotlin source
+  had been read as Windows-1252 and written back as UTF-8, so the em dash (U+2014) survived as the three
+  characters `Ã¢â‚¬â€`. The text is now `Session cache cleared â€” saved bookmarks and wishlist items are
+  untouched.`, the sentence lives in `SessionCacheMessages.CLEARED`, and the same repair was applied to
+  every other occurrence of the defect in `app/src` and `ONLINE_SEARCH.md` (109 lines across 4 files).
+  A unit test pins the exact sentence, refuses the damaged characters and scans the packaged sources for
+  the `Ã¢â‚¬` signature so it cannot come back quietly.
+* **A saved result profile keeps its original picture.** A profile used to keep only the 44Ã—58 row
+  thumbnail â€” and an online result profile kept no image at all â€” so opening a profile inside its folder
+  showed no picture. The original captured or uploaded image is now JPEG-encoded at its own resolution
+  (quality 92; `Config.MAX_IMAGE_DECODE` still bounds a picked photo) and stored as its own file in
+  `originals/`, referenced by a nullable `originalImage` field, written atomically (temp file + rename)
+  and deleted with the profile only when that profile owns it. Copying a folder duplicates the image
+  rather than sharing one file. Profiles saved before this release have no reference and say so instead
+  of showing a thumbnail in the original's place.
+* **The opened profile shows that picture at the top.** The result-profile detail view inside a wishlist
+  folder now draws the original image above the saved results and their metadata, aspect ratio preserved
+  (`ContentScale.Fit`, never cropped into a tile), height capped at 240 dp, and tappable to open it full
+  size. Folder and session rows keep their existing thumbnails.
+* **Search â†’ Add entire result profile** placeholder is `e.g. ãƒ–ãƒ«ã‚¢ã‚«` (was `e.g. Doujinshi`).
+* **Wishlist â†’ Create folder** placeholder is `e.g. ãƒ–ãƒ«ã‚¢ã‚«` (the `e.g. ` prefix had been lost). Both
+  dialogs now read the same `BookmarkForm.FOLDER_NAME_PLACEHOLDER`, so they cannot drift apart again.
+
+### Tests
+
+* `OriginalProfileImageTest` (8 tests): the original is its own file with its own bytes, separate from
+  the thumbnail; it survives a reopened repository; two profiles never share one; deleting a profile
+  removes exactly its own files; a profile without an image still loads; a `records.json` written before
+  the field loads; a storage failure leaves the library readable and records nothing; a copied folder
+  gets its own copy of the file.
+* `SessionCacheMessageTest` (5 tests): the exact sentence, no damaged characters, the packaged sources
+  carry no `Ã¢â‚¬` double encoding, and the folder placeholder carries its `e.g. ` prefix.
+* `BookmarkFormTest` updated for the new placeholder text.
+
+### Verified
+
+* Full JVM suite: **981 tests, 0 failures, 7 skipped** (see `README.md` Â§7 for the exact command).
+* Emulator `Medium_Phone_API_37.0` (Android 17, x86_64): cache-clear text, both folder placeholders, and a
+  camera-captured profile showing its original image at the top of its detail view, still there after a
+  process restart. See `historical_prompt/v2.5.0-ag.md` for the scenario-by-scenario record.
+* Release APK built with the packaged PP-OCRv6 assets and both ABIs; contents, version and signature
+  reported in the same document.
+
+### Known limitations
+
+* The pipeline holds decoded pixels, not the camera's own file, so a saved original is a re-encoded JPEG
+  rather than the untouched original file. A picked photo is bounded by `Config.MAX_IMAGE_DECODE`.
+* Profiles saved before v2.5.0 have no original image; one cannot be recovered from a thumbnail, and the
+  detail view says so instead of inventing one.
+
+---
+
 
 ## v2.4.0-rc.7 (2026-11-05)
 
@@ -23,20 +86,20 @@ rule was changed.
 ### Fixed
 
 * **A catalogue that stops at an empty row now says so.** The reader ends a table at the first all-empty
-  row, which is deliberate — skipping blank rows could merge two unrelated blocks that share one sheet —
+  row, which is deliberate â€” skipping blank rows could merge two unrelated blocks that share one sheet â€”
   but a sheet with data below that row was reported with fewer records than it holds and nothing
   explained the difference: `layout_blank_rows.xlsx` showed 8 comments and **3** records, silently
   (QA defect XLS-01). The reader now counts the rows below the blank row **that carry data in the
   table's own columns** (`CatalogueTable.truncation`), and that fact is shown in three places: a warning
   line under the record count in *Catalogue*, the same line under the worksheet's header in the Table
-  view ("5 rows below empty row 5 were not read — a blank row ends a table"), and a warning finding in
-  *Insights → Health* ("Rows below an empty row were not read", with the row numbers and how to fix the
+  view ("5 rows below empty row 5 were not read â€” a blank row ends a table"), and a warning finding in
+  *Insights â†’ Health* ("Rows below an empty row were not read", with the row numbers and how to fix the
   sheet). The stop rule, every fixture's record count and every worksheet's mapping are unchanged.
 * **The matcher's default range covers the layout the app documents.** A fresh install started on
   `A1:B20`, two columns wide, while the doujin catalogue keeps its 24 columns in `A:X` and its cover
   pictures in the title column `D`, so a first run against a real workbook found nothing at all (QA
-  defect UI-01). The default is now `A1:Z5000` — a wide range costs nothing, because planning an
-  extraction reads the workbook's own drawing and comment anchors and keeps the ones inside the range —
+  defect UI-01). The default is now `A1:Z5000` â€” a wide range costs nothing, because planning an
+  extraction reads the workbook's own drawing and comment anchors and keeps the ones inside the range â€”
   and the empty-result message now names the range and says where covers usually sit, instead of only
   reporting the emptiness. A range the user has already typed is never overwritten.
 
@@ -58,10 +121,10 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
 | Check | Result |
 |---|---|
 | Fresh install's range field | `A1:Z5000` |
-| `layout_blank_rows.xlsx` import | staged `layout_blank_rows.xlsx · 34 KB` |
-| Catalogue record count (unchanged) | `3 record(s) shown · all worksheets` |
+| `layout_blank_rows.xlsx` import | staged `layout_blank_rows.xlsx Â· 34 KB` |
+| Catalogue record count (unchanged) | `3 record(s) shown Â· all worksheets` |
 | Catalogue warning | `LIST: 5 rows below empty row 5 not read` |
-| Table view note | `5 rows below empty row 5 were not read — a blank row ends a table` |
+| Table view note | `5 rows below empty row 5 were not read â€” a blank row ends a table` |
 | Health finding | "Rows below an empty row were not read": the catalogue stops at row 5, 5 rows from row 6 are not counted, delete the empty row and rescan |
 | Fatal exceptions during the run | 0 |
 
@@ -79,7 +142,7 @@ Pixel 8 AVD (`emulator-5554`, Android 17 / API 37, `sdk_gphone64_x86_64`), debug
 **Version code/name: 220 / 2.5.0-dev.5.** The first stage of the OCR-engine migration: the native Rust
 PP-OCRv6 core is started, builds for both Android ABIs and is unit-tested, and the feasibility of the whole
 migration was verified against the real model artifacts. **The application's OCR behaviour is unchanged in this
-build** — the existing embedded-Python engine is still the only OCR path the app uses, because the native inference
+build** â€” the existing embedded-Python engine is still the only OCR path the app uses, because the native inference
 pipeline is not finished or device-verified yet.
 
 ### Added
@@ -87,24 +150,24 @@ pipeline is not finished or device-verified yet.
 * **`native/ocr`, a Rust crate for the native OCR core.** `cdylib` + `rlib`, no dependencies yet, `cargo test`
   green (13 tests) and cross-compiled for `aarch64-linux-android` and `x86_64-linux-android` with NDK r27d
   (`libbc_ocr.so`, 300.4 KB and 326.2 KB). Implemented and tested so far:
-  * `dict` — PP-OCR `CTCLabelDecode` index space (`blank = 0`, dictionary from class 1, optional trailing space
+  * `dict` â€” PP-OCR `CTCLabelDecode` index space (`blank = 0`, dictionary from class 1, optional trailing space
     class), greedy CTC decoding with repeat collapsing, blank skipping and an honest per-character confidence;
-  * `geom` — corner ordering by PaddleOCR's `get_mini_boxes` rule, quad size and vertical/horizontal
+  * `geom` â€” corner ordering by PaddleOCR's `get_mini_boxes` rule, quad size and vertical/horizontal
     classification (a vertical Japanese column must be recognisable as vertical), the affine solve and the
     bilinear perspective crop that turns a detected quad into an upright recogniser input, with clamping for
     degenerate or out-of-bounds quads.
-* **`tools/fetch-ppocrv6-models.ps1`** — reproducible download of the official ONNX artifacts with size checks,
+* **`tools/fetch-ppocrv6-models.ps1`** â€” reproducible download of the official ONNX artifacts with size checks,
   plus extraction of the recognition dictionary from the model's own `inference.yml`.
-* **`native/ocr/README.md`** — toolchain, build commands, model provenance and an explicit statement of what is
+* **`native/ocr/README.md`** â€” toolchain, build commands, model provenance and an explicit statement of what is
   and is not implemented.
 
 ### Verified (feasibility, not implementation)
 
-* `PaddlePaddle/PP-OCRv6_medium_det_onnx` → `inference.onnx`, **62,032,837 bytes**; DB post-processing parameters
+* `PaddlePaddle/PP-OCRv6_medium_det_onnx` â†’ `inference.onnx`, **62,032,837 bytes**; DB post-processing parameters
   from its `inference.yml`: `thresh 0.2`, `box_thresh 0.45`, `unclip_ratio 1.4`, `max_candidates 3000`.
-* `PaddlePaddle/PP-OCRv6_medium_rec_onnx` → `inference.onnx`, **76,554,979 bytes**; `PostProcess: CTCLabelDecode`
+* `PaddlePaddle/PP-OCRv6_medium_rec_onnx` â†’ `inference.onnx`, **76,554,979 bytes**; `PostProcess: CTCLabelDecode`
   with an inline **18,704-character** dictionary; `RecResizeImg` input `[3, 48, 320]`.
-* `ort` 2.0.0-rc.15 offers `api-17` … `api-31`, `load-dynamic` and `nnapi`; the app already ships ONNX Runtime
+* `ort` 2.0.0-rc.15 offers `api-17` â€¦ `api-31`, `load-dynamic` and `nnapi`; the app already ships ONNX Runtime
   **1.20.0**, so the only conflict-free arrangement is `api-20` + `load-dynamic` against that existing runtime.
 * Toolchain obtained on this machine: NDK r27d, Rust Android targets `aarch64-linux-android` /
   `x86_64-linux-android`, host `cargo test`.
@@ -116,7 +179,7 @@ pipeline is not finished or device-verified yet.
   measurement yet. `historical_prompt/v2.5.0-dev.5-ag.md` records the exact remaining work.
 * `chrome-lens-py`, Chaquopy and the Python runtime are **retained**: removing them before the native engine is
   proven would leave the app without OCR, which the release instructions forbid.
-* No claim is made about OCR accuracy, latency or memory of the native path — nothing was measured.
+* No claim is made about OCR accuracy, latency or memory of the native path â€” nothing was measured.
 
 ### Known limitations
 
@@ -131,19 +194,19 @@ results they act on.
 
 ### Added
 
-* **SauceNAO results show a picture when one can be obtained.** The card gains a fixed 60×82 dp thumbnail that fills
-  from, in order: the provider's own result image (`header.thumbnail`), then the result page's declared metadata —
+* **SauceNAO results show a picture when one can be obtained.** The card gains a fixed 60Ã—82 dp thumbnail that fills
+  from, in order: the provider's own result image (`header.thumbnail`), then the result page's declared metadata â€”
   `og:image:secure_url` / `og:image`, then `twitter:image` / `twitter:image:src`, then `<link rel="image_src">` /
   `itemprop="image"`. The first `<img>` on a page is deliberately **not** used. The box is sized before anything is
-  known about the image, so a picture arriving later cannot move the text, and it says `loading…`, `not loadable` or
+  known about the image, so a picture arriving later cannot move the text, and it says `loadingâ€¦`, `not loadable` or
   `no image` instead of leaving a gap. Provenance is kept on the candidate (`PROVIDER` vs the webpage metadata that
   declared it) and in the image's accessibility label.
 * **`Bookmark all discovery results`**, under the reverse-image section, next to the candidates it acts on. It
   bookmarks the eligible discovery results of the current search (SauceNAO and IQDB alike) and reports what happened
-  per provider, e.g. *"Bookmarked 1 discovery result(s) — 1 already there (IQDB 2)."*
+  per provider, e.g. *"Bookmarked 1 discovery result(s) â€” 1 already there (IQDB 2)."*
 * **Per-card `Bookmark` / `+ Wishlist` on discovery cards**, mirroring the platform result cards: a bookmark writes to
   `Bookmarks` only, the wishlist action opens the same folder picker every other card uses, and the chips state what
-  is already true (`Bookmarked ✓`, `In wishlist ✓`).
+  is already true (`Bookmarked âœ“`, `In wishlist âœ“`).
 
 ### Changed
 
@@ -151,7 +214,7 @@ results they act on.
   a caption that says so. Its behaviour is unchanged: it bookmarks the platform search results and nothing else.
 * **`Add entire result profile to wishlist` now includes the reverse-image discovery results.** It previously built
   its session from the offline top-5 plus the platform results and silently left discovery out, even when SauceNAO had
-  found the match — measured on an API 37 emulator as 5 items for a search whose discovery list held a further result.
+  found the match â€” measured on an API 37 emulator as 5 items for a search whose discovery list held a further result.
   The profile is now offline + platform + eligible discovery, deduplicated by item identity.
 * A discovery result is stored with `MatchType.VISUAL` and `matchTypeVerified`, which is exactly what a reverse-image
   provider did (it compared the pictures); the previous comment claiming nothing produces `VISUAL` is corrected.
@@ -164,8 +227,8 @@ results they act on.
   `Dismiss IQDB result`, and `Dismiss discovery result` for a card both providers reported, which is one card holding
   both references).
 * **A dropped discovery picture could have re-inserted a dismissed card.** Image loading is now patched by candidate
-  key through a rule that refuses a key that is no longer present, so a picture that arrives after a dismissal — or
-  after a newer search started — is discarded instead of restoring the card.
+  key through a rule that refuses a key that is no longer present, so a picture that arrives after a dismissal â€” or
+  after a newer search started â€” is discarded instead of restoring the card.
 
 ### Security
 
@@ -175,7 +238,7 @@ results they act on.
   follows none by itself here). Pages are read up to 512 KB (a longer page is truncated at the cap, because the
   metadata lives in the head), images up to 400 KB, with connect/read timeouts and a content-type check; image bytes
   are decoded header-only to reject a payload that expands beyond 4096 px. No JavaScript is executed, no browser
-  automation is used, and a refusal is reported as "no image" — a valid result is never removed because its picture
+  automation is used, and a refusal is reported as "no image" â€” a valid result is never removed because its picture
   could not be fetched.
 
 ### Known limitations
@@ -195,22 +258,22 @@ UI defects are fixed.
 ### Fixed
 
 * **SauceNAO automation: the API key was never stored, so the provider could never leave `NOT_CONFIGURED`.**
-  `AesGcmSecretBox.seal` passed a **caller-supplied GCM IV** to `Cipher.init(ENCRYPT_MODE, …)`, which an
+  `AesGcmSecretBox.seal` passed a **caller-supplied GCM IV** to `Cipher.init(ENCRYPT_MODE, â€¦)`, which an
   `AndroidKeyStore` AES/GCM key forbids: the Keystore refused the operation (`CALLER_NONCE_PROHIBITED`, measured
-  on an API 37 emulator as `keystore2 … enforcements.rs: NONCE is present, although CALLER_NONCE is not present`).
+  on an API 37 emulator as `keystore2 â€¦ enforcements.rs: NONCE is present, although CALLER_NONCE is not present`).
   `SauceNaoKeyStore.save` caught that failure and returned `false`, the UI reported it as "that does not look like
   a SauceNAO key", and nothing was ever written to the secrets file. Encryption now lets the **cipher generate the
-  IV** and stores it in the envelope (`[12-byte IV][ciphertext‖tag]`), which works for both a Keystore key and a
+  IV** and stores it in the envelope (`[12-byte IV][ciphertextâ€–tag]`), which works for both a Keystore key and a
   plain JVM key; decryption still uses the stored IV, which the platform allows.
 * **A failed save is no longer indistinguishable from a typo.** `SauceNaoKeyStore.save` now returns a
-  `SauceNaoKeySaveResult` — `Saved`, `Rejected(MALFORMED)` or `Rejected(STORAGE_FAILED)` — with two different,
+  `SauceNaoKeySaveResult` â€” `Saved`, `Rejected(MALFORMED)` or `Rejected(STORAGE_FAILED)` â€” with two different,
   key-free messages (`SauceNaoKeyRules.describe`). The save also **round-trips**: the value is read back through
   the same decrypt path before the app claims success, which is the check that would have caught this defect the
   moment the user pressed the button.
 * **A stale run no longer blocks a fresh configuration.** Saving a key discards the previous SauceNAO run (a run
   recorded before the key existed says `NOT_CONFIGURED`), and the write uses `commit()` so the round-trip reads
   what was actually persisted.
-* **The IQDB suggestion line is readable.** `Suggestion — not confirmed by you` was drawn in the card's own navy
+* **The IQDB suggestion line is readable.** `Suggestion â€” not confirmed by you` was drawn in the card's own navy
   (`Palette.Navy700`) and was effectively invisible; the decision line now uses explicit **white** for
   `SUGGESTED` (and keeps green/red for confirmed/rejected).
 
@@ -222,15 +285,15 @@ UI defects are fixed.
   legitimately show the result again. It is deliberately **not** shown on cards SauceNAO also found, so one tap
   cannot discard the first-priority provider's evidence (`ReverseCandidateUi.isIqdbOnly`).
 * **`Replace` for the SauceNAO key.** A stored key now offers *Replace* next to *Remove*, opening the field without
-  deleting the working key first — a mistyped replacement cannot leave the user with no key at all.
+  deleting the working key first â€” a mistyped replacement cannot leave the user with no key at all.
 
 ### Removed
 
 * **The "Listing Candidate" flow from the Online tab** (`Add listing`, its seven-field form, its controller state
   and `core/online/ManualCandidate.kt` plus its tests). It duplicated what the Wishlist already does properly: the
   Wishlist tab owns bookmarks, manual bookmarks and their deduplication/profile isolation, and this build leaves
-  that untouched. No stored data was migrated, deleted or rewritten. The IQDB paste box — the remaining way user
-  material enters the Online tab — is unaffected.
+  that untouched. No stored data was migrated, deleted or rewritten. The IQDB paste box â€” the remaining way user
+  material enters the Online tab â€” is unaffected.
 
 ### Changed
 
@@ -240,10 +303,10 @@ UI defects are fixed.
 
 ### Tests
 
-* `SauceNaoKeyRulesTest` (3) — key shape rules and the two distinct, key-free rejection messages.
-* `SecretBoxTest` additions (2) — the envelope carries the **cipher's** IV (the regression that broke SauceNAO),
+* `SauceNaoKeyRulesTest` (3) â€” key shape rules and the two distinct, key-free rejection messages.
+* `SecretBoxTest` additions (2) â€” the envelope carries the **cipher's** IV (the regression that broke SauceNAO),
   and no IV ever repeats.
-* `IqdbCandidateUiTest` (5) — which cards are dismissible: IQDB-only yes, SauceNAO-only no, found-by-both no, and
+* `IqdbCandidateUiTest` (5) â€” which cards are dismissible: IQDB-only yes, SauceNAO-only no, found-by-both no, and
   provider attribution survives the UI mapping.
 * `ManualCandidateTest` (8) deleted with the feature it covered. Suite: **876 tests / 108 classes / 0 failures /
   7 skipped**, no live network.
@@ -252,23 +315,23 @@ UI defects are fixed.
 
 | Item | Result |
 |---|---|
-| API key configured through the app's own field | **PASS** — `API key: [REDACTED]` |
-| Secure storage written | **PASS** — `bookcover_online_secrets.xml`, base64 ciphertext only; no plaintext key in the file |
-| Key retrieval after save | **PASS** — masked hint `••••••••19a3` |
-| Provider readiness | **PASS** — row changed `NEEDS KEY` → `READY` |
-| Provider invoked / real request | **PASS** — `POST https://saucenao.com/search.php`, HTTP 200, `header.status = 0` |
-| Response parsing | **PASS** — 8 normalised hits, e.g. `SauceNAO 40.27%`, 38.26%, 38.16%, 37.83%, 36.81% |
-| Quota reported by the provider | **PASS** — `quota: 99 of 100 left` |
-| UI presentation | **PASS** — `RESULTS`, `8 candidate(s) · 8 undecided`; IQDB still `MANUAL ONLY` |
-| Key replacement | **PASS** — `••••••••19a3` → `••••••••3333` → `••••••••19a3`, `READY` throughout |
-| Secret-exposure check (logcat + prefs) | **PASS** — the full key, its first 8 and its last 4 characters do not appear in `logcat`; prefs hold ciphertext only |
+| API key configured through the app's own field | **PASS** â€” `API key: [REDACTED]` |
+| Secure storage written | **PASS** â€” `bookcover_online_secrets.xml`, base64 ciphertext only; no plaintext key in the file |
+| Key retrieval after save | **PASS** â€” masked hint `â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢19a3` |
+| Provider readiness | **PASS** â€” row changed `NEEDS KEY` â†’ `READY` |
+| Provider invoked / real request | **PASS** â€” `POST https://saucenao.com/search.php`, HTTP 200, `header.status = 0` |
+| Response parsing | **PASS** â€” 8 normalised hits, e.g. `SauceNAO 40.27%`, 38.26%, 38.16%, 37.83%, 36.81% |
+| Quota reported by the provider | **PASS** â€” `quota: 99 of 100 left` |
+| UI presentation | **PASS** â€” `RESULTS`, `8 candidate(s) Â· 8 undecided`; IQDB still `MANUAL ONLY` |
+| Key replacement | **PASS** â€” `â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢19a3` â†’ `â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢3333` â†’ `â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢19a3`, `READY` throughout |
+| Secret-exposure check (logcat + prefs) | **PASS** â€” the full key, its first 8 and its last 4 characters do not appear in `logcat`; prefs hold ciphertext only |
 
 ### Known limitations
 
 * The second live call after the key replacement was **not** re-executed: reinstalling the app cleared the
   captured cover, and the call needs one. Readiness and decryption were verified after replacement instead, and the
   provider reads the key at call time.
-* IQDB remains **manual only** (no API; its `robots.txt` disallows its own search routes) — unchanged by design.
+* IQDB remains **manual only** (no API; its `robots.txt` disallows its own search routes) â€” unchanged by design.
 * Candidate cards still do not show the per-candidate OpenCLIP/catalogue comparison (`CollectionStatus`), which
   remains wired only in `core`.
 
@@ -277,26 +340,26 @@ UI defects are fixed.
 
 **Version code/name: 217 / 2.5.0-dev.2.** Second development build of the online-discovery refinement.
 It adds **reverse-image discovery** with two providers, **manual/browser-assisted discovery**, **bounded cover
-caching**, a **user-controllable secondary-source switch** and **persisted candidate decisions** — and it is the
-first build where the dev.1 core is reachable from the screen (`Online search → C · Reverse-image discovery`).
+caching**, a **user-controllable secondary-source switch** and **persisted candidate decisions** â€” and it is the
+first build where the dev.1 core is reachable from the screen (`Online search â†’ C Â· Reverse-image discovery`).
 
 ### Added
 
-* **SauceNAO — first-priority reverse-image provider (automated).** `SauceNaoReverseImageSource` submits the
+* **SauceNAO â€” first-priority reverse-image provider (automated).** `SauceNaoReverseImageSource` submits the
   captured cover through SauceNAO's documented JSON API: a `multipart/form-data` POST to
   `https://saucenao.com/search.php` carrying `output_type=2`, `db=999`, `numres`, an optional `minsim` floor and
   the user's own `api_key`. The credential travels in the request **body**, never in a URL. The parser
   (`SauceNaoResponseParser`) reads the documented `header`/`results` envelope, preserves each row's own
   similarity, source URL, thumbnail, index name and every other scalar it sent, and maps the provider's report to
-  a named state: `SUCCESS`, `NO_RESULTS`, `QUOTA_EXCEEDED`, `ERROR` — plus `TIMEOUT`, `RATE_LIMITED`, `BLOCKED`
+  a named state: `SUCCESS`, `NO_RESULTS`, `QUOTA_EXCEEDED`, `ERROR` â€” plus `TIMEOUT`, `RATE_LIMITED`, `BLOCKED`
   and `UNAVAILABLE` from the transport. No retry loop exists, because retrying a soft limit is what turns it into
   a long one.
 * **The SauceNAO API key is stored with a Keystore-backed key.** `SauceNaoKeyStore` seals the key with
   AES-256-GCM (`AesGcmSecretBox`, a new random IV per write) under a key generated inside `AndroidKeyStore`, and
-  keeps only the ciphertext in its own preference file. The panel shows `••••••••ab12` after saving and offers
+  keeps only the ciphertext in its own preference file. The panel shows `â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢ab12` after saving and offers
   *Remove*; the key is never logged, echoed, placed in a URL, or shown again. A blob that cannot be opened (new
   device, cleared app data) is deleted and reported as "not configured" instead of being sent to the provider.
-* **IQDB — second-priority reverse-image provider, implemented as manual-only, with the verification on the
+* **IQDB â€” second-priority reverse-image provider, implemented as manual-only, with the verification on the
   record.** Verified 2026-11-05: `https://iqdb.org/` is an HTML form with **no documented public API**, and
   `https://iqdb.org/robots.txt` disallows `/multi-search`, `/db-search`, `/kc-search`, `/mi-search`, `/index` and
   `/?url=` for every agent. The app therefore **does not submit images to IQDB**. `IqdbReverseImageSource`
@@ -316,14 +379,14 @@ first build where the dev.1 core is reachable from the screen (`Online search �
   `ProductSearchResult` model every automated provider produces, stamped with the `manual` provider id. It is
   never fetched, never called an automated extraction, and it flows through the same evidence and decision
   pipeline. The panel adds the form inline, plus a *Paste an IQDB result* block.
-* **Persisted confirmations and rejections.** A candidate starts as `SUGGESTED` — a machine suggestion, labelled
-  as such — and only an explicit tap produces `CONFIRMED`/`REJECTED`. `CandidateReviews` keeps the rules
+* **Persisted confirmations and rejections.** A candidate starts as `SUGGESTED` â€” a machine suggestion, labelled
+  as such â€” and only an explicit tap produces `CONFIRMED`/`REJECTED`. `CandidateReviews` keeps the rules
   (idempotent by candidate identity, a rejection can be revisited, a blank key decides nothing) and
   `CandidateDecisionStore` writes one JSON file per wishlist profile. Deciding does **not** write to the workbook
   or the catalogue.
 * **Ownership, catalogue presence and wanted status, kept independent.** `CollectionStatus` holds three separate
   facts with "not stated" as a real value, and `CollectionStatusOf` derives only catalogue presence from the
-  matcher — `MATCHED`, `AMBIGUOUS`, `ABSENT` or `UNKNOWN`, where an empty workbook can never produce `ABSENT`.
+  matcher â€” `MATCHED`, `AMBIGUOUS`, `ABSENT` or `UNKNOWN`, where an empty workbook can never produce `ABSENT`.
   `LocalProducts.of(CatalogEntry)` maps only **mapped, present** cells, so a record without a circle is unknown
   rather than contradicting.
 * **A user-controllable secondary-source switch.** `ProviderCapability` gained a `tier` (`PRIMARY_DOUJIN` for
@@ -331,7 +394,7 @@ first build where the dev.1 core is reachable from the screen (`Online search �
   issue their requests**: the controller filters them out before any call, their rows say "switched off", and the
   outcome is a new `CatalogueUi.SwitchedOff` state rather than an empty result.
 * **Bounded cover caching.** `BoundedImageCache` is a byte-budgeted LRU with a per-entry ceiling, refusal
-  counters, invalidation and a `describe()` line — plain Kotlin, so the policy is unit-tested rather than assumed.
+  counters, invalidation and a `describe()` line â€” plain Kotlin, so the policy is unit-tested rather than assumed.
 * **The dev.1 core is now wired.** The panel shows the two provider rows with their own states, the key
   configuration, the *Search by this cover* action, the candidate list with attributed evidence and
   Confirm/Reject, the manual-entry form, the IQDB paste block and the general-book switch.
@@ -340,10 +403,10 @@ first build where the dev.1 core is reachable from the screen (`Online search �
 
 * **The application crashed on every launch (startup `NullPointerException`).** `OnlineSearchController` builds
   its UI state in a Kotlin property initializer, and that initializer asked for the reverse-image provider rows
-  *before* the `reverseRuns` map it read had been assigned — the map was declared further down the class body,
+  *before* the `reverseRuns` map it read had been assigned â€” the map was declared further down the class body,
   and Kotlin runs property initializers in declaration order, so it was still `null`. The constructor therefore
   threw `NullPointerException` inside `MainViewModel`'s construction and the process died before the first frame
-  (`OnlineSearchController.reverseProviderRows` → `<init>` → `MainViewModel.<init>`). Fixed in two steps: the
+  (`OnlineSearchController.reverseProviderRows` â†’ `<init>` â†’ `MainViewModel.<init>`). Fixed in two steps: the
   reverse-image state is now declared **above** the UI state, and the row builder was extracted into
   `ReverseProviderRows.of(sources, runs)`, which takes the map as a **parameter**, so the initializer calls it
   with an explicit `emptyMap()` and can no longer read uninitialised state. Verified on the emulator: cold start,
@@ -378,7 +441,7 @@ first build where the dev.1 core is reachable from the screen (`Online search �
   tooling used here, so the request/response schema is implemented from the provider's published API description
   and the parser is deliberately defensive (any status other than `0` becomes a named failure carrying the
   provider's own number). No live request was made, so no result quality is claimed.
-* **The IQDB result parser is exercised only against sanitised fixtures** — it is never run against the live
+* **The IQDB result parser is exercised only against sanitised fixtures** â€” it is never run against the live
   service.
 * **Catalogue matching is not yet shown per candidate.** `CollectionStatus` and `LocalProducts.of` exist and are
   tested, but the candidate card does not display the per-dimension evidence against the open workbook yet;
@@ -398,17 +461,17 @@ nothing user-visible changes in this build (see *Known limitations*).
 ### Added
 
 * **A structured search query.** `OnlineQuery` splits what the user types into title, circle, author and
-  product code — `title:`/`circle:`/`author:`/`code:` prefixes, and a bare `RJ01234567` (or `RJ 01234567`,
-  `RJ-01234567`) recognised wherever it appears — and keeps the original text untouched for display and
+  product code â€” `title:`/`circle:`/`author:`/`code:` prefixes, and a bare `RJ01234567` (or `RJ 01234567`,
+  `RJ-01234567`) recognised wherever it appears â€” and keeps the original text untouched for display and
   diagnostics. Full-width Latin and the ideographic space fold to half-width; kana, kanji and long-vowel
   marks are never rewritten. Identifiers lose only spaces, hyphens and case, and only for comparison.
 * **Declared provider capabilities.** `ProviderCapabilities` records what each in-app provider actually
-  searches — Open Library and Google Books: title, author, ISBN; DLsite: title, circle, RJ code — and
+  searches â€” Open Library and Google Books: title, author, ISBN; DLsite: title, circle, RJ code â€” and
   reports the parts of a query it must ignore. An author-only search is therefore not sent to DLsite's
   keyword box, and a circle-only search is not sent to the bibliographic catalogues; the provider is
   reported as unable to search, not as having failed.
 * **An explainable candidate matcher.** `CandidateMatcher` compares an online candidate with a local
-  record one dimension at a time (identifier 0.45, title 0.30, circle 0.15, author 0.10, cover 0.35 — the
+  record one dimension at a time (identifier 0.45, title 0.30, circle 0.15, author 0.10, cover 0.35 â€” the
   weights are documented constants), renormalises over the dimensions both sides can supply so a field a
   provider never sends is never held against it, treats an exact product identifier as decisive, refuses to
   call a shared title identity, and returns per-dimension evidence plus an ambiguity list instead of
@@ -436,19 +499,19 @@ nothing user-visible changes in this build (see *Known limitations*).
 
 ## v2.4.0 (2026-11-05)
 
-*The stable release is the `2.4.0-rc.7` code base — the QA-remediation build documented in the section
-above — with the application version set to `2.4.0` (versionCode 215). `rc.5` and `rc.6` were pre-release
+*The stable release is the `2.4.0-rc.7` code base â€” the QA-remediation build documented in the section
+above â€” with the application version set to `2.4.0` (versionCode 215). `rc.5` and `rc.6` were pre-release
 builds of the same release at versionCode 213; `rc.7` was 214. No feature, parsing rule or test expectation
 changed between `rc.7` and this release.*
 
 ### Added
 
-* **A worksheet filter on the Gallery.** Inside *More → Workbook comments → Insights → Gallery* the filter
+* **A worksheet filter on the Gallery.** Inside *More â†’ Workbook comments â†’ Insights â†’ Gallery* the filter
   bar now starts with *Worksheets: All worksheets / LIST / 2 of 3 worksheets*, which opens the same
   worksheet picker the Health and Analytics reports use: all worksheets, one, or any combination, with each
   worksheet's record count and hidden state, and **Use these worksheets** to commit.
   The selection is a set of worksheet **identities** (the package part, `xl/worksheets/sheet5.xml`), not
-  display names — renaming a worksheet in Excel keeps the selection, and a key the workbook no longer has
+  display names â€” renaming a worksheet in Excel keeps the selection, and a key the workbook no longer has
   is reconciled instead of hiding every card. It filters the records **before** anything else runs, so it
   changes what the grid holds rather than hiding cards after they were chosen: search, *With cover*,
   *No cover*, *Missing title*, *Missing metadata*, every sort order, the count line (`12 of 40 record(s)`)
@@ -456,7 +519,7 @@ changed between `rc.7` and this release.*
   A workbook opened in a fresh session starts at *All worksheets*, so a selection cannot follow the user
   into another file.
 * **A worksheet filter on Health, Analytics and the Gallery that is remembered.** Each of the three screens
-  keeps its own selection — all worksheets, one, or several — and it now survives navigation, closing the
+  keeps its own selection â€” all worksheets, one, or several â€” and it now survives navigation, closing the
   workbook and restarting the app: `files/mappings/insights-views.json` stores it per workbook (its SHA-256),
   never per display name, and a saved key the workbook no longer has is dropped instead of matching some
   other sheet. None of the three can overwrite another's selection.
@@ -465,34 +528,34 @@ changed between `rc.7` and this release.*
 * **Linked cells in the Catalogue table, and a cell dialog to act on them.** The workbook's own hyperlinks
   (`<hyperlinks>` plus the worksheet's `.rels`) are now kept with the cell they belong to: a linked value is
   drawn in the accent colour and underlined, and tapping any cell opens a centred dialog with its value and
-  three stacked actions — **Copy** (the displayed text, exactly as shown), **Open Link** (only for a link the
+  three stacked actions â€” **Copy** (the displayed text, exactly as shown), **Open Link** (only for a link the
   workbook really stores: an `http(s)`/`mailto` destination goes to the browser, an in-workbook `location`
-  opens that cell in the app's own source view) and **Back** — outside a tap on the card the dialog closes.
+  opens that cell in the app's own source view) and **Back** â€” outside a tap on the card the dialog closes.
   Nothing is inferred from the text: a cell that merely looks like a URL has no link, and the destination
   never replaces the displayed value.
-* **A "Default order" field for the workbook's own ordering column.** *Insights → Fields* now has an
-  optional **Default order** field — a serial number, a shelf position, anything the user picks. It is
+* **A "Default order" field for the workbook's own ordering column.** *Insights â†’ Fields* now has an
+  optional **Default order** field â€” a serial number, a shelf position, anything the user picks. It is
   mapped like any other field (any header, any language, any position), can be changed or cleared, and the
   screen shows what the chosen column really holds (how many values are numbers, how many are text, how many
   are blank, plus examples). Nothing is inferred from a header name: the field is offered, never forced.
-  When two records share a Published or Acquired date, the timeline now orders them by this column —
+  When two records share a Published or Acquired date, the timeline now orders them by this column â€”
   **ascending**, numerically (`2` before `10`, `0012` the same as `12`), and text values predictably after
   numbers. A record with no value sorts last and keeps its verified source row as the final tie-break, so
   nothing is invented. Changing the mapping changes the order; without it, the timeline keeps its previous
   behaviour.
 * **The Source location preview reads and behaves like the table.** The worksheet window that *go to source*
-  opens used to print the raw cell — a date-formatted serial showed as `45292`, a percentage as `0.123456` —
+  opens used to print the raw cell â€” a date-formatted serial showed as `45292`, a percentage as `0.123456` â€”
   and no cell could be inspected. Every cell is now drawn the way the workbook shows it, through the **same**
   number-format rule the Catalogue table uses (one call, two screens, so the same cell can never read two
   ways), every cell is a touch target that opens the same **Copy / Open Link / Back** dialog, and a cell the
   workbook links is drawn in the accent colour and underlined. The dialog's identity is the worksheet's own
-  row and column — the window shows about thirteen rows around the verified cell, so the drawn position is
-  never used as the identity — and the value, the hyperlink and *Open Link* therefore always describe the
+  row and column â€” the window shows about thirteen rows around the verified cell, so the drawn position is
+  never used as the identity â€” and the value, the hyperlink and *Open Link* therefore always describe the
   cell that was tapped. Header cells are inspectable too, whether the header row is inside the window or
   carried above it.
-* **The mapping is remembered per workbook.** *Insights → Fields* now stores the mapping in effect next to the
+* **The mapping is remembered per workbook.** *Insights â†’ Fields* now stores the mapping in effect next to the
   other per-workbook settings (`files/mappings/workbook-mappings.json`, keyed by the workbook's SHA-256), so
-  a manual choice — the Default order column included — is still in effect after navigating away, closing the
+  a manual choice â€” the Default order column included â€” is still in effect after navigating away, closing the
   workbook or restarting the app, instead of falling back to detection. Picking **Detected** removes the
   stored entry; nothing unapplied is ever stored.
 
@@ -508,16 +571,16 @@ changed between `rc.7` and this release.*
 * **Numbers are displayed with at most two decimals, everywhere.** One shared rule
   (`Formatting.decimal`) now formats every measurement the app shows: a similarity score reads `0.81`
   instead of `0.812`, a workbook cell whose number format declares decimals reads `1234.57` instead of
-  `1234.5678`, and percentages keep their own formatting (`12.35%`). This is a **display** rule only —
+  `1234.5678`, and percentages keep their own formatting (`12.35%`). This is a **display** rule only â€”
   nothing is rounded before it is stored, aggregated, sorted, filtered or exported, and a value that is not
   a measurement is left alone: `General` and integer cells (identifiers, serial numbers, row numbers, page
   counts) keep every digit they had.
 * **Timeline: Published and Acquired only.** The **Imported** mode was removed from the timeline: it
   repeated every record once, under the app's own import date rather than a date the collection has. Both
   remaining modes, their manual column choices, their filters, their ordering and the scroll reset are
-  unchanged. Nothing else about import metadata changed — the saved-workbook library still records and sorts
+  unchanged. Nothing else about import metadata changed â€” the saved-workbook library still records and sorts
   by its import timestamp.
-* **Catalogue → Table shows dates as dates.** A cell whose number format is a date was printed as the
+* **Catalogue â†’ Table shows dates as dates.** A cell whose number format is a date was printed as the
   serial number Excel stores (`45292`); it now reads `2024-01-01`, and `2024-01-01 14:30` when the cell also
   carries a time. The workbook's own date system is honoured (@1900/@1904), and the record's stored value is
   untouched, so filters, search, exports and the canonical catalog keep reading exactly what the file
@@ -533,7 +596,7 @@ changed between `rc.7` and this release.*
   directory was open dropped the parsed data but rebuilt nothing, so Health, Analytics, Gallery, Timeline and
   Fields only came back after leaving the directory and returning. A finished rescan now rebuilds the catalog
   and all five functions from the new analysis immediately, re-previews the Fields draft, and keeps every
-  choice the user made (profiles, worksheet scopes, gallery and timeline filters, chosen date columns) — the
+  choice the user made (profiles, worksheet scopes, gallery and timeline filters, chosen date columns) â€” the
   panels show a reading state instead of an empty report while it runs, and a failed scan clears that state
   instead of leaving them stuck.
 * **The global Sheets button is gone.** One button in the shared header opened the worksheet picker for every
@@ -546,24 +609,24 @@ changed between `rc.7` and this release.*
 * **The Default order column can be changed in Fields.** The field had no visible control of its own: the row's
   only affordance was a muted word, and the read-only card beside it looked like the whole story, so the one
   column the timeline depends on appeared locked. Every mapped field now shows a bordered **Change** button, and
-  **Default order** has its own card with **Change / Choose column**, **Clear** and **Use detected** — the same
-  column picker the other fields use, with *Not mapped* available — plus a line saying which column detection
+  **Default order** has its own card with **Change / Choose column**, **Clear** and **Use detected** â€” the same
+  column picker the other fields use, with *Not mapped* available â€” plus a line saying which column detection
   would use. The picker also no longer fails when two columns carry the same header (both stay choosable, and
   the resolver keeps reporting the ambiguity).
 * **Applying an unchanged mapping keeps the Detected status.** The indicator was a pair of state flags ("no
   profile picked, no manual mapping applied"), so **Apply mapping** on a mapping that was identical to the
-  detected one turned it grey even though nothing had changed — it reported the click instead of the mapping.
+  detected one turned it grey even though nothing had changed â€” it reported the click instead of the mapping.
   It now compares the mapping **in effect** with the mapping detection would choose for that worksheet, by
   meaning rather than by object: trimmed, case-folded headers, blank ("not assigned") values ignored, fields
   present on one side only a difference. Applying exactly what detection found stores no override at all, so
   the status stays blue and nothing is written; changing one or more assignments turns it grey; putting the
-  detected assignments back — or picking **Detected** — turns it blue again.
+  detected assignments back â€” or picking **Detected** â€” turns it blue again.
 * **Detected and a saved profile are two independent views, and picking one only changes what is shown.** The
   Fields screen's chips used to *apply* a profile to the worksheet on screen, and the indicator compared state
   flags, so it was never clear whether a profile had been picked or a mapping merely matched. Picking **Detected**
   or a profile now **switches which configuration is displayed and used**: Detected is derived from the workbook's
   own headers whenever it is needed and is never written to, and each saved profile keeps its own record. A switch
-  in either direction copies, merges and rewrites nothing, so Detected → profile → Detected → profile shows each
+  in either direction copies, merges and rewrites nothing, so Detected â†’ profile â†’ Detected â†’ profile shows each
   configuration exactly as it was, and the draft, the reports and the "mapping in effect" line follow the view.
   Applying a mapping on top of the selected view stays a separate, explicit action; switching the view drops the
   edits that belonged to the previous one (they are this workbook's session state, not saved data), and **Save
@@ -606,18 +669,18 @@ changed between `rc.7` and this release.*
   workbook reading identically in both table views 1), 29 for the Detected-status and per-worksheet-mapping
   corrections (`DetectedStatusTest` 14, `WorksheetMappingIsolationTest` 12, three more in
   `MappingPersistenceTest`), and 5 more for this round: `ProfileViewSwitchingTest` 7 (the switching matrix:
-  Detected → profile → Detected → profile, two profiles in turn, the draft following the view, no profile
+  Detected â†’ profile â†’ Detected â†’ profile, two profiles in turn, the draft following the view, no profile
   changing) plus `WorksheetMappingIsolationTest` 11 and `DetectedStatusTest` 14 rewritten around profile
   inheritance (`MappingPersistenceTest` 13 covers the view, the edits and both migrations). The regression
-  suite — health, gallery, analytics, timeline, catalogue, source navigation, rescan and the persisted
-  views — still passes unchanged.
-* The new date and percentage reading was run against the real `test_excel/doujin.xlsx`: its `出版日付` and
-  `購入日` columns are `yyyy"年"m"月"d"日"`-formatted serials and display as dates, while `価格（稅込）` and
-  `ページ数` stay numeric. Its `通し番号` column is detected as the Default order and really does order the
+  suite â€” health, gallery, analytics, timeline, catalogue, source navigation, rescan and the persisted
+  views â€” still passes unchanged.
+* The new date and percentage reading was run against the real `test_excel/doujin.xlsx`: its `å‡ºç‰ˆæ—¥ä»˜` and
+  `è³¼å…¥æ—¥` columns are `yyyy"å¹´"m"æœˆ"d"æ—¥"`-formatted serials and display as dates, while `ä¾¡æ ¼ï¼ˆç¨…è¾¼ï¼‰` and
+  `ãƒšãƒ¼ã‚¸æ•°` stay numeric. Its `é€šã—ç•ªå·` column is detected as the Default order and really does order the
   records that share a publication date, and its stored hyperlinks (the circle column links to a shop search)
   reach the right cells while the cells keep their own text.
-* The workbook's date system is honoured everywhere a serial is read — the table, the date-column preview,
-  both timelines, the analytics' year buckets and the source preview — so a 1904 workbook cannot show one year
+* The workbook's date system is honoured everywhere a serial is read â€” the table, the date-column preview,
+  both timelines, the analytics' year buckets and the source preview â€” so a 1904 workbook cannot show one year
   in the table and another on the timeline (pinned by a dedicated test).
 * The source preview was checked against the same real `test_excel/doujin.xlsx`: every column of a record reads
   identically in the Catalogue table and in the window, and the workbook's stored hyperlinks reach the same
@@ -634,7 +697,7 @@ changed between `rc.7` and this release.*
   copied from the format's own precision.
 * The two-decimal rule reaches a workbook cell only when its number format declares decimals (`0.00`,
   `#,##0.00`); `General` and integer cells are shown exactly as stored, because an integer cell is as likely
-  an identifier as a measurement. The workbook's own currency symbol is not re-rendered — the table shows the
+  an identifier as a measurement. The workbook's own currency symbol is not re-rendered â€” the table shows the
   number, as it always did.
 * Only `http`, `https` and `mailto` destinations are handed to the browser, and only `Sheet!Cell` locations
   are followed inside the workbook. A `file://` link, a defined name or a scheme with no handler keeps its
@@ -645,7 +708,7 @@ changed between `rc.7` and this release.*
 * The source preview draws at most 96 columns of a worksheet (and says how many it left out), and a hyperlink
   whose `ref` covers more than 1024 cells is attached to that range's first cell rather than expanded.
 * The stored mapping is the one that was **applied**; a draft that was never applied is not remembered. It is
-  stored per worksheet, so each worksheet of a workbook keeps its own mapping — and a mapping identical to what
+  stored per worksheet, so each worksheet of a workbook keeps its own mapping â€” and a mapping identical to what
   the selected view already gives that worksheet is not stored at all, because it changes nothing.
 * Switching the view drops the edits applied on top of the previous view: they are the session state of one
   configuration, not saved data, so an edit that should outlive a switch has to be saved as a profile.
@@ -668,13 +731,13 @@ changed between `rc.7` and this release.*
 
 * **The timeline kept the previous mode's scroll position.** Switching from Published to Acquired (or back)
   left the list where the other dataset had been scrolled to. The list now owns its `LazyListState` and
-  returns to the first item when the meaning, the ordering or the filter actually changes — and only then,
+  returns to the first item when the meaning, the ordering or the filter actually changes â€” and only then,
   so a rebuilt report, a thumbnail or any other recomposition no longer moves the user.
 * **The Insights count disappeared when a spreadsheet was opened.** The section entry rendered its count
   inline (`Insights (3)`) and dropped it entirely at zero or while the report was being (re)built, and one
-  line could not hold the name and the count together. Each directory entry now has two lines — the name on
-  top, the count underneath — and the count is never hidden: `0 errors`, `1 error`, `2 errors`, `reading…`
-  while a build runs, `—` when no report exists yet. It is a separate `Text`, so opening, reloading or
+  line could not hold the name and the count together. Each directory entry now has two lines â€” the name on
+  top, the count underneath â€” and the count is never hidden: `0 errors`, `1 error`, `2 errors`, `readingâ€¦`
+  while a build runs, `â€”` when no report exists yet. It is a separate `Text`, so opening, reloading or
   replacing a workbook cannot push it out of the entry.
 * **The gallery's search bar was crowded against its filters.** The bar now has its own margins, a hairline
   in the palette's line colour separates it from the chip rows, and the chips keep their own spacing. No
@@ -683,14 +746,14 @@ changed between `rc.7` and this release.*
 ### Added
 
 * **Timeline filtering.** A text search over the record's own fields (title, circle, artist, product ID and
-  the worksheet row) and a year range chosen from *Years: …* (from/to, either bound may be open, and
+  the worksheet row) and a year range chosen from *Years: â€¦* (from/to, either bound may be open, and
   `Any year` clears it). The filter bar shows how many records are shown out of how many, a **Clear filters**
   action appears only while a filter is active, an empty result says "No record matches this filter", and the
   two date meanings keep **separate** filters, so a search typed for Published cannot silently narrow
   Acquired. A date range never judges a record whose own date is unknown: those records are excluded from
   the range and counted in an explicit line, never given a year that fits.
-* **Worksheet filters for Health and Analytics.** A single bar on each report — *Worksheets: All worksheets /
-  LIST / 2 of 3 worksheets* — opens a picker of the workbook's own worksheets (with each one's record count
+* **Worksheet filters for Health and Analytics.** A single bar on each report â€” *Worksheets: All worksheets /
+  LIST / 2 of 3 worksheets* â€” opens a picker of the workbook's own worksheets (with each one's record count
   and hidden state). All, one, or any combination can be selected, "All worksheets" is always one tap away,
   and the picker edits a draft until **Use these worksheets** is pressed.
   The scope is a filter on the **calculation**, not on the rendering: the report and the analytics are
@@ -700,7 +763,7 @@ changed between `rc.7` and this release.*
   never changes the other. A selection stored for a worksheet that no longer exists is reconciled (the
   surviving sheets are kept, and a selection that matches nothing falls back to *All worksheets*), and a
   different workbook starts from *All worksheets*.
-* **The Insights directory order** is now **Health → Analytics → Gallery → Timeline → Fields**: the two
+* **The Insights directory order** is now **Health â†’ Analytics â†’ Gallery â†’ Timeline â†’ Fields**: the two
   analysis screens sit together and the two browsing screens sit together, with the mapping screen last
   because it configures the data the others read.
 
@@ -723,12 +786,12 @@ changed between `rc.7` and this release.*
 
 * The timeline filter is a text search plus a year range; there is no per-column filter and no month-level
   range, because the timeline is grouped by year and a record's date may only be known to the year.
-* A worksheet that carries no catalogue table can be selected, but it contributes no records — the picker
+* A worksheet that carries no catalogue table can be selected, but it contributes no records â€” the picker
   says so ("no catalogue table") instead of hiding it.
 * Health and Analytics do not share a stored preference: opening the app again starts both at *All
   worksheets*, and the choice is not persisted per workbook.
-* None of the new layout — the two-line directory entries, the gallery divider, the timeline filter bar, the
-  worksheet picker — was driven on a device or an emulator, and no screen width was measured.
+* None of the new layout â€” the two-line directory entries, the gallery divider, the timeline filter bar, the
+  worksheet picker â€” was driven on a device or an emulator, and no screen width was measured.
 
 **Version code/name: 212 / 2.4.0-dev.4.**
 
@@ -737,23 +800,23 @@ changed between `rc.7` and this release.*
 ### Fixed
 
 * **Incomplete worksheet column display.** A worksheet was drawn as the sixteen columns nearest the verified
-  cell, so a wide sheet (the sample `LIST` has 24, A–X) silently ended at column P: `ツイッター`,
-  `ツイッター (ユーザー名)`, `ミスキー` and `ミスキー (ユーザー名)` were unreachable. The source view now draws
+  cell, so a wide sheet (the sample `LIST` has 24, Aâ€“X) silently ended at column P: `ãƒ„ã‚¤ãƒƒã‚¿ãƒ¼`,
+  `ãƒ„ã‚¤ãƒƒã‚¿ãƒ¼ (ãƒ¦ãƒ¼ã‚¶ãƒ¼å)`, `ãƒŸã‚¹ã‚­ãƒ¼` and `ãƒŸã‚¹ã‚­ãƒ¼ (ãƒ¦ãƒ¼ã‚¶ãƒ¼å)` were unreachable. The source view now draws
   every column the worksheet uses, at a hard bound far above any real catalogue, and says how many columns it
   left out when a sheet is wider than that instead of pretending it ended. The view keeps Excel's own column
   letters, so a value can still be read as a cell reference.
 * **A blank header no longer shifts a column.** The reader built its column list from the header cells that
   had text, so a blank header cell between two named columns dropped that column and moved every value to its
   right one position to the left. The columns between the first and the last header are kept, a gap column is
-  kept when it carries data, and one without a header is labelled by its letter (`Column C`) — never printed
+  kept when it carries data, and one without a header is labelled by its letter (`Column C`) â€” never printed
   as an empty name, and never mapped to a field by guesswork.
-* **Directory labels are readable in full.** The four sections of the workbook preview — *Comments, Images,
-  Catalogue, Insights* — were each given a quarter of one line, so their labels were truncated to
-  `Catalogue (5…`. They now wrap onto a second line at the same font size: nothing is shrunk, no card inside
+* **Directory labels are readable in full.** The four sections of the workbook preview â€” *Comments, Images,
+  Catalogue, Insights* â€” were each given a quarter of one line, so their labels were truncated to
+  `Catalogue (5â€¦`. They now wrap onto a second line at the same font size: nothing is shrunk, no card inside
   the sections changes, and the tab, its count and the selected state stay where they were.
 * **The Insights gallery starts at the top of a new order.** The grid kept the old scroll offset after a sort
   or filter changed the displayed order, so the first card of the new order could be off screen. The grid now
-  owns its scroll state and returns to the first item when — and only when — the ordering or the filtered
+  owns its scroll state and returns to the first item when â€” and only when â€” the ordering or the filtered
   dataset actually changes. A thumbnail finishing its decode, a dialog opening or a report being rebuilt
   leaves the scroll untouched.
 
@@ -764,13 +827,13 @@ changed between `rc.7` and this release.*
   on the left, one horizontal scroll shared by the header row and every data row so a header can never sit
   above another column's values, lazy rows for long sheets, and a row number that opens that row in the
   verified source view. Switching worksheet switches the columns to that worksheet's own structure.
-* **Published and Acquired date columns, chosen by you.** *Insights → Timeline → Choose date columns…* assigns
+* **Published and Acquired date columns, chosen by you.** *Insights â†’ Timeline â†’ Choose date columnsâ€¦* assigns
   two independent columns per worksheet. The dialog names the workbook and the worksheet, lists the
-  worksheet's own columns with their letters, previews a few real values (`43465 → 2018-12-31`), reports how
+  worksheet's own columns with their letters, previews a few real values (`43465 â†’ 2018-12-31`), reports how
   many of them can be read and how many cells are blank, and marks a column whose header has vanished or
   become duplicated instead of reading it. Nothing is pre-selected from a header name, and a workbook with no
   assignment shows a setup state that says how to configure it. The choice is scoped to the workbook (its
-  SHA-256) **and** the worksheet, stored as `files/mappings/dates.json` — header names, not positions — so it
+  SHA-256) **and** the worksheet, stored as `files/mappings/dates.json` â€” header names, not positions â€” so it
   survives a restart, a rescan and a profile change, and never follows a shared profile into another workbook.
   The two timelines never borrow each other's column.
 * **Excel date serials are read in the columns you chose.** A bare number is still not a date on its own; in a
@@ -786,7 +849,7 @@ changed between `rc.7` and this release.*
 * **Acquired is a real timeline when it is configured,** instead of a permanent "unavailable": the reason it
   was unavailable was that the app does not record an acquisition date, and now the workbook supplies one if
   you point at it. *Imported* is unchanged and still comes from the saved-workbook library.
-* **A wide worksheet is no longer shortened by the source view** — the window's cap went from 16 columns to a
+* **A wide worksheet is no longer shortened by the source view** â€” the window's cap went from 16 columns to a
   bound no real catalogue reaches, and the number of undrawn columns is reported rather than implied.
 
 ### Verified
@@ -796,8 +859,8 @@ changed between `rc.7` and this release.*
   date columns 17, the date dialog state 9, the gallery scroll key 6, the sample workbook 5, and 3 more
   timeline cases.
 * The supplied sample workbook `test_excel/doujin.xlsx` (40 MB, not committed) is used by
-  `SampleWorkbookColumnsTest`: `LIST` reads as 24 columns A–X with 24 values on every record, the Twitter and
-  Misskey columns resolve to S/T/U/V, `出版日付` (G) and `購入日` (R) are readable date columns, and the source
+  `SampleWorkbookColumnsTest`: `LIST` reads as 24 columns Aâ€“X with 24 values on every record, the Twitter and
+  Misskey columns resolve to S/T/U/V, `å‡ºç‰ˆæ—¥ä»˜` (G) and `è³¼å…¥æ—¥` (R) are readable date columns, and the source
   window draws the whole width.
 * Debug build: BUILD SUCCESSFUL, version 211 / 2.4.0-dev.3.
 
@@ -813,7 +876,7 @@ changed between `rc.7` and this release.*
   back rebuilds the panel and starts at the top.
 * The five Insights screens still cover one workbook at a time, group the timeline by year, and do not split
   Artist values on separators.
-* None of the new layout — the two-line section labels, the worksheet table, the date dialog — was driven on a
+* None of the new layout â€” the two-line section labels, the worksheet table, the date dialog â€” was driven on a
   device or an emulator, and no screen width was measured.
 
 **Version code/name: 211 / 2.4.0-dev.3.**

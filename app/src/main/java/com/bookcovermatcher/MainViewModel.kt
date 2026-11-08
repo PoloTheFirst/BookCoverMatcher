@@ -155,7 +155,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var pickerDrafts: List<ItemDraft> = emptyList()
     private var pickerExistingIds: List<String> = emptyList()
     private var pickerScanThumb: ByteArray? = null
+    private var pickerOriginal: ByteArray? = null
     private var pickerQuery: String? = null
+
+    /**
+     * The original picture behind the current cover: the frame the camera handed over, or the photo the
+     * user picked, JPEG-encoded at its own resolution (see [applyCapture]).
+     *
+     * Kept so that saving a result profile can store the real image and not only the 224-pixel
+     * thumbnail. Cleared when the cover itself is cleared, so a profile can never inherit a picture of
+     * a different book.
+     */
+    private var lastOriginalJpeg: ByteArray? = null
 
     /** What the green bar's "Remove" undoes: exactly the add that produced it. */
     private var lastAdd: LastAdd? = null
@@ -322,6 +333,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     Config.THUMB_SCAN_W * Config.THUMB_PIXEL_SCALE,
                     Config.THUMB_SCAN_H * Config.THUMB_PIXEL_SCALE,
                 )
+                // The original image for a saved result profile: the same pixels at their own
+                // resolution, not the 224-pixel thumbnail. `maxEdge` is the picture's own long edge, so
+                // nothing is downscaled here; the only transformation is JPEG encoding, and a picked
+                // photo is bounded by `Config.MAX_IMAGE_DECODE` before it ever reaches this point.
+                val original = try {
+                    codec.encodeJpeg(
+                        image,
+                        maxOf(image.width, image.height),
+                        AndroidImageCodec.ORIGINAL_QUALITY,
+                    )
+                } catch (e: Exception) {
+                    // A missing original must not break the capture: the profile then keeps only what
+                    // was captured, and the detail view says so instead of showing a wrong picture.
+                    null
+                }
+                lastOriginalJpeg = null
                 val emb = embedder?.embed(image)
                 targetEmbedding = emb
                 lastRanked = emptyList()
@@ -333,6 +360,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         results = ResultsUi.Empty,
                     )
                 }
+                // Assigned together with the target: the original and the cover on screen must always
+                // describe the same picture, so a profile can never save a different book's image.
+                lastOriginalJpeg = original
                 _captureEvents.tryEmit(Unit)
                 if (!auto) showToast("Cover captured \u2014 embedding computed.", ToastKind.OK)
 
@@ -1161,7 +1191,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             pickerMode = mode
             pickerDrafts = drafts
             pickerExistingIds = existingIds
+            // Both save paths keep the original picture: an offline comparison profile
+            // (SAVE_SESSION) and an online result profile (SAVE_RESULT_PROFILE). The row thumbnail is
+            // the offline one's business; the original belongs to whatever cover was searched.
             pickerScanThumb = if (mode == PickerMode.SAVE_SESSION) _ui.value.target?.thumbJpeg else null
+            pickerOriginal = lastOriginalJpeg
             pickerQuery = if (mode == PickerMode.SAVE_RESULT_PROFILE) {
                 (online.ui.value.catalogue as? CatalogueUi.Found)?.query
                     ?: online.ui.value.query.trim().takeIf { it.isNotEmpty() }
@@ -1188,6 +1222,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         pickerDrafts = emptyList()
         pickerExistingIds = emptyList()
         pickerScanThumb = null
+        pickerOriginal = null
         pickerQuery = null
         _ui.update { it.copy(picker = null) }
     }
@@ -1207,10 +1242,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val drafts = pickerDrafts
         val existing = pickerExistingIds
         val scanThumb = pickerScanThumb
+        val original = pickerOriginal
         val query = pickerQuery
         pickerDrafts = emptyList()
         pickerExistingIds = emptyList()
         pickerScanThumb = null
+        pickerOriginal = null
         pickerQuery = null
 
         viewModelScope.launch {
@@ -1258,6 +1295,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                                     title = "",
                                     query = query,
                                     scanThumbJpeg = scanThumb,
+                                    originalJpeg = original,
                                     results = drafts,
                                 ),
                             )
@@ -2186,6 +2224,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             query = session.query,
             items = items.map { item -> item.toUi(library) },
             comparisonOnly = session.kind == SessionKind.OFFLINE_MATCH,
+            // The saved original picture, shown at the top of the opened profile. Null for a profile
+            // saved before v2.5.0 or for one that never had a source image: the screen then explains
+            // itself instead of showing a thumbnail in its place.
+            original = session.originalImageName?.let { name ->
+                wishlist.originalFile(name).takeIf { it.isFile }
+            },
         )
     }
 

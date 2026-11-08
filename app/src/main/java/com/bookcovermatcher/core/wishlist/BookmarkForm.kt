@@ -13,8 +13,13 @@ object BookmarkForm {
     const val FIELD_TITLE = "title"
     const val FIELD_URL = "url"
 
-    /** Gray sample texts. They are placeholders, never values, and are never written to storage. */
-    const val FOLDER_NAME_PLACEHOLDER = "ブルアカ"
+    /**
+     * Gray sample texts. They are placeholders, never values, and are never written to storage.
+     *
+     * [FOLDER_NAME_PLACEHOLDER] is shared by both folder-creation entry points — Wishlist → Create
+     * folder and Search → Add entire result profile — so the two dialogs cannot drift apart again.
+     */
+    const val FOLDER_NAME_PLACEHOLDER = "e.g. ブルアカ"
     const val TITLE_PLACEHOLDER = "みつ"
     const val URL_PLACEHOLDER = "https://www.dlsite.com/maniax-touch/work/=/product_id/RJ01266914.html"
     const val ARTIST_PLACEHOLDER = "eno"

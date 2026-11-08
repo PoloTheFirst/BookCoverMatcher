@@ -180,9 +180,19 @@ fun JpegImage(bytes: ByteArray, modifier: Modifier = Modifier, description: Stri
     }
 }
 
-/** Loads a small image file off the main thread (wishlist thumbnails). */
+/**
+ * Loads a small image file off the main thread (wishlist thumbnails).
+ *
+ * [contentScale] defaults to [ContentScale.Crop] because the list rows want a filled tile; the
+ * result-profile detail view passes [ContentScale.Fit] so a portrait cover is never cropped.
+ */
 @Composable
-fun FileImage(file: File?, modifier: Modifier = Modifier, description: String? = null) {
+fun FileImage(
+    file: File?,
+    modifier: Modifier = Modifier,
+    description: String? = null,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
     val bitmap by produceState<ImageBitmap?>(initialValue = null, file) {
         value = if (file == null) null else withContext(Dispatchers.IO) {
             BitmapFactory.decodeFile(file.path)?.asImageBitmap()
@@ -190,7 +200,7 @@ fun FileImage(file: File?, modifier: Modifier = Modifier, description: String? =
     }
     val loaded = bitmap
     if (loaded != null) {
-        Image(bitmap = loaded, contentDescription = description, modifier = modifier, contentScale = ContentScale.Crop)
+        Image(bitmap = loaded, contentDescription = description, modifier = modifier, contentScale = contentScale)
     } else {
         Box(modifier.background(Color.Black))
     }

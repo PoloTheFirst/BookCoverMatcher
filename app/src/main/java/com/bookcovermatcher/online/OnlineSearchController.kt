@@ -79,7 +79,7 @@ import kotlinx.coroutines.withTimeout
  *  1. **OCR** of the captured cover through the selected engine ([OcrTextSource]): the embedded
  *     `chrome-lens-py` package by default, or the native Rust PP-OCRv6 engine when the debug-only
  *     engine setting says so. Neither is used for anything else.
- *  2. **Product search** through a catalogue ([ProductSearchDataSource]) â€” a different service
+ *  2. **Product search** through a catalogue ([ProductSearchDataSource]) — a different service
  *     with a different failure model. `chrome-lens-py` returns no products, so nothing here asks
  *     it for any.
  *
@@ -92,14 +92,14 @@ class OnlineSearchController(
     private val bridge: OcrTextSource = OcrEngines.create(context),
     /**
      * Every provider the app can query itself, each through its own adapter:
-     *  * **Open Library** â€” library catalogue, JSON API;
-     *  * **Google Books** â€” book catalogue, JSON API;
-     *  * **DLsite** â€” doujinshi / digital works shop, public search page (HTML).
+     *  * **Open Library** — library catalogue, JSON API;
+     *  * **Google Books** — book catalogue, JSON API;
+     *  * **DLsite** — doujinshi / digital works shop, public search page (HTML).
      *
      * Melonbooks and Suruga-ya are deliberately **not** here: the first is browser-only by product
      * decision (v2.2.2 patch), the second because its `robots.txt` disallows `/search/`. Doujin no Mori
      * disallows its own search route in `robots.txt`, Doujinshi.info and nhentai answer HTTP 403 to
-     * automated clients, and MyAnimeList has no unauthenticated API â€” all five are listed by
+     * automated clients, and MyAnimeList has no unauthenticated API — all five are listed by
      * [ProviderCatalog] for the browser-handoff card only (E-Hentai too, as an adult catalogue).
      * Which of these actually run is decided by the user's platform selection ([SearchRouting]).
      */
@@ -135,7 +135,7 @@ class OnlineSearchController(
     //
     // Declared **before** `_ui` on purpose: the UI state below is built in a property initializer, and Kotlin
     // runs initializers in declaration order. In v2.5.0-dev.2 these fields came after `_ui`, so the initializer
-    // read `reverseRuns` while it was still null and the constructor threw â€” a crash on every launch. Anything a
+    // read `reverseRuns` while it was still null and the constructor threw — a crash on every launch. Anything a
     // property initializer touches must already be initialised above it.
     //
     // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The generation
@@ -216,9 +216,9 @@ class OnlineSearchController(
      * The provider rows for [query] under [selected].
      *
      * Four honest states, all drawn:
-     *  * a browser-only platform is always [ProviderState.MANUAL] â€” it is never queried, so its row can
+     *  * a browser-only platform is always [ProviderState.MANUAL] — it is never queried, so its row can
      *    never claim a result, whether or not it is selected;
-     *  * an unselected platform is [ProviderState.SKIPPED] â€” not queried, and it must not look like an
+     *  * an unselected platform is [ProviderState.SKIPPED] — not queried, and it must not look like an
      *    empty successful search;
      *  * a selected automated platform is [ProviderState.SEARCHING] during a search, then whatever
      *    [automated] says it actually returned;
@@ -295,17 +295,17 @@ class OnlineSearchController(
                 providers = providerStatuses(query = it.query, selected = it.selectedProviders),
             )
         }
-        onMessage("Session cache cleared â€” saved bookmarks and wishlist items are untouched.", ToastKind.INFO)
+        onMessage(SessionCacheMessages.CLEARED, ToastKind.INFO)
     }
 
     // =========================================================================================
-    // Reverse-image discovery â€” SauceNAO first, IQDB second
+    // Reverse-image discovery — SauceNAO first, IQDB second
     // =========================================================================================
 
     /**
      * The two provider rows, built from the sources themselves plus whatever the last run reported.
      *
-     * The rows themselves are built by [ReverseProviderRows], which takes everything it needs as parameters â€”
+     * The rows themselves are built by [ReverseProviderRows], which takes everything it needs as parameters —
      * so this call is safe from a property initializer, where reading a field declared further down the class
      * would see `null` (the v2.5.0-dev.2 startup crash).
      */
@@ -378,12 +378,12 @@ class OnlineSearchController(
      *
      * Sequence, fixed by the release: SauceNAO first (if a key is stored), IQDB second (manual-only, so it
      * reports `MANUAL_ONLY` and offers its own page). Each provider publishes its row as it runs, so SauceNAO's
-     * results are visible while IQDB is still being handled â€” nothing waits for the slower provider.
+     * results are visible while IQDB is still being handled — nothing waits for the slower provider.
      */
     fun runReverseSearch() {
         val bytes = capture
         if (bytes == null) {
-            onMessage("Scan a cover first â€” reverse-image search needs the image itself.", ToastKind.ERR)
+            onMessage("Scan a cover first — reverse-image search needs the image itself.", ToastKind.ERR)
             return
         }
         if (!_ui.value.enabled) {
@@ -391,7 +391,7 @@ class OnlineSearchController(
             return
         }
         if (_ui.value.reverse.running || _ui.value.isBusy) {
-            onMessage("Still working â€” tap Cancel to stop.", ToastKind.INFO)
+            onMessage("Still working — tap Cancel to stop.", ToastKind.INFO)
             return
         }
 
@@ -779,8 +779,8 @@ class OnlineSearchController(
     /**
      * The text field's only writer, and the **source of truth** for every browser-only link.
      *
-     * The cards' `Open â†—` targets are rebuilt for [text] on each edit, so typing a title and opening
-     * Melonbooks/Suruga-ya/Toranoanaâ€¦ never requires a dummy in-app search first. Nothing is launched
+     * The cards' `Open ↗` targets are rebuilt for [text] on each edit, so typing a title and opening
+     * Melonbooks/Suruga-ya/Toranoana… never requires a dummy in-app search first. Nothing is launched
      * here and no provider is contacted: a search still starts only from [search]. The rows keep the
      * states/details of the last search that actually ran, so an edit never fakes a result.
      */
@@ -822,7 +822,7 @@ class OnlineSearchController(
 
 
     // =========================================================================================
-    // Step 1 â€” OCR of the captured cover
+    // Step 1 — OCR of the captured cover
     // =========================================================================================
 
     /**
@@ -830,7 +830,7 @@ class OnlineSearchController(
      * feature is on, reads its text.
      *
      * [jpegBytes] is produced by
-     * [com.bookcovermatcher.vision.AndroidImageCodec.encodeJpeg] â€” the 224-pixel thumbnail is far
+     * [com.bookcovermatcher.vision.AndroidImageCodec.encodeJpeg] — the 224-pixel thumbnail is far
      * too small for OCR.
      */
     fun onCapture(jpegBytes: ByteArray) {
@@ -974,7 +974,7 @@ class OnlineSearchController(
      * Routing is decided by the user's selection ([SearchRouting]) and the configured maximum
      * ([SearchLimits]):
      *  * only selected **automated** platforms are queried, each with its own capped limit;
-     *  * selected **browser-only** platforms are never queried â€” if they are the only thing selected,
+     *  * selected **browser-only** platforms are never queried — if they are the only thing selected,
      *    no request is made at all and the panel says where those results can be seen;
      *  * an empty selection searches nothing (and says so) rather than silently querying defaults.
      */
@@ -1024,7 +1024,7 @@ class OnlineSearchController(
                 )
             }
             onMessage(
-                if (switchedOffOnly) "General-book sources are off â€” nothing to search." else "Select at least one in-app platform to search.",
+                if (switchedOffOnly) "General-book sources are off — nothing to search." else "Select at least one in-app platform to search.",
                 ToastKind.INFO,
             )
             return
@@ -1285,7 +1285,7 @@ class OnlineSearchController(
 
     /**
      * The honest label for how this result was found. Open Library is searched with the text the OCR
-     * read off the cover, so it is a text match â€” never a visual one.
+     * read off the cover, so it is a text match — never a visual one.
      */
     private fun ProductSearchResult.matchTypeLabel(): String = when (OnlineAggregator.matchTypeOf(this)) {
         MatchType.TEXT_QUERY -> "Text match"
@@ -1297,7 +1297,7 @@ class OnlineSearchController(
     private fun messageFor(failure: OnlineFailure, detail: String): String = when (failure) {
         OnlineFailure.OFFLINE -> "No connection to the catalogue. The offline matcher still works."
         OnlineFailure.TIMEOUT -> "The catalogue did not answer in time."
-        OnlineFailure.RATE_LIMITED -> "The catalogue is throttling requests â€” try again in a minute."
+        OnlineFailure.RATE_LIMITED -> "The catalogue is throttling requests — try again in a minute."
         OnlineFailure.SERVER_ERROR -> "The catalogue is having trouble right now."
         OnlineFailure.BAD_RESPONSE -> "The catalogue sent something unexpected."
         OnlineFailure.BLOCKED -> "The site refused automated access. Use its search link instead."

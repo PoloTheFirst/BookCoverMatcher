@@ -159,6 +159,14 @@ class AndroidImageCodec : ImageCodec {
         /** Long edge handed to the OCR bridge. */
         const val OCR_MAX_EDGE = 1280
 
+        /**
+         * Quality for the **original** image a result profile keeps.
+         *
+         * Higher than [OCR_QUALITY] because this is the picture the user will look at again, not input
+         * for a recogniser; still lossy, because the pipeline holds decoded pixels rather than the
+         * camera's own file, so re-encoding is unavoidable and is documented as such.
+         */
+        const val ORIGINAL_QUALITY = 92
         /** Keep in step with MAX_IMAGE_BYTES in `lens_bridge.py`; Python rejects anything larger. */
         const val OCR_MAX_BYTES = 12 * 1024 * 1024
 

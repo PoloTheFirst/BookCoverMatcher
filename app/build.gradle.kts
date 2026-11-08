@@ -21,8 +21,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // 220 is dev.5: 219 was dev.4, 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
-        versionCode = 220
-        versionName = "2.5.0-dev.5"
+        versionCode = 221
+        versionName = "2.5.0"
 
         // ONNX Runtime ships four ABIs (~15 MB each). Real phones are arm64-v8a;
         // x86_64 keeps the emulator working. Add "armeabi-v7a" for old 32-bit phones.

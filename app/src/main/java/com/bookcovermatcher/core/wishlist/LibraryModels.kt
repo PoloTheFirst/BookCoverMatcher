@@ -79,6 +79,16 @@ class SearchSession(
     val createdAtMillis: Long,
     /** JPEG of the captured cover, stored as a file name in `thumbs/`. Never a result thumbnail. */
     val scanThumbName: String?,
+    /**
+     * JPEG of the **original** captured or uploaded image, stored as a file name in `originals/`.
+     *
+     * Deliberately a second file, not a bigger [scanThumbName]: the thumbnail is a 44×58 row image that
+     * the folder and session lists need, while this is the picture the user actually took or picked and
+     * is what the result-profile detail view shows at the top. Null for anything saved before v2.5.0
+     * and for sessions with no source image at all (imported scans, v1 migrations) — the UI then shows
+     * a placeholder instead of pretending.
+     */
+    val originalImageName: String? = null,
 ) {
     override fun toString(): String = "SearchSession($id, $title, $kind)"
 }
@@ -274,6 +284,11 @@ class SessionDraft(
     val title: String,
     val query: String? = null,
     val scanThumbJpeg: ByteArray? = null,
+    /**
+     * The original captured/uploaded image, when the caller still holds it. Written to `originals/`
+     * as its own file, so a profile keeps the real picture and not only the row thumbnail.
+     */
+    val originalJpeg: ByteArray? = null,
     val results: List<ItemDraft>,
 )
 

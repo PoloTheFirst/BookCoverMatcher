@@ -63,6 +63,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
+import java.io.File
 import com.bookcovermatcher.BatchKind
 import com.bookcovermatcher.FolderDetailUi
 import com.bookcovermatcher.FolderUi
@@ -456,6 +459,60 @@ private fun DetailHeader(backLabel: String, title: String, countText: String, on
 // One session: comparison output or a saved result set
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * The original captured or uploaded image of a saved result profile.
+ *
+ * It sits at the top of the opened profile, above the saved results and their metadata, because that
+ * is the picture the user is checking the results against — the 44×58 row thumbnail in the folder list
+ * is not the same thing and is deliberately not used here.
+ *
+ * The aspect ratio is preserved (`ContentScale.Fit`, so a portrait cover is never cropped into a tile)
+ * and the height is capped so a tall cover cannot push the results off a phone screen; tapping opens
+ * the same picture at full size.
+ *
+ * A profile saved before v2.5.0 — or one that never had a source image, like an imported scan — has no
+ * file. It says so, rather than showing a thumbnail as if it were the original.
+ */
+@Composable
+private fun ProfileOriginalImage(file: File?, title: String) {
+    if (file == null) {
+        Text(
+            "No original image was saved with this profile.",
+            color = Palette.Muted,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        return
+    }
+    var enlarged by rememberSaveable(file.path) { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    FileImage(
+        file = file,
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .fillMaxWidth()
+            .heightIn(max = 240.dp)
+            .clip(shape)
+            .border(1.dp, Palette.Line, shape)
+            .clickable(role = Role.Button) { enlarged = true }
+            .semantics { contentDescription = "Original image of $title. Tap to enlarge." },
+        description = "Original image of $title",
+        contentScale = ContentScale.Fit,
+    )
+    if (enlarged) {
+        Dialog(onDismissRequest = { enlarged = false }) {
+            FileImage(
+                file = file,
+                modifier = Modifier
+                    .clip(shape)
+                    .clickable(role = Role.Button) { enlarged = false },
+                description = "Original image of $title",
+                contentScale = ContentScale.Fit,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SessionDetailScreen(
     detail: SessionDetailUi,
@@ -477,6 +534,9 @@ private fun SessionDetailScreen(
             detail.query?.let { Chip("query: $it", Palette.Muted) }
         }
         Text(detail.meta, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp))
+        // The picture the user actually took or picked, above the saved results and their metadata.
+        // It is the profile's own original image, not the folder tile or a result thumbnail.
+        ProfileOriginalImage(detail.original, detail.title)
         if (detail.comparisonOnly) {
             Text(
                 "Workbook comparison results. They stay part of this session and have no bookmark or remove action.",
