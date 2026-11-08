@@ -50,10 +50,29 @@ EXCLUDED_FILES = {
     "app/release/output-metadata.json",
     "app/src/main/assets/models/openclip_image.json",
     "native/ocr/assets/ppocrv6_dict.txt",
-    "test_excel/doujin.xlsx",
     "app/src/androidTest/assets/cover.jpg",
 }
 CODE_EXTENSIONS = {".kt", ".kts", ".rs", ".java", ".js", ".ts", ".py", ".ps1", ".sh", ".pro", ".xml"}
+
+#: The blob id of the canonical GPLv3 text; every tag and branch tip must carry exactly this blob.
+CANONICAL_LICENSE_BLOB = "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7"
+
+#: Marker every generated fixture carries, so a captured page cannot slip back in unnoticed.
+SYNTHETIC_MARKER = "Synthetic fixture, GPL-3.0-or-later"
+
+#: The generated cover, pinned by hash (the previous one was a photograph of a published cover).
+SYNTHETIC_COVER_SHA256 = "23897f16caa47fe5b327fb90e6db4c36b9396c22a313fb6f9f64c40bdd11977f"
+
+FIXTURES = [
+    "app/src/test/resources/fixtures/dlsite_books_search.html",
+    "app/src/test/resources/fixtures/dlsite_books_empty.html",
+    "app/src/test/resources/fixtures/melonbooks_search.html",
+    "app/src/test/resources/fixtures/melonbooks_empty.html",
+]
+
+#: Assets that must never be distributed again, and why (see THIRD_PARTY_NOTICES.md §4).
+REMOVED_ASSETS = ["test_excel/doujin.xlsx"]
+
 
 # Files that legitimately mention the old identifier: the migrator names it, the audit names it, and the
 # policy test searches for it.
@@ -148,31 +167,116 @@ def check_docs(root: Path) -> None:
         if "GPL-3.0-only" in text:
             fail(f"{name} still states GPL-3.0-only")
     notices = (root / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+    # `Unresolved` stays documented on purpose: Chaquopy is still an open decision, and the legend at
+    # the top of the table explains what the word means.
     for required in ("PaddleOCR", "ONNX Runtime", "OpenCLIP", "Unresolved"):
         if required not in notices:
             fail(f"THIRD_PARTY_NOTICES.md no longer documents {required}")
+    clip = [line for line in notices.splitlines() if line.startswith("| OpenCLIP")]
+    if not clip:
+        fail("THIRD_PARTY_NOTICES.md has no OpenCLIP row")
+    elif not all("MIT" in line for line in clip):
+        fail("the OpenCLIP row no longer records the MIT licence of the weights")
+    if "make-synthetic-fixtures.py" not in notices:
+        fail("THIRD_PARTY_NOTICES.md does not describe the generated test fixtures")
     notes.append("documentation states GPL-3.0-or-later and keeps the third-party inventory")
 
 
+def check_flagged_assets(root: Path) -> None:
+    """The assets that were never ours must stay out of the tree, and their replacements must be ours."""
+    for rel in REMOVED_ASSETS:
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", rel],
+                                 capture_output=True, text=True).returncode == 0
+        if tracked:
+            fail(f"{rel} is tracked by git again; it must stay out of the public repository")
+    workbook = root / REMOVED_ASSETS[0]
+    if workbook.exists() and subprocess.run(["git", "ls-files", "--error-unmatch", REMOVED_ASSETS[0]],
+                                            capture_output=True, text=True).returncode == 0:
+        fail(f"{REMOVED_ASSETS[0]} is staged or committed")
+    synth_workbook = root / "test_excel/synthetic_catalog.xlsx"
+    if not synth_workbook.is_file():
+        fail("test_excel/synthetic_catalog.xlsx is missing (the workbook tests need a distributable fixture)")
+    cover = root / "app/src/androidTest/assets/cover.jpg"
+    if not cover.is_file():
+        fail("app/src/androidTest/assets/cover.jpg is missing (the device tests need a cover image)")
+    else:
+        digest = hashlib.sha256(cover.read_bytes()).hexdigest()
+        if digest != SYNTHETIC_COVER_SHA256:
+            fail(f"the androidTest cover is not the generated one (sha256 {digest})")
+    for rel in FIXTURES:
+        path = root / rel
+        if not path.is_file():
+            fail(f"{rel} is missing")
+        elif SYNTHETIC_MARKER not in path.read_text(encoding="utf-8"):
+            fail(f"{rel} is not a generated fixture: it carries no synthetic marker")
+    notes.append(
+        "flagged assets handled: the personal workbook is untracked, the cover is the generated image "
+        f"and all {len(FIXTURES)} page fixtures are generated"
+    )
+
+
+
 def git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True, check=False).stdout.strip()
+    # UTF-8 explicitly: the sources contain Japanese text and the Windows default code page cannot
+    # decode it, which used to abort the --refs scan inside the pipe reader thread.
+    return subprocess.run(
+        ["git", *args], capture_output=True, text=True,
+        encoding="utf-8", errors="replace", check=False,
+    ).stdout.strip()
+
+
+def rev(ref_path: str) -> str:
+    """`git rev-parse --verify --quiet` and nothing else: without those flags Git echoes the argument
+    back on stdout when the path does not exist, which silently turned "absent" into a false match."""
+    return subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", ref_path],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    ).stdout.strip()
 
 
 def check_refs() -> None:
-    tags = git("tag", "--list").splitlines()
-    branches = git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines()
-    missing_license = []
-    missing_header = []
+    tags = sorted(git("tag", "--list").splitlines())
+    branches = sorted(git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines())
+    synthetic_cover = git("hash-object", "app/src/androidTest/assets/cover.jpg")
+    synthetic_workbook = git("hash-object", "test_excel/synthetic_catalog.xlsx")
+    print("\n%-26s %-10s %-8s %-7s %-10s %s"
+          % ("ref", "commit", "LICENSE", "header", "workbook", "cover"))
+    incomplete = []
     for ref in tags + branches:
-        if "LICENSE" not in git("ls-tree", "--name-only", ref).splitlines():
-            missing_license.append(ref)
-            continue
-        sample = git("show", f"{ref}:app/src/main/java/com/bookcovermatcher/MainViewModel.kt")
-        if not sample or IDENTIFIER not in sample:
-            missing_header.append(ref)
-    notes.append(f"refs scanned: {len(tags)} tag(s), {len(branches)} branch(es)")
-    notes.append("without LICENSE: " + (", ".join(sorted(missing_license)) or "none"))
-    notes.append("without the SPDX header: " + (", ".join(sorted(missing_header)) or "none"))
+        label = ref if ref in tags else ref + " (branch)"
+        commit = rev(ref + "^{commit}")[:9]
+        licence = rev(ref + ":LICENSE")
+        licence_state = "ok" if licence == CANONICAL_LICENSE_BLOB else ("absent" if not licence else "WRONG")
+        sources = [p for p in git("ls-tree", "-r", "--name-only", ref, "--", "app/src/main/java").splitlines()
+                   if p.endswith(".kt")]
+        sample = git("show", ref + ":" + sources[0]) if sources else ""
+        header_state = "ok" if IDENTIFIER in sample else ("n/a" if not sources else "MISSING")
+        workbook = rev(ref + ":" + REMOVED_ASSETS[0])
+        if not workbook:
+            workbook_state = "absent"
+        elif workbook == synthetic_workbook:
+            workbook_state = "synthetic"
+        else:
+            workbook_state = "ORIGINAL"
+        cover = rev(ref + ":app/src/androidTest/assets/cover.jpg")
+        if not cover:
+            cover_state = "absent"
+        else:
+            cover_state = "synthetic" if cover == synthetic_cover else "ORIGINAL"
+        print("%-26s %-10s %-8s %-7s %-10s %s" % (label, commit, licence_state, header_state,
+                                                  workbook_state, cover_state))
+        broken = (licence_state != "ok" or header_state == "MISSING" or "ORIGINAL" in workbook_state
+                  or cover_state == "ORIGINAL")
+        if broken and ref in tags:
+            incomplete.append(ref)
+        elif broken:
+            notes.append(f"{ref} (branch) is not fully licensed - reported, not failed: it is the owner's branch")
+    notes.append(f"refs scanned: {len(tags)} tag(s), {len(branches)} branch tip(s)")
+    if incomplete:
+        fail("tags still without complete licensing or still carrying a flagged asset: "
+             + ", ".join(incomplete))
+    else:
+        notes.append("every tag: canonical LICENSE, SPDX header, no flagged asset")
 
 
 def main() -> int:
@@ -186,6 +290,7 @@ def main() -> int:
     check_headers(root)
     check_third_party(root)
     check_docs(root)
+    check_flagged_assets(root)
     if args.refs:
         check_refs()
 

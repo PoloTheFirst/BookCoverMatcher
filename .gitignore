@@ -32,3 +32,6 @@ app/src/main/jniLibs/*/libbc_ocr.so
 app/src/main/assets/ocr/
 tools/ocr-reference/out/
 app/src/main/assets/licenses/
+
+# The personal catalogue workbook stays on the owner's machine; it is not distributed.
+test_excel/doujin.xlsx

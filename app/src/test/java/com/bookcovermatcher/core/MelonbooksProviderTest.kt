@@ -11,9 +11,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The Melonbooks adapter against a **captured** search page
- * (`app/src/test/resources/fixtures/melonbooks_search.html`, three real listings) and a captured
- * empty page. The fixture is the shop's own markup, not a hand-written mock.
+ * The Melonbooks adapter against a **synthetic** search page
+ * (`app/src/test/resources/fixtures/melonbooks_search.html`, three invented listings) and a synthetic
+ * empty page. The markup keeps the structure the production parser reads — the `product_…` item, the
+ * detail link, the title/price blocks, the person blocks and the `data-src` thumbnail — but every id,
+ * title, circle, artist and price is invented by `tools/make-synthetic-fixtures.py`.
  */
 class MelonbooksPageParserTest {
 
@@ -28,20 +30,20 @@ class MelonbooksPageParserTest {
 
         assertEquals(3, items.size)
         val first = items.first()
-        assertEquals("3897050", first.id)
+        assertEquals("3870001", first.id)
         assertEquals("mb", first.providerId)
         assertEquals(MelonbooksResponseParser.SOURCE_NAME, first.source)
         assertTrue(first.isMarketplace)
-        assertEquals("エピローグはどうかあなたと", first.title)
-        assertEquals(listOf("甘毒フロランタン", "らずべりぃ。"), first.authors)
+        assertEquals("見本タイトル はじまりの巻", first.title)
+        assertEquals(listOf("見本サークル甲", "見本 著者一"), first.authors)
         assertEquals("¥484", first.priceText)
         assertEquals("¥484", first.metaLine)
         assertEquals(
-            "https://www.melonbooks.co.jp/detail/detail.php?product_id=3897050",
+            "https://www.melonbooks.co.jp/detail/detail.php?product_id=3870001",
             first.detailUrl,
         )
         assertTrue(first.coverUrl!!.startsWith("https://melonbooks.akamaized.net/"))
-        assertTrue(first.coverUrl!!.contains("image=212001618313.jpg"))
+        assertTrue(first.coverUrl!!.contains("image=synthetic_3870001.jpg"))
         assertNull("the listing has no year and none is invented", first.publishedYear)
         assertTrue(first.publishers.isEmpty())
     }
@@ -49,14 +51,14 @@ class MelonbooksPageParserTest {
     @Test fun htmlEntitiesInTitlesAreDecoded() {
         val third = MelonbooksResponseParser.parse(fixture("melonbooks_search.html"), 3)[2]
 
-        assertTrue(third.title, third.title.contains("「レミリア」&「フランドール」"))
+        assertTrue(third.title, third.title.contains("「引用」&「記号」"))
         assertFalse("the raw entity must not survive", third.title.contains("&amp;"))
     }
 
     @Test fun theLimitIsRespectedInListingOrder() {
         val items = MelonbooksResponseParser.parse(fixture("melonbooks_search.html"), 2)
 
-        assertEquals(listOf("3897050", "3797208"), items.map { it.id })
+        assertEquals(listOf("3870001", "3870002"), items.map { it.id })
     }
 
     @Test fun everyParsedListingHasItsOwnStableIdentity() {
@@ -64,7 +66,7 @@ class MelonbooksPageParserTest {
             .map { OnlineAggregator.itemKey(it) }
 
         assertEquals(3, keys.distinct().size)
-        assertEquals("mb:3897050", keys.first())
+        assertEquals("mb:3870001", keys.first())
     }
 
     @Test fun aGenuinelyEmptyResultPageIsEmptyNotAFailure() {

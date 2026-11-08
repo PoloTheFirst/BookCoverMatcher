@@ -15,9 +15,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The DLsite adapter, exercised against a **captured** search page
- * (`app/src/test/resources/fixtures/dlsite_books_search.html`, three real works) and a captured
- * empty page. Nothing here is a mock: the fixture is the site's own markup.
+ * The DLsite adapter, exercised against a **synthetic** search page
+ * (`app/src/test/resources/fixtures/dlsite_books_search.html`, three invented works) and a synthetic
+ * empty page. The markup keeps every structure the production parser reads, but the ids, titles,
+ * circles and prices are invented by `tools/make-synthetic-fixtures.py`, so the fixture carries no
+ * third-party page content and can be distributed with the source.
  */
 class DlsitePageParserTest {
 
@@ -32,23 +34,23 @@ class DlsitePageParserTest {
 
         assertEquals(3, items.size)
         val first = items.first()
-        assertEquals("RJ01730150", first.id)
+        assertEquals("RJ01000001", first.id)
         assertEquals("dl", first.providerId)
         assertEquals(DlsiteResponseParser.SOURCE_NAME, first.source)
         assertTrue(first.isMarketplace)
-        assertTrue("title was '${first.title}'", first.title.contains("ふしだら幻想郷"))
+        assertTrue("title was '${first.title}'", first.title.contains("架空の書名 第一巻"))
         // A shop listing has no author: the maker/circle name belongs in `circle`, and the card line
         // shows it without claiming it is an author.
-        assertEquals(listOf("大アザラシ帝国"), listOf(first.circle))
+        assertEquals(listOf("見本サークル甲"), listOf(first.circle))
         assertTrue("the circle must not be stored as an author", first.authors.isEmpty())
         // The first price block on DLsite is the current price; the struck-through one is the old
         // price and is deliberately not the one shown.
         assertEquals("924円", first.priceText)
         assertEquals("924円", first.metaLine)
         assertTrue(first.detailUrl.startsWith("https://www.dlsite.com/"))
-        assertTrue(first.detailUrl.contains("product_id/RJ01730150.html"))
+        assertTrue(first.detailUrl.contains("product_id/RJ01000001.html"))
         assertEquals(
-            "https://img.dlsite.jp/resize/images2/work/doujin/RJ01731000/RJ01730150_img_main_240x240.jpg",
+            "https://img.dlsite.jp/resize/images2/work/doujin/synthetic/RJ01000001_img_main_240x240.jpg",
             first.coverUrl,
         )
         // A shop listing has no bibliographic fields, and none are invented for it.
@@ -61,7 +63,7 @@ class DlsitePageParserTest {
     @Test fun theLimitIsRespectedInListingOrder() {
         val items = DlsiteResponseParser.parse(fixture("dlsite_books_search.html"), 2)
 
-        assertEquals(listOf("RJ01730150", "RJ01610330"), items.map { it.id })
+        assertEquals(listOf("RJ01000001", "RJ01000002"), items.map { it.id })
     }
 
     @Test fun everyParsedWorkHasItsOwnStableIdentity() {
@@ -69,7 +71,7 @@ class DlsitePageParserTest {
             .map { OnlineAggregator.itemKey(it) }
 
         assertEquals(3, keys.distinct().size)
-        assertEquals("dl:rj01730150", keys.first())
+        assertEquals("dl:rj01000001", keys.first())
     }
 
     @Test fun aGenuinelyEmptyResultPageIsEmptyNotAFailure() {
