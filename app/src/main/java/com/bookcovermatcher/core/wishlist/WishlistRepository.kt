@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-﻿package com.bookcovermatcher.core.wishlist
+package com.bookcovermatcher.core.wishlist
 
 import java.io.File
 import java.io.IOException

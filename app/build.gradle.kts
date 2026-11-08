@@ -216,6 +216,44 @@ val preparePaddleOcrAssets = tasks.register("preparePaddleOcrAssets") {
         }
     }
 }
+// ---------------------------------------------------------------------------------------------
+// Licence assets: the root LICENSE and THIRD_PARTY_NOTICES.md travel inside the APK.
+//
+// A GPLv3 binary distribution has to carry the licence text and the third-party statements. Copying
+// the two root documents into assets at build time means the APK cannot drift from the source tree,
+// and the app never ships a second, edited copy of either document.
+// ---------------------------------------------------------------------------------------------
+
+val licenseAssetDir = layout.projectDirectory.dir("src/main/assets/licenses").asFile
+
+val syncLicenseAssets = tasks.register("syncLicenseAssets") {
+    group = "build"
+    description = "Copies LICENSE and THIRD_PARTY_NOTICES.md into the APK assets."
+    val root = rootProject.projectDir
+    val sources = listOf(
+        root.resolve("LICENSE") to "GPL-3.0.txt",
+        root.resolve("THIRD_PARTY_NOTICES.md") to "THIRD_PARTY_NOTICES.md",
+    )
+    inputs.files(sources.map { it.first })
+    outputs.dir(licenseAssetDir)
+    doLast {
+        licenseAssetDir.mkdirs()
+        val missing = sources.map { it.first }.filterNot { it.isFile }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "the licensing documents are missing, so the APK would ship without them: " +
+                    missing.joinToString(", ") { it.path },
+            )
+        }
+        sources.forEach { (from, name) ->
+            from.copyTo(File(licenseAssetDir, name), overwrite = true)
+        }
+        logger.lifecycle("licence assets: " + sources.joinToString(", ") { it.second })
+    }
+}
+
+tasks.named("preBuild") { dependsOn(syncLicenseAssets) }
+
 
 // Any packaging task (and therefore every ordinary build) needs the assets in place first.
 tasks.named("preBuild") { dependsOn(preparePaddleOcrAssets) }

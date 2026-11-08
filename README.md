@@ -1,4 +1,4 @@
-﻿# BookCoverMatcher
+# BookCoverMatcher
 
 **Version 2.5.0** (stable; versionCode 221. The 2.4.0 stable release was versionCode 215) Â· Android 8.0+ (API 26) Â· Kotlin + Jetpack Compose Â· CameraX Â· ONNX Runtime (OpenCLIP) Â· Chaquopy / chrome-lens-py Â· native PaddleOCR (PP-OCRv6 Medium, models bundled in the APK) in `native/ocr`
 
@@ -928,3 +928,30 @@ No step of this pipeline is online, and the online feature is never consulted by
   and used unmodified, pinned in `app/build.gradle.kts`.
 * Version 2.1.0 is the behavioural reference for offline matching; the historical diagnostic is in
   `ONLINE_COVER_RECOGNITION_DIAGNOSTIC.md`.
+
+
+---
+
+## License
+
+BookCoverMatcher is free software: **every line of code written for this project is licensed under the
+GNU General Public License, version 3 or (at your option) any later version** — SPDX identifier
+`GPL-3.0-or-later`. You may redistribute and/or modify the project under the terms of the GPL as
+published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+* The complete, unmodified licence text is in [`LICENSE`](LICENSE) — the canonical GNU GPLv3 text, kept
+  byte-identical to <https://www.gnu.org/licenses/gpl-3.0.txt>.
+* Project-owned sources carry `SPDX-License-Identifier: GPL-3.0-or-later` in their header. The rule and
+  its exclusions live in `tools/apply-license-headers.py` and are enforced by `tools/check-licenses.py`.
+* **Third-party components keep their own licences** and are not relicensed by this project. See
+  [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md): PaddleOCR models are Apache-2.0, ONNX Runtime is
+  MIT, `chrome-lens-py` is MIT, AndroidX/Kotlin are Apache-2.0, the Rust dependency set is entirely
+  permissive, and the OpenCLIP weights shipped in the APK have **no declared licence** (unresolved).
+* Assets this project cannot license — the test cover photograph, the sample workbook and the captured
+  HTML fixtures — are listed separately in that file and are **not** covered by the GPL.
+* The licence text and the third-party notices are also packaged into the APK and shown in
+  **More → Open-source licences**.
+
+The project was GPLv3 from its first release: `v1.0.0` and `v1.1.0` shipped the same `LICENSE` file
+(blob `f288702d…`), which the v2.0.0 rewrite dropped. This release restores it and states the "or later"
+option explicitly.

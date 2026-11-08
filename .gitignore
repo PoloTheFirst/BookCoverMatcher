@@ -31,3 +31,4 @@ app/src/main/jniLibs/*/libbc_ocr.so
 # `preparePaddleOcrAssets` (app/build.gradle.kts). ~139 MB of binaries do not belong in git.
 app/src/main/assets/ocr/
 tools/ocr-reference/out/
+app/src/main/assets/licenses/

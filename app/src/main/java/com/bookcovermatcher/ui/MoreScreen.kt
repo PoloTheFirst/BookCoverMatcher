@@ -4,6 +4,8 @@ package com.bookcovermatcher.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,24 +21,34 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.ModelUi
 import com.bookcovermatcher.UiState
 import com.bookcovermatcher.core.format.Formatting
+import com.bookcovermatcher.core.licensing.LicenseDocuments
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.Panel
 import com.bookcovermatcher.ui.theme.Palette
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * More: settings and information that do not belong to Home, Search or Wishlist.
@@ -148,6 +160,89 @@ fun MoreScreen(ui: UiState, vm: MainViewModel) {
             }
             InfoLine("Saved data", "folders \u2192 sessions \u2192 results; bookmarks independent")
             InfoLine("Version", com.bookcovermatcher.BuildConfig.VERSION_NAME)
+        }
+
+        Spacer(Modifier.height(14.dp))
+        PanelsLicence()
+    }
+}
+
+/**
+ * The licence section of the More tab.
+ *
+ * A GPLv3 binary has to carry the licence and the third-party statements, so both travel in the APK
+ * (`assets/licenses/`, copied from the repository root at build time) and are readable here without a
+ * network connection. The panel also states plainly what is *not* covered: the bundled models and the
+ * test assets keep their own terms.
+ */
+@Composable
+private fun PanelsLicence() {
+    var open by remember { mutableStateOf<LicenseDocuments?>(null) }
+    Panel("Licences") {
+        InfoLine("This app", "GNU GPL v3.0 or later \u2014 your option")
+        InfoLine("Your rights", "Redistribute and/or modify under GPLv3, or any later version published by the FSF.")
+        InfoLine("Third-party", "PaddleOCR models Apache-2.0; ONNX Runtime MIT; OpenCLIP weights unresolved.")
+        GradientButton(
+            onClick = { open = LicenseDocuments.GPL },
+            colors = Palette.NavyGradient,
+            contentColor = Palette.Text,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            minHeight = 42.dp,
+        ) { ButtonLabel("Open-source licences", Palette.Text, 12.5f) }
+    }
+    open?.let { document -> LicenseDialog(document) { open = null } }
+}
+
+/** Shows one licence document, read from the APK's own assets. */
+@Composable
+private fun LicenseDialog(start: LicenseDocuments, onClose: () -> Unit) {
+    val context = LocalContext.current
+    var current by remember { mutableStateOf(start) }
+    val text by produceState(initialValue = "Reading ${current.title}\u2026", current) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                context.assets.open(current.assetPath).bufferedReader().use { it.readText() }
+            }.getOrElse { "This document could not be read from the APK: ${it.message}" }
+        }
+    }
+    Dialog(onDismissRequest = onClose) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Palette.Navy900)
+                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp))
+                .padding(14.dp),
+        ) {
+            Text(current.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(current.subtitle, color = Palette.Muted, fontSize = 10.sp)
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LicenseDocuments.ordered.forEach { document ->
+                    GradientButton(
+                        onClick = { current = document },
+                        colors = if (document == current) Palette.AccentGradient else Palette.NavyGradient,
+                        contentColor = Palette.Text,
+                        modifier = Modifier.weight(1f),
+                        minHeight = 34.dp,
+                    ) { ButtonLabel(document.shortLabel, Palette.Text, 10.5f) }
+                }
+            }
+            Text(
+                text,
+                color = Palette.Text,
+                fontSize = 9.5.sp,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
+            )
+            GradientButton(
+                onClick = onClose,
+                colors = Palette.GreyGradient,
+                contentColor = Color(0xFFEAEEF5),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                minHeight = 38.dp,
+            ) { ButtonLabel("Close", Color(0xFFEAEEF5), 12f) }
         }
     }
 }
