@@ -176,3 +176,27 @@ decision the owner must make. Nor is the history retroactively licensed: 20 of 2
 licence file, and that gap is deliberate until the rewrite in §6 is authorised.
 
 | `.idea/*`, `gradle/libs.versions.toml`, `*.md`, `*.txt` | IDE/build configuration and documentation (covered by LICENSE/NOTICE, not per-file headers); `libs.versions.toml` also carries an uncommitted owner change that must not be mixed in |
+
+## 10 . Addendum: commits and final verification
+
+Two facts recorded after the sections above were written, so this report matches the pushed state:
+
+* The header pass initially missed six project-owned files that live outside `app/src` and
+  `native/ocr/src` (root `build.gradle.kts`, `settings.gradle.kts`, `app/proguard-rules.pro`,
+  `native/ocr/examples/eval.rs`, `native/ocr/tests/*.rs`). They are committed in **`3340731`**
+  *licence: finish the SPDX header pass on the root build files, ProGuard and the Rust tests*
+  (6 files, 12 insertions), so the pushed tree equals the audited tree.
+* Verified on the pushed `HEAD`: **321 files carry `SPDX-License-Identifier: GPL-3.0-or-later`** and
+  **4 name `GPL-3.0-only`** - the three allowlisted detectors (`apply-license-headers.py`,
+  `check-licenses.py`, `LicensingPolicyTest.kt`) plus this report. No project-owned source file carries
+  the previous identifier.
+
+| Ref | Commit |
+|---|---|
+| `origin/online_improvement` | `3340731` |
+| `origin/main` | `3340731` |
+| `origin/dev` | `beb8b81` (owner's commit, untouched by this task) |
+| licence commit | `9e7bd31` (319 files) |
+| merges of the owner's LICENSE commits | `9c04a97`, `814af31` |
+| report commit | `b0fbae5` |
+| header completion | `3340731` |
