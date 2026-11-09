@@ -54,6 +54,32 @@ Every changelog entry must follow this exact Markdown structure:
 This guide is also available to dev version.
 ```
 
+### 2.1 Development versions in the two version fields
+
+`vX.Y.Z` and `X.Y.Z` above stand for the **complete release version**, not only a three-number stable version. When
+the release is a development build whose version name carries a suffix, the suffix belongs to both fields, and the
+two must print the same string:
+
+```markdown
+## v2.6.0-dev.1 (2026-11-09)
+
+# Development Checkpoint: …
+
+…sections…
+
+**Version code/name: 222 / 2.6.0-dev.1.**
+```
+
+Rules:
+
+- The heading is always `v` + the complete `versionName`: `v2.6.0-dev.1`.
+- The final line prints `versionCode` / `versionName` exactly as configured, suffix included: `222 / 2.6.0-dev.1`.
+- A stable release has no suffix, so it reads `## vX.Y.Z (YYYY-MM-DD)` and `**Version code/name: XXX / X.Y.Z.**`.
+- The two must never disagree. A heading of `v2.6.0-dev.1` beside a final line of `2.5.0` means one of them is
+  wrong, and the entry cannot be published until they agree.
+- Never invent a version code for a development build. Raise `versionCode` in the build configuration, rebuild, and
+  report the value the artifact actually carries.
+
 All headings and sections are required, even when a section has no applicable content.
 
 For an empty section, write:
@@ -83,7 +109,7 @@ Requirements:
 - Use the actual release version.
 - Use the actual release date in `YYYY-MM-DD` format.
 - Do not guess the date from the machine clock.
-- For development releases, use the actual development version identifier consistently with the repository's versioning convention.
+- For development releases, use the actual development version identifier consistently with the repository's versioning convention. The heading is `v` plus the complete `versionName`, so a build named `2.6.0-dev.1` is headed `## v2.6.0-dev.1 (YYYY-MM-DD)` and never `## v2.6.0` or `## v2.5.0`.
 
 ### 3.2 Release title
 
@@ -384,6 +410,11 @@ The final metadata line must use:
 
 `**Version code/name: XXX / X.Y.Z.**`
 
+Here `XXX` is the actual `versionCode`, and `X.Y.Z` is the **complete `versionName`**, including any development
+suffix: a build whose `versionName` is `2.6.0-dev.1` and `versionCode` is `222` ends with
+`**Version code/name: 222 / 2.6.0-dev.1.**`. Do not shorten the suffix away, and do not print a stable-looking
+`2.6.0` for a development build.
+
 Verify both values against the actual Android build configuration and release artifact.
 
 Remember:
@@ -478,6 +509,8 @@ A changelog is complete only when:
 - The version/date heading is correct.
 - A separate, meaningful release title appears immediately below it.
 - The conclusion is a separate paragraph below the release title.
+- The version in the heading and the version in the final metadata line are the same string as `versionName`,
+  including any development suffix.
 - It documents only changes belonging to that release.
 - Added, Changed, Fixed, and Removed entries are correctly categorized.
 - Test results are accurate and distinguish passed, failed, and skipped tests.

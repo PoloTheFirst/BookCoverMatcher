@@ -105,9 +105,10 @@ android {
         applicationId = appPackageName
         minSdk = 26
         targetSdk = 35
-        // 220 is dev.5: 219 was dev.4, 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
-        versionCode = 221
-        versionName = "2.5.0"
+        // 222 is 2.6.0-dev.1: 221 was the 2.5.0 stable release, 220 dev.5, 219 dev.4, 218 dev.3,
+        // 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
+        versionCode = 222
+        versionName = "2.6.0-dev.1"
 
         // The custom-tab redirect is matched by MSAL's BrowserTabActivity intent filter. Its scheme,
         // host and path are taken from the registered Redirect_URL at build time, so no value from

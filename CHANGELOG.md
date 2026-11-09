@@ -1,16 +1,14 @@
-# Changelog
-
 ## v2.6.0-dev.1 (2026-11-09)
 
-# Development Checkpoint: OneDrive Import, Rescan Version Check and Sign-In Redirect Repair
+# Development Checkpoint: OneDrive Folder Access, Sign-In Repair and Rescan Version Check
 
-This is the v2.6.0 development checkpoint, not a stable release: the app still builds as version 2.5.0 / 221
-and no stable `v2.6.0` tag exists. It adds OneDrive workbook import and an on-demand "is there a newer
-version?" check when a workbook is rescanned. It also repairs the Microsoft sign-in handoff, which previously
-left the browser on a blank page instead of returning to the app. Everything the offline app already does —
-scanning, matching, comments, saved workbooks — is unchanged, and the workbook is always read from the app's
-own storage: there is no synchronisation, no background refresh, no upload or write-back, and losing the
-network can never make a saved workbook unopenable.
+This is the v2.6.0 development checkpoint, not a stable release: the build identifies itself as `2.6.0-dev.1`
+(version code `222`) and no stable `v2.6.0` tag exists. It adds OneDrive workbook import and an on-demand "is
+there a newer version?" check when a workbook is rescanned, and it repairs Microsoft sign-in end to end: the
+browser handoff, and then the silent token request that had been preventing any OneDrive folder from ever being
+listed. Everything the offline app already does — scanning, matching, comments, saved workbooks — is unchanged,
+and the workbook is always read from the app's own storage: there is no synchronisation, no background refresh,
+no upload or write-back, and losing the network can never make a saved workbook unopenable.
 
 ### Added
 
@@ -54,6 +52,12 @@ network can never make a saved workbook unopenable.
 
 ### Changed
 
+- **The build now identifies itself as `2.6.0-dev.1` (`versionCode 222`).** The v2.6.0 checkpoints so far shipped
+  as `2.5.0 / 221`, which is the stable 2.5.0 identity, so a development build could not be told apart from the
+  released app in the package metadata or on the More screen. The More screen's *THIS BUILD → Version* row now
+  reads `2.6.0-dev.1`, and `versionCode 222` is above the stable `221`, so Android accepts this build as an
+  upgrade over the 2.5.0 release rather than refusing it. Stored data is untouched: the workbook library,
+  wishlist, profiles and settings keep the same schema on disk.
 - **Rescan is routed through `MainViewModel.rescanOpenWorkbook()`** instead of calling
   `WorkbookCommentsController.reload()` from the screen. For local workbooks this is the same local reload,
   with no connectivity check and no account.
@@ -198,9 +202,13 @@ network can never make a saved workbook unopenable.
   `Error: Activity not started, unable to resolve Intent` — which is exactly the browser side of the blank page
   the user saw. A double-encoded control URI resolved on the old build and no longer resolves on the new one,
   confirming the filter's literal is now the decoded path.
-- Debug APK (rebuilt after these changes): `app/build/outputs/apk/debug/app-debug.apk`, **344,758,949 bytes**,
-  sha256 `be4f7752087f616f0cb5d1a55c455c143ab2f58f3e1035beeb1baa2453ba7aa4`, `versionCode 221`,
-  `versionName 2.5.0` — deliberately **not** bumped, because the licence and signing gates are still open.
+- Debug APK (rebuilt for this version identity): `app/build/outputs/apk/debug/app-debug.apk`,
+  **339,810,573 bytes**, sha256
+  `98e8a32a7071ed2ae798eeab464a01a721dfd5145a5d427b4e752779f4a2140b`, `versionCode 222`,
+  `versionName 2.6.0-dev.1`, containing 28 native libraries across `arm64-v8a` and `x86_64` and 242 MB of assets
+  (OCR and OpenCLIP models) — inspected inside the archive, not assumed. Installed on the emulator, which reports
+  `versionName=2.6.0-dev.1`, and the whole OneDrive chain above was re-run on **this** APK after the version
+  change.
 - **The request the app builds is accepted by the live service.** With a deliberately invalid bearer token, the
   exact root-children URL (`…/v1.0/me/drive/root/children?$select=…&$top=200`, the same `$select` and `$top`
   the app sends) answered **HTTP 401 `InvalidAuthenticationToken`**, not a 400: the endpoint, the query and the
@@ -227,11 +235,10 @@ network can never make a saved workbook unopenable.
 - Device: the debug APK installs on `emulator-5554` (`Medium_Phone_API_37.0`, Android 17 / API 37,
   `sdk_gphone64_x86_64`), launches (`com.bookcovermatcher.MainActivity` becomes the resumed activity), renders
   Home and More, and does the same with airplane mode enabled; `logcat` contains no `FATAL EXCEPTION` and no
-  `ANR in com.bookcovermatcher`. The in-app "THIS BUILD → Version" row reads 2.5.0.
-- **Not verified:** no Microsoft sign-in was completed in this environment, so MSAL actually processing the
-  callback, obtaining an account and updating the UI remain unverified; there is no live Microsoft Graph call,
-  no workbook import/open/rescan driven through the UI, no real `Retry-After` and no
-  update-during-connection-loss scenario. The rendered OneDrive dialogs have still never been seen on a screen.
+  `ANR in com.bookcovermatcher`. The in-app "THIS BUILD → Version" row reads `2.6.0-dev.1`.
+- **Still not verified:** a folder *inside* a folder, a listing long enough to paginate, a declined or failed
+  consent, an expired token being refreshed mid-session, a real `Retry-After` from Graph, and an update check
+  interrupted by losing the connection.
 
 ### Known limitations
 
@@ -268,20 +275,15 @@ network can never make a saved workbook unopenable.
   between the swap and the index write; an orphaned file cannot be re-imported; a listed entry whose file is
   missing cannot be repaired by re-import; no startup sweep of `.part`/`.previous`; no `fsync`. The recovery
   guard prevents deletion of the only copy but does not resolve these.
-- **Sign-in is repaired and now truthfully reported, but not proven end to end.** The blank-page cause and the
-  offline sign-in hang are fixed, and a failure now says what actually went wrong instead of "try again when you
-  are back online". No Microsoft sign-in was completed in this environment, though: MSAL processing the
-  callback, the account appearing, the UI reaching its signed-in state and the loading state settling are all
-  **not verified**, and the exact MSAL/Graph response behind the reported failure has not been observed. The
-  next run on a device with an account will name it, and the message will point at the right thing to fix.
-- **OneDrive folder browsing has still never been exercised against a real account.** Drive discovery, the root
-  listing, child-folder navigation and pagination are covered by unit tests with recorded payloads and, for the
-  request itself, by a live 401 from the real host; none of them has been observed returning items for a real
-  user's drive. Record the `OneDrive` logcat lines from one signed-in attempt to close that gap.
-- **The stable version was deliberately not applied.** The app still builds as `2.5.0 / 221`; the proposed
-  `2.6.0 / 222` needs a licence-clear dependency set and a real release keystore, and neither exists yet.
+- **Sign-in and folder access are verified for one personal Microsoft account only.** Work or school accounts,
+  conditional access, MFA-enforced sign-in and passkey enrolment were not exercised — the passkey prompt that
+  appeared was dismissed, not completed — and no failure path (a declined consent, an expired token) was driven
+  through the live service.
+- **The stable version was deliberately not applied.** This build identifies itself as `2.6.0-dev.1` (`222`); a
+  stable `2.6.0` still needs a licence-clear dependency set, a real release keystore and a version code above
+  `222`, and none of those exists yet.
 - **A very large workbook** is bounded only by free storage; there is no application-level size limit, and a
   multi-hundred-megabyte import has not been exercised.
 
-**Version code/name: 221 / 2.5.0.**
+**Version code/name: 222 / 2.6.0-dev.1.**
 
