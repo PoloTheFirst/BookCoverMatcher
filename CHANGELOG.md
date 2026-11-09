@@ -266,11 +266,12 @@ created and `main` was not updated.
   signed with `CN=Android Debug`. It is therefore installable and **not** a production release (see *Known
   limitations*).
 
-- Debug APK (this build): `app/build/outputs/apk/debug/app-debug.apk`, **339,892,620 bytes**, sha256
-  `cb0e0d108c74ecca10dbfe028361a0c8918d9328786703e86b74abf5aaf774b6`, `versionCode 223`,
+- Debug APK (this build): `app/build/outputs/apk/debug/app-debug.apk`, **340,818,486 bytes**, sha256
+  `64ac24564f90df0113a14cf58320c3381ca7f91ab89e30ded2f9e94cc7d4fad7`, `versionCode 223`,
   `versionName 2.6.0`, containing 28 native libraries across `arm64-v8a` and `x86_64` and 242 MB of assets (OCR and
-  OpenCLIP models) — read from inside the archive, not assumed. Installed on the emulator, whose package manager
-  reports `versionName=2.6.0`, and every device check above was run on **this** APK.
+  OpenCLIP models) — read from inside the archive, not assumed. This is the artefact every device check below ran
+  on, including the one after the full-screen Back defect was fixed; the emulator's package manager reports
+  `versionName=2.6.0` for it and the in-app *Version* row reads `2.6.0`.
 - **The request the app builds is accepted by the live service.** With a deliberately invalid bearer token, the
   exact root-children URL (`…/v1.0/me/drive/root/children?$select=…&$top=200`, the same `$select` and `$top`
   the app sends) answered **HTTP 401 `InvalidAuthenticationToken`**, not a 400: the endpoint, the query and the
