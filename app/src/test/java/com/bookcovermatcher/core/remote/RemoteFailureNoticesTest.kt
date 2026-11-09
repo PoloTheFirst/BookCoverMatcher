@@ -37,6 +37,8 @@ class RemoteFailureNoticesTest {
         RemoteFailure.UnexpectedResponse,
         // crash-fix-5: a sign-in whose browser never came back.
         RemoteFailure.SignInNotCompleted,
+        // crash-fix-6: an unattributed sign-in failure has its own sentence.
+        RemoteFailure.AuthUnexpected,
     )
 
     // ---- the agreed wording, verbatim --------------------------------------------------------
@@ -140,6 +142,8 @@ class RemoteFailureNoticesTest {
             RemoteFailure.SignInRejected,
             // Retrying a listing cannot finish a sign-in.
             RemoteFailure.SignInNotCompleted,
+            // An unidentified cause would fail a second attempt the same way.
+            RemoteFailure.AuthUnexpected,
         ).forEach { assertFalse("$it needs the user to change something first", it.isRetryable()) }
     }
 

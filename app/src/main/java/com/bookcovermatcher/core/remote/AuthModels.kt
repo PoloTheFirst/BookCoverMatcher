@@ -150,5 +150,7 @@ fun AuthFailure.toRemoteFailure(): RemoteFailure = when (this) {
     AuthFailure.CONSENT_DECLINED -> RemoteFailure.PermissionDenied
     AuthFailure.CLIENT_ERROR -> RemoteFailure.SignInRejected
     AuthFailure.SERVICE_ERROR -> RemoteFailure.SignInRejected
-    AuthFailure.UNKNOWN -> RemoteFailure.Unstable
+    // crash-fix-6: an unattributed failure is still not a network failure. Mapping it to `Unstable` is what
+    // turned MSAL's own "Do not provide callback for synchronous methods" into "you are back offline".
+    AuthFailure.UNKNOWN -> RemoteFailure.AuthUnexpected
 }

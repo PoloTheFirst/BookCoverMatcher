@@ -33,6 +33,7 @@ class RemoteFailureMessageTest {
         RemoteFailure.SignInRejected,
         RemoteFailure.UnexpectedResponse,
         RemoteFailure.SignInNotCompleted,
+        RemoteFailure.AuthUnexpected,
     )
 
     @Test fun everyFailureHasANonEmptySentence() {
@@ -83,6 +84,15 @@ class RemoteFailureMessageTest {
         assertEquals(RemoteFailure.PermissionDenied, AuthFailure.CONSENT_DECLINED.toRemoteFailure())
         assertEquals(RemoteFailure.SignInRejected, AuthFailure.CLIENT_ERROR.toRemoteFailure())
         assertEquals(RemoteFailure.SignInRejected, AuthFailure.SERVICE_ERROR.toRemoteFailure())
+        // crash-fix-6: an unattributed sign-in failure must never claim the network is down. MSAL's own
+        // "Do not provide callback for synchronous methods" reached the user as "try again when you are
+        // back online" because this mapped to `Unstable`.
+        assertEquals(RemoteFailure.AuthUnexpected, AuthFailure.UNKNOWN.toRemoteFailure())
+        val unexpected = AuthFailure.UNKNOWN.toRemoteFailure().message()
+        assertFalse(
+            "an unattributed auth failure must not read as connectivity: $unexpected",
+            unexpected.contains("back online") || unexpected.contains("connection to OneDrive"),
+        )
     }
 
     @Test fun onlyConnectivityFailuresBlameTheConnection() {
@@ -100,6 +110,7 @@ class RemoteFailureMessageTest {
             RemoteFailure.SignInRejected,
             RemoteFailure.UnexpectedResponse,
             RemoteFailure.SignInNotCompleted,
+            RemoteFailure.AuthUnexpected,
             RemoteFailure.ServerError(500),
             RemoteFailure.Throttled(30),
         )

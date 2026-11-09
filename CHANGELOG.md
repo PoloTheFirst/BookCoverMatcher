@@ -68,6 +68,21 @@ network can never make a saved workbook unopenable.
 
 ### Fixed
 
+- **No OneDrive folder could ever be listed, on any device, because the silent token request was built in a way
+  MSAL rejects.** `accessToken()` called the *synchronous* `acquireTokenSilent(parameters)` while attaching a
+  `SilentAuthenticationCallback`, and never supplied an authority. MSAL 8.6.0's `acquireTokenSilentInternal`
+  opens with `if (getCallback() != null) throw new IllegalArgumentException("Do not provide callback for
+  synchronous methods")`, then installs its own callback and calls
+  `validateAcquireTokenSilentParameters`, which requires a non-null authority as well — and `forAccount(...)`
+  does not set one. Either way the call threw, so a Graph access token was never obtained: sign-in appeared to
+  work and every folder listing failed afterwards. Verified end to end against a real Microsoft account: the
+  request was reduced to `.forAccount(account).fromAuthority(account.authority).withScopes(scopes)`, and the
+  root, child-folder and content requests then answered **200**.
+- **An unclassified sign-in failure was reported as a lost connection.** `AuthFailure.UNKNOWN` mapped to
+  `RemoteFailure.Unstable`, whose sentence is *"try again when you are back online"*. MSAL's
+  `IllegalArgumentException` from the bug above therefore reached the user as a network problem while the device
+  was online — the misleading message this project has been chasing since crash-fix-4. An unattributed failure
+  now has its own sentence (`RemoteFailure.AuthUnexpected`), which names neither the network nor Microsoft.
 - **A sign-in whose browser never came back left the panel spinning forever.** MSAL answers through
   `BrowserTabActivity`; when the browser never redirects — a redirect-URI mismatch on the app registration, an
   error page, a tab the user simply left open — no callback is ever invoked, and the panel waited for one
@@ -127,7 +142,7 @@ network can never make a saved workbook unopenable.
 - Run conditions: each suite was forced with `:app:cleanTestDebugUnitTest`, because Gradle otherwise reports the
   task `UP-TO-DATE` and repeats an old result. Figures are from 2026-11-09, after the sign-in redirect change.
 
-- Full JVM suite: **1,267 tests, 0 failures, 0 errors, 16 skipped, 149 classes**
+- Full JVM suite: **1,269 tests, 0 failures, 0 errors, 16 skipped, 149 classes**
   (`.\gradlew.bat :app:testDebugUnitTest --no-build-cache`, executed 2026-11-09). The 16 skips are
   environmental `assumeTrue` guards — 4 live-network catalogue tests needing `-DonlineCheck=1`, 3
   real-workbook tests and 9 sample-workbook tests whose fixtures live outside the repository — not disabled
@@ -150,7 +165,7 @@ network can never make a saved workbook unopenable.
   network failure, and that a failed sign-in is reported while a cancelled one stays silent;
   `GraphWorkbookSourceAuthTest` **8 passed**, including that a rejected sign-in never becomes a connection
   failure and that only a genuine network failure still says "offline".
-- The trace added here: `RemoteDiagnosticsTest` **8 passed**, covering query stripping, the `{id}` placeholder,
+- The trace added in crash-fix-5: `RemoteDiagnosticsTest` **10 passed**, covering query stripping, the `{id}` placeholder,
   a pre-authenticated storage URL losing its `tempauth` value, unusable URLs, the line's fields, control-character
   injection and a sink that throws.
   consent, a rejected client and service, the one MSAL client code that really is a network failure, and that a
@@ -165,6 +180,14 @@ network can never make a saved workbook unopenable.
 
 ### Verified
 
+- **Real Microsoft account, real Graph, on the emulator** — the first time OneDrive folder access has been
+  observed working. With a dedicated test account signed in through MSAL's own browser flow: the root children
+  request answered **200** (two folders rendered), a folder opened (`/items/{id}/children` **200**, the file
+  inside rendered with its size and modified time), *Up* returned to the root, an empty folder reported *"This
+  folder has no .xlsx or .xlsm workbooks"* rather than an error, a 38.6 MB workbook downloaded
+  (`/items/{id}/content` **200**) and was saved to the library, and the saved copy opened **with airplane mode on**
+  with **zero** OneDrive log lines — the offline-first rule intact. Every Graph line was
+  `status=200 … requestId=<guid>`; no token, account or file name was logged.
 - `:app:compileDebugKotlin`, `:app:compileDebugAndroidTestKotlin` and `:app:assembleDebug` succeed.
 - **Sign-in redirect handoff, verified on the emulator** (the fix in *Fixed*): the installed
   `BrowserTabActivity` filter now registers `Path: "PatternMatcher{LITERAL: /<signature-hash>}"` in its decoded
@@ -176,7 +199,7 @@ network can never make a saved workbook unopenable.
   the user saw. A double-encoded control URI resolved on the old build and no longer resolves on the new one,
   confirming the filter's literal is now the decoded path.
 - Debug APK (rebuilt after these changes): `app/build/outputs/apk/debug/app-debug.apk`, **344,758,949 bytes**,
-  sha256 `df7c54319f82a62e2f816cc7e2165dc8a89bf3c4b882a11ed1043ed4a771c078`, `versionCode 221`,
+  sha256 `be4f7752087f616f0cb5d1a55c455c143ab2f58f3e1035beeb1baa2453ba7aa4`, `versionCode 221`,
   `versionName 2.5.0` — deliberately **not** bumped, because the licence and signing gates are still open.
 - **The request the app builds is accepted by the live service.** With a deliberately invalid bearer token, the
   exact root-children URL (`…/v1.0/me/drive/root/children?$select=…&$top=200`, the same `$select` and `$top`
@@ -212,6 +235,15 @@ network can never make a saved workbook unopenable.
 
 ### Known limitations
 
+- **Nested folder navigation and pagination are still unexercised against a real drive.** The test account's root
+  holds two folders; one is empty and the other holds a single workbook with no subfolder, so neither the
+  "folder inside a folder" case nor a second page was reachable. The `items/{id}/children` request itself — the
+  path a nested folder uses — was verified with a real id, and pagination remains covered only by unit tests with
+  recorded payloads.
+- **The test account's password appeared in this emulator's accessibility dump** while an automated sign-in typed
+  it, because Chrome exposes the field's value to `uiautomator`. Nothing was written to a tracked file and no
+  credential is in this changelog, but that account's password should be rotated, and unattended sign-in should
+  assume the field is readable by anything that can dump the screen.
 - **Licence blocker:** `com.microsoft.device.display:display-mask:0.3.0` — a transitive runtime dependency of
   `com.microsoft.identity:common`, **packaged in the APK** — has no licence declaration in its POM, no licence
   file in its artifact, no Maven Central entry, and is not part of either Microsoft repository that could own

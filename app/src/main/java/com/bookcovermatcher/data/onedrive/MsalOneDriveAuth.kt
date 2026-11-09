@@ -23,7 +23,6 @@ import com.microsoft.identity.client.IAccount
 import com.microsoft.identity.client.IAuthenticationResult
 import com.microsoft.identity.client.IMultipleAccountPublicClientApplication
 import com.microsoft.identity.client.PublicClientApplication
-import com.microsoft.identity.client.SilentAuthenticationCallback
 import com.microsoft.identity.client.exception.MsalClientException
 import com.microsoft.identity.client.exception.MsalDeclinedScopeException
 import com.microsoft.identity.client.exception.MsalException
@@ -129,7 +128,13 @@ class MsalOneDriveAuth(
         // `Failed` is a one-shot result, never the stored state: the app really is signed out.
         _state.value = result as? AuthState.SignedIn ?: (result as? AuthState.Expired) ?: AuthState.SignedOut
         // A sign-in that produced nothing is the first thing to look for when folders do not open.
-        RemoteDiagnostics.log("signIn", method = "-", failure = (result as? AuthState.Failed)?.failure)
+        RemoteDiagnostics.log(
+            "signIn",
+            method = "-",
+            graphErrorCode = (outcome?.exceptionOrNull() as? MsalException)?.errorCode,
+            failure = (result as? AuthState.Failed)?.failure,
+            detail = outcome?.exceptionOrNull()?.javaClass?.simpleName,
+        )
         return result
     }
 
@@ -143,16 +148,31 @@ class MsalOneDriveAuth(
             return@withContext TokenResult.Failure(AuthFailure.INTERACTION_REQUIRED)
         }
         try {
+            // Two MSAL 8.6.0 requirements, both discovered from this account's real failure
+            // (v2.6.0-dev.1 crash-fix-6):
+            //
+            //  1. the *synchronous* `acquireTokenSilent(parameters)` must not carry a callback —
+            //     `acquireTokenSilentInternal` opens with
+            //     `if (getCallback() != null) throw new IllegalArgumentException(...)` — and it installs its
+            //     own callback afterwards;
+            //  2. `validateAcquireTokenSilentParameters` requires a non-null authority, account and scopes,
+            //     and `forAccount(...)` does **not** set the authority: it has to be supplied with
+            //     `fromAuthority(...)`.
+            //
+            // Missing either one made every silent acquisition throw, so no Graph token was ever obtained on
+            // any device; the exception is not an `MsalException`, so it was classified `UNKNOWN` and shown
+            // as "the connection to OneDrive failed… try again when you are back online".
+            val authority = account.authority?.takeIf { it.isNotBlank() }
+            if (authority == null) {
+                // Nothing to retry and nothing to guess: report a configuration problem, not a network one.
+                RemoteDiagnostics.log("token", method = "-", failure = RemoteFailure.NotConfigured, detail = "authority-null")
+                return@withContext TokenResult.Failure(AuthFailure.CONFIGURATION)
+            }
             val result = pca.acquireTokenSilent(
                 AcquireTokenSilentParameters.Builder()
                     .forAccount(account)
+                    .fromAuthority(authority)
                     .withScopes(scopes)
-                    .withCallback(
-                        object : SilentAuthenticationCallback {
-                            override fun onSuccess(authenticationResult: IAuthenticationResult) = Unit
-                            override fun onError(exception: MsalException) = Unit
-                        },
-                    )
                     .build(),
             )
             _state.value = AuthState.SignedIn(usernameOf(result.account))
@@ -161,11 +181,25 @@ class MsalOneDriveAuth(
             // The cache knows the account but the service wants interaction (password change, MFA,
             // consent): "sign in again", not "sign in".
             _state.value = AuthState.Expired(usernameOf(account))
-            RemoteDiagnostics.log("token", failure = RemoteFailure.AuthExpired)
+            RemoteDiagnostics.log(
+                "token",
+                method = "-",
+                graphErrorCode = e.errorCode,
+                failure = RemoteFailure.AuthExpired,
+                detail = e.javaClass.simpleName,
+            )
             TokenResult.Failure(AuthFailure.INTERACTION_REQUIRED)
         } catch (e: Exception) {
             val failure = failureOf(e)
-            RemoteDiagnostics.log("token", method = "-", failure = failure.toRemoteFailure())
+            // The code and the type are what turn "Unstable" into an actionable finding: MSAL's own error
+            // code, and which class raised it. Neither is a secret; the message is never logged.
+            RemoteDiagnostics.log(
+                "token",
+                method = "-",
+                graphErrorCode = (e as? MsalException)?.errorCode,
+                failure = failure.toRemoteFailure(),
+                detail = "${e.javaClass.simpleName}@${origin(e)}",
+            )
             TokenResult.Failure(failure)
         }
     }
@@ -226,6 +260,17 @@ class MsalOneDriveAuth(
      * user as "the connection failed, try again when you are back online". A declined consent, an
      * unregistered redirect or a rejected client therefore looked exactly like being offline.
      */
+    /**
+     * Which frame threw, as `Class.method:line` for the top few frames only (v2.6.0-dev.1 crash-fix-6).
+     *
+     * A type name alone says an exception happened, not where. Frame identifiers contain no account data,
+     * no token and no message text, so they are safe to trace, and they are what turns "Unstable" into a
+     * named fault in MSAL or in this app.
+     */
+    private fun origin(error: Throwable): String = error.stackTrace
+        .take(4)
+        .joinToString("|") { "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}" }
+
     private fun failureOf(error: Throwable?): AuthFailure = when (error) {
         null -> MsalFailureRules.classify(MsalFailureKind.UNKNOWN)
         is MsalUserCancelException -> MsalFailureRules.classify(MsalFailureKind.CANCELLED)

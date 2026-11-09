@@ -76,6 +76,30 @@ class RemoteDiagnosticsTest {
         assertFalse("no query, no token: $line", line.contains("?"))
     }
 
+    @Test fun theDetailFieldNamesTheThrowerWithoutAMessage() {
+        // crash-fix-6: the `detail` field is what identified MSAL rejecting our silent-token parameters.
+        // It carries a type name and frame identifiers only — never the exception message, which can
+        // contain account data.
+        val line = RemoteDiagnostics.describe(
+            stage = "token",
+            method = "-",
+            graphErrorCode = "illegal_argument_exception",
+            failure = RemoteFailure.AuthUnexpected,
+            detail = "MsalArgumentException@MsalUtils.validateNonNullArg:138|PublicClientApplication:1844",
+        )
+
+        assertTrue(line, line.contains("stage=token"))
+        assertTrue(line, line.contains("code=illegal_argument_exception"))
+        assertTrue(line, line.contains("failure=AuthUnexpected"))
+        assertTrue(line, line.contains("detail=MsalArgumentException@MsalUtils.validateNonNullArg:138"))
+    }
+
+    @Test fun anAbsentDetailAddsNothing() {
+        val line = RemoteDiagnostics.describe(stage = "list", status = 200)
+
+        assertFalse(line, line.contains("detail="))
+    }
+
     @Test fun aSuccessfulLineCarriesNoFailure() {
         val line = RemoteDiagnostics.describe(
             stage = "list",

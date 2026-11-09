@@ -32,8 +32,9 @@ object RemoteDiagnostics {
         graphErrorCode: String? = null,
         requestId: String? = null,
         failure: RemoteFailure? = null,
+        detail: String? = null,
     ) {
-        val line = describe(stage, method, url, status, graphErrorCode, requestId, failure)
+        val line = describe(stage, method, url, status, graphErrorCode, requestId, failure, detail)
         runCatching { sink(line) }
     }
 
@@ -46,6 +47,7 @@ object RemoteDiagnostics {
         graphErrorCode: String? = null,
         requestId: String? = null,
         failure: RemoteFailure? = null,
+        detail: String? = null,
     ): String = buildString {
         append("stage=").append(stage)
         append(" method=").append(method)
@@ -54,6 +56,8 @@ object RemoteDiagnostics {
         graphErrorCode?.takeIf { it.isNotBlank() }?.let { append(" code=").append(clean(it, 64)) }
         requestId?.takeIf { it.isNotBlank() }?.let { append(" requestId=").append(clean(it, 64)) }
         failure?.let { append(" failure=").append(it.javaClass.simpleName) }
+        // A type name only (e.g. `MsalClientException`): never a message, which can contain account data.
+        detail?.takeIf { it.isNotBlank() }?.let { append(" detail=").append(clean(it, 240)) }
     }
 
     /**

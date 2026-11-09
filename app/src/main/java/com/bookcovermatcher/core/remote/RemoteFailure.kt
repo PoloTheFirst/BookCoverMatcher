@@ -78,6 +78,17 @@ sealed interface RemoteFailure {
      */
     data object SignInNotCompleted : RemoteFailure
 
+    /**
+     * A sign-in or token failure this app could not attribute to any known cause.
+     *
+     * It exists so that "I do not know what happened" is never reported as a connectivity problem. That is
+     * exactly what cost four earlier attempts: an `IllegalArgumentException` from MSAL's own silent-token
+     * validator was mapped to `UNKNOWN` → `Unstable` → *"try again when you are back online"*, when the
+     * truth was that no notification, browser or network had anything to do with it
+     * (v2.6.0-dev.1 crash-fix-6).
+     */
+    data object AuthUnexpected : RemoteFailure
+
 
     /** Graph answered 5xx. */
     data class ServerError(val status: Int) : RemoteFailure
@@ -125,6 +136,8 @@ fun RemoteFailure.isRetryable(): Boolean = when (this) {
     RemoteFailure.SignInRejected,
     // Retrying the *listing* cannot finish a sign-in; the user has to start it again.
     RemoteFailure.SignInNotCompleted,
+    // Nothing to retry: the cause is unidentified, so a second identical attempt would fail the same way.
+    RemoteFailure.AuthUnexpected,
     -> false
 }
 
@@ -167,6 +180,9 @@ fun RemoteFailure.message(): String = when (this) {
         "The OneDrive sign-in did not finish, so no folders were loaded. Sign in again; if the browser " +
             "showed an error instead of returning to the app, the Azure app registration for this build " +
             "needs checking."
+    RemoteFailure.AuthUnexpected ->
+        "The OneDrive sign-in hit an unexpected error, so no folders were loaded. Try again; if it keeps " +
+            "happening, this build needs updating. Your saved workbooks are unaffected."
     is RemoteFailure.ServerError ->
         "OneDrive failed (HTTP $status). Try again later."
     RemoteFailure.BadRequest ->

@@ -663,6 +663,18 @@ backstop for a browser that never redirects back — a case that used to leave t
 MSAL only ever answers through `BrowserTabActivity`. Closing the panel cancels the wait at once, and the timeout
 reports `RemoteFailure.SignInNotCompleted` ("sign-in did not finish…"), never a connectivity claim.
 
+**Silent token acquisition has an exact shape (v2.6.0-dev.1 crash-fix-6).** MSAL 8.6.0's synchronous
+`acquireTokenSilent(parameters)` refuses a caller-supplied callback — `acquireTokenSilentInternal` throws
+`IllegalArgumentException("Do not provide callback for synchronous methods")` and installs its own — and
+`validateAcquireTokenSilentParameters` requires a non-null authority, which `forAccount(...)` does not set. The
+call is therefore `.forAccount(account).fromAuthority(account.authority).withScopes(scopes).build()`. Getting
+either wrong throws a plain `IllegalArgumentException` on every attempt, which is not an `MsalException` and so
+lands in `AuthFailure.UNKNOWN`; that now maps to `RemoteFailure.AuthUnexpected`, because "I do not know what
+happened" must never be reported as a lost connection. This is the defect that made every folder listing fail
+while sign-in looked successful, and it is why the trace records `code=` and `detail=` (the thrower's type and
+top frames) alongside the classified failure.
+
+
 
 ### Replacement and rollback (`WorkbookLibrary.replaceFrom`)
 
