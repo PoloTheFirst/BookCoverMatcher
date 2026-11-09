@@ -1,17 +1,42 @@
-## v2.6.0-dev.1 (2026-11-09)
+## v2.6.0 (2026-11-09)
 
-# Development Checkpoint: OneDrive Folder Access, Sign-In Repair and Rescan Version Check
+# BookCoverMatcher 2.6.0: Offline Licence Reader, Author Page and OneDrive Folder Access
 
-This is the v2.6.0 development checkpoint, not a stable release: the build identifies itself as `2.6.0-dev.1`
-(version code `222`) and no stable `v2.6.0` tag exists. It adds OneDrive workbook import and an on-demand "is
-there a newer version?" check when a workbook is rescanned, and it repairs Microsoft sign-in end to end: the
-browser handoff, and then the silent token request that had been preventing any OneDrive folder from ever being
-listed. Everything the offline app already does — scanning, matching, comments, saved workbooks — is unchanged,
-and the workbook is always read from the app's own storage: there is no synchronisation, no background refresh,
-no upload or write-back, and losing the network can never make a saved workbook unopenable.
+This is the 2.6.0 build (`versionCode 223`). It adds a Markdown reader for the licence documents with a
+full-screen reading mode, and an Author section that shows the owner's GitHub avatar, `PoloTheFirst`, `Polo01`
+and a bundled snapshot of the `PoloTheFirst/PoloTheFirst` README. It also ships the OneDrive work that had been
+in development: workbook import, the rescan version check, and the sign-in repair that finally made real OneDrive
+folders list. Everything the offline app already does — scanning, matching, comments, saved workbooks — is
+unchanged, and the workbook is always read from the app's own storage: there is no synchronisation, no background
+refresh, no upload or write-back, and losing the network can never make a saved workbook unopenable.
+
+**This entry documents an artefact that is not published.** Two stable-release gates are still open — the release
+signing key and the `display-mask` licence — and both are listed under *Known limitations*. No stable tag was
+created and `main` was not updated.
 
 ### Added
 
+- **A Markdown reader for the licence documents.** The Licence page now renders what the APK ships instead of one
+  block of plain text: `Markdown` parses headings, paragraphs and hard breaks, bold/italic/strikethrough, inline
+  and fenced code, ordered, unordered and nested lists, links, blockquotes, tables and horizontal rules, and
+  `MarkdownDocument` draws them in the app's own palette. The GNU GPL is *plain text*, not Markdown, and still
+  displays correctly: a test parses the shipped `LICENSE` and asserts that no line's words are lost. Embedded HTML
+  is never executed — a run of badge `<img>` tags becomes one line naming what was not displayed. **No dependency
+  was added**: the reader is project code, so there is no new licence to audit.
+- **Full-screen reading.** The reader opens at dialog size and can switch to a full-window view that maximises the
+  text column, with an always-visible *Exit full screen* control. Back leaves full screen first and only then
+  closes the reader. The chosen document and the scroll position live above the mode switch (`rememberSaveable`
+  plus one hoisted `ScrollState`), so switching modes neither reloads the document nor jumps back to the top, and
+  both survive rotation.
+- **An Author section under the Licence page.** It shows the GitHub username `PoloTheFirst`, the nickname `Polo01`
+  as its own labelled field, the profile picture and the profile address. Nothing is fetched: the picture and the
+  README are packaged in the APK, so the section is complete with no network.
+- **The profile README, bundled and rendered as Markdown.** A snapshot of the `PoloTheFirst/PoloTheFirst`
+  `README.md` (5,038 bytes, retrieved 2026-11-09 from `raw.githubusercontent.com`) is rendered with the same reader
+  and expands in place. Its multi-line HTML comment is stripped and its badge images are reported by alt text
+  instead of being executed.
+- **A working `Visit GitHub Profile` button.** It opens `https://github.com/PoloTheFirst` through the app's
+  existing HTTPS-only external-link handler; a device with no browser gets a message, not a crash.
 - **A safe OneDrive trace** (`RemoteDiagnostics`), because every earlier diagnosis of "folders do not open" had to
   be inferred: the app logged nothing at all. One line per operation records the stage (`signIn`, `token`,
   `list`, `probe`, `download`), the HTTP status, Graph's own `error.code`, Microsoft's `request-id` and the
@@ -52,12 +77,14 @@ no upload or write-back, and losing the network can never make a saved workbook 
 
 ### Changed
 
-- **The build now identifies itself as `2.6.0-dev.1` (`versionCode 222`).** The v2.6.0 checkpoints so far shipped
-  as `2.5.0 / 221`, which is the stable 2.5.0 identity, so a development build could not be told apart from the
-  released app in the package metadata or on the More screen. The More screen's *THIS BUILD → Version* row now
-  reads `2.6.0-dev.1`, and `versionCode 222` is above the stable `221`, so Android accepts this build as an
-  upgrade over the 2.5.0 release rather than refusing it. Stored data is untouched: the workbook library,
-  wishlist, profiles and settings keep the same schema on disk.
+- **The build identifies itself as `2.6.0` (`versionCode 223`).** The 2.6.0 checkpoints shipped as `2.5.0 / 221`
+  and then `2.6.0-dev.1 / 222`, which made a development build hard to tell apart from the released 2.5.0 app in
+  the package metadata and on the More screen. The *THIS BUILD → Version* row now reads `2.6.0`, and `versionCode
+  223` is above both earlier codes, so Android accepts this build as an upgrade. Stored data is untouched: the
+  workbook library, wishlist, profiles and settings keep the same schema on disk.
+- **The Licence page is now a reader plus an author section.** It keeps the summary lines and the single
+  "Open-source licences" entry point, and gains the Author panel underneath. Licence documents are no longer
+  shown as one plain-text blob; they open in the Markdown reader.
 - **Rescan is routed through `MainViewModel.rescanOpenWorkbook()`** instead of calling
   `WorkbookCommentsController.reload()` from the screen. For local workbooks this is the same local reload,
   with no connectivity check and no account.
@@ -146,11 +173,28 @@ no upload or write-back, and losing the network can never make a saved workbook 
 - Run conditions: each suite was forced with `:app:cleanTestDebugUnitTest`, because Gradle otherwise reports the
   task `UP-TO-DATE` and repeats an old result. Figures are from 2026-11-09, after the sign-in redirect change.
 
-- Full JVM suite: **1,269 tests, 0 failures, 0 errors, 16 skipped, 149 classes**
+- Full JVM suite: **1,295 tests, 0 failures, 0 errors, 16 skipped, 151 classes**
   (`.\gradlew.bat :app:testDebugUnitTest --no-build-cache`, executed 2026-11-09). The 16 skips are
   environmental `assumeTrue` guards — 4 live-network catalogue tests needing `-DonlineCheck=1`, 3
   real-workbook tests and 9 sample-workbook tests whose fixtures live outside the repository — not disabled
   tests.
+- `MarkdownTest` **20 passed**: heading levels, paragraph soft-wrap, an explicit hard break, bold/italic/code/
+  strikethrough, link targets, a `javascript:` link kept as text but refused, nested bullet and numbered levels,
+  blockquotes, fenced code with a language, tables, horizontal rules, HTML badges reported by alt text, HTML
+  wrappers, licence placeholders such as `<one line ...>` staying text, comments stripped, standalone and inline
+  images, and unknown markup staying visible. Its `theShippedLicenseLosesNoText` case parses the real `LICENSE` and
+  asserts that every line's words survive, which is the legal-accuracy guard for this feature.
+- `AuthorProfileTest` **6 passed**: the exact username/nickname distinction, the profile URL, the HTTPS-only link
+  rule (http, javascript, intent and file targets refused), link trimming, the avatar description, and that the
+  bundled README (5,038 bytes) and avatar (15,848 bytes, real JPEG magic) exist and are not placeholders. Both new
+  classes read files from the working directory behind an `assumeTrue` guard, and that guard did not fire, so they
+  genuinely executed.
+- Instrumented tests: **21 passed, 0 failed, 0 skipped** on `emulator-5554` (`Medium_Phone_API_37.0`, Android 17 /
+  API 37) via `:app:compileDebugAndroidTestKotlin` then `:app:connectedDebugAndroidTest`. They cover on-device OCR
+  only; nothing instrumented covers the licence reader, the author section or OneDrive. The first attempt reported
+  0 tests because the emulator still held a differently-signed copy of the app and test packages; it ran properly
+  only after uninstalling both, which is recorded rather than hidden.
+
 - OneDrive/local regression classes added across Phases 1–7, with the number of tests in each:
   `OneDriveUpdateSessionTest` (25), `OneDriveSessionTest` (18), `RemoteFailureNoticesTest` (16),
   `GraphFailuresTest` (15), `WorkbookLibrarySchemaTest` (13), `WorkbookLibraryCrashRecoveryTest` (11),
@@ -202,13 +246,31 @@ no upload or write-back, and losing the network can never make a saved workbook 
   `Error: Activity not started, unable to resolve Intent` — which is exactly the browser side of the blank page
   the user saw. A double-encoded control URI resolved on the old build and no longer resolves on the new one,
   confirming the filter's literal is now the decoded path.
-- Debug APK (rebuilt for this version identity): `app/build/outputs/apk/debug/app-debug.apk`,
-  **339,810,573 bytes**, sha256
-  `98e8a32a7071ed2ae798eeab464a01a721dfd5145a5d427b4e752779f4a2140b`, `versionCode 222`,
-  `versionName 2.6.0-dev.1`, containing 28 native libraries across `arm64-v8a` and `x86_64` and 242 MB of assets
-  (OCR and OpenCLIP models) — inspected inside the archive, not assumed. Installed on the emulator, which reports
-  `versionName=2.6.0-dev.1`, and the whole OneDrive chain above was re-run on **this** APK after the version
-  change.
+- **The same OneDrive chain re-run on this 2.6.0 build** (`versionCode 223`): sign-in completed, `/me/drive/root/children`
+  **200**, the folder opened (`/items/{id}/children` **200**), a 38.6 MB workbook downloaded (`/items/{id}/content`
+  **200**) and saved, and the saved copy opened with airplane mode on, producing **zero** OneDrive log lines.
+- **Licence reader, on the emulator** (`emulator-5554`, Android 17 / API 37): the GPL and the third-party notices
+  render as structured text — headings, joined paragraphs, and one of the notices' tables — and both documents still
+  render with airplane mode enabled. Switching to full screen keeps the document *and* the reading position (the
+  view stayed in the section it was left on), *Exit full screen* is always present, and Back leaves full screen
+  first and closes the reader only on a second press. That Back behaviour was a defect found on the device and fixed
+  before the final build, not a description of the first one.
+- **Author section, on the emulator**: the bundled avatar decoded (the placeholder branch was not taken),
+  `PoloTheFirst` and `Polo01` appear in two labelled fields, the bundled README rendered (its heading, the banner
+  image row, and a line naming the badges that were not displayed), and *Visit GitHub Profile* opened Chrome — the
+  running task's intent carried exactly `dat=https://github.com/PoloTheFirst`.
+- **Packaging**: inside the built APK, `assets/author/README.md` (5,038 bytes), `assets/author/avatar.jpg`
+  (15,848 bytes), `assets/licenses/GPL-3.0.txt` (35,149 bytes) and `assets/licenses/THIRD_PARTY_NOTICES.md`
+  (17,736 bytes) are present; this was read from the archive, not assumed.
+- **Release artefact**: `:app:assembleRelease` succeeds and produces a `223 / 2.6.0` APK, but `apksigner` reports it
+  signed with `CN=Android Debug`. It is therefore installable and **not** a production release (see *Known
+  limitations*).
+
+- Debug APK (this build): `app/build/outputs/apk/debug/app-debug.apk`, **339,892,620 bytes**, sha256
+  `cb0e0d108c74ecca10dbfe028361a0c8918d9328786703e86b74abf5aaf774b6`, `versionCode 223`,
+  `versionName 2.6.0`, containing 28 native libraries across `arm64-v8a` and `x86_64` and 242 MB of assets (OCR and
+  OpenCLIP models) — read from inside the archive, not assumed. Installed on the emulator, whose package manager
+  reports `versionName=2.6.0`, and every device check above was run on **this** APK.
 - **The request the app builds is accepted by the live service.** With a deliberately invalid bearer token, the
   exact root-children URL (`…/v1.0/me/drive/root/children?$select=…&$top=200`, the same `$select` and `$top`
   the app sends) answered **HTTP 401 `InvalidAuthenticationToken`**, not a 400: the endpoint, the query and the
@@ -235,12 +297,25 @@ no upload or write-back, and losing the network can never make a saved workbook 
 - Device: the debug APK installs on `emulator-5554` (`Medium_Phone_API_37.0`, Android 17 / API 37,
   `sdk_gphone64_x86_64`), launches (`com.bookcovermatcher.MainActivity` becomes the resumed activity), renders
   Home and More, and does the same with airplane mode enabled; `logcat` contains no `FATAL EXCEPTION` and no
-  `ANR in com.bookcovermatcher`. The in-app "THIS BUILD → Version" row reads `2.6.0-dev.1`.
+  `ANR in com.bookcovermatcher`. The in-app "THIS BUILD → Version" row reads `2.6.0`.
 - **Still not verified:** a folder *inside* a folder, a listing long enough to paginate, a declined or failed
   consent, an expired token being refreshed mid-session, a real `Retry-After` from Graph, and an update check
   interrupted by losing the connection.
 
 ### Known limitations
+- **Release signing is not production-ready, and this is the primary stable-release blocker.**
+  `app/build.gradle.kts` still sets `signingConfig = signingConfigs.getByName("debug")`, so `assembleRelease`
+  produces a `223 / 2.6.0` APK signed with the local debug key (`CN=Android Debug`, self-signed, created
+  2026-11-08, living in `~/.android/`). It installs and was verified on the emulator, but it is not distributable:
+  the key has no ownership or custody story, no backup, and it is the same key that signs debug builds. A real
+  release keystore, kept outside the repository, is required before any store or public release.
+- **`com.microsoft.device.display:display-mask:0.3.0` is still licence-unresolved — the second blocker.** It is a
+  transitive runtime dependency of `com.microsoft.identity:common` and is packaged in the APK; its POM declares no
+  licence and no authoritative statement was found in this environment. It has not been relabelled, and it has not
+  been excluded, because excluding it has not been shown to be safe.
+- **This build is therefore not published as stable.** No `v2.6.0` tag was created, `main` was not updated, and the
+  work sits on `online_improvement`. The release decision is **NOT READY** for both reasons above.
+
 
 - **Nested folder navigation and pagination are still unexercised against a real drive.** The test account's root
   holds two folders; one is empty and the other holds a single workbook with no subfolder, so neither the
@@ -279,11 +354,11 @@ no upload or write-back, and losing the network can never make a saved workbook 
   conditional access, MFA-enforced sign-in and passkey enrolment were not exercised — the passkey prompt that
   appeared was dismissed, not completed — and no failure path (a declined consent, an expired token) was driven
   through the live service.
-- **The stable version was deliberately not applied.** This build identifies itself as `2.6.0-dev.1` (`222`); a
-  stable `2.6.0` still needs a licence-clear dependency set, a real release keystore and a version code above
-  `222`, and none of those exists yet.
+- **The version name is now `2.6.0`, which is an identity, not a release claim.** `versionCode 223` is set and the
+  app reports `2.6.0`, but until the signing key and the `display-mask` licence are resolved this artefact must not
+  be described as a published stable release, even though its feature work is complete and verified.
 - **A very large workbook** is bounded only by free storage; there is no application-level size limit, and a
   multi-hundred-megabyte import has not been exercised.
 
-**Version code/name: 222 / 2.6.0-dev.1.**
+**Version code/name: 223 / 2.6.0.**
 

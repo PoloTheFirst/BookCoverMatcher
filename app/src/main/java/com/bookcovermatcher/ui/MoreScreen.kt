@@ -2,8 +2,11 @@
 
 package com.bookcovermatcher.ui
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Switch
@@ -25,27 +31,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.ModelUi
 import com.bookcovermatcher.UiState
+import com.bookcovermatcher.core.author.AuthorProfile
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.licensing.LicenseDocuments
+import com.bookcovermatcher.core.markdown.Markdown
+import com.bookcovermatcher.core.markdown.MdBlock
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.Panel
+import com.bookcovermatcher.ui.markdown.MarkdownDocument
 import com.bookcovermatcher.ui.theme.Palette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,7 +70,7 @@ import kotlinx.coroutines.withContext
  * one controller, so the switch and the behaviour cannot drift apart.
  */
 @Composable
-fun MoreScreen(ui: UiState, vm: MainViewModel) {
+fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Text("More", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Text("Settings, storage and an honest description of what each feature does.", color = Palette.Muted, fontSize = 10.5.sp)
@@ -163,7 +176,9 @@ fun MoreScreen(ui: UiState, vm: MainViewModel) {
         }
 
         Spacer(Modifier.height(14.dp))
-        PanelsLicence()
+        PanelsLicence(onOpenUrl)
+        Spacer(Modifier.height(12.dp))
+        PanelsAuthor(onOpenUrl)
     }
 }
 
@@ -176,7 +191,7 @@ fun MoreScreen(ui: UiState, vm: MainViewModel) {
  * test assets keep their own terms.
  */
 @Composable
-private fun PanelsLicence() {
+private fun PanelsLicence(onOpenUrl: (String) -> Unit) {
     var open by remember { mutableStateOf<LicenseDocuments?>(null) }
     Panel("Licences") {
         InfoLine("This app", "GNU GPL v3.0 or later \u2014 your option")
@@ -189,62 +204,158 @@ private fun PanelsLicence() {
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             minHeight = 42.dp,
         ) { ButtonLabel("Open-source licences", Palette.Text, 12.5f) }
+        Text(
+            "Read in the app, in a larger full-screen view if you prefer, from the copies packaged in the APK.",
+            color = Palette.Muted,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
-    open?.let { document -> LicenseDialog(document) { open = null } }
+    open?.let { document ->
+        LicenseReaderDialog(
+            start = document,
+            onClose = { open = null },
+            onOpenUrl = onOpenUrl,
+            onLinkRefused = onOpenUrl,
+        )
+    }
 }
 
-/** Shows one licence document, read from the APK's own assets. */
+/**
+ * The Author section (v2.6.0): the GitHub identity, the bundled profile picture, the bundled profile README
+ * rendered as Markdown, and a button that opens the profile.
+ *
+ * Everything here reads from the APK's own assets. Opening this page never contacts GitHub, so the section is
+ * complete offline; only the two explicit link actions use the network, and they go through the app's
+ * HTTPS-only external-link handler.
+ */
 @Composable
-private fun LicenseDialog(start: LicenseDocuments, onClose: () -> Unit) {
+private fun PanelsAuthor(onOpenUrl: (String) -> Unit) {
     val context = LocalContext.current
-    var current by remember { mutableStateOf(start) }
-    val text by produceState(initialValue = "Reading ${current.title}\u2026", current) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    val avatar by produceState<ImageBitmap?>(null) {
         value = withContext(Dispatchers.IO) {
             runCatching {
-                context.assets.open(current.assetPath).bufferedReader().use { it.readText() }
-            }.getOrElse { "This document could not be read from the APK: ${it.message}" }
+                context.assets.open(AuthorProfile.AVATAR_ASSET).use { BitmapFactory.decodeStream(it) }
+            }.getOrNull()?.asImageBitmap()
         }
     }
-    Dialog(onDismissRequest = onClose) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Palette.Navy900)
-                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp))
-                .padding(14.dp),
-        ) {
-            Text(current.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text(current.subtitle, color = Palette.Muted, fontSize = 10.sp)
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LicenseDocuments.ordered.forEach { document ->
-                    GradientButton(
-                        onClick = { current = document },
-                        colors = if (document == current) Palette.AccentGradient else Palette.NavyGradient,
-                        contentColor = Palette.Text,
-                        modifier = Modifier.weight(1f),
-                        minHeight = 34.dp,
-                    ) { ButtonLabel(document.shortLabel, Palette.Text, 10.5f) }
-                }
+    val readme by produceState<List<MdBlock>?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                context.assets.open(AuthorProfile.README_ASSET).bufferedReader().use { it.readText() }
+            }.getOrNull()?.let { Markdown.parse(it) }
+        }
+    }
+
+    Panel("Author") {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AuthorAvatar(avatar)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    AuthorProfile.USERNAME,
+                    color = Palette.Text,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text("GitHub username", color = Palette.Muted, fontSize = 9.5.sp)
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "Nickname  ${AuthorProfile.NICKNAME}",
+                    color = Palette.Accent2,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
-            Text(
-                text,
-                color = Palette.Text,
-                fontSize = 9.5.sp,
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .heightIn(max = 360.dp)
-                    .verticalScroll(rememberScrollState()),
-            )
-            GradientButton(
-                onClick = onClose,
-                colors = Palette.GreyGradient,
-                contentColor = Color(0xFFEAEEF5),
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                minHeight = 38.dp,
-            ) { ButtonLabel("Close", Color(0xFFEAEEF5), 12f) }
         }
+
+        Text(
+            "github.com/${AuthorProfile.USERNAME}",
+            color = Palette.Accent,
+            fontSize = 10.5.sp,
+            modifier = Modifier.padding(top = 8.dp).clickable { onOpenUrl(AuthorProfile.GITHUB_URL) },
+        )
+
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Profile README", color = Palette.Text, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = if (expanded) "Collapse" else "Expand",
+                color = Palette.Accent,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { expanded = !expanded },
+            )
+        }
+        Text(
+            "Bundled snapshot, retrieved ${AuthorProfile.README_RETRIEVED}. It is stored in the APK, so it " +
+                "reads offline; links still open when you are online.",
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+            modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
+        )
+
+        val blocks = readme
+        if (blocks == null) {
+            Text("Reading the bundled profile README\u2026", color = Palette.Muted, fontSize = 10.5.sp)
+        } else {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = if (expanded) 460.dp else 220.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                MarkdownDocument(
+                    blocks = blocks,
+                    onOpenUrl = onOpenUrl,
+                    baseSize = 10.5.sp,
+                    onLinkRefused = onOpenUrl,
+                )
+            }
+        }
+
+        GradientButton(
+            onClick = { onOpenUrl(AuthorProfile.GITHUB_URL) },
+            colors = Palette.AccentGradient,
+            contentColor = Palette.OnAccent,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            minHeight = 42.dp,
+        ) { ButtonLabel("Visit GitHub Profile", Palette.OnAccent, 12.5f) }
+
+        Text(
+            "Opens https://github.com/${AuthorProfile.USERNAME} in your browser. No GitHub account is needed.",
+            color = Palette.Muted,
+            fontSize = 9.5.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
+}
+
+/** The bundled profile picture, or a neutral placeholder if the image cannot be decoded. */
+@Composable
+private fun AuthorAvatar(avatar: ImageBitmap?) {
+    val shape = CircleShape
+    if (avatar == null) {
+        Box(
+            Modifier
+                .size(56.dp)
+                .clip(shape)
+                .background(Palette.Navy800)
+                .border(1.dp, Palette.Line, shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("P1", color = Palette.Muted, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+        }
+        return
+    }
+    Image(
+        bitmap = avatar,
+        contentDescription = AuthorProfile.avatarDescription(),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.size(56.dp).clip(shape).border(1.dp, Palette.Line, shape),
+    )
 }
 
 @Composable

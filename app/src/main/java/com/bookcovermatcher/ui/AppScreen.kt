@@ -183,7 +183,7 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
                                 }
                             }
                             AppTab.MORE -> ScreenScroll {
-                                MoreScreen(ui, vm)
+                                MoreScreen(ui, vm, onOpenUrl = { url -> openExternal(context, url, vm) })
                             }
                         }
                     }

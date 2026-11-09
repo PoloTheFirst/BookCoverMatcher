@@ -1,6 +1,6 @@
 # BookCoverMatcher
 
-**Version 2.6.0-dev.1** (development checkpoint; versionCode 222. The 2.5.0 stable release was versionCode 221, and 2.4.0 was versionCode 215) · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py · native PaddleOCR (PP-OCRv6 Medium, models bundled in the APK) in `native/ocr`
+**Version 2.6.0** (versionCode 223. The 2.5.0 stable release was versionCode 221, and 2.4.0 was versionCode 215) · Android 8.0+ (API 26) · Kotlin + Jetpack Compose · CameraX · ONNX Runtime (OpenCLIP) · Chaquopy / chrome-lens-py · native PaddleOCR (PP-OCRv6 Medium, models bundled in the APK) in `native/ocr`
 
 Find a book cover inside an Excel workbook, save the comparison as a session, discover the same
 title in online catalogues, and keep bookmarks that survive restarts. Offline matching never needs
@@ -936,9 +936,9 @@ No step of this pipeline is online, and the online feature is never consulted by
 
 ## 13. OneDrive: importing a workbook, and checking for a newer version (v2.6.0, in preparation)
 
-This section documents the v2.6.0 feature as it is implemented in this tree. The application version identifies
-this build as `2.6.0-dev.1` (`versionCode 222`), a development checkpoint above the 2.5.0 stable release, so nothing
-here describes a published stable release.
+This section documents the v2.6.0 feature as it is implemented in this tree. The application identifies itself as
+`2.6.0` (`versionCode 223`), but release signing and the `display-mask` licence are still open, so nothing here
+describes a published stable release.
 
 ### 13.1 What it does and does not do
 
