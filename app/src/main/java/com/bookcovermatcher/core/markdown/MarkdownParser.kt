@@ -170,10 +170,21 @@ internal class Parser(private val source: String) {
     }
 
     /**
-     * Collects a run of HTML and reports what it contained, without rendering any of it.
+     * Collects a run of HTML and turns the pictures in it into real image blocks.
      *
-     * Only runs that actually embed something (`img`, `picture`, `iframe`, `video`, `svg`, `audio`) produce a
-     * notice; a bare wrapper such as `<div align="center">` around nothing adds no noise.
+     * A GitHub README states its badges as `<img>` inside a `<div>` and its contribution graph as a `<picture>`
+     * with two `<source>` elements around an `<img>` fallback. Rendering those as "HTML not displayed" — which is
+     * what this reader did first — is why the badges and the graph were invisible, so `<img>` is now a first-class
+     * image block, in document order.
+     *
+     * A `<picture>` is resolved to its **dark** `<source>` when it offers one, and to its `<img>` fallback otherwise
+     * (v2.6.0 crash-fix 3). This app's Author page is a dark surface, so the dark variant is the one that belongs on
+     * it: the graph then carries its own dark background, its own light labels and its own dark contribution ramp,
+     * instead of a white panel dropped into a dark page. The rule is about the media query, not about any particular
+     * picture, so another `<picture>` with a dark source is handled the same way. Only one block is emitted per
+     * picture, so the same image is never drawn twice.
+     *
+     * HTML that is *not* a picture (iframes, video, raw SVG markup) is still reported, never executed.
      */
     private fun readHtml(lines: List<String>, start: Int, out: MutableList<MdBlock>): Int {
         val run = StringBuilder()
@@ -185,7 +196,37 @@ internal class Parser(private val source: String) {
             i++
         }
         val html = run.toString()
-        if (EMBED.containsMatchIn(html)) {
+
+        val pictures = IMG_TAG.findAll(html).mapNotNull { tag -> attributes(tag.value) }.toList()
+        val sources = SOURCE_TAG.findAll(html).mapNotNull { tag -> attributes(tag.value) }.toList()
+
+        val darkSource = sources.firstOrNull { source ->
+            source["media"]?.contains("dark", ignoreCase = true) == true
+        }
+        val alt = pictures.firstOrNull()?.get("alt").orEmpty().ifBlank { "contribution graph" }
+
+        if (darkSource != null) {
+            val src = darkSource["srcset"] ?: darkSource["src"]
+            val first = src?.substringBefore(',')?.trim()?.substringBefore(' ')
+            if (!first.isNullOrBlank()) out += MdBlock.Image(alt = alt, url = first)
+            return i
+        }
+
+        pictures.forEach { image ->
+            val src = image["src"] ?: image["srcset"] ?: return@forEach
+            if (src.isBlank()) return@forEach
+            out += MdBlock.Image(alt = image["alt"].orEmpty().ifBlank { "image" }, url = src)
+        }
+        if (pictures.isEmpty()) {
+            sources.forEach { source ->
+                val src = source["srcset"] ?: return@forEach
+                val first = src.substringBefore(',').trim().substringBefore(' ')
+                if (first.isBlank()) return@forEach
+                out += MdBlock.Image(alt = alt, url = first)
+            }
+        }
+
+        if (pictures.isEmpty() && sources.isEmpty() && EMBED.containsMatchIn(html)) {
             val alts = ALT.findAll(html)
                 .map { it.groupValues[1].trim() }
                 .filter { it.isNotEmpty() }
@@ -194,6 +235,18 @@ internal class Parser(private val source: String) {
             out += MdBlock.Omitted(alts)
         }
         return i
+    }
+
+    /** Parses `name="value"` pairs out of one tag; enough for `src`, `srcset` and `alt`. */
+    private fun attributes(tag: String): Map<String, String>? {
+        if (!tag.startsWith("<")) return null
+        val found = mutableMapOf<String, String>()
+        ATTRIBUTE.findAll(tag).forEach { match ->
+            val name = match.groupValues[1].lowercase()
+            val value = match.groupValues[3].ifEmpty { match.groupValues[4] }
+            found[name] = value
+        }
+        return found.ifEmpty { null }
     }
 
     /** Splits a table row into trimmed cells, tolerating the optional outer pipes. */
@@ -246,6 +299,9 @@ internal class Parser(private val source: String) {
         val STANDALONE_IMAGE = Regex("^!\\[([^\\]]*)\\]\\(([^)\\s]+)(?:\\s+\"[^\"]*\")?\\)$")
         val ALT = Regex("alt\\s*=\\s*\"([^\"]*)\"", RegexOption.IGNORE_CASE)
         val EMBED = Regex("<\\s*(img|picture|iframe|video|svg|audio)\\b", RegexOption.IGNORE_CASE)
+        val IMG_TAG = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE)
+        val SOURCE_TAG = Regex("<source\\b[^>]*>", RegexOption.IGNORE_CASE)
+        val ATTRIBUTE = Regex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')")
     }
 }
 

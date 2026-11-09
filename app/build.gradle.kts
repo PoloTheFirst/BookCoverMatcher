@@ -515,6 +515,8 @@ dependencies {
     // Microsoft sign-in for the OneDrive import (v2.6.0). MIT-licensed, minSdk 24; see
     // THIRD_PARTY_NOTICES.md and historical_prompt/v2.6.0-dev.1-ag.md §20.2.
     implementation(libs.msal.android)
+    // Draws the SVG badge and contribution graph on the Author page (Apache-2.0; see THIRD_PARTY_NOTICES.md).
+    implementation(libs.androidsvg)
 
     testImplementation(libs.junit)
 

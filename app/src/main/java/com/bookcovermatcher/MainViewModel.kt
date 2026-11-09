@@ -29,6 +29,7 @@ import com.bookcovermatcher.core.net.ConnectivityMonitor
 import com.bookcovermatcher.core.online.DiscoveryDrafts
 import com.bookcovermatcher.core.remote.AuthState
 import android.util.Log
+import androidx.compose.ui.graphics.asImageBitmap
 import com.bookcovermatcher.core.remote.RemoteDiagnostics
 import com.bookcovermatcher.core.remote.RemoteFailure
 import com.bookcovermatcher.core.remote.RemoteItem
@@ -73,6 +74,13 @@ import com.bookcovermatcher.data.StagedWorkbook
 import com.bookcovermatcher.data.WorkbookFiles
 import com.bookcovermatcher.data.WorkbookLibrary
 import com.bookcovermatcher.data.WorkbookOrigin
+import com.bookcovermatcher.data.author.AuthorContentRepository
+import com.bookcovermatcher.data.author.AuthorFileCache
+import com.bookcovermatcher.data.author.AuthorImageDecoder
+import com.bookcovermatcher.data.author.AuthorState
+import com.bookcovermatcher.data.author.DecodedImage
+import com.bookcovermatcher.data.author.HttpAuthorRemote
+import com.bookcovermatcher.core.author.AuthorProfile
 import com.bookcovermatcher.data.onedrive.GraphWorkbookSource
 import com.bookcovermatcher.data.onedrive.MsalOneDriveAuth
 import com.bookcovermatcher.data.onedrive.OneDriveAuth
@@ -184,6 +192,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         downloader = downloads,
     )
 
+    /**
+     * The Author page (v2.6.0 amendment): the README bundled in the APK as the first fallback, a disk cache for the
+     * last copy that passed validation, and a fetcher restricted to the hosts the README legitimately uses.
+     */
+    private val authorRepository = AuthorContentRepository(
+        cache = AuthorFileCache(File(app.filesDir, "author")),
+        remote = HttpAuthorRemote(),
+        bundledReadme = {
+            runCatching {
+                app.assets.open(AuthorProfile.README_ASSET).bufferedReader().use { it.readText() }
+            }.getOrDefault("")
+        },
+        // Density matters for the vectors: a badge is 20 dp tall, so on a 2.625× screen it must be rasterised at
+        // 52 px rather than 20 px, or the compositor enlarges it and the icon looks soft (v2.6.0 crash-fix 3).
+        decode = { bytes ->
+            AuthorImageDecoder.decode(bytes, density = app.resources.displayMetrics.density)
+        },
+    )
+
     /** The explicit remote check and the verified replacement (v2.6.0-dev.1 Phase 5). */
     private val oneDriveUpdates = OneDriveUpdateSession(
         source = oneDriveSource,
@@ -278,6 +305,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // status and Graph's own error code. Never a header, a token, a body, an account or a file name.
         // This is what makes "which request failed" answerable from logcat instead of inference.
         RemoteDiagnostics.sink = { line -> Log.w("OneDrive", line) }
+        // The Author page is refreshed once per launch, and never from a composable (v2.6.0 amendment). This init
+        // block runs once per ViewModel — which survives configuration changes — so a recomposition, a rotation or
+        // a second visit to the Licences tab cannot start another download. The cached copy is published first, so
+        // the page is complete offline before any request is made.
+        viewModelScope.launch {
+            authorRepository.state.collect { state ->
+                _ui.update { it.copy(author = state.toUi()) }
+            }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            authorRepository.loadCached()
+            authorRepository.refresh()
+        }
         camera.autoIntervalMs = AutoScanConfig().intervalMs
         if (_ui.value.autoScan) camera.autoSink = AutoScanSink { now, frame -> onAutoTick(now, frame) }
         prepareModel()
@@ -3062,3 +3102,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val TOAST_MS = 4500L
     }
 }
+
+/**
+ * Maps the Author repository's decoded pictures onto the UI's immutable state (v2.6.0 amendment).
+ *
+ * `asImageBitmap()` wraps the existing `Bitmap` rather than copying it, so this stays cheap even though the state
+ * is republished whenever the background refresh makes progress.
+ */
+private fun AuthorState<DecodedImage>.toUi(): AuthorUi = AuthorUi(
+    markdown = markdown,
+    source = source,
+    images = images.mapValues { (_, image) ->
+        AuthorImageUi(image.bitmap.asImageBitmap(), image.aspectRatio, image.animation)
+    },
+    refreshing = refreshing,
+    refreshedAt = refreshedAt,
+    lastFailure = lastFailure,
+)
+

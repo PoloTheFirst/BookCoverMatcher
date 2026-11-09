@@ -31,7 +31,10 @@ internal object Inline {
 
         fun flush() {
             if (buffer.isEmpty()) return
-            out += MdRun(buffer.toString(), bold = bold, italic = italic, strike = strike, url = url)
+            // Prose is the only place a shortcode becomes an emoji: a link label carries a url, a code span is
+            // built directly (never through this buffer) and a fenced block never reaches the inline parser.
+            val text = if (url == null) EmojiShortcodes.expand(buffer.toString()) else buffer.toString()
+            out += MdRun(text, bold = bold, italic = italic, strike = strike, url = url)
             buffer.clear()
         }
 
@@ -61,10 +64,10 @@ internal object Inline {
                         buffer.append(c)
                         i++
                     } else {
-                        // An inline image is shown as its alt text, linked to the image it points at.
+                        // An inline image keeps its alt text and its source, flagged so the reader can draw it.
                         flush()
                         val alt = s.substring(link.labelStart, link.labelEnd).trim()
-                        out += MdRun(alt.ifBlank { "image" }, italic = true, url = link.url)
+                        out += MdRun(alt.ifBlank { "image" }, italic = true, url = link.url, image = true)
                         i = link.next
                     }
                 }

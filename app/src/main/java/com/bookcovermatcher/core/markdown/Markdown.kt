@@ -15,6 +15,8 @@ data class MdRun(
     val code: Boolean = false,
     val strike: Boolean = false,
     val url: String? = null,
+    /** True when this run came from `![alt](src)`, so the reader can treat it as a picture, not a link. */
+    val image: Boolean = false,
 )
 
 /** One row of a list. [level] is 0 for a top-level item and 1 for an item nested under it. */

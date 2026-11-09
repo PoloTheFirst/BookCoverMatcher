@@ -291,6 +291,9 @@ data class UiState(
     /** The explicit remote check of the open workbook (v2.6.0-dev.1 Phase 5). */
     val remoteUpdate: RemoteUpdateUi = RemoteUpdateUi(),
 
+    /** The Author page under Licences: cached README and pictures, refreshed in the background (v2.6.0). */
+    val author: AuthorUi = AuthorUi(),
+
     /** Two-workbook metadata comparison (v2.3.0). */
     val comparison: WorkbookComparisonUi = WorkbookComparisonUi(),
 

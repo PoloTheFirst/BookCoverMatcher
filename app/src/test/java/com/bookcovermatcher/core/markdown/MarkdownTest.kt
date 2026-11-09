@@ -115,16 +115,64 @@ class MarkdownTest {
         assertTrue(blocks("---").single() is MdBlock.Rule)
     }
 
-    @Test fun htmlWithBadgesIsReportedNotRendered() {
+    @Test fun htmlBadgesBecomeImageBlocksInDocumentOrder() {
+        // v2.6.0 amendment: `<img>` used to be reported as omitted text, which is why the Shields.io badges and the
+        // Pacman graph never appeared. The pictures are now first-class image blocks, with their alt text.
         val parsed = blocks(
             "<div align=\"center\">\n" +
                 "  <img alt=\"Python\" src=\"https://img.shields.io/badge/Python-1\">\n" +
                 "  <img alt=\"Kotlin\" src=\"https://img.shields.io/badge/Kotlin-2\">\n" +
                 "</div>",
         )
-        val omitted = parsed.filterIsInstance<MdBlock.Omitted>().single()
-        assertEquals(listOf("Python", "Kotlin"), omitted.alts)
+        val images = parsed.filterIsInstance<MdBlock.Image>()
+        assertEquals(listOf("Python", "Kotlin"), images.map { it.alt })
+        assertEquals(listOf("https://img.shields.io/badge/Python-1", "https://img.shields.io/badge/Kotlin-2"), images.map { it.url })
         assertTrue("HTML must not leak into the text", parsed.none { it is MdBlock.Paragraph })
+        assertTrue("nothing is dropped silently", parsed.none { it is MdBlock.Omitted })
+    }
+
+    @Test fun aPictureElementYieldsItsDarkSourceOnceAndNotBothSources() {
+        // The Author page is a dark surface, so a <picture> that offers a dark-theme variant is shown that variant —
+        // the graph then carries its own dark background and light labels instead of a white panel in a dark page
+        // (v2.6.0 crash-fix 3). Exactly one block is emitted, so the picture is never drawn twice.
+        val parsed = blocks(
+            "<picture>\n" +
+                "<source media=\"(prefers-color-scheme: dark)\" srcset=\"https://raw.githubusercontent.com/o/r/output/dark.svg\">\n" +
+                "<source media=\"(prefers-color-scheme: light)\" srcset=\"https://raw.githubusercontent.com/o/r/output/light.svg\">\n" +
+                "<img alt=\"pacman contribution graph\" src=\"https://raw.githubusercontent.com/o/r/output/light.svg\">\n" +
+                "</picture>",
+        )
+        val images = parsed.filterIsInstance<MdBlock.Image>()
+        assertEquals(1, images.size)
+        assertEquals("pacman contribution graph", images.single().alt)
+        assertEquals("https://raw.githubusercontent.com/o/r/output/dark.svg", images.single().url)
+    }
+
+    @Test fun aPictureWithOnlyALightSourceFallsBackToItsImg() {
+        val parsed = blocks(
+            "<picture>\n" +
+                "<source media=\"(prefers-color-scheme: light)\" srcset=\"https://raw.githubusercontent.com/o/r/output/light.svg\">\n" +
+                "<img alt=\"graph\" src=\"https://raw.githubusercontent.com/o/r/output/light.svg\">\n" +
+                "</picture>",
+        )
+        val images = parsed.filterIsInstance<MdBlock.Image>()
+        assertEquals(1, images.size)
+        assertEquals("https://raw.githubusercontent.com/o/r/output/light.svg", images.single().url)
+    }
+
+    @Test fun aPictureWithoutAnImgFallsBackToItsFirstSource() {
+        val parsed = blocks(
+            "<picture>\n" +
+                "<source media=\"(prefers-color-scheme: dark)\" srcset=\"https://raw.githubusercontent.com/o/r/output/dark.svg\">\n" +
+                "</picture>",
+        )
+        assertEquals("https://raw.githubusercontent.com/o/r/output/dark.svg", parsed.filterIsInstance<MdBlock.Image>().single().url)
+    }
+
+    @Test fun htmlThatIsNotAPictureIsStillReportedNotExecuted() {
+        val parsed = blocks("<iframe alt=\"video\" src=\"https://example.org/v\"></iframe>")
+        assertEquals(listOf("video"), parsed.filterIsInstance<MdBlock.Omitted>().single().alts)
+        assertTrue(parsed.none { it is MdBlock.Image })
     }
 
     @Test fun anHtmlWrapperWithoutEmbedsIsSilent() {
@@ -203,7 +251,13 @@ class MarkdownTest {
         assertTrue("the real README heading should be present: $headings", headings.any { it.contains("Polo") })
         val text = plain(parsed)
         assertFalse("the template comment must not render", text.contains("Here are some ideas"))
-        assertTrue("badges should be reported, not executed", parsed.any { it is MdBlock.Omitted })
+        // v2.6.0 amendment: the badges and the contribution graph are `<img>` elements, so they are image blocks
+        // now — drawn when a picture is available, kept as labelled links otherwise. Never executed as HTML.
+        val images = parsed.filterIsInstance<MdBlock.Image>()
+        assertTrue("the badges should be image blocks: $images", images.any { it.url.contains("img.shields.io") })
+        assertTrue("the graph should be an image block: $images", images.any { it.url.contains("pacman") })
+        assertTrue("the banner should be an image block: $images", images.any { it.url.contains("2_PC-A.png") })
+        assertFalse("no raw HTML should reach the text", text.contains("<img"))
     }
 }
 

@@ -47,9 +47,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookcovermatcher.MainViewModel
+import com.bookcovermatcher.AuthorUi
 import com.bookcovermatcher.ModelUi
 import com.bookcovermatcher.UiState
 import com.bookcovermatcher.core.author.AuthorProfile
+import com.bookcovermatcher.core.author.AuthorSource
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.licensing.LicenseDocuments
 import com.bookcovermatcher.core.markdown.Markdown
@@ -59,9 +61,12 @@ import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.Panel
 import com.bookcovermatcher.ui.markdown.MarkdownDocument
+import com.bookcovermatcher.ui.markdown.MarkdownImage
 import com.bookcovermatcher.ui.theme.Palette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.text.DateFormat
+import java.util.Date
 
 /**
  * More: settings and information that do not belong to Home, Search or Wishlist.
@@ -178,7 +183,7 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
         Spacer(Modifier.height(14.dp))
         PanelsLicence(onOpenUrl)
         Spacer(Modifier.height(12.dp))
-        PanelsAuthor(onOpenUrl)
+        PanelsAuthor(ui, onOpenUrl)
     }
 }
 
@@ -230,7 +235,7 @@ private fun PanelsLicence(onOpenUrl: (String) -> Unit) {
  * HTTPS-only external-link handler.
  */
 @Composable
-private fun PanelsAuthor(onOpenUrl: (String) -> Unit) {
+private fun PanelsAuthor(ui: UiState, onOpenUrl: (String) -> Unit) {
     val context = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf(false) }
 
@@ -241,11 +246,21 @@ private fun PanelsAuthor(onOpenUrl: (String) -> Unit) {
             }.getOrNull()?.asImageBitmap()
         }
     }
-    val readme by produceState<List<MdBlock>?>(null) {
+    // The repository publishes the cached README (or the bundled copy) at startup and then refreshes it in the
+    // background. The asset read below is only the first-frame fallback for the instant before that lands; it is a
+    // local read, never a network call, so nothing here depends on the Licences tab being opened.
+    val bundled by produceState<String?>(null) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 context.assets.open(AuthorProfile.README_ASSET).bufferedReader().use { it.readText() }
-            }.getOrNull()?.let { Markdown.parse(it) }
+            }.getOrNull()
+        }
+    }
+    val markdown = ui.author.markdown.ifBlank { bundled.orEmpty() }
+    val blocks = remember(markdown) { if (markdown.isBlank()) null else Markdown.parse(markdown) }
+    val pictures = remember(ui.author.images) {
+        ui.author.images.mapValues { (_, image) ->
+            MarkdownImage(image.bitmap, image.aspectRatio, image.animation)
         }
     }
 
@@ -290,16 +305,15 @@ private fun PanelsAuthor(onOpenUrl: (String) -> Unit) {
             )
         }
         Text(
-            "Bundled snapshot, retrieved ${AuthorProfile.README_RETRIEVED}. It is stored in the APK, so it " +
-                "reads offline; links still open when you are online.",
+            authorStatus(ui.author),
             color = Palette.Muted,
             fontSize = 9.5.sp,
             modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
         )
 
-        val blocks = readme
-        if (blocks == null) {
-            Text("Reading the bundled profile README\u2026", color = Palette.Muted, fontSize = 10.5.sp)
+        val loadedBlocks = blocks
+        if (loadedBlocks == null) {
+            Text("Reading the profile README\u2026", color = Palette.Muted, fontSize = 10.5.sp)
         } else {
             Column(
                 Modifier
@@ -308,10 +322,15 @@ private fun PanelsAuthor(onOpenUrl: (String) -> Unit) {
                     .verticalScroll(rememberScrollState()),
             ) {
                 MarkdownDocument(
-                    blocks = blocks,
+                    blocks = loadedBlocks,
                     onOpenUrl = onOpenUrl,
                     baseSize = 10.5.sp,
                     onLinkRefused = onOpenUrl,
+                    images = pictures,
+                    // The graph plays whenever it is on screen, in either state (v2.6.0 crash-fix 2): the previous
+                    // rule tied playback to "expanded", so a reader who scrolled the collapsed README down to the
+                    // graph saw it frozen. Work stays bounded by composition (the More tab) and by RESUMED.
+                    animateImages = true,
                 )
             }
         }
@@ -330,6 +349,31 @@ private fun PanelsAuthor(onOpenUrl: (String) -> Unit) {
             fontSize = 9.5.sp,
             modifier = Modifier.padding(top = 6.dp),
         )
+    }
+}
+
+/**
+ * A truthful, quiet line about where the README on screen came from.
+ *
+ * The amendment requires the page to keep working offline without an error dialog, so a failed refresh is never
+ * presented as a failure: the line simply keeps saying which copy is being shown.
+ */
+private fun authorStatus(author: AuthorUi): String {
+    val at = author.refreshedAt?.let {
+        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
+    }
+    return when {
+        author.refreshing && at != null -> "Refreshing from GitHub\u2026 showing the saved copy from $at."
+        author.refreshing -> "Refreshing from GitHub\u2026"
+        author.source == AuthorSource.REFRESHED && at != null ->
+            "Updated from GitHub at $at. Pictures come from the README's own sources."
+        author.source == AuthorSource.CACHED && at != null ->
+            "Saved copy, last refreshed $at. A refresh runs on every app launch."
+        author.source == AuthorSource.CACHED ->
+            "Saved copy. A refresh runs on every app launch."
+        else ->
+            "Copy bundled in the app, retrieved ${AuthorProfile.README_RETRIEVED}. " +
+                "A refresh runs in the background on every app launch."
     }
 }
 

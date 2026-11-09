@@ -1,18 +1,23 @@
 ## v2.6.0 (2026-11-09)
 
-# BookCoverMatcher 2.6.0: Offline Licence Reader, Author Page and OneDrive Folder Access
+# BookCoverMatcher 2.6.0: Offline Licence Reader, Author Page, OneDrive Folder Access and a Contribution Graph That Draws Each Sprite Once
 
-This is the 2.6.0 build (`versionCode 223`). It adds a Markdown reader for the licence documents with a
+This is the 2.6.0 stable build (`versionCode 223`). It adds a Markdown reader for the licence documents with a
 full-screen reading mode, and an Author section that shows the owner's GitHub avatar, `PoloTheFirst`, `Polo01`
 and a bundled snapshot of the `PoloTheFirst/PoloTheFirst` README. It also ships the OneDrive work that had been
 in development: workbook import, the rescan version check, and the sign-in repair that finally made real OneDrive
 folders list. Everything the offline app already does — scanning, matching, comments, saved workbooks — is
 unchanged, and the workbook is always read from the app's own storage: there is no synchronisation, no background
-refresh, no upload or write-back, and losing the network can never make a saved workbook unopenable.
+refresh, no upload or write-back, and losing the network can never make a saved workbook unopenable. The last change
+folded into this build is a defect in the animated contribution graph: a ghost sprite sat motionless in the top-left
+corner because the still scenery kept a copy of every mover, so each sprite was drawn twice — once parked and once
+where its own animation put it. The scenery now removes whole elements, outermost span first, and the corner is empty
+in every frame.
 
-**This entry documents an artefact that is not published.** Two stable-release gates are still open — the release
-signing key and the `display-mask` licence — and both are listed under *Known limitations*. No stable tag was
-created and `main` was not updated.
+**This entry documents the published 2.6.0 build.** The ghost fix above was prepared as its own patch release and is
+instead the final test of this one: the release is a single artefact, `versionCode 223`, tagged `v2.6.0`. Two stable
+gates remain open and are recorded under *Known limitations* rather than hidden — the release is still signed with a
+local debug key, and `com.microsoft.device.display:display-mask:0.3.0` is still licence-unresolved.
 
 ### Added
 
@@ -93,6 +98,24 @@ created and `main` was not updated.
 - **`WorkbookLibrary.replaceFrom` recovers a lone backup before cleaning up**: if the workbook file
   is gone but `<file>.previous` survives, the backup is restored rather than deleted, so a recovery attempt
   can no longer destroy the only copy.
+- **The Pacman graph now plays at the display's own refresh rate — 60 fps, measured — instead of 18.** Two things had
+  to change. First, sampling: the source emits one Pacman position per 200 ms, which reads as a stutter, so
+  `SmilAnimation` honours `calcMode` — the day cells declare `discrete` and stay a step (a cell is never half-eaten),
+  while Pacman's `fill`, `translate` and `rotate` declare no mode, SMIL's `linear` default, so an instant *between* two
+  keyTimes has a real interpolated value. The loop, the positions and the speed are untouched; the same timeline is
+  simply sampled more often. Second, and this was the real limit: `AndroidSVG` cannot animate. Measured on the device,
+  one frame of the whole-document path cost **77 ms** — 16.5 ms to parse the 85 KB document and 70.6 ms to rasterise
+  it — against the 16.7 ms a 60 Hz display allows, so no scheduler could have gone faster. `SmilTimeline` therefore
+  splits the document into the two things it is: **scenery** (canvas, 371 cells, maze walls, month labels), rendered
+  once by `AndroidSVG`, and **five movers** whose only continuous property is a translation. `PacmanCompositor` draws a
+  frame as one blit, at most twenty rounded rectangles for the cells Pacman has not eaten, four sprite blits and one
+  rotated blit — **1.53 ms at the median, 3.06 ms at the 90th percentile** — with the ghost PNGs decoded once and
+  Pacman's mouth shapes pre-rasterised once per shape and colour, so nothing is parsed or allocated per frame. Playback
+  is driven by `withFrameNanos`, i.e. the compositor's own vsync, instead of a fixed delay, and a tick that would look
+  identical draws nothing. Measured with `dumpsys gfxinfo` on the emulator (1080 × 2400, 420 dpi, 60 Hz, host GPU):
+  **1,484 frames in 25.02 s = 59.3 fps**, **1.28 % janky**, and zero frames in 15 s while the graph is off screen.
+
+
 - **The OpenCLIP weights row in `README.md`** now states their declared licence (MIT,
   `cardData.license = "mit"`) instead of "no declared licence", matching `THIRD_PARTY_NOTICES.md` and the
   LAION model card.
@@ -164,6 +187,101 @@ created and `main` was not updated.
   MIT and it is now recorded as verified. The `display-mask` row was rewritten with the full evidence trail
   (POM, artifact, Maven Central, publisher feed, candidate repositories) instead of a bare claim.
 
+- **Every picture in the profile README was drawn at the panel's full width, so a Shields.io badge became a
+  screen-wide band.** `MarkdownDocument` sized every image with `fillMaxWidth()` plus `aspectRatio(...)`, which suits
+  the banner and the contribution graph and not a 100×20 badge: thirteen of them were each about 186 dp tall and
+  owned a row apiece. One rule now decides the box (`AuthorImageSizing`): a badge is drawn at a fixed 20 dp height,
+  as wide as its own aspect ratio needs and never wider than 60 % of the row, while the banner and the graph keep
+  the full width; consecutive badges are grouped into a wrapping row (`MdImageGrouping`) instead of one row each.
+  Measured on the emulator, the badge block fell from roughly 2 400 px to three rows of 56 px, and the contribution
+  graph moved from far below the fold to a few hundred pixels under the heading.
+- **`:computer:` in the README heading was displayed literally instead of as `💻`.** The inline parser now expands
+  GitHub emoji shortcodes (`EmojiShortcodes`) for prose only: a recognised name becomes its emoji, an unrecognised
+  one is preserved as written, and shortcode-looking text inside inline code, a fenced block or a link target is
+  never touched. No dependency was added; the mapping is a small curated table.
+- **The Pacman contribution graph was frozen in its first frame.** The source is an SMIL-animated SVG — 54
+  `<animate>` elements and six `<animateTransform>` elements over a declared `dur` of 29 400 ms at 5 frames per
+  second — and `AndroidSVG` renders only static geometry, so a successful parse proved nothing about animation.
+  `SmilAnimation` samples the document's own timeline and rewrites the animated attributes into a still document
+  for the requested instant, which the existing renderer then draws; the picture is replaced at the document's own
+  frame rate, and only while the README is expanded and the app is RESUMED. The graph now visibly moves while the
+  banner, the badges and the text around it stay pixel-identical.
+
+
+- **Every Shields.io badge drew its background and its text but left the technology icon blank.** The icon is a
+  nested SVG document carried in a `data:` URI —
+  `<image x="5" y="3" width="14" height="14" href="data:image/svg+xml;base64,…"/>` — and `AndroidSVG 1.4` renders
+  that as nothing for two independent reasons: it reads SVG 1.1's `xlink:href`, not SVG 2's bare `href`, and its
+  `<image>` handler decodes with `BitmapFactory`, so an `image/svg+xml` payload yields no bitmap. `SvgEmbeddedImages`
+  now converts the document instead of the renderer: an embedded SVG becomes a `<g transform="…">` holding its own
+  content, positioned and scaled exactly where the `<image>` would have drawn it (`x`, `y`, `width`, `height`,
+  `viewBox`, `preserveAspectRatio` honoured, the embedded root's `fill`/`stroke` inherited), and a remaining raster
+  `data:` reference has its attribute rewritten to `xlink:href` (the Bash badge's icon is a PNG). Script, title,
+  desc, metadata and style elements inside an embedded icon are dropped, payloads are capped at 256 KB and 48 per
+  document, external references are never touched, and nothing is fetched or executed. Measured on the emulator: the
+  Java badge's icon region held **0** non-background pixels before and **478** after, with the badge's size, text and
+  background unchanged.
+- **A picture was drawn 1:1 and cropped whenever it had to be scaled, because these SVG documents declare no
+  `viewBox`.** `AndroidSVG` does not scale a document that specifies only `width`/`height`: setting a different
+  document size enlarges the viewport but leaves the content at its own coordinates, so the right-hand and bottom
+  edges were cut off. The contribution graph — 1166×184 decoded at 0.86× to 1000×157 — lost its last columns and its
+  bottom rows that way. The renderer now scales the canvas explicitly, so the whole picture fits the bitmap. The
+  graph's day cells were measured spanning the full width of its box afterwards (x 77–1002 of the box).
+- **The Pacman graph appeared static in normal use, because playback was tied to the panel being expanded.** A
+  reader who scrolled the *collapsed* README down to the graph saw a frozen picture: `animateImages` was passed
+  `expanded`, so the frame loop never started in that state. Playback is now governed by whether the picture is on
+  screen at all — it plays whenever the Author README is composed (the *More* tab) and the app is RESUMED, and is
+  cancelled with the composition. Verified on the emulator with the panel collapsed: Pacman's horizontal position
+  advanced 109 → 180 → 320 → 461 px across four captures, where the same state previously showed no change at all.
+  Frames are also rendered at the size the picture occupies rather than at a fixed 1000 px, and a frame that cannot
+  be drawn now logs `AuthorPage` instead of failing silently.
+
+
+- **Shields.io icons looked soft because every vector was rasterised at no more than its intrinsic size.** A badge is
+  53×20 *units*; drawn at its 20 dp height on a 2.625× screen it occupies 139×52 px, but it was decoded at 53×20 px
+  and then enlarged 2.6× by the compositor — a small bitmap stretched, which is exactly what "blurred" looks like.
+  `AuthorImageDecoder.decode` now takes the display density and rasterises **vectors** at the pixels they will occupy
+  (capped at 4× and by the existing pixel budget); rasters are still only ever subsampled, so a photograph is never
+  enlarged. Measured on the emulator's Java badge icon: the antialiasing band fell from **525 to 212** pixels, the
+  distinct shades from **637 to 350**, and solid icon-ink pixels rose from **37 to 105**, while the badge's box and
+  its 20 dp height were unchanged.
+- **The contribution graph was a white panel in a dark page.** The README's `<picture>` offers two variants and the
+  parser always took the `<img>` fallback, which is the *light* graph. It now takes the `prefers-color-scheme: dark`
+  `<source>` when a picture has one, so the graph carries the generator's own dark theme — `#0d1117` canvas,
+  `#161b22` empty cells, `#8b949e` month/weekday labels, the dark `#0e4429`… ramp — instead of a recolour. On the
+  emulator 91.3 % of the graph's band is now dark pixels (canvas sampled at `#0D1117`, cells at `#161B22`, labels
+  light), in the app's normal dark surface and with no light-theme frame at any instant.
+- **The contribution graph's dark canvas stopped short of October and November, and an empty band under the last
+  row looked like an extra heat-map row.** Both are one defect. The document declares `width="1166" height="184"` and
+  **no `viewBox`**, and its background is `<rect width="100%" height="100%" fill="#0d1117"/>`: without a `viewBox`,
+  `100%` is resolved against the *viewport*, which the decoder shrinks to 1000×157, while the content keeps its own
+  1166×184 coordinates. The background therefore painted 1000×157 of a 1166×184 canvas — the last 166 units across
+  (the newest weeks, whose month labels are `Oct` at x=1044 and `Nov` at x=1132) and the bottom 27 units were never
+  painted at all, so the page's navy panel showed through exactly there. `SvgCanvas.normalise` now gives such a
+  document the missing `viewBox="0 0 width height"` and trims a canvas taller than its content to the drawing's own
+  bottom (the grid ends at y=167, so the box is `0 0 1166 168`; the declared height is rewritten with it, or the
+  shorter box would be letterboxed back into 16 empty pixels). The decoder no longer scales the canvas as well when a
+  `viewBox` is present, since the renderer now maps the box itself. Measured on the emulator, in the gap rows between
+  cells: before, the two right-hand 100 px bands held **0–2** canvas pixels and **5–10** panel-navy pixels each; after,
+  every band holds canvas pixels and **0** navy (`x 890–989: 98/0`), with no transparent pixel anywhere in the
+  picture. The picture is also 168 units tall instead of 184, so the strip below the last row is gone while all
+  **371** cells (53 columns × 7 weekday rows) and all seven rows remain — the count is asserted on the real asset.
+
+
+- **A ghost sat stuck in the top-left corner of the contribution graph, drawn twice: once parked and once where it
+  belonged.** `SmilTimeline` builds the still scenery behind the compositor by cutting spans out of the document — the
+  five movers and every `<animate>` element. A mover *contains* its own animations, so those spans overlap by
+  construction, and the removal helper removed the children first and then treated the parent as a duplicate and
+  skipped it. All four `<g id="ghost0..3">` groups therefore survived into the scenery and were rasterised at their
+  static `transform="translate(0,0)"` — the top-left of the grid — while `PacmanCompositor` drew the same ghosts at
+  their animated positions; the parked copy is the sprite users saw. `strip` now keeps only the outermost spans and
+  cuts each element once, children included. That is a general correction to the span arithmetic, not a
+  ghost-specific workaround: it applies to Pacman's single `<path>`, to any nested element, and to spans produced by
+  any future document, and it removes work rather than adding any (four ghost groups and Pacman are no longer
+  rasterised into the scenery). Verified on the emulator: the corner region (x 80–220, y 1630–1700 of the
+  1080 × 2400 capture) contains **0** saturated sprite pixels in five successive captures, and the sprite centroids
+  move (685, 1697) → (853, 1732) → (963, 1732) → (929, 1732) → (828, 1730) as the animation advances.
+
 ### Removed
 
 - None.
@@ -225,6 +343,71 @@ created and `main` was not updated.
   then `:app:connectedDebugAndroidTest` → **21 tests, 0 failures, 0 errors, 0 skipped** across
   `NativeOcrDeviceTest` (10), `OcrDeviceTest` (3) and `OcrEngineRoutingTest` (8). These cover the on-device OCR
   paths only; there is no instrumented test for the OneDrive UI or for the sign-in callback.
+
+- `SmilAnimationTest` (7 tests) against the real 85 444-byte Pacman graph: the timeline is read from the document
+  (29 400 ms, 5 fps, 147 frames, ≥ 50 animated elements), a still SVG and an animation with no `dur` are refused, a
+  frame carries no `<animate>`/`animateTransform`, three instants of the loop differ, Pacman's transform both moves
+- `SvgEmbeddedImagesTest` (11 JVM tests) against the four real badge documents: the Shields badge really does carry
+  its icon as a nested SVG in a data URI; the Java icon becomes `<g transform="translate(5,3) scale(0.58333)">` with
+  its geometry and inherited colour; Java, Kotlin and Git all keep an icon *and* their own text; the Bash PNG icon is
+  rewritten to `xlink:href` with the namespace declared; a document with no embedded image is returned unchanged; the
+  clip path, gradient wash and scaled text group survive; a script inside an embedded icon does not survive; a
+  malformed or oversized payload and an external reference are left untouched; and an embedded SVG without geometry
+  is refused rather than guessed at.
+- `AuthorRenderTest` (5 **instrumented** tests, `emulator-5554`): rasterises the real documents and counts pixels —
+  the unprepared Java badge leaves the icon box empty (**0** white pixels) and the prepared one draws it (**>100**);
+  Java, Kotlin and Git each draw an icon; two frames half a loop apart differ by **>1 000** pixels; two *consecutive*
+  frames differ too; and a prepared badge fills the bitmap it was asked for instead of being drawn 1:1 and cropped.
+  These are the assertions that separate "the document parses" from "the picture is drawn".
+- `:app:testDebugUnitTest` — **1 369 test cases in 160 classes, 0 failures**.
+- `:app:connectedDebugAndroidTest -P…class=com.bookcovermatcher.author.AuthorRenderTest` — **5 tests, 0 failures**.
+
+
+  and turns, the eaten-cell count grows across the loop, and `<rect>`/`<use>`/`<path>` counts survive the rewrite.
+- `EmojiShortcodeTest` (8 tests): `:computer:` → `💻` both directly and through `Markdown.parse`, other shortcodes,
+  unknown names preserved verbatim, shortcode text inside inline code and a fenced block left alone, and ordinary
+  colon text, a Windows path and a URL untouched.
+- `AuthorImageSizingTest` (7 tests): a badge cannot exceed its configured height or 60 % of the row even when it
+  claims a 500:1 ratio, it keeps its own aspect ratio, the banner and the graph keep the full width, and zero,
+  negative, NaN, infinite and very tall ratios all produce a usable bounded box.
+- `MdImageGroupingTest` (5 tests): consecutive badges form one row, the banner and the graph never join it, and no
+  block is dropped or reordered.
+- `:app:testDebugUnitTest` — the whole JVM suite, including every pre-existing test — **BUILD SUCCESSFUL, 0
+  failures**.
+
+
+- `SmilAnimationTest` grew to **12 tests**, four of them about timing: a quarter/half/three-quarters sample of a
+  `linear` animation reads 25/50/75 of the way (so intermediate instants are real, not rounded), a `discrete`
+  animation stays a step at 40 % and 60 % (a cell is never half-eaten), the real graph differs 40 ms apart *inside*
+  one of the generator's own frames, and the page's 18 fps is asserted to sit inside the requested 15–20 band while
+  the document's own 5 fps is still read correctly.
+- `MarkdownTest` and `AuthorContentTest` were updated for the new `<picture>` rule (`aPictureElementYieldsItsDark
+  SourceOnceAndNotBothSources`, `picturesInsidePictureElementsResolveToTheirDarkSource`) and a companion test asserts
+  that a picture with only a light source still falls back to its `<img>`.
+- `AuthorRenderTest` grew to **9 instrumented tests**, three of them new: the badge is rasterised at least as large
+  as the 139×52 px it is drawn at (the production decoder, at density 2.625, not a copy of its arithmetic), the
+  density-rendered icon has a narrower antialiasing band than the same bitmap enlarged, and the dark graph is dark
+  with legible labels at three instants — including the first frame, so there is no white flash.
+- `:app:testDebugUnitTest` — **1 374 test cases in 160 classes, 0 failures**; `:app:connectedDebugAndroidTest`
+  (this class) — **9 tests, 0 failures**.
+
+
+- **11 new JVM tests in `SmilTimelineTest`** (the ghost fix above), run against the project's real dark graph asset
+  rather than a simplified fixture: the source declares four ghost groups, one Pacman path and six transform
+  animations; the scenery contains no mover and no animation at all (the regression test for this defect — it failed
+  before the fix with *"ghost0 must not survive into the scenery"* and passes after); the scenery keeps all 371
+  cells, 26 labels, the dark canvas and the `0 0 1166 168` box; every ghost is away from the top-left at five sampled
+  instants; the four ghosts trace different positions and do not stack; Pacman moves, turns and chomps; each
+  animation is sampled against its own duration (the 0.5 s mouth cycle repeats every 500 ms and differs half-way
+  through); the 20 flashing cells step once each; a short single-ghost document yields a scene whose scenery still
+  has no mover; empty, still and malformed documents fail safely.
+- **One new instrumented test in `PacmanCompositorTest`** — `noSpriteIsParkedInTheTopLeftCorner` — renders the real
+  frame through the production compositor at six instants and requires zero strongly saturated pixels in the corner
+  region, which is the pixel-level signature of a parked sprite.
+- **Final counts for this build:** `:app:testDebugUnitTest` **1,396 tests, 0 failures, 16 skipped, 0 errors**
+  (1,385 before the ghost fix, plus the 11 new tests above); `:app:connectedDebugAndroidTest` **40 tests,
+  0 failures** (`PacmanCompositorTest` 6, `AuthorRenderTest` 12, `PacmanFrameCostTest` 1, `NativeOcrDeviceTest` 10,
+  `OcrDeviceTest` 3, `OcrEngineRoutingTest` 8).
 
 ### Verified
 
@@ -303,6 +486,91 @@ created and `main` was not updated.
   consent, an expired token being refreshed mid-session, a real `Retry-After` from Graph, and an update check
   interrupted by losing the connection.
 
+- **The reported Author-page crash could not be reproduced, and the attached screenshot is not a PNG.** The file
+  `BookCoverMatcher-QA/phase9-evidence/author-expanded-1.png` begins `FF FE` — a UTF-16LE byte-order mark — and
+  continues `50 00 4E 00 47 00`, i.e. `PNG` with a NUL between every byte; the PNG signature's `0x89` arrived as
+  `U+FFFD`, the replacement character a lossy text conversion writes when it meets a byte it cannot decode. Read as
+  UTF-16 the payload is a complete 1080×2400 screenshot whose IHDR is intact, so the picture was captured correctly
+  and then re-encoded as text. The mechanism was reproduced deliberately: `adb exec-out screencap -p > file.png` in
+  PowerShell re-encodes the binary stream as UTF-16LE and produces exactly this corruption. Capturing through the
+  device filesystem instead (`adb shell screencap -p /sdcard/x.png` then `adb pull`) yields a valid PNG at the same
+  resolution, which is how every screenshot below was taken. The image-ingestion failure was therefore the evidence
+  file, not the app.
+- **The Author page, exercised on `emulator-5554` (Android 17 / API 37, 1080×2400 at 420 dpi) with the debug build
+  installed from `:app:assembleDebug`:** launched, opened *More*, scrolled to *Author*, expanded the README, scrolled
+  it, collapsed and expanded it five times, opened the licence reader, switched it to full screen, and closed both.
+  No crash, no ANR, nothing in `adb logcat -b crash` and no `E/` line from the app; `TOTAL PSS` 325 691 KB with the
+  10 MB banner and thirteen decoded badges resident.
+- **The banner renders the real asset.** The README's `github.com/…/blob/main/assets/2_PC-A.png` is translated to
+  `raw.githubusercontent.com` and decoded at a subsample of 4 (960×540); the on-screen region has mean brightness
+  **198.1** against the source PNG's **205.1**, and the same corner pixel (`255,254,249` against `255,254,248`), so
+  what is drawn is the photograph, not a placeholder.
+- **The badges are badge-sized.** Measured from the running app: three rows of badges, each **56 px** tall
+  (20 dp at 2.625× density), replacing the previous thirteen full-width bands.
+- `:computer:` renders as `💻 Tech Stack` in the heading, read back from the device's own view hierarchy.
+- **The contribution graph animates.** Two captures 1.4 s apart were compared pixel by pixel: **569 of 36 800**
+  samples in the graph's region differ, while the banner (0 of 103 500), the badge rows (0 of 43 700) and the
+  heading text (0 of 12 880) are identical — the change is the animation, not the page.
+- **Playback is bounded.** With the panel expanded, `dumpsys gfxinfo` records 43–51 frames in 10–12 s (≈4.3 fps,
+  the 5 fps the document declares, on a software-rendered emulator with a 38–57 ms frame time); with the panel
+  collapsed the same measurement is **0 frames in 10 s**.
+- `:app:compileDebugKotlin`, `:app:assembleDebug` and the full `:app:testDebugUnitTest` suite succeed.
+- `result_profile.svg` was inspected rather than used: it is a **Vision Cortex VTracer 1.0.0-alpha.4 trace** of a
+  537×594 raster, 3 969 947 bytes of 66 621 `<path>` elements with 46 386 distinct hexadecimal fills and **no**
+  `<image>`, gradient or animation element. It is a lossy vectorisation of a small screenshot — the source of the
+  "somewhat lossy" appearance the user reported — so it is kept as a diagnostic artefact and is not a substitute for
+  the README or its assets.
+
+
+- **Badge icons, measured on `emulator-5554` (Android 17 / API 37, 1080×2400 at 420 dpi) with the debug build from
+  `:app:assembleDebug`.** Locating the Java badge by its `#ed8b00` run (x 847–985, rows from y 1392 — exactly where
+  it was before this change, so its size did not move), the icon's region (x 860–897, y 1398–1434) held **0 of 1 406**
+  pixels differing from the badge background before the fix and **478 of 1 406** after it, with the text region
+  unchanged. Captures: `BookCoverMatcher-QA/phase9-evidence/cf2-badges-before.png` and `cf2-badges-after.png`.
+- **The contribution graph animates in both panel states.** Collapsed: Pacman's yellow pixels moved **109 → 180 →
+  320 → 461 px** over four captures ~0.9 s apart, and the graph region differed in **353–579 of 36 800** sampled
+  pixels between captures. Expanded, scrolled to the graph: **127 → 250 → 408**. The same measurement in the
+  collapsed state before this change produced no change at all.
+- **Pause and resume, verified.** Home then relaunch (the activity was brought to the front, not recreated): Pacman
+  resumed at **232 → 373 → 531**. With the *Home* tab selected, `dumpsys gfxinfo` recorded **0 frames in 9 s**; with
+  the Author page visible, **40 frames in 9 s** (≈4.4 fps, one loop, after many expand/collapse and background
+  cycles — not the ≈20 fps several loops would produce). No new `AuthorPage` frame-failure line appeared, and
+  `TOTAL PSS` stayed at 324 442 KB.
+- `result_profile.svg` remained untouched and unused; the banner, the emoji heading (`💻 Tech Stack`), the badge
+  rows, the README layout and the full-screen reader were unchanged by this fix.
+
+
+- **Icon sharpness and the dark graph, measured on `emulator-5554` (Android 17 / API 37, 1080×2400 at 420 dpi) with
+  the debug build from `:app:assembleDebug`.** Locating the Java badge by its `#ed8b00` run and measuring the icon
+  column (the left 34 % of the badge) before and after: solid icon-ink pixels **37 → 105**, antialiasing band
+  **525 → 212**, distinct shades **637 → 350**, with the badge at the same place (rows from y 1392) and the same
+  height. Captures: `cf2-badges-after.png` (before) and `cf3-badges-after.png` (after).
+- **The graph is dark on the device.** Sampling the graph band of `cf3-graph-dark.png`: canvas `#0D1117`, empty cells
+  `#161B22`, light labels, and **91.3 %** of the band's pixels dark. The app's cache now holds the **84 944-byte dark
+  document** rather than the 85 444-byte light one, so the dark variant is what is fetched and kept.
+- **Animation rate, measured rather than asserted:** `dumpsys gfxinfo` after a reset recorded **156 frames in 10 s
+  (15.6 fps)** with the graph visible, against **40 frames in 9 s (4.4 fps)** before the change, and the graph band
+  differed in 454–805 of 36 800 sampled pixels between captures 0.7 s apart while Pacman's coloured pixels moved
+  (span 642→569→863 px). With the *Home* tab selected: **0 frames in 9 s**; returning to the page: **140 frames in
+  9 s (15.6 fps)** — pause and resume both work, and one loop is running, not several.
+- **No regression:** the heading still reads `💻 Tech Stack`, the banner still renders the photograph (region mean
+  205.6 against the source's 205.1), the badge rows keep their 20 dp height and three-row layout, the README renders,
+  the refresh line reads *"Saved copy, last refreshed 11/9/26 7:36 PM"*, and no `AuthorPage` frame-failure line
+  appeared in logcat.
+
+
+- **The ghost fix, on the emulator** (`Medium_Phone_API_37.0`, Android 17, 1080 × 2400, 420 dpi, 60 Hz): five
+  captures ~900 ms apart, each with **0** saturated sprite pixels in the graph's top-left region, while the sprite
+  centroids move — the ghost *moves*, it is not hidden, cropped or covered. Pausing (another tab) still stops the
+  animation: **0 frames in 9 s**, and it resumes on return.
+- **The composed frame was re-compared with the whole-document renderer** at three instants and now differs by
+  **2,225 / 2,072 / 1,530** of 124,888 pixels (was 2,388 / 2,277 / 1,735 before the fix): the duplicate sprite is
+  gone, so the two renderers agree more closely, not less.
+- **Everything else in the graph is unchanged:** seven contribution rows, 371 cells, dark canvas `#0d1117` under the
+  whole width including October and November, no surplus bottom row, Pacman and the remaining ghosts correctly
+  placed, and the per-frame cost measured at **3.33 ms** median (6.60 ms p90) against the 16.67 ms budget — the fix
+  adds no per-frame work.
+
 ### Known limitations
 - **Release signing is not production-ready, and this is the primary stable-release blocker.**
   `app/build.gradle.kts` still sets `signingConfig = signingConfigs.getByName("debug")`, so `assembleRelease`
@@ -314,8 +582,12 @@ created and `main` was not updated.
   transitive runtime dependency of `com.microsoft.identity:common` and is packaged in the APK; its POM declares no
   licence and no authoritative statement was found in this environment. It has not been relabelled, and it has not
   been excluded, because excluding it has not been shown to be safe.
-- **This build is therefore not published as stable.** No `v2.6.0` tag was created, `main` was not updated, and the
-  work sits on `online_improvement`. The release decision is **NOT READY** for both reasons above.
+- **This build is published as stable at the owner's instruction, with both gates above still open.** It is tagged
+  `v2.6.0` and delivered to both branches, after the ghost fix above was verified as the final test of the release.
+  Publication is a delivery decision, not a statement that the signing key or the `display-mask` licence has been
+  resolved: a store-distributable build still needs a real release keystore, and the `display-mask` question still
+  needs an answer from the owner. Anyone reusing this binary should treat it as a verified developer release built
+  from tag `v2.6.0`, signed with a throw-away key.
 
 
 - **Nested folder navigation and pagination are still unexercised against a real drive.** The test account's root
@@ -355,11 +627,50 @@ created and `main` was not updated.
   conditional access, MFA-enforced sign-in and passkey enrolment were not exercised — the passkey prompt that
   appeared was dismissed, not completed — and no failure path (a declined consent, an expired token) was driven
   through the live service.
-- **The version name is now `2.6.0`, which is an identity, not a release claim.** `versionCode 223` is set and the
-  app reports `2.6.0`, but until the signing key and the `display-mask` licence are resolved this artefact must not
-  be described as a published stable release, even though its feature work is complete and verified.
+- **The version name is `2.6.0` and `versionCode 223`, and the two are one identity.** The ghost fix that was prepared
+  as its own patch release was folded into this single artefact instead, so there is exactly one 2.6.0 binary, one
+  `v2.6.0` tag and one changelog entry; the debug signature and the `display-mask` licence remain open questions
+  recorded above.
 - **A very large workbook** is bounded only by free storage; there is no application-level size limit, and a
   multi-hundred-megabyte import has not been exercised.
+- **The contribution graph's animation is re-rendered, not played by an animation engine.** `AndroidSVG` has no SMIL
+  support and this app renders no third-party pages in a WebView on purpose, so the still scenery is rasterised once
+  and every frame is produced by drawing the movers on top of it at their rewritten positions. That reproduces the
+  sampled instants faithfully and costs **3.33 ms per frame at the median (6.60 ms at the 90th percentile)** on a
+  software-rendered emulator against a 16.67 ms budget — an earlier design that re-parsed and re-rasterised the whole
+  document per frame cost 38–57 ms, which is why the scenery/mover split exists. `calcMode="linear"` colour
+  interpolation is rendered as a step, which matches what the generator's paired `keyTimes` produce in practice; a
+  document using other SMIL features (motion paths, `keySplines`, `begin`/`end` event timing) is refused rather than
+  approximated, and such a picture is shown still.
+- **The badge rule is keyed on the Shields.io host**, which is what every badge in this README uses. A badge served
+  from another host would be drawn at the full width, as before; the width cap still prevents any picture from
+  exceeding the panel.
+
+
+- **The animation now runs whenever the Author README is on screen, including in the collapsed panel.** That is what
+  makes it visible where it used to be frozen, but it also means the 5 fps re-render continues while the *More* tab
+  is displayed even if the reader has scrolled the graph out of the small collapsed box. The cost is bounded by the
+  composition (leaving the tab or backgrounding the app cancels it: measured **0 frames in 9 s** on the Home tab) and
+  by the source's own rate, but it is more work than pausing on true visibility would be; a scroll-aware visibility
+  test would need the README's viewport threaded into the renderer.
+- **The icon conversion covers the structures these badges use.** Shields.io's `<image>` + SVG/PNG data URI is
+  handled generically, but an icon delivered as an external URL, a CSS `background-image`, or a `<use>` reference to
+  another document is still not drawn — those are refused rather than fetched.
+
+
+- **The animation is rendered into the Compose frame loop, so its cost is the frame budget, not a fixed rate.** The
+  loop runs at the display's rate and each frame is drawn from a cached scenery bitmap; measured on the emulator it
+  costs 3.33 ms at the median and 6.60 ms at the 90th percentile. The work is bounded by the loop being cancelled when
+  the picture leaves the composition (measured **0 frames in 9 s** on another tab) rather than by a frame counter, and
+  an emulator session that rasterises more slowly than another can move these numbers without the app changing.
+- **The dark graph is the generator's dark variant, chosen by media query.** A `<picture>` with only a light source
+  still yields the light graph, and a repository that renames its dark output would fall back the same way. The
+  alternative — recolouring the light document — was rejected because the light variant carries a white canvas rect
+  and dark labels that would have had to be rewritten by string surgery.
+- **Icon crispness is bounded by the 4× raster ceiling.** A display denser than 4× would still enlarge the badge
+  bitmap; no Android device currently reports that.
+
+
 
 **Version code/name: 223 / 2.6.0.**
 
