@@ -7,7 +7,9 @@ import com.bookcovermatcher.core.remote.DownloadOutcome
 import com.bookcovermatcher.core.remote.DownloadProgress
 import com.bookcovermatcher.core.remote.GraphRedirect
 import com.bookcovermatcher.core.remote.GraphUrls
+import com.bookcovermatcher.core.remote.RemoteDiagnostics
 import com.bookcovermatcher.core.remote.RemoteFailure
+import com.bookcovermatcher.core.wishlist.MiniJson
 import java.io.IOException
 import java.io.OutputStream
 import java.net.HttpURLConnection
@@ -53,29 +55,78 @@ open class GraphHttp(
         data class Failed(val failure: RemoteFailure) : JsonOutcome
     }
 
-    /** GET a Graph JSON document with the bearer token. */
-    open fun getJson(url: String, token: AccessToken): JsonOutcome {
-        if (!GraphUrls.isTrustedApi(url)) return JsonOutcome.Failed(RemoteFailure.BadRequest)
+    /** GET a Graph JSON document with the bearer token. [stage] names the operation for the trace. */
+    open fun getJson(url: String, token: AccessToken, stage: String = "graph"): JsonOutcome {
+        if (!GraphUrls.isTrustedApi(url)) {
+            RemoteDiagnostics.log(stage, "GET", url, failure = RemoteFailure.BadRequest)
+            return JsonOutcome.Failed(RemoteFailure.BadRequest)
+        }
         var connection: HttpURLConnection? = null
         return try {
             connection = open(url, token, followRedirects = true)
             val status = connection.responseCode
             if (status != HttpURLConnection.HTTP_OK) {
-                JsonOutcome.Failed(failureForStatus(status, connection))
+                val failure = failureForStatus(status, connection)
+                val details = readErrorDetails(connection)
+                // The one line that names the failing stage: status plus Graph's own code, never the body.
+                RemoteDiagnostics.log(
+                    stage = stage,
+                    url = url,
+                    status = status,
+                    graphErrorCode = details.code,
+                    requestId = details.requestId ?: connection.getHeaderField("request-id"),
+                    failure = failure,
+                )
+                JsonOutcome.Failed(failure)
             } else {
+                RemoteDiagnostics.log(
+                    stage = stage,
+                    url = url,
+                    status = status,
+                    requestId = connection.getHeaderField("request-id"),
+                )
                 JsonOutcome.Body(connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
             }
         } catch (e: SocketTimeoutException) {
+            RemoteDiagnostics.log(stage, "GET", url, failure = RemoteFailure.Timeout)
             JsonOutcome.Failed(RemoteFailure.Timeout)
         } catch (e: UnknownHostException) {
+            RemoteDiagnostics.log(stage, "GET", url, failure = RemoteFailure.Offline)
             JsonOutcome.Failed(RemoteFailure.Offline)
         } catch (e: SSLException) {
+            RemoteDiagnostics.log(stage, "GET", url, failure = RemoteFailure.Unstable)
             JsonOutcome.Failed(RemoteFailure.Unstable)
         } catch (e: IOException) {
+            RemoteDiagnostics.log(stage, "GET", url, failure = RemoteFailure.Unstable)
             JsonOutcome.Failed(RemoteFailure.Unstable)
         } finally {
             connection?.disconnect()
         }
+    }
+
+    /** Graph's own `error.code` and `innerError.request-id`, read from a bounded prefix of the body. */
+    private class ErrorDetails(val code: String?, val requestId: String?)
+
+    private fun readErrorDetails(connection: HttpURLConnection): ErrorDetails = try {
+        val text = connection.errorStream?.use { input ->
+            val buffer = ByteArray(MAX_ERROR_BYTES)
+            var total = 0
+            while (total < buffer.size) {
+                val read = input.read(buffer, total, buffer.size - total)
+                if (read <= 0) break
+                total += read
+            }
+            String(buffer, 0, total, Charsets.UTF_8)
+        }.orEmpty()
+        val error = (runCatching { MiniJson.parse(text) as? Map<*, *> }.getOrNull())?.get("error") as? Map<*, *>
+        val inner = error?.get("innerError") as? Map<*, *>
+        ErrorDetails(
+            code = error?.get("code") as? String,
+            requestId = (inner?.get("request-id") as? String) ?: (inner?.get("requestId") as? String),
+        )
+    } catch (e: Exception) {
+        // A body we cannot read is not a diagnostics failure; the status already says what happened.
+        ErrorDetails(null, null)
     }
 
     /**
@@ -103,7 +154,10 @@ open class GraphHttp(
                 val location = connection.getHeaderField("Location")
                 connection.disconnect()
                 when (val plan = GraphRedirect.plan(location)) {
-                    is GraphRedirect.Plan.Reject -> return DownloadOutcome.Failed(plan.failure)
+                    is GraphRedirect.Plan.Reject -> {
+                        RemoteDiagnostics.log("download", url = contentUrl, status = status, failure = plan.failure)
+                        return DownloadOutcome.Failed(plan.failure)
+                    }
                     is GraphRedirect.Plan.FollowWithoutCredentials -> {
                         connection = open(plan.url, null, followRedirects = true)
                         status = connection.responseCode
@@ -112,8 +166,24 @@ open class GraphHttp(
             }
 
             if (status != HttpURLConnection.HTTP_OK) {
-                return DownloadOutcome.Failed(failureForStatus(status, connection))
+                val failure = failureForStatus(status, connection)
+                val details = readErrorDetails(connection)
+                RemoteDiagnostics.log(
+                    stage = "download",
+                    url = contentUrl,
+                    status = status,
+                    graphErrorCode = details.code,
+                    requestId = details.requestId ?: connection.getHeaderField("request-id"),
+                    failure = failure,
+                )
+                return DownloadOutcome.Failed(failure)
             }
+            RemoteDiagnostics.log(
+                stage = "download",
+                url = contentUrl,
+                status = status,
+                requestId = connection.getHeaderField("request-id"),
+            )
 
             val total = connection.contentLengthLong.takeIf { it > 0L }
             val buffer = ByteArray(BUFFER_BYTES)
@@ -144,13 +214,18 @@ open class GraphHttp(
             onProgress(DownloadProgress(written, total))
             return DownloadOutcome.Completed(written)
         } catch (e: SocketTimeoutException) {
+            RemoteDiagnostics.log("download", url = contentUrl, failure = RemoteFailure.Timeout)
             return DownloadOutcome.Failed(RemoteFailure.Timeout)
         } catch (e: UnknownHostException) {
+            RemoteDiagnostics.log("download", url = contentUrl, failure = RemoteFailure.Offline)
             return DownloadOutcome.Failed(RemoteFailure.Offline)
         } catch (e: SSLException) {
+            RemoteDiagnostics.log("download", url = contentUrl, failure = RemoteFailure.Unstable)
             return DownloadOutcome.Failed(RemoteFailure.Unstable)
         } catch (e: IOException) {
-            return DownloadOutcome.Failed(storageOrTransport(e))
+            val failure = storageOrTransport(e)
+            RemoteDiagnostics.log("download", url = contentUrl, failure = failure)
+            return DownloadOutcome.Failed(failure)
         } finally {
             connection?.disconnect()
         }
@@ -188,6 +263,9 @@ open class GraphHttp(
         const val BUFFER_BYTES = 128 * 1024
         private const val PROGRESS_BYTES = 64L * 1024
         private const val PROGRESS_INTERVAL_MS = 100L
+
+        /** Only the head of an error document is read: enough for `error.code` and a request id. */
+        private const val MAX_ERROR_BYTES = 8 * 1024
     }
 }
 

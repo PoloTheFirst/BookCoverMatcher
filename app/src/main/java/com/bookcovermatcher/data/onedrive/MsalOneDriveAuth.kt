@@ -12,6 +12,8 @@ import com.bookcovermatcher.core.remote.MsalConfigParser
 import com.bookcovermatcher.core.remote.MsalConfigResult
 import com.bookcovermatcher.core.remote.MsalFailureKind
 import com.bookcovermatcher.core.remote.MsalFailureRules
+import com.bookcovermatcher.core.remote.RemoteDiagnostics
+import com.bookcovermatcher.core.remote.RemoteFailure
 import com.bookcovermatcher.core.remote.TokenResult
 import com.bookcovermatcher.core.remote.toRemoteFailure
 import com.microsoft.identity.client.AcquireTokenParameters
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * MSAL implementation of [OneDriveAuth] (v2.6.0-dev.1 Phase 3).
@@ -100,9 +103,19 @@ class MsalOneDriveAuth(
         // The interactive flow launches an Activity, so it must start on the main thread.
         withContext(Dispatchers.Main.immediate) { pca.acquireToken(parameters) }
 
-        val outcome = settled.await()
+        // Bounded on purpose (v2.6.0-dev.1 crash-fix-5). MSAL answers through `BrowserTabActivity`; if the
+        // browser never redirects back — a redirect-URI mismatch on the registration, an error page, a tab
+        // the user simply left open — no callback is ever invoked and this used to wait forever, leaving
+        // the panel on a spinner with nothing to act on. Closing the panel cancels this wait immediately;
+        // the window is only the backstop for a user who walks away.
+        val raw = withTimeoutOrNull(INTERACTIVE_SIGN_IN_WINDOW_MS) { settled.await() }
+        // `await()` returns null for a cancel, and `withTimeoutOrNull` returns null on a timeout, so the
+        // two are told apart by asking whether MSAL actually answered.
+        val timedOut = raw == null && !settled.isCompleted
+        val outcome = raw
         val failure = outcome?.exceptionOrNull()?.let { failureOf(it) }
         val result = when {
+            timedOut -> AuthState.Failed(RemoteFailure.SignInNotCompleted)
             outcome == null -> AuthState.SignedOut
             outcome.isSuccess -> AuthState.SignedIn(usernameOf(outcome.getOrNull()?.account))
             failure == AuthFailure.INTERACTION_REQUIRED -> AuthState.Expired(null)
@@ -115,6 +128,8 @@ class MsalOneDriveAuth(
         }
         // `Failed` is a one-shot result, never the stored state: the app really is signed out.
         _state.value = result as? AuthState.SignedIn ?: (result as? AuthState.Expired) ?: AuthState.SignedOut
+        // A sign-in that produced nothing is the first thing to look for when folders do not open.
+        RemoteDiagnostics.log("signIn", method = "-", failure = (result as? AuthState.Failed)?.failure)
         return result
     }
 
@@ -146,9 +161,12 @@ class MsalOneDriveAuth(
             // The cache knows the account but the service wants interaction (password change, MFA,
             // consent): "sign in again", not "sign in".
             _state.value = AuthState.Expired(usernameOf(account))
+            RemoteDiagnostics.log("token", failure = RemoteFailure.AuthExpired)
             TokenResult.Failure(AuthFailure.INTERACTION_REQUIRED)
         } catch (e: Exception) {
-            TokenResult.Failure(failureOf(e))
+            val failure = failureOf(e)
+            RemoteDiagnostics.log("token", method = "-", failure = failure.toRemoteFailure())
+            TokenResult.Failure(failure)
         }
     }
 
@@ -226,6 +244,16 @@ class MsalOneDriveAuth(
          * their files. No write scope exists in this app, so none can be requested here.
          */
         val DEFAULT_SCOPES = listOf("Files.Read", "User.Read")
+
+        /**
+         * How long an interactive sign-in may stay unanswered before the panel is told it did not finish
+         * (v2.6.0-dev.1 crash-fix-5).
+         *
+         * Long enough for a password, MFA and a consent screen on a slow connection; short enough that a
+         * browser which never redirects back cannot leave a spinner up indefinitely. Closing the panel
+         * cancels the wait immediately, so this is a backstop, not the normal way out.
+         */
+        const val INTERACTIVE_SIGN_IN_WINDOW_MS = 5L * 60L * 1000L
     }
 }
 

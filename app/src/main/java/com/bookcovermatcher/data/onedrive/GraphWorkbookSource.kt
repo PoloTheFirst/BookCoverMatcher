@@ -48,7 +48,7 @@ class GraphWorkbookSource(
             is TokenState.Missing -> return RemoteResult.Err(state.failure)
         }
         return withContext(Dispatchers.IO) {
-            when (val response = http.getJson(url, token)) {
+            when (val response = http.getJson(url, token, stage = "list")) {
                 is GraphHttp.JsonOutcome.Body -> GraphJson.listing(folderId, response.text, acceptFileName)
                 is GraphHttp.JsonOutcome.Failed -> RemoteResult.Err(response.failure)
             }
@@ -61,7 +61,7 @@ class GraphWorkbookSource(
             is TokenState.Missing -> return RemoteResult.Err(state.failure)
         }
         return withContext(Dispatchers.IO) {
-            val response = http.getJson(GraphUrls.item(itemId), token)
+            val response = http.getJson(GraphUrls.item(itemId), token, stage = "probe")
             if (response is GraphHttp.JsonOutcome.Failed) {
                 // A deleted or moved file is a *state*, not an error: the caller keeps its local copy
                 // and says so. Everything else is still a failure.

@@ -35,6 +35,8 @@ class RemoteFailureNoticesTest {
         RemoteFailure.PermissionDenied,
         RemoteFailure.SignInRejected,
         RemoteFailure.UnexpectedResponse,
+        // crash-fix-5: a sign-in whose browser never came back.
+        RemoteFailure.SignInNotCompleted,
     )
 
     // ---- the agreed wording, verbatim --------------------------------------------------------
@@ -136,6 +138,8 @@ class RemoteFailureNoticesTest {
             // A decision (allow access) and a configuration have to change before a retry can work.
             RemoteFailure.PermissionDenied,
             RemoteFailure.SignInRejected,
+            // Retrying a listing cannot finish a sign-in.
+            RemoteFailure.SignInNotCompleted,
         ).forEach { assertFalse("$it needs the user to change something first", it.isRetryable()) }
     }
 

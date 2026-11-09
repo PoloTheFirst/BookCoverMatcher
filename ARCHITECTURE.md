@@ -649,6 +649,21 @@ UI instead of being flattened to "cancelled". The interactive sign-in also runs 
 as the listing, so a sign-in can no longer open a browser onto an unreachable page and wait for a callback that
 will never come.
 
+**Diagnosis without leaking (v2.6.0-dev.1 crash-fix-5).** `RemoteDiagnostics` writes one line per operation to
+logcat under the tag `OneDrive`: stage (`signIn`, `token`, `list`, `probe`, `download`), HTTP status, Graph's own
+`error.code`, Microsoft's `request-id` and the classified failure. The endpoint path is templated
+(`/items/{id}/children`) and the query string is dropped, because it carries `$select`, page tokens and — on the
+content endpoint — a pre-authenticated storage URL. No header, token, response body, account, folder or workbook
+name is recorded; the error body is read only up to 8 KiB and only for `code`/`request-id`. The sink is a
+no-op by default, so JVM tests stay silent and `RemoteDiagnosticsTest` can assert exactly what a line may and may
+not contain.
+
+The interactive sign-in is **bounded**: `MsalOneDriveAuth.INTERACTIVE_SIGN_IN_WINDOW_MS` (five minutes) is the
+backstop for a browser that never redirects back — a case that used to leave the panel spinning forever, since
+MSAL only ever answers through `BrowserTabActivity`. Closing the panel cancels the wait at once, and the timeout
+reports `RemoteFailure.SignInNotCompleted` ("sign-in did not finish…"), never a connectivity claim.
+
+
 ### Replacement and rollback (`WorkbookLibrary.replaceFrom`)
 
 1. Copy the new bytes to `<file>.replacing` and hash them first — a failure here changes nothing.

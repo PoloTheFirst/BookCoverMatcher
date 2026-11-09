@@ -14,6 +14,14 @@ network can never make a saved workbook unopenable.
 
 ### Added
 
+- **A safe OneDrive trace** (`RemoteDiagnostics`), because every earlier diagnosis of "folders do not open" had to
+  be inferred: the app logged nothing at all. One line per operation records the stage (`signIn`, `token`,
+  `list`, `probe`, `download`), the HTTP status, Graph's own `error.code`, Microsoft's `request-id` and the
+  classified failure. The endpoint path is templated (`/items/{id}/children`) and the query string — which
+  carries `$select`, page tokens and, on the content endpoint, a pre-authenticated storage URL — is dropped
+  entirely. No header, token, body, account, folder or workbook name is ever recorded, the error body is read
+  only up to 8 KiB and only for `code`/`request-id`, and a test asserts that a URL with a `tempauth` query logs
+  nothing of it. The trace goes to logcat under the tag `OneDrive`.
 - **Import from OneDrive** (`More → Saved workbooks → From OneDrive`). Sign in with a personal Microsoft
   account (public client, MSAL, `consumers` authority, exactly two delegated scopes: `Files.Read` and
   `User.Read`), browse your drive folder by folder with ↑ Up, a breadcrumb path and **Load more** pagination,
@@ -60,6 +68,14 @@ network can never make a saved workbook unopenable.
 
 ### Fixed
 
+- **A sign-in whose browser never came back left the panel spinning forever.** MSAL answers through
+  `BrowserTabActivity`; when the browser never redirects — a redirect-URI mismatch on the app registration, an
+  error page, a tab the user simply left open — no callback is ever invoked, and the panel waited for one
+  indefinitely with a disabled button and no message. That reads from the outside as "OneDrive folders do not
+  open". The wait is now bounded (`MsalOneDriveAuth.INTERACTIVE_SIGN_IN_WINDOW_MS`, five minutes) and reports
+  *"The OneDrive sign-in did not finish, so no folders were loaded. Sign in again; if the browser showed an
+  error instead of returning to the app, the Azure app registration for this build needs checking."* Closing
+  the panel cancels the wait immediately, so it is a backstop rather than the way out.
 - **A failed OneDrive sign-in was reported as a lost connection.** Everything MSAL raised that was not a
   `MsalUiRequiredException` or an `IOException` was collapsed into `UNKNOWN`, and `UNKNOWN` renders as *"The
   connection to OneDrive failed, so nothing was saved. Try again when you are back online."* — so a cancelled
@@ -111,7 +127,7 @@ network can never make a saved workbook unopenable.
 - Run conditions: each suite was forced with `:app:cleanTestDebugUnitTest`, because Gradle otherwise reports the
   task `UP-TO-DATE` and repeats an old result. Figures are from 2026-11-09, after the sign-in redirect change.
 
-- Full JVM suite: **1,259 tests, 0 failures, 0 errors, 16 skipped, 148 classes**
+- Full JVM suite: **1,267 tests, 0 failures, 0 errors, 16 skipped, 149 classes**
   (`.\gradlew.bat :app:testDebugUnitTest --no-build-cache`, executed 2026-11-09). The 16 skips are
   environmental `assumeTrue` guards — 4 live-network catalogue tests needing `-DonlineCheck=1`, 3
   real-workbook tests and 9 sample-workbook tests whose fixtures live outside the repository — not disabled
@@ -129,7 +145,14 @@ network can never make a saved workbook unopenable.
 - The sign-in redirect rule added in the previous checkpoint: `MsalRedirectPathTest` **9 passed**, covering the
   percent-decoded intent-filter path, `+` not being turned into a space, MSAL's derived
   `msal<client-id>://auth` form, malformed and multi-byte escapes, and the packaged redirect end to end.
-- The sign-in failure rules added here: `MsalFailureRulesTest` **8 passed**, covering cancellation, declined
+- The sign-in failure rules added in the previous checkpoint: `MsalFailureRulesTest` **8 passed**, covering
+  cancellation, declined consent, a rejected client and service, the one MSAL client code that really is a
+  network failure, and that a failed sign-in is reported while a cancelled one stays silent;
+  `GraphWorkbookSourceAuthTest` **8 passed**, including that a rejected sign-in never becomes a connection
+  failure and that only a genuine network failure still says "offline".
+- The trace added here: `RemoteDiagnosticsTest` **8 passed**, covering query stripping, the `{id}` placeholder,
+  a pre-authenticated storage URL losing its `tempauth` value, unusable URLs, the line's fields, control-character
+  injection and a sink that throws.
   consent, a rejected client and service, the one MSAL client code that really is a network failure, and that a
   failed sign-in is reported while a cancelled one stays silent; `GraphWorkbookSourceAuthTest` **8 passed**,
   including that a rejected sign-in never becomes a connection failure and that only a genuine network failure
@@ -152,9 +175,15 @@ network can never make a saved workbook unopenable.
   `Error: Activity not started, unable to resolve Intent` — which is exactly the browser side of the blank page
   the user saw. A double-encoded control URI resolved on the old build and no longer resolves on the new one,
   confirming the filter's literal is now the decoded path.
-- Debug APK (rebuilt after the fix): `app/build/outputs/apk/debug/app-debug.apk`, **344,758,949 bytes**, sha256
-  `da20e33cf772da314a659bd1938896fb484ad83a838f7164a6e7d8f9bd65ed12`, `versionCode 221`, `versionName 2.5.0` —
-  deliberately **not** bumped, because the licence and signing gates are still open.
+- Debug APK (rebuilt after these changes): `app/build/outputs/apk/debug/app-debug.apk`, **344,758,949 bytes**,
+  sha256 `df7c54319f82a62e2f816cc7e2165dc8a89bf3c4b882a11ed1043ed4a771c078`, `versionCode 221`,
+  `versionName 2.5.0` — deliberately **not** bumped, because the licence and signing gates are still open.
+- **The request the app builds is accepted by the live service.** With a deliberately invalid bearer token, the
+  exact root-children URL (`…/v1.0/me/drive/root/children?$select=…&$top=200`, the same `$select` and `$top`
+  the app sends) answered **HTTP 401 `InvalidAuthenticationToken`**, not a 400: the endpoint, the query and the
+  property names are valid at Microsoft's end. `GET /me/drive/root/children` and every `$select` field used here
+  are also documented for this exact call, and `Files.Read` is the least-privileged delegated permission for a
+  personal account.
 - **Offline sign-in, verified on the emulator** (the fix in *Fixed*): with airplane mode on and the OneDrive
   panel open, tapping **Sign in** on the previous build launched Chrome at `login.microsoftonline.com`
   (`ERR_INTERNET_DISCONNECTED`) and the app never received a callback; on this build the browser does not open,
@@ -213,6 +242,10 @@ network can never make a saved workbook unopenable.
   callback, the account appearing, the UI reaching its signed-in state and the loading state settling are all
   **not verified**, and the exact MSAL/Graph response behind the reported failure has not been observed. The
   next run on a device with an account will name it, and the message will point at the right thing to fix.
+- **OneDrive folder browsing has still never been exercised against a real account.** Drive discovery, the root
+  listing, child-folder navigation and pagination are covered by unit tests with recorded payloads and, for the
+  request itself, by a live 401 from the real host; none of them has been observed returning items for a real
+  user's drive. Record the `OneDrive` logcat lines from one signed-in attempt to close that gap.
 - **The stable version was deliberately not applied.** The app still builds as `2.5.0 / 221`; the proposed
   `2.6.0 / 222` needs a licence-clear dependency set and a real release keystore, and neither exists yet.
 - **A very large workbook** is bounded only by free storage; there is no application-level size limit, and a

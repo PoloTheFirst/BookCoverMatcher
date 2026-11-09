@@ -28,7 +28,7 @@ class RemoteBrowsingTest {
         var answer: JsonOutcome = JsonOutcome.Failed(RemoteFailure.NotFound)
         var downloadUrl: String? = null
 
-        override fun getJson(url: String, token: AccessToken): JsonOutcome {
+        override fun getJson(url: String, token: AccessToken, stage: String): JsonOutcome {
             urls += url
             return answer
         }

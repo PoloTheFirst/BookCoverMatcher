@@ -28,6 +28,8 @@ import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.net.ConnectivityMonitor
 import com.bookcovermatcher.core.online.DiscoveryDrafts
 import com.bookcovermatcher.core.remote.AuthState
+import android.util.Log
+import com.bookcovermatcher.core.remote.RemoteDiagnostics
 import com.bookcovermatcher.core.remote.RemoteFailure
 import com.bookcovermatcher.core.remote.RemoteItem
 import com.bookcovermatcher.core.remote.RemoteNotices
@@ -194,6 +196,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var oneDriveJob: Job? = null
 
     /**
+     * The interactive sign-in in flight, tracked separately from the listing/download job so that closing
+     * the panel cancels the *wait* for MSAL's answer without disturbing anything else
+     * (v2.6.0-dev.1 crash-fix-5). Without this, a browser that never redirects back left the sign-in
+     * coroutine waiting for a callback that could not arrive.
+     */
+    private var signInJob: Job? = null
+
+    /**
      * Counter for the import flow (v2.6.0-dev.1 Phase 6).
      *
      * Every job takes a number, and only the job holding the current number may clear the "in flight"
@@ -264,6 +274,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
 
     init {
+        // Safe OneDrive diagnostics (v2.6.0-dev.1 crash-fix-5): stage, sanitized endpoint path, HTTP
+        // status and Graph's own error code. Never a header, a token, a body, an account or a file name.
+        // This is what makes "which request failed" answerable from logcat instead of inference.
+        RemoteDiagnostics.sink = { line -> Log.w("OneDrive", line) }
         camera.autoIntervalMs = AutoScanConfig().intervalMs
         if (_ui.value.autoScan) camera.autoSink = AutoScanSink { now, frame -> onAutoTick(now, frame) }
         prepareModel()
@@ -827,6 +841,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         oneDriveSeq++
         oneDriveJob?.cancel()
         oneDriveJob = null
+        // Closing the panel is also the way out of a sign-in whose browser never came back: cancel the
+        // wait so `signingIn` cannot outlive the panel (v2.6.0-dev.1 crash-fix-5).
+        signInJob?.cancel()
+        signInJob = null
         _ui.update {
             it.copy(
                 oneDrive = OneDriveUi(
@@ -854,7 +872,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         _ui.update { it.copy(oneDrive = it.oneDrive.copy(signingIn = true, error = null, canRetry = false)) }
-        viewModelScope.launch {
+        signInJob = viewModelScope.launch {
             val seq = ++oneDriveSeq
             val result = try {
                 oneDriveAuth.signIn(activity)

@@ -67,6 +67,18 @@ sealed interface RemoteFailure {
      */
     data object UnexpectedResponse : RemoteFailure
 
+    /**
+     * The interactive sign-in was started but never came back with an answer.
+     *
+     * MSAL answers through `BrowserTabActivity`; when the browser never redirects (for example because the
+     * sign-in page reported a redirect-URI mismatch for this build and never handed control back), no
+     * callback ever arrives. The flow used to wait forever and leave the panel on a spinner with nothing
+     * to act on, which reads to the user as "OneDrive folders do not open"
+     * (v2.6.0-dev.1 crash-fix-5).
+     */
+    data object SignInNotCompleted : RemoteFailure
+
+
     /** Graph answered 5xx. */
     data class ServerError(val status: Int) : RemoteFailure
 
@@ -111,6 +123,8 @@ fun RemoteFailure.isRetryable(): Boolean = when (this) {
     // A decision the user has to change (allow access) or a configuration the owner has to fix.
     RemoteFailure.PermissionDenied,
     RemoteFailure.SignInRejected,
+    // Retrying the *listing* cannot finish a sign-in; the user has to start it again.
+    RemoteFailure.SignInNotCompleted,
     -> false
 }
 
@@ -149,6 +163,10 @@ fun RemoteFailure.message(): String = when (this) {
     RemoteFailure.UnexpectedResponse ->
         "OneDrive sent an answer this app could not use, so nothing was saved. " +
             "Try again; if it keeps happening, update the app."
+    RemoteFailure.SignInNotCompleted ->
+        "The OneDrive sign-in did not finish, so no folders were loaded. Sign in again; if the browser " +
+            "showed an error instead of returning to the app, the Azure app registration for this build " +
+            "needs checking."
     is RemoteFailure.ServerError ->
         "OneDrive failed (HTTP $status). Try again later."
     RemoteFailure.BadRequest ->

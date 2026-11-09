@@ -32,6 +32,7 @@ class RemoteFailureMessageTest {
         RemoteFailure.PermissionDenied,
         RemoteFailure.SignInRejected,
         RemoteFailure.UnexpectedResponse,
+        RemoteFailure.SignInNotCompleted,
     )
 
     @Test fun everyFailureHasANonEmptySentence() {
@@ -98,6 +99,7 @@ class RemoteFailureMessageTest {
             RemoteFailure.PermissionDenied,
             RemoteFailure.SignInRejected,
             RemoteFailure.UnexpectedResponse,
+            RemoteFailure.SignInNotCompleted,
             RemoteFailure.ServerError(500),
             RemoteFailure.Throttled(30),
         )
