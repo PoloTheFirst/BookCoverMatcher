@@ -66,7 +66,9 @@ class SafeWorkbookDownload(
             return DownloadResult.Failed(storageOrTransport(e))
         } catch (e: Exception) {
             part.delete()
-            return DownloadResult.Failed(RemoteFailure.Unstable)
+            // Not an IOException, so not a transport failure: claiming "the connection failed" for an
+            // unexpected exception is exactly the misreport this app must not make.
+            return DownloadResult.Failed(RemoteFailure.UnexpectedResponse)
         }
 
         return when (outcome) {

@@ -60,6 +60,24 @@ network can never make a saved workbook unopenable.
 
 ### Fixed
 
+- **A failed OneDrive sign-in was reported as a lost connection.** Everything MSAL raised that was not a
+  `MsalUiRequiredException` or an `IOException` was collapsed into `UNKNOWN`, and `UNKNOWN` renders as *"The
+  connection to OneDrive failed, so nothing was saved. Try again when you are back online."* — so a cancelled
+  page, a declined permission, an unregistered redirect or a rejected client all looked exactly like being
+  offline. MSAL's exceptions are now classified through the pure, unit-tested `MsalFailureRules`
+  (`MsalUserCancelException` → cancelled and deliberately silent, `MsalDeclinedScopeException` → a permission
+  decision, `MsalClientException`/`MsalServiceException` → a rejected sign-in, with
+  `DEVICE_NETWORK_NOT_AVAILABLE` the only client code treated as connectivity). A body the app cannot read, a
+  3xx with no `Location`, and an unexpected exception during a transfer are no longer called "connection"
+  failures either; they are `UnexpectedResponse`. Only `Offline` and `Unstable` now mention the network, and a
+  test enforces that. A failed sign-in is also no longer invisible: `signIn` used to flatten every failure to
+  "signed out", which the panel treats as cancellation, and the reason now travels back as `AuthState.Failed`
+  with its own sentence and no misleading Retry.
+- **Tapping Sign in with no network opened a browser onto an unreachable page.** The interactive sign-in had no
+  connectivity preflight of its own, unlike the panel that hosts it: the app launched a Custom Tab at
+  `login.microsoftonline.com`, MSAL could never deliver a callback, and the panel stayed in its signing-in
+  state. The same preflight now runs before MSAL is started. Verified on the emulator with airplane mode on:
+  the browser no longer opens, the offline sentence appears, and the app stays in the foreground.
 - **Microsoft sign-in left the browser on a blank page instead of returning to the app.** The
   `com.microsoft.identity.client.BrowserTabActivity` intent filter declared the signature hash exactly as the
   Azure portal prints it, percent-encoded (`…%2B…%3D`), but Android compares a filter's literal `android:path`
@@ -93,7 +111,7 @@ network can never make a saved workbook unopenable.
 - Run conditions: each suite was forced with `:app:cleanTestDebugUnitTest`, because Gradle otherwise reports the
   task `UP-TO-DATE` and repeats an old result. Figures are from 2026-11-09, after the sign-in redirect change.
 
-- Full JVM suite: **1,247 tests, 0 failures, 0 errors, 16 skipped, 147 classes**
+- Full JVM suite: **1,259 tests, 0 failures, 0 errors, 16 skipped, 148 classes**
   (`.\gradlew.bat :app:testDebugUnitTest --no-build-cache`, executed 2026-11-09). The 16 skips are
   environmental `assumeTrue` guards — 4 live-network catalogue tests needing `-DonlineCheck=1`, 3
   real-workbook tests and 9 sample-workbook tests whose fixtures live outside the repository — not disabled
@@ -108,9 +126,14 @@ network can never make a saved workbook unopenable.
   `OneDriveIntegrationInvariantsTest` (7), `OneDriveUiStateTest` (7), `RemoteUpdateUiTest` (7),
   `GraphRedirectTest` (5), `GraphWorkbookSourceAuthTest` (5), `OneDriveUseItNowTest` (4),
   `RemoteWorkbookFilterTest` (4), `LocalWorkbookOperationsTest` (3).
-- The sign-in redirect rule added here: `MsalRedirectPathTest` **9 passed**, covering the percent-decoded
-  intent-filter path, `+` not being turned into a space, MSAL's derived `msal<client-id>://auth` form,
-  malformed and multi-byte escapes, and the packaged redirect end to end.
+- The sign-in redirect rule added in the previous checkpoint: `MsalRedirectPathTest` **9 passed**, covering the
+  percent-decoded intent-filter path, `+` not being turned into a space, MSAL's derived
+  `msal<client-id>://auth` form, malformed and multi-byte escapes, and the packaged redirect end to end.
+- The sign-in failure rules added here: `MsalFailureRulesTest` **8 passed**, covering cancellation, declined
+  consent, a rejected client and service, the one MSAL client code that really is a network failure, and that a
+  failed sign-in is reported while a cancelled one stays silent; `GraphWorkbookSourceAuthTest` **8 passed**,
+  including that a rejected sign-in never becomes a connection failure and that only a genuine network failure
+  still says "offline".
 - Instrumented tests: **compiled and executed** on `emulator-5554` (`Medium_Phone_API_37.0`, Android 17 /
   API 37, `sdk_gphone64_x86_64`), re-run on 2026-11-09 after the redirect change: `:app:compileDebugAndroidTestKotlin`
   then `:app:connectedDebugAndroidTest` → **21 tests, 0 failures, 0 errors, 0 skipped** across
@@ -130,8 +153,13 @@ network can never make a saved workbook unopenable.
   the user saw. A double-encoded control URI resolved on the old build and no longer resolves on the new one,
   confirming the filter's literal is now the decoded path.
 - Debug APK (rebuilt after the fix): `app/build/outputs/apk/debug/app-debug.apk`, **344,758,949 bytes**, sha256
-  `da47a0972e9bf25a82a5dc0d127691cccbc85bda11d28f038b710047bb0b4b50`, `versionCode 221`, `versionName 2.5.0` —
+  `da20e33cf772da314a659bd1938896fb484ad83a838f7164a6e7d8f9bd65ed12`, `versionCode 221`, `versionName 2.5.0` —
   deliberately **not** bumped, because the licence and signing gates are still open.
+- **Offline sign-in, verified on the emulator** (the fix in *Fixed*): with airplane mode on and the OneDrive
+  panel open, tapping **Sign in** on the previous build launched Chrome at `login.microsoftonline.com`
+  (`ERR_INTERNET_DISCONNECTED`) and the app never received a callback; on this build the browser does not open,
+  `MainActivity` stays the resumed activity, and the panel shows *"No internet connection. OneDrive workbooks
+  can only be imported online…"*.
 - APK inspection: 733 entries, **no** `.env`; the packaged `res/raw/msal_config_default.json` carries
   `client_id` and **no** `client_secret`, and the `.env` `Directory_ID` value does not occur anywhere in the
   APK. Permissions: `CAMERA`, `INTERNET`, `ACCESS_NETWORK_STATE`, `NFC` and the generated
@@ -179,10 +207,12 @@ network can never make a saved workbook unopenable.
   between the swap and the index write; an orphaned file cannot be re-imported; a listed entry whose file is
   missing cannot be repaired by re-import; no startup sweep of `.part`/`.previous`; no `fsync`. The recovery
   guard prevents deletion of the only copy but does not resolve these.
-- **Sign-in is repaired at the handoff, not proven end to end.** The blank-page cause is fixed and the redirect
-  now resolves to the app, but no Microsoft sign-in was completed in this environment: MSAL processing the
+- **Sign-in is repaired and now truthfully reported, but not proven end to end.** The blank-page cause and the
+  offline sign-in hang are fixed, and a failure now says what actually went wrong instead of "try again when you
+  are back online". No Microsoft sign-in was completed in this environment, though: MSAL processing the
   callback, the account appearing, the UI reaching its signed-in state and the loading state settling are all
-  **not verified**.
+  **not verified**, and the exact MSAL/Graph response behind the reported failure has not been observed. The
+  next run on a device with an account will name it, and the message will point at the right thing to fix.
 - **The stable version was deliberately not applied.** The app still builds as `2.5.0 / 221`; the proposed
   `2.6.0 / 222` needs a licence-clear dependency set and a real release keystore, and neither exists yet.
 - **A very large workbook** is bounded only by free storage; there is no application-level size limit, and a

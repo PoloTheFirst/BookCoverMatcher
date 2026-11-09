@@ -75,7 +75,9 @@ class GraphJsonTest {
     @Test fun aResponseThatIsNotJsonIsAFailureNotAnEmptyList() {
         val result = GraphJson.listing(null, "<html>error</html>", acceptAll)
 
-        assertEquals(RemoteFailure.Unstable, (result as RemoteResult.Err).failure)
+        // A body we cannot read is a response problem; saying "the connection failed" for it sent the
+        // user to their Wi-Fi settings (v2.6.0-dev.1 crash-fix-4).
+        assertEquals(RemoteFailure.UnexpectedResponse, (result as RemoteResult.Err).failure)
     }
 
     @Test fun anItemDocumentBecomesAPresentState() {

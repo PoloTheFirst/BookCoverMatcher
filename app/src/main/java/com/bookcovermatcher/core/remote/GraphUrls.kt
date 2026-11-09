@@ -113,14 +113,16 @@ object GraphRedirect {
 
     fun plan(location: String?): Plan {
         val raw = location?.trim().orEmpty()
-        if (raw.isEmpty()) return Plan.Reject(RemoteFailure.Unstable)
+        // A 3xx with no `Location` is the server breaking its own protocol, not a lost connection
+        // (v2.6.0-dev.1 crash-fix-4: this used to be reported as "the connection failed").
+        if (raw.isEmpty()) return Plan.Reject(RemoteFailure.UnexpectedResponse)
         val uri = runCatching { URI(raw) }.getOrNull() ?: return Plan.Reject(RemoteFailure.BadRequest)
         if (uri.rawUserInfo != null) return Plan.Reject(RemoteFailure.BadRequest)
         if (!uri.scheme.equals("https", ignoreCase = true)) return Plan.Reject(RemoteFailure.BadRequest)
         if (uri.host.isNullOrBlank()) return Plan.Reject(RemoteFailure.BadRequest)
         // A "redirect" back to the API host is not a download target; following it with no credentials
         // would just loop, and following it *with* credentials is what this object exists to prevent.
-        if (uri.host.equals(GraphUrls.API_HOST, ignoreCase = true)) return Plan.Reject(RemoteFailure.Unstable)
+        if (uri.host.equals(GraphUrls.API_HOST, ignoreCase = true)) return Plan.Reject(RemoteFailure.UnexpectedResponse)
         return Plan.FollowWithoutCredentials(raw)
     }
 }

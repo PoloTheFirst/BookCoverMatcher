@@ -844,6 +844,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun signInToOneDrive(activity: Activity?) {
         if (_ui.value.oneDrive.signingIn) return
+        // The interactive flow launches a browser on the sign-in page, so it needs a usable network just
+        // as much as a listing does (v2.6.0-dev.1 crash-fix-4). Without this preflight, tapping Sign in
+        // with no network opened a Custom Tab on an unreachable page, MSAL never received a callback, and
+        // the panel stayed in its signing-in state with nothing to act on.
+        if (!connectivity.isUsableNow()) {
+            _ui.update { it.copy(oneDrive = it.oneDrive.copy(signingIn = false)) }
+            failOneDrive(RemoteFailure.Offline)
+            return
+        }
         _ui.update { it.copy(oneDrive = it.oneDrive.copy(signingIn = true, error = null, canRetry = false)) }
         viewModelScope.launch {
             val seq = ++oneDriveSeq
@@ -1102,6 +1111,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun labelOf(state: AuthState): String? = when (state) {
         is AuthState.SignedIn -> state.label
         is AuthState.Expired -> state.label
+        // A failed attempt has no account to label (v2.6.0-dev.1 crash-fix-4).
+        is AuthState.Failed -> null
         AuthState.SignedOut -> null
     }
 
@@ -1141,7 +1152,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                RemoteCheck.Failed(RemoteFailure.Unstable)
+                // An unexpected exception during a *check* is not a lost connection; saying so would send
+                // the user back to their Wi-Fi settings (v2.6.0-dev.1 crash-fix-4).
+                RemoteCheck.Failed(RemoteFailure.UnexpectedResponse)
             } finally {
                 // Whatever happened — including a cancellation — the probe spinner goes away, and only the
                 // operation that still owns the sequence is allowed to clear it.

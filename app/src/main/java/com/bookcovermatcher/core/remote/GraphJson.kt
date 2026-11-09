@@ -19,9 +19,11 @@ object GraphJson {
 
     /** Parses a `…/children` response. [accept] decides which *files* are kept (folders are always kept). */
     fun listing(folderId: String?, body: String, accept: (String) -> Boolean): RemoteResult<RemoteListing> {
-        val root = parseObject(body) ?: return RemoteResult.Err(RemoteFailure.Unstable)
+        // A body that is not the documented JSON is a *response* problem, not a lost connection: saying
+        // "you are offline" for it sent the user looking at their Wi-Fi (v2.6.0-dev.1 crash-fix-4).
+        val root = parseObject(body) ?: return RemoteResult.Err(RemoteFailure.UnexpectedResponse)
         if (root["error"] != null) return RemoteResult.Err(RemoteFailure.BadRequest)
-        val values = root["value"] as? List<*> ?: return RemoteResult.Err(RemoteFailure.Unstable)
+        val values = root["value"] as? List<*> ?: return RemoteResult.Err(RemoteFailure.UnexpectedResponse)
         val folders = mutableListOf<RemoteItem>()
         val files = mutableListOf<RemoteItem>()
         for (raw in values) {
@@ -40,10 +42,10 @@ object GraphJson {
 
     /** Parses one driveItem document (a probe). */
     fun item(body: String): RemoteResult<RemoteItem> {
-        val root = parseObject(body) ?: return RemoteResult.Err(RemoteFailure.Unstable)
+        val root = parseObject(body) ?: return RemoteResult.Err(RemoteFailure.UnexpectedResponse)
         if (root["error"] != null) return RemoteResult.Err(RemoteFailure.NotFound)
         return parseItem(root)?.let { RemoteResult.Ok(it) }
-            ?: RemoteResult.Err(RemoteFailure.Unstable)
+            ?: RemoteResult.Err(RemoteFailure.UnexpectedResponse)
     }
 
     /** The `@odata.nextLink` of a page, or null at the end of the listing. */

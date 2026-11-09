@@ -28,6 +28,10 @@ class RemoteFailureMessageTest {
         RemoteFailure.ServerError(500),
         RemoteFailure.BadRequest,
         RemoteFailure.NotConfigured,
+        // v2.6.0-dev.1 crash-fix-4: the three failures that used to be reported as connectivity.
+        RemoteFailure.PermissionDenied,
+        RemoteFailure.SignInRejected,
+        RemoteFailure.UnexpectedResponse,
     )
 
     @Test fun everyFailureHasANonEmptySentence() {
@@ -75,6 +79,38 @@ class RemoteFailureMessageTest {
         assertEquals(RemoteFailure.AuthExpired, AuthFailure.INTERACTION_REQUIRED.toRemoteFailure())
         assertEquals(RemoteFailure.Offline, AuthFailure.NETWORK.toRemoteFailure())
         assertEquals(RemoteFailure.NotConfigured, AuthFailure.CONFIGURATION.toRemoteFailure())
+        assertEquals(RemoteFailure.PermissionDenied, AuthFailure.CONSENT_DECLINED.toRemoteFailure())
+        assertEquals(RemoteFailure.SignInRejected, AuthFailure.CLIENT_ERROR.toRemoteFailure())
+        assertEquals(RemoteFailure.SignInRejected, AuthFailure.SERVICE_ERROR.toRemoteFailure())
+    }
+
+    @Test fun onlyConnectivityFailuresBlameTheConnection() {
+        // crash-fix-4: the user met "the connection to OneDrive failed … try again when you are back
+        // online" while online. A failure that is not transport must not name the network at all.
+        val notConnectivity = listOf(
+            RemoteFailure.AuthRequired,
+            RemoteFailure.AuthExpired,
+            RemoteFailure.NotFound,
+            RemoteFailure.NoStorage,
+            RemoteFailure.InvalidWorkbook,
+            RemoteFailure.BadRequest,
+            RemoteFailure.NotConfigured,
+            RemoteFailure.PermissionDenied,
+            RemoteFailure.SignInRejected,
+            RemoteFailure.UnexpectedResponse,
+            RemoteFailure.ServerError(500),
+            RemoteFailure.Throttled(30),
+        )
+
+        for (failure in notConnectivity) {
+            val message = failure.message()
+            assertFalse("$failure blames the connection: $message", message.contains("back online"))
+            assertFalse("$failure blames the connection: $message", message.contains("connection to OneDrive"))
+        }
+
+        // The control: the two failures that really are about the network still say so.
+        assertTrue(RemoteFailure.Offline.message().contains("internet", ignoreCase = true))
+        assertTrue(RemoteFailure.Unstable.message().contains("connection", ignoreCase = true))
     }
 
     @Test fun anAccessTokenNeverPrintsItself() {

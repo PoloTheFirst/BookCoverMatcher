@@ -30,7 +30,7 @@ class GraphRedirectTest {
     @Test fun aRedirectBackToTheApiIsRejectedRatherThanFollowedInALoop() {
         val plan = GraphRedirect.plan("https://graph.microsoft.com/v1.0/me/drive/items/x/content")
 
-        assertEquals(RemoteFailure.Unstable, (plan as GraphRedirect.Plan.Reject).failure)
+        assertEquals(RemoteFailure.UnexpectedResponse, (plan as GraphRedirect.Plan.Reject).failure)
     }
 
     @Test fun aPlaintextRedirectIsRejected() {
@@ -40,12 +40,13 @@ class GraphRedirectTest {
     }
 
     @Test fun aMissingOrUnusableLocationIsRejected() {
+        // No `Location` on a 3xx is the service breaking its own protocol, not a lost connection.
         assertEquals(
-            RemoteFailure.Unstable,
+            RemoteFailure.UnexpectedResponse,
             (GraphRedirect.plan(null) as GraphRedirect.Plan.Reject).failure,
         )
         assertEquals(
-            RemoteFailure.Unstable,
+            RemoteFailure.UnexpectedResponse,
             (GraphRedirect.plan("   ") as GraphRedirect.Plan.Reject).failure,
         )
         assertEquals(

@@ -59,6 +59,51 @@ class GraphWorkbookSourceAuthTest {
         assertEquals("no bytes must be produced without a token", 0, sink.size())
     }
 
+    @Test fun aRejectedSignInIsNeverReportedAsAConnectionFailure() = runBlocking {
+        // The user-reported symptom (crash-fix-4): a failed sign-in reported as "the connection to
+        // OneDrive failed … try again when you are back online" while the device was demonstrably online.
+        for (authFailure in listOf(AuthFailure.SERVICE_ERROR, AuthFailure.CLIENT_ERROR)) {
+            val (source, _) = sourceWith(TokenResult.Failure(authFailure))
+            val sink = ByteArrayOutputStream()
+            val item = RemoteItem(id = "A1", name = "covers.xlsx", isFolder = false)
+
+            val listing = source.listFolder(null)
+            val download = source.download(item, sink)
+
+            assertEquals(
+                "$authFailure must not become a connection failure",
+                RemoteFailure.SignInRejected,
+                (listing as RemoteResult.Err).failure,
+            )
+            assertEquals(RemoteFailure.SignInRejected, (download as DownloadOutcome.Failed).failure)
+            assertEquals("still no bytes without a token", 0, sink.size())
+
+            val notice = RemoteNotices.forDownload(download.failure, item.name)
+            assertEquals(
+                "the download notice must not send an online user back to their network: $notice",
+                false,
+                notice.contains("back online"),
+            )
+            assertEquals(false, notice.contains("connection was lost", ignoreCase = true))
+        }
+    }
+
+    @Test fun aDeclinedConsentIsReportedAsAPermissionProblem() = runBlocking {
+        val (source, _) = sourceWith(TokenResult.Failure(AuthFailure.CONSENT_DECLINED))
+
+        val result = source.listFolder(null)
+
+        assertEquals(RemoteFailure.PermissionDenied, (result as RemoteResult.Err).failure)
+    }
+
+    @Test fun onlyAGenuineNetworkFailureStillSaysOffline() = runBlocking {
+        val (source, _) = sourceWith(TokenResult.Failure(AuthFailure.NETWORK))
+
+        val result = source.listFolder(null)
+
+        assertEquals(RemoteFailure.Offline, (result as RemoteResult.Err).failure)
+    }
+
     @Test fun theSourceIsReadOnlyByDesign() {
         // A write operation would be a scope error in this release; the interface has none, and this
         // guards against one being added by accident later.

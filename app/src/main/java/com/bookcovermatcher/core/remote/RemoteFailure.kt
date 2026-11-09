@@ -41,6 +41,32 @@ sealed interface RemoteFailure {
     /** The bytes arrived but are not a workbook the library accepts. */
     data object InvalidWorkbook : RemoteFailure
 
+    /**
+     * The permission grant does not cover what the app needs to read the user's files.
+     *
+     * Reached when the user declines the requested Graph scopes during sign-in — a *decision*, not a
+     * connection problem, which is why it is not `Unstable` (v2.6.0-dev.1 crash-fix-4).
+     */
+    data object PermissionDenied : RemoteFailure
+
+    /**
+     * Microsoft rejected the sign-in / token request itself: a redirect or client-id mismatch, an
+     * unregistered `redirect_uri`, or a service refusal (`invalid_grant`, `invalid_client`, …).
+     *
+     * This is the failure that used to be reported as "the connection failed, try when you are back
+     * online" even though the device was online and the real cause was the app registration
+     * (v2.6.0-dev.1 crash-fix-4). Carries no code, because the service's own text can contain account
+     * data; the *class* is enough to tell the user what to do.
+     */
+    data object SignInRejected : RemoteFailure
+
+    /**
+     * OneDrive answered, but not in a shape this app can use: a body that is not the documented JSON, a
+     * content redirect with no `Location`, or a transfer that failed in a way that is not a transport
+     * error. Retrying may work; being "back online" is not the issue, so it must not say so.
+     */
+    data object UnexpectedResponse : RemoteFailure
+
     /** Graph answered 5xx. */
     data class ServerError(val status: Int) : RemoteFailure
 
@@ -70,6 +96,9 @@ fun RemoteFailure.isRetryable(): Boolean = when (this) {
     RemoteFailure.Unstable,
     is RemoteFailure.Throttled,
     is RemoteFailure.ServerError,
+    // The request and the file were fine; the answer was not understood. A second attempt is cheap and
+    // a proxy or a half-written page can genuinely succeed next time.
+    RemoteFailure.UnexpectedResponse,
     -> true
 
     RemoteFailure.AuthRequired,
@@ -79,6 +108,9 @@ fun RemoteFailure.isRetryable(): Boolean = when (this) {
     RemoteFailure.InvalidWorkbook,
     RemoteFailure.BadRequest,
     RemoteFailure.NotConfigured,
+    // A decision the user has to change (allow access) or a configuration the owner has to fix.
+    RemoteFailure.PermissionDenied,
+    RemoteFailure.SignInRejected,
     -> false
 }
 
@@ -108,6 +140,15 @@ fun RemoteFailure.message(): String = when (this) {
         "There is not enough device storage for this workbook. Free some space and try again."
     RemoteFailure.InvalidWorkbook ->
         "That file is not a valid .xlsx or .xlsm workbook, so nothing was saved."
+    RemoteFailure.PermissionDenied ->
+        "OneDrive did not get permission to read your files, so nothing was saved. " +
+            "Sign in again and allow access when Microsoft asks."
+    RemoteFailure.SignInRejected ->
+        "Microsoft rejected the OneDrive sign-in request, so nothing was saved. Sign in again; if it " +
+            "keeps happening, the Azure app registration for this build needs checking."
+    RemoteFailure.UnexpectedResponse ->
+        "OneDrive sent an answer this app could not use, so nothing was saved. " +
+            "Try again; if it keeps happening, update the app."
     is RemoteFailure.ServerError ->
         "OneDrive failed (HTTP $status). Try again later."
     RemoteFailure.BadRequest ->

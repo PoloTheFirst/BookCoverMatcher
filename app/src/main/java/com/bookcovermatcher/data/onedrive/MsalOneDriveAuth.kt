@@ -10,7 +10,10 @@ import com.bookcovermatcher.core.remote.AuthFailure
 import com.bookcovermatcher.core.remote.AuthState
 import com.bookcovermatcher.core.remote.MsalConfigParser
 import com.bookcovermatcher.core.remote.MsalConfigResult
+import com.bookcovermatcher.core.remote.MsalFailureKind
+import com.bookcovermatcher.core.remote.MsalFailureRules
 import com.bookcovermatcher.core.remote.TokenResult
+import com.bookcovermatcher.core.remote.toRemoteFailure
 import com.microsoft.identity.client.AcquireTokenParameters
 import com.microsoft.identity.client.AcquireTokenSilentParameters
 import com.microsoft.identity.client.AuthenticationCallback
@@ -19,8 +22,13 @@ import com.microsoft.identity.client.IAuthenticationResult
 import com.microsoft.identity.client.IMultipleAccountPublicClientApplication
 import com.microsoft.identity.client.PublicClientApplication
 import com.microsoft.identity.client.SilentAuthenticationCallback
+import com.microsoft.identity.client.exception.MsalClientException
+import com.microsoft.identity.client.exception.MsalDeclinedScopeException
 import com.microsoft.identity.client.exception.MsalException
+import com.microsoft.identity.client.exception.MsalServiceException
 import com.microsoft.identity.client.exception.MsalUiRequiredException
+import com.microsoft.identity.client.exception.MsalUserCancelException
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,14 +101,21 @@ class MsalOneDriveAuth(
         withContext(Dispatchers.Main.immediate) { pca.acquireToken(parameters) }
 
         val outcome = settled.await()
-        val next = when {
+        val failure = outcome?.exceptionOrNull()?.let { failureOf(it) }
+        val result = when {
             outcome == null -> AuthState.SignedOut
             outcome.isSuccess -> AuthState.SignedIn(usernameOf(outcome.getOrNull()?.account))
-            failureOf(outcome.exceptionOrNull()) == AuthFailure.INTERACTION_REQUIRED -> AuthState.Expired(null)
+            failure == AuthFailure.INTERACTION_REQUIRED -> AuthState.Expired(null)
+            // The user closed the page: still signed out, and deliberately not an error.
+            failure == AuthFailure.CANCELLED -> AuthState.SignedOut
+            // Everything else is reported with its own reason instead of being flattened to "cancelled"
+            // (v2.6.0-dev.1 crash-fix-4).
+            failure != null -> AuthState.Failed(failure.toRemoteFailure())
             else -> AuthState.SignedOut
         }
-        _state.value = next
-        return next
+        // `Failed` is a one-shot result, never the stored state: the app really is signed out.
+        _state.value = result as? AuthState.SignedIn ?: (result as? AuthState.Expired) ?: AuthState.SignedOut
+        return result
     }
 
     override suspend fun accessToken(): TokenResult = withContext(Dispatchers.IO) {
@@ -187,13 +202,22 @@ class MsalOneDriveAuth(
     /**
      * MSAL exceptions carry messages that can include identifiers, so they are reduced to a code this
      * app's own vocabulary can describe — the raw message is dropped, not rethrown and not logged.
+     *
+     * The classification is deliberate (v2.6.0-dev.1 crash-fix-4): before it, everything that was not a
+     * `MsalUiRequiredException` or an `IOException` became `UNKNOWN`, and `UNKNOWN` is reported to the
+     * user as "the connection failed, try again when you are back online". A declined consent, an
+     * unregistered redirect or a rejected client therefore looked exactly like being offline.
      */
     private fun failureOf(error: Throwable?): AuthFailure = when (error) {
-        null -> AuthFailure.UNKNOWN
-        is MsalUiRequiredException -> AuthFailure.INTERACTION_REQUIRED
-        is java.io.IOException -> AuthFailure.NETWORK
-        is MsalException -> AuthFailure.UNKNOWN
-        else -> AuthFailure.UNKNOWN
+        null -> MsalFailureRules.classify(MsalFailureKind.UNKNOWN)
+        is MsalUserCancelException -> MsalFailureRules.classify(MsalFailureKind.CANCELLED)
+        is MsalDeclinedScopeException -> MsalFailureRules.classify(MsalFailureKind.CONSENT_DECLINED)
+        is MsalUiRequiredException -> MsalFailureRules.classify(MsalFailureKind.INTERACTION_REQUIRED)
+        is MsalServiceException -> MsalFailureRules.classify(MsalFailureKind.SERVICE)
+        is MsalClientException -> MsalFailureRules.classify(MsalFailureKind.CLIENT, error.errorCode)
+        is IOException -> MsalFailureRules.classify(MsalFailureKind.NETWORK)
+        is MsalException -> MsalFailureRules.classify(MsalFailureKind.UNKNOWN)
+        else -> MsalFailureRules.classify(MsalFailureKind.UNKNOWN)
     }
 
     companion object {

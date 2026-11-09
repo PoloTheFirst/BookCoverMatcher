@@ -630,12 +630,24 @@ unavailable.**
 
 ### Error classification and retry policy
 
-Two pure objects, both unit-tested: `RemoteFailure` (11 categories with one sentence each) and
+Two pure objects, both unit-tested: `RemoteFailure` (14 categories with one sentence each) and
 `RemoteNotices` (the same failure worded for the context — import, check or download).
 `RemoteFailure.isRetryable()` decides every Retry affordance: **true** for `Offline`, `Timeout`, `Unstable`,
-`Throttled`, `ServerError`; **false** for `AuthRequired`, `AuthExpired`, `NotFound`, `NoStorage`,
-`InvalidWorkbook`, `BadRequest`, `NotConfigured`. **Nothing is retried automatically** — no loop, no backoff,
-no queue — and `Retry-After` is communicated to the user, not enforced as a cool-down.
+`Throttled`, `ServerError`, `UnexpectedResponse`; **false** for `AuthRequired`, `AuthExpired`, `NotFound`,
+`NoStorage`, `InvalidWorkbook`, `BadRequest`, `NotConfigured`, `PermissionDenied`, `SignInRejected`.
+**Nothing is retried automatically** — no loop, no backoff, no queue — and `Retry-After` is communicated to
+the user, not enforced as a cool-down.
+
+**Only a transport failure may name the network** (v2.6.0-dev.1 crash-fix-4). `Offline` and `Unstable` are the
+two categories that describe connectivity; everything else — a rejected sign-in (`SignInRejected`), a declined
+permission (`PermissionDenied`), a response the app cannot read (`UnexpectedResponse`), a throttled or failing
+service — keeps its own sentence and never says "try again when you are back online". The MSAL layer classifies
+`MsalUserCancelException`, `MsalDeclinedScopeException`, `MsalUiRequiredException`, `MsalClientException`
+(with `DEVICE_NETWORK_NOT_AVAILABLE` as the only network code) and `MsalServiceException` through
+`MsalFailureRules`, and a failed interactive sign-in is returned as `AuthState.Failed` so the reason reaches the
+UI instead of being flattened to "cancelled". The interactive sign-in also runs the same connectivity preflight
+as the listing, so a sign-in can no longer open a browser onto an unreachable page and wait for a callback that
+will never come.
 
 ### Replacement and rollback (`WorkbookLibrary.replaceFrom`)
 

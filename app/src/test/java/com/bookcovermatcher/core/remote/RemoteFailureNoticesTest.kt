@@ -31,6 +31,10 @@ class RemoteFailureNoticesTest {
         RemoteFailure.ServerError(503),
         RemoteFailure.BadRequest,
         RemoteFailure.NotConfigured,
+        // v2.6.0-dev.1 crash-fix-4: distinct from connectivity, and distinct from each other.
+        RemoteFailure.PermissionDenied,
+        RemoteFailure.SignInRejected,
+        RemoteFailure.UnexpectedResponse,
     )
 
     // ---- the agreed wording, verbatim --------------------------------------------------------
@@ -117,6 +121,8 @@ class RemoteFailureNoticesTest {
             RemoteFailure.Unstable,
             RemoteFailure.Throttled(5),
             RemoteFailure.ServerError(500),
+            // A response we could not use may well come through correctly next time.
+            RemoteFailure.UnexpectedResponse,
         ).forEach { assertTrue("$it is worth retrying", it.isRetryable()) }
 
         listOf(
@@ -127,6 +133,9 @@ class RemoteFailureNoticesTest {
             RemoteFailure.InvalidWorkbook,
             RemoteFailure.BadRequest,
             RemoteFailure.NotConfigured,
+            // A decision (allow access) and a configuration have to change before a retry can work.
+            RemoteFailure.PermissionDenied,
+            RemoteFailure.SignInRejected,
         ).forEach { assertFalse("$it needs the user to change something first", it.isRetryable()) }
     }
 
