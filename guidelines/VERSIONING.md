@@ -43,3 +43,8 @@ Independent examples (each begins at 223 / 2.6.0):
 The owner's illustrative RC family `2.6.0-rc.1` → `2.6.0-rc.2` → `2.6.0` shares **223** throughout. This explains allocation before that stable release; it does not authorize creating RCs retroactively for the already released 2.6.0.
 
 Record the approved filename, parent version, allocation reason, intended APK versionName, and versionCode separately. Internal RC prompt identity must remain visible in reports even if testing APK metadata uses the target stable versionName; state that choice explicitly in the reviewable prompt. Stable/dev changelog headings and final metadata must match the actual artifact, including the dev suffix. Verify configured and packaged values when a build is executed; never claim artifact verification from configuration alone.
+
+
+## Published release identity
+
+GitHub release body: exactly the complete matching `CHANGELOG.md` contents, not an independently written summary. Public APK: `bookcovermatcher-v<complete-versionName>.apk` (for example `bookcovermatcher-v2.7.0-dev.1.apk`); no additional debug/release suffix. Preserve the development suffix. Verify remote body equality and asset name/digest as required by CHANGELOG_GUILDELINES.md section 11. These naming rules do not change versionCode allocation or authorize publication during prompt preparation.

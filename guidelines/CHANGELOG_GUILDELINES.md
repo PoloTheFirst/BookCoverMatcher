@@ -521,3 +521,33 @@ A changelog is complete only when:
 - The content is readable, concise, technically meaningful, and factually accurate.
 - `CHANGELOG.md` contains only the current release entry.
 - Historical release records remain preserved elsewhere.
+- The GitHub release body exactly equals the matching CHANGELOG.md text, verified through the API.
+- The published APK uses bookcovermatcher-v<complete-versionName>.apk and its digest matches the intended artifact.
+
+
+## 11. GitHub release log and APK filename
+
+These rules apply to every stable and development release.
+
+### 11.1 Release log is the exact changelog
+
+The GitHub Release body's complete text must be **identical to the matching release's `CHANGELOG.md` contents**. Use that file directly as the release body; do not write a shorter summary, add an introduction, append installation/signing notes, generate release notes automatically, or omit any section. Required artifact/signing warnings belong in CHANGELOG.md itself if they need to appear in the release log.
+
+Preserve the complete version suffix, Markdown, ordering, whitespace and final newline. After creating or updating the release, fetch its body through the GitHub API and compare the entire returned string against the file's UTF-8 text. Visual similarity or checking only headings is insufficient. A later version replacing the repository's single-current-release changelog does not authorize overwriting older releases; each release keeps its own version's published changelog snapshot.
+
+If the current release's changelog is intentionally corrected, synchronize that same release's body and verify equality again.
+
+### 11.2 Public APK filename
+
+Use this exact distribution filename:
+
+`bookcovermatcher-v<complete-versionName>.apk`
+
+Examples:
+
+- Stable: `bookcovermatcher-v2.7.0.apk`.
+- Development: `bookcovermatcher-v2.7.0-dev.1.apk`.
+
+Do not append `-debug`, `-release`, a version code, date, architecture or any other suffix to the public APK name unless the owner explicitly requests a different multi-artifact convention. Identify the actual build/signing variant honestly in the changelog/report instead of changing the filename. Gradle's internal app-debug.apk/app-release.apk paths may remain unchanged; copy or name the uploaded distribution asset correctly.
+
+After upload or rename, verify the public asset's exact name, size and digest against the intended APK. Renaming an existing asset must not substitute different bytes, create a duplicate APK, or move the release tag. Record the final download URL in the agent report.

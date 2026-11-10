@@ -41,6 +41,11 @@ required environments and how to report unavailable checks.>
 
 ## 6. Execution and publication boundary
 
+For GitHub publication, use CHANGELOG.md verbatim as the complete release body;
+verify exact API body equality. Public APK name:
+bookcovermatcher-v<complete-versionName>.apk, without an extra debug/release suffix.
+Verify name, size and digest; record the final download URL.
+
 Execute only after the owner's review and execution instruction.
 <Explicit authorized Git actions and release gates; RC internal-only boundary.>
 Preserve unrelated work and secrets. Do not start another version round.
@@ -100,6 +105,8 @@ blockers, and accepted limitations. State evidence-based readiness.
 Not executed. Record commits, actual pushed branch revisions, authorized
 tags/releases/assets, command results, and remaining working-tree changes.
 For internal RC rounds, confirm that no public release was created.
+For published releases, record exact release-body/CHANGELOG.md equality, canonical
+APK filename, size/digest verification and final download URL.
 
 ## 9. Final outcome
 
