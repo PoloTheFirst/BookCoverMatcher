@@ -551,3 +551,8 @@ Examples:
 Do not append `-debug`, `-release`, a version code, date, architecture or any other suffix to the public APK name unless the owner explicitly requests a different multi-artifact convention. Identify the actual build/signing variant honestly in the changelog/report instead of changing the filename. Gradle's internal app-debug.apk/app-release.apk paths may remain unchanged; copy or name the uploaded distribution asset correctly.
 
 After upload or rename, verify the public asset's exact name, size and digest against the intended APK. Renaming an existing asset must not substitute different bytes, create a duplicate APK, or move the release tag. Record the final download URL in the agent report.
+
+
+### 11.3 GitHub release title
+
+The GitHub release title/name must be exactly the release tag: `v` followed by the complete versionName, including a development suffix. Examples: `v2.7.0` and `v2.7.0-dev.1`. Do not prepend BookCoverMatcher, add a feature description, date, version code or other text. This simple GitHub title is separate from the descriptive release heading required inside CHANGELOG.md; retain that heading in the verbatim release body. Verify the GitHub API `name` exactly equals the intended tag after creation/update.
