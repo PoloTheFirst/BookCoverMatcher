@@ -51,7 +51,6 @@ Every changelog entry must follow this exact Markdown structure:
 
 **Version code/name: XXX / X.Y.Z.**
 
-This guide is also available to dev version.
 ```
 
 ### 2.1 Development versions in the two version fields
@@ -451,9 +450,7 @@ These guidelines apply equally to stable and development releases.
 
 The same heading structure and all seven sections are required for development releases.
 
-The final guide statement must remain:
-
-`This guide is also available to dev version.`
+Do not append statements about these writing guidelines to CHANGELOG.md. Stable/development applicability belongs in this guideline document, not in a release log.
 
 ## 8. Workflow for coding agents
 

@@ -56,5 +56,3 @@ This development checkpoint adds Google Drive to Saved Workbooks alongside OneDr
 - This is a GitHub development prerelease. Publishing it does not change Google OAuth production/verification status. The attached APK is the matching debug-signed build; the user-exported release APK uses a different key and is not this artifact.
 
 **Version code/name: 224 / 2.7.0-dev.1.**
-
-This guide is also available to dev version.
