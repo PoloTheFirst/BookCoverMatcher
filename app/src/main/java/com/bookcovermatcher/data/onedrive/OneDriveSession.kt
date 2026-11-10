@@ -143,7 +143,8 @@ class OneDriveSession(
      */
     private fun linkRemote(workbook: SavedWorkbook, item: RemoteItem) {
         val current = library.byId(workbook.id) ?: return
-        val safe = current.origin == WorkbookOrigin.LOCAL || current.remote?.itemId == item.id
+        val safe = current.origin == WorkbookOrigin.LOCAL ||
+            (current.origin == WorkbookOrigin.ONEDRIVE && current.remote?.itemId == item.id)
         if (!safe) return
         val stamp = now()
         library.setRemote(

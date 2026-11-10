@@ -3,6 +3,7 @@
 package com.bookcovermatcher
 
 import android.app.Activity
+import com.bookcovermatcher.data.googledrive.*
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -179,6 +180,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * The downloader writes `*.part` files into the library directory: the library ignores files it did
      * not record, so a partial download is invisible to it, and the file is deleted after the commit.
      */
+    private val googleDriveSource = GoogleDriveSource()
+    private val googleDriveSession = GoogleDriveSession(
+        googleDriveSource, connectivity, library,
+        SafeWorkbookDownload(File(app.filesDir, "google-drive-downloads")),
+    )
+    private var googleDriveAuthorizationWait: Job? = null
+    private var googleDriveJob: Job? = null
+    private var googleDriveSeq = 0L
+
     private val oneDriveAuth: OneDriveAuth = MsalOneDriveAuth(app)
     private val oneDriveSource: RemoteWorkbookSource = GraphWorkbookSource(oneDriveAuth)
 
@@ -962,6 +972,259 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Enters a folder row. Only the folder's **id** is used; its name is display only. */
+    fun openGoogleDriveBrowser() {
+        googleDriveSeq++
+        googleDriveJob?.cancel()
+        _ui.update { it.copy(googleDrive = GoogleDriveUi(open = true)) }
+        googleDriveSource.token = null
+    }
+
+    fun closeGoogleDriveBrowser() {
+        googleDriveAuthorizationWait?.cancel()
+        googleDriveSeq++
+        googleDriveJob?.cancel()
+        googleDriveSource.token = null
+        _ui.update { it.copy(googleDrive = GoogleDriveUi()) }
+    }
+
+    fun signInToGoogleDrive(activity: Activity?) {
+        if (_ui.value.googleDrive.signingIn) return
+        if (!connectivity.isUsableNow()) { failGoogleDrive(RemoteFailure.Offline); return }
+        if (activity !is MainActivity) { failGoogleDrive(RemoteFailure.AuthUnexpected); return }
+        _ui.update { it.copy(googleDrive = it.googleDrive.copy(signingIn = true, error = null)) }
+        val attempt = ++googleDriveSeq
+        googleDriveAuthorizationWait?.cancel()
+        googleDriveAuthorizationWait = viewModelScope.launch {
+            kotlinx.coroutines.delay(5 * 60 * 1000L)
+            googleDriveAuthorizationFailed("Google authorization did not finish. Close this panel and try Sign in again.", attempt)
+        }
+        activity.authorizeGoogleDrive()
+    }
+
+    fun googleDriveAuthorizationAttempt(): Long = googleDriveSeq
+
+    fun googleDriveAuthorized(token: String?, attempt: Long) {
+        if (attempt != googleDriveSeq) return
+        if (!_ui.value.googleDrive.open || !_ui.value.googleDrive.signingIn) return
+        if (token.isNullOrBlank()) { googleDriveAuthorizationFailed("Google Drive access was not granted. Nothing was saved."); return }
+        googleDriveAuthorizationWait?.cancel()
+        googleDriveSource.token = token
+        _ui.update { it.copy(googleDrive = it.googleDrive.copy(signingIn = false, signedIn = true, error = null)) }
+        loadGoogleDrivePage(GoogleDriveBrowse.root(), false)
+    }
+
+    fun googleDriveAuthorizationFailed(message: String, attempt: Long = googleDriveSeq) {
+        if (attempt != googleDriveSeq) return
+        googleDriveAuthorizationWait?.cancel()
+        if (!_ui.value.googleDrive.open) return
+        _ui.update { it.copy(googleDrive = it.googleDrive.copy(signingIn = false, signedIn = false, error = message)) }
+    }
+
+    fun signOutOfGoogleDrive() {
+        closeGoogleDriveBrowser()
+        openGoogleDriveBrowser()
+    }
+
+    fun openGoogleDriveFolder(folderId: String) {
+        val state = _ui.value.googleDrive
+        val folder = state.browse.folders.firstOrNull { it.id == folderId } ?: return
+        if (state.busy || state.downloading) return
+        loadGoogleDrivePage(GoogleDriveNavigation.into(state.browse, folder), appendPage = false)
+    }
+
+    /** Back to the parent folder. */
+    fun googleDriveUp() {
+        val state = _ui.value.googleDrive
+        if (!state.browse.canGoUp || state.busy || state.downloading) return
+        loadGoogleDrivePage(GoogleDriveNavigation.up(state.browse), appendPage = false)
+    }
+
+    /** The next page of the current folder. */
+    fun loadMoreGoogleDrive() {
+        val state = _ui.value.googleDrive
+        val token = state.browse.nextPageToken ?: return
+        if (state.busy || state.loadingMore || state.downloading) return
+        loadGoogleDrivePage(state.browse, appendPage = true, pageToken = token)
+    }
+
+    /** Retry whatever failed last: the page that was being loaded. */
+    fun retryGoogleDrive() {
+        val state = _ui.value.googleDrive
+        if (state.downloading) return
+        loadGoogleDrivePage(state.browse, appendPage = false)
+    }
+
+    private fun loadGoogleDrivePage(browse: GoogleDriveBrowse, appendPage: Boolean, pageToken: String? = null) {
+        googleDriveJob?.cancel()
+        googleDriveJob = viewModelScope.launch {
+            val seq = ++googleDriveSeq
+            try {
+                _ui.update {
+                    it.copy(
+                        googleDrive = it.googleDrive.copy(
+                            browse = browse,
+                            busy = !appendPage,
+                            loadingMore = appendPage,
+                            error = null,
+                            canRetry = false,
+                        ),
+                    )
+                }
+                when (val listing = googleDriveSession.list(browse.folderId, pageToken)) {
+                    is GoogleDriveListing.Loaded -> _ui.update { state ->
+                        val next = if (appendPage) {
+                            GoogleDriveNavigation.withNextPage(browse, listing.folders, listing.files, listing.nextPageToken)
+                        } else {
+                            GoogleDriveNavigation.withFirstPage(browse, listing.folders, listing.files, listing.nextPageToken)
+                        }
+                        state.copy(googleDrive = state.googleDrive.copy(browse = next, busy = false, loadingMore = false))
+                    }
+                    is GoogleDriveListing.Failed -> failGoogleDrive(listing.failure, stopBusy = true)
+                }
+            } finally {
+                // A dropped connection, a cancellation or a failure all end here: no spinner is left behind.
+                settleGoogleDrive(seq)
+            }
+        }
+    }
+
+    /**
+     * Downloads the selected workbook and commits it into the saved-workbooks library.
+     *
+     * Only the item **id** matters; the display name is what the user sees. Progress is published while
+     * the bytes stream, and Cancel stops the transfer — the temporary file is removed either way.
+     */
+    fun importGoogleDriveFile(itemId: String) {
+        val state = _ui.value.googleDrive
+        val item = state.browse.files.firstOrNull { it.id == itemId } ?: return
+        if (state.downloading || state.busy) return
+        googleDriveJob?.cancel()
+        googleDriveJob = viewModelScope.launch {
+            val seq = ++googleDriveSeq
+            _ui.update {
+                it.copy(
+                    googleDrive = it.googleDrive.copy(
+                        error = null,
+                        canRetry = false,
+                        imported = null,
+                        download = GoogleDriveDownloadUi(item.id, item.name, totalBytes = item.sizeBytes),
+                    ),
+                )
+            }
+            val outcome = try {
+                googleDriveSession.importItem(item) { progress ->
+                    if (seq == googleDriveSeq) {
+                        _ui.update { current ->
+                            val shown = current.googleDrive.download ?: return@update current
+                            current.copy(
+                                googleDrive = current.googleDrive.copy(
+                                    download = shown.copy(
+                                        bytesWritten = progress.bytesWritten,
+                                        totalBytes = progress.totalBytes ?: shown.totalBytes,
+                                    ),
+                                ),
+                            )
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } finally {
+                settleGoogleDrive(seq)
+            }
+            if (seq != googleDriveSeq) return@launch
+            when (outcome) {
+                is GoogleDriveImportOutcome.Imported -> {
+                    _ui.update {
+                        it.copy(
+                            googleDrive = it.googleDrive.copy(
+                                imported = GoogleDriveImportedUi(
+                                    outcome.workbookId,
+                                    outcome.displayName,
+                                    outcome.alreadySaved,
+                                ),
+                            ),
+                        )
+                    }
+                    showToast(
+                        if (outcome.alreadySaved) {
+                            "Already saved as \"${outcome.displayName}\"."
+                        } else {
+                            "Saved \"${outcome.displayName}\" from Google Drive."
+                        },
+                        if (outcome.alreadySaved) ToastKind.INFO else ToastKind.OK,
+                    )
+                    refreshSavedWorkbooks()
+                }
+                GoogleDriveImportOutcome.Cancelled ->
+                    showToast("Download cancelled. Nothing was saved.", ToastKind.INFO)
+                is GoogleDriveImportOutcome.Failed -> failGoogleDrive(
+                    outcome.failure,
+                    // The library's own sentence when it refused the file; otherwise the
+                    // download-specific wording, which names the file and says nothing was saved.
+                    message = outcome.detail ?: RemoteNotices.forDownload(outcome.failure, item.name).replace("OneDrive", "Google Drive"),
+                )
+            }
+        }
+    }
+
+    /** Stops a download. The partial file is deleted by the downloader, not here. */
+    fun cancelGoogleDriveDownload() {
+        if (_ui.value.googleDrive.download == null) return
+        // Advancing the sequence first means the cancelled job cannot write state after this point.
+        googleDriveSeq++
+        googleDriveJob?.cancel()
+        googleDriveJob = null
+        _ui.update { it.copy(googleDrive = it.googleDrive.settled()) }
+    }
+
+    /** `Use it now`: the existing saved-workbook flow, unchanged — the local copy is the source. */
+    fun useGoogleDriveImportNow() {
+        val imported = _ui.value.googleDrive.imported ?: return
+        useSavedWorkbook(imported.workbookId)
+        _ui.update { it.copy(googleDrive = it.googleDrive.copy(imported = null, open = false)) }
+    }
+
+    /** Dismiss the "saved" panel without opening the workbook. */
+    fun dismissGoogleDriveImport() {
+        _ui.update { it.copy(googleDrive = it.googleDrive.copy(imported = null)) }
+    }
+
+    /**
+     * Records a remote failure for the panel.
+     *
+     * [message] is used when the caller has better words than the taxonomy (the library's own sentence for
+     * a refused file, or the download-specific wording that names the workbook).
+     *
+     * Two rules from Phase 6 live here:
+     *
+     *  * an authentication failure also clears [GoogleDriveUi.signedIn], so the panel goes back to its
+     *    **Sign in** button — signing in is the action, and retrying the same request would fail again;
+     *  * [GoogleDriveUi.canRetry] follows [isRetryable], so Retry appears for a bad moment (offline, timeout,
+     *    dropped connection, throttled, 5xx) and never for a state the user has to change (sign-in, disk
+     *    space, the file itself).
+     */
+    private fun failGoogleDrive(failure: RemoteFailure, stopBusy: Boolean = false, message: String? = null) {
+        val needsSignIn = failure == RemoteFailure.AuthRequired || failure == RemoteFailure.AuthExpired
+        _ui.update {
+            it.copy(
+                googleDrive = it.googleDrive.copy(
+                    busy = if (stopBusy) false else it.googleDrive.busy,
+                    loadingMore = if (stopBusy) false else it.googleDrive.loadingMore,
+                    signedIn = if (needsSignIn) false else it.googleDrive.signedIn,
+                    error = (message ?: failure.message()).replace("OneDrive", "Google Drive"),
+                    canRetry = failure.isRetryable(),
+                ),
+            )
+        }
+    }
+
+    /** Clears the in-flight flags of the GoogleDrive panel, unless a newer operation has taken over. */
+    private fun settleGoogleDrive(seq: Long) {
+        if (seq == googleDriveSeq) _ui.update { it.copy(googleDrive = it.googleDrive.settled()) }
+    }
+
+
     fun openOneDriveFolder(folderId: String) {
         val state = _ui.value.oneDrive
         val folder = state.browse.folders.firstOrNull { it.id == folderId } ?: return

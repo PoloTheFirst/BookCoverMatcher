@@ -140,7 +140,8 @@ object TestWorkbooks {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
             fun put(name: String, text: String) {
-                zip.putNextEntry(ZipEntry(name))
+                // Fixed metadata keeps separately generated copies byte-for-byte identical.
+                zip.putNextEntry(ZipEntry(name).apply { time = 0L })
                 zip.write(text.toByteArray())
                 zip.closeEntry()
             }

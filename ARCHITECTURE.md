@@ -733,3 +733,12 @@ top frames) alongside the classified failure.
   tests; the instrumented test sources compile but have not been run (no device in this environment).
 * **One transitive Microsoft artifact (`display-mask:0.3.0`) has no established licence** and is packaged;
   see `THIRD_PARTY_NOTICES.md` §1.1. It is a release blocker, not a documentation gap.
+
+
+## Google Drive import (2.7.0-dev.1)
+
+`GoogleDriveSource` implements read-only `RemoteWorkbookSource` using Drive v3 GET requests. `GoogleDriveFiles` filters listings and preserves opaque next-page tokens even for empty filtered pages. Android `AuthorizationClient` is launched through `MainActivity`; tokens remain in memory, never in UiState or the library. The ViewModel owns immutable `GoogleDriveUi`, coroutine lifetimes, and sequence guards; closing the browser cancels work and clears the token.
+
+`GoogleDriveSession` uses the existing `SafeWorkbookDownload` and OOXML validator in a separate Google temporary directory, then the existing `WorkbookLibrary.import` path. Newly added entries carry `GOOGLE_DRIVE` / JSON `google_drive`; no remote IDs or account metadata are stored because Google remote refresh is outside scope. Duplicate content keeps its existing origin and identity. Schema-1/local and schema-2/OneDrive reads retain their previous defaults. Existing OneDrive source relinking now explicitly checks the provider before comparing remote IDs.
+
+The Google UI mirrors the existing browser, with independent state, navigation and actions. Local open/rescan paths do not authorize Google and cannot enter OneDrive remote updates: `rescanOpenWorkbook` gates remote work specifically on `WorkbookOrigin.ONEDRIVE`. No background listing or synchronization is added. See `GOOGLE_DRIVE_SETUP.md` for OAuth setup, platform prerequisites, permission scope and unsupported Drive features.

@@ -107,8 +107,8 @@ android {
         targetSdk = 35
         // 223 is 2.6.0: 222 was 2.6.0-dev.1, 221 the 2.5.0 stable release, 220 dev.5, 219 dev.4,
         // 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
-        versionCode = 223
-        versionName = "2.6.0"
+        versionCode = 224
+        versionName = "2.7.0-dev.1"
 
         // The custom-tab redirect is matched by MSAL's BrowserTabActivity intent filter. Its scheme,
         // host and path are taken from the registered Redirect_URL at build time, so no value from
@@ -515,6 +515,7 @@ dependencies {
     // Microsoft sign-in for the OneDrive import (v2.6.0). MIT-licensed, minSdk 24; see
     // THIRD_PARTY_NOTICES.md and historical_prompt/v2.6.0-dev.1-ag.md §20.2.
     implementation(libs.msal.android)
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
     // Draws the SVG badge and contribution graph on the Author page (Apache-2.0; see THIRD_PARTY_NOTICES.md).
     implementation(libs.androidsvg)
 

@@ -306,9 +306,10 @@ class BatchOperationsTest {
         val ids = addTo(shelfA, "w1", "w2")
         repo.bookmarkAll(listOf(itemDraft("w1")))
 
-        val records = File(root, "records.json")
-        val locked = records.setReadOnly()
-        org.junit.Assume.assumeTrue("this filesystem cannot mark the file read-only", locked)
+        // A directory at the temporary-file path prevents saving on every supported host.
+        // Read-only attributes do not reliably prevent delete-and-replace on Windows.
+        val blockedTemporaryFile = File(root, "records.json.tmp")
+        assertTrue(blockedTemporaryFile.mkdir())
         try {
             val report = repo.deleteBookmarks(ids)
 
@@ -320,7 +321,7 @@ class BatchOperationsTest {
             assertEquals(2, reloaded.directItems(shelfA).size)
             assertEquals(1, reloaded.bookmarkedItems().size)
         } finally {
-            records.setWritable(true)
+            blockedTemporaryFile.delete()
         }
     }
 }

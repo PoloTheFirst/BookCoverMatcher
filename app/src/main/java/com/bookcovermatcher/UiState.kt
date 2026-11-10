@@ -287,6 +287,7 @@ data class UiState(
 
     /** The OneDrive import surface (v2.6.0-dev.1 Phase 4). */
     val oneDrive: OneDriveUi = OneDriveUi(),
+    val googleDrive: GoogleDriveUi = GoogleDriveUi(),
 
     /** The explicit remote check of the open workbook (v2.6.0-dev.1 Phase 5). */
     val remoteUpdate: RemoteUpdateUi = RemoteUpdateUi(),

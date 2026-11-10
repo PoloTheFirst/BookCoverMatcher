@@ -19,7 +19,7 @@ import java.security.MessageDigest
  * local without saying so. The local copy is the app's own file either way — an imported OneDrive
  * workbook is **not** read from the network, so nothing about opening or parsing depends on this.
  */
-enum class WorkbookOrigin { LOCAL, ONEDRIVE }
+enum class WorkbookOrigin { LOCAL, ONEDRIVE, GOOGLE_DRIVE }
 
 /**
  * What the library remembers about a workbook that came from OneDrive (schema 2).
@@ -160,7 +160,12 @@ class WorkbookLibrary(private val dir: File) {
      * same validation the workbook staging path uses. The copy is hashed while it is written; a failure
      * at any point deletes the partial file and leaves the library untouched.
      */
-    fun import(input: InputStream, originalName: String, now: Long = System.currentTimeMillis()): ImportResult {
+    fun import(
+        input: InputStream,
+        originalName: String,
+        now: Long = System.currentTimeMillis(),
+        origin: WorkbookOrigin = WorkbookOrigin.LOCAL,
+    ): ImportResult {
         val cleanName = originalName.substringAfterLast('/').substringAfterLast('\\').trim()
         val format = cleanName.substringAfterLast('.', "").lowercase()
         if (format !in SUPPORTED) return ImportResult.Rejected("Only .xlsx and .xlsm workbooks can be saved.")
@@ -232,6 +237,7 @@ class WorkbookLibrary(private val dir: File) {
             importedAt = now,
             lastOpenedAt = null,
             pinned = false,
+            origin = origin,
         )
         val next = existing + entry
         if (!writeAll(next)) {
@@ -571,6 +577,7 @@ class WorkbookLibrary(private val dir: File) {
         val remote = parseRemote(map["remote"])
         val origin = when ((map["origin"] as? String)?.lowercase()) {
             "onedrive" -> WorkbookOrigin.ONEDRIVE
+            "google_drive" -> WorkbookOrigin.GOOGLE_DRIVE
             // An unknown origin string keeps the entry and reads it as local: hiding a workbook because
             // a field has a value this build has not learned yet is exactly what must not happen.
             else -> WorkbookOrigin.LOCAL

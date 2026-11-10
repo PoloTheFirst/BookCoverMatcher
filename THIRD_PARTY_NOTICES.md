@@ -135,3 +135,24 @@ The on-device OCR library (`libbc_ocr.so`, built from the project's own `bc_ocr`
 is the project's own GPL-3.0-or-later code (`native/ocr/Cargo.toml`), which is why it appears in the
 inventory without a third-party licence of its own. (This sentence replaces an orphaned fragment that had
 read only "(`bc_ocr`), which is why it appears without a third-party licence." since the first release.)
+
+
+## Google Drive authorization dependency (2.7.0-dev.1)
+
+The app now directly declares `com.google.android.gms:play-services-auth:22.0.0` for native Google `AuthorizationClient` and account selection. This upgrades the older transitive auth library already brought in by MSAL; it does not add a Google Drive client SDK. Drive transport uses the platform HTTP API and project JSON codec.
+
+Resolved Google runtime artifacts whose POM licence declarations were inspected locally during this change:
+
+| Artifact (`com.google.android.gms`) | Resolved version | Declared licence |
+| --- | --- | --- |
+| play-services-auth | 22.0.0 | Android Software Development Kit License |
+| play-services-auth-api-phone | 18.0.2 | Android Software Development Kit License |
+| play-services-auth-base | 18.0.10 | Android Software Development Kit License |
+| play-services-base | 18.5.0 | Android Software Development Kit License |
+| play-services-basement | 18.9.0 | Android Software Development Kit License |
+| play-services-tasks | 18.2.0 | Android Software Development Kit License |
+| play-services-fido (existing MSAL dependency) | 20.1.0 | Android Software Development Kit License |
+
+These proprietary Google SDK terms are not Apache-2.0 and are not relicensed by this project's GPL-3.0-or-later notice. Recording the publisher's declaration is not a legal determination that combined redistribution is compatible with GPL; distribution compatibility remains an unresolved release consideration. Existing unrelated licence limitations (including display-mask) are not resolved by this feature. The dependency tree and POM audit evidence are recorded in the v2.7.0-dev.1 agent report.
+
+Publisher reference: https://developers.google.com/android/guides/overview

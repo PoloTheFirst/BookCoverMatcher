@@ -86,18 +86,18 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                 ) { ButtonLabel("Back", Palette.Text, 11f) }
             }
 
-            // The two ways in: a file on this device, or one from OneDrive (v2.6.0-dev.1 Phase 4). Both
-            // end in the same library; neither replaces the other, and Import keeps its exact behaviour.
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
+            // All import sources create app-managed local copies in the same library.
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
                 GradientButton(
                     onClick = { pickWorkbook.launch(arrayOf("*/*")) },
                     colors = Palette.NavyGradient,
                     contentColor = Palette.Text,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     minHeight = 36.dp,
                     enabled = !ui.libraryBusy,
                 ) { ButtonLabel("Import", Palette.Text, 11f) }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth()) {
                 GradientButton(
                     onClick = vm::openOneDriveBrowser,
                     colors = Palette.NavyGradient,
@@ -105,7 +105,18 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                     modifier = Modifier.weight(1f),
                     minHeight = 36.dp,
                     enabled = !ui.libraryBusy && ui.oneDrive.entryEnabled,
-                ) { ButtonLabel("From OneDrive", Palette.Text, 11f) }
+                ) { Text("From OneDrive", color = Palette.Text, fontSize = 11.sp) }
+                Spacer(Modifier.width(8.dp))
+                GradientButton(
+                    onClick = vm::openGoogleDriveBrowser,
+                    colors = Palette.NavyGradient,
+                    contentColor = Palette.Text,
+                    modifier = Modifier.weight(1f),
+                    minHeight = 48.dp,
+                    enabled = !ui.libraryBusy && ui.googleDrive.entryEnabled,
+                ) { Text("From Google Drive", color = Palette.Text, fontSize = 11.sp) }
+                }
+
             }
             Spacer(Modifier.height(4.dp))
 
@@ -181,6 +192,7 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
         // The OneDrive import panel (v2.6.0-dev.1 Phase 4). A dialog over this screen, so Back closes it
         // and the library underneath is unchanged.
         OneDriveBrowserDialog(ui, vm)
+        GoogleDriveBrowserDialog(ui, vm)
     }
 }
 
