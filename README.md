@@ -1,5 +1,7 @@
 ## Google Drive import - 2.7.0-dev.1
 
+[Download the development prerelease](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0-dev.1). The attached APK is debug-signed; register the matching OAuth certificate as described below.
+
 Saved workbooks now includes **From Google Drive** beside **From OneDrive**. The new browser imports existing `.xlsx` and `.xlsm` files from My Drive into app-private storage; opening and rescanning saved copies remains offline. Google Sheets conversion and Google cloud refresh/sync are outside this development checkpoint.
 
 Google Cloud Android OAuth registration and account consent are required. Follow [GOOGLE_DRIVE_SETUP.md](GOOGLE_DRIVE_SETUP.md) for the package, signing fingerprint, permission meaning and testing requirements. Live Google authorization, My Drive folder navigation, both Excel formats, cancellation, and offline reopening/rescanning after a process restart were verified on the API 37 emulator. The final JVM run passed 1,393 tests with 16 skipped; 40 existing instrumented tests passed. See historical_prompt/v2.7.0-dev.1-ag.md for evidence and remaining limits. A reported Vivo X100 Pro authorization failure is still being investigated; the latest APK preserves numeric Google errors rather than labelling every unsuccessful callback cancellation.
