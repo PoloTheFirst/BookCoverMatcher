@@ -1,5 +1,7 @@
 ## Google Drive import - 2.7.0-dev.1
 
+**Dev.1 publication agenda:** the owner reports completed Play developer-account verification and app-creation access. Google Play distribution of this version and the OAuth Testing-to-Production transition are planned under dev.1; no store rollout or OAuth production approval is claimed. See GOOGLE_DRIVE_SETUP.md for signing and status distinctions.
+
 [Download the development prerelease](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0-dev.1). The attached APK is debug-signed; register the matching OAuth certificate as described below.
 
 Saved workbooks now includes **From Google Drive** beside **From OneDrive**. The new browser imports existing `.xlsx` and `.xlsm` files from My Drive into app-private storage; opening and rescanning saved copies remains offline. Google Sheets conversion and Google cloud refresh/sync are outside this development checkpoint.

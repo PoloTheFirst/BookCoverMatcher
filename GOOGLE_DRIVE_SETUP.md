@@ -180,3 +180,24 @@ $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 ```
 
 Google code 10 indicates a developer/configuration error; compare the installed APK's signing certificate and package with the Android OAuth client. Code 7 indicates a network error. Cancellation codes indicate what Google reported, not proof of a manual denial. A missing Intent requires further device-side diagnosis. Avoid clearing Play services storage or removing accounts as a first troubleshooting step.
+
+
+## Dev.1 Google Play and OAuth production agenda
+
+As of 2026-11-11, the owner reports completed Google Play developer-account verification and the ability to create apps. Publishing **2.7.0-dev.1 / 224** on Play and moving Google Auth Platform Audience from Testing to In production are part of the dev.1 agenda. The OAuth switch is still planned. Account verification does not mean a specific app release has passed review or is available on Play.
+
+### Play-distributed signing and upload
+
+For a new Play app, prepare a signed Android App Bundle, not the GitHub debug APK. The repository's default release signing is currently debug; production upload signing must be configured with the intended local upload key before the artifact is represented as ready. Never place keys/passwords in tracked files or chat. Confirm the target app/track and whether code 224 is available before uploading; do not silently allocate another code.
+
+Google Play's delivered app may use a different certificate from both your upload key and locally exported APK. In the app's Play Console, open its app-signing/integrity page, copy the **app signing key certificate SHA-1**, and create the matching Android OAuth client for com.bookcovermatcher in the same Google Cloud project. Do not substitute the upload-key fingerprint. Keep the other signing clients for their respective distributions. Recheck the OneDrive/MSAL Android redirect for this delivered signing identity and test the actual Play-installed build on the phone.
+
+References: [Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756), [OAuth client signing identity](https://developers.google.com/android/guides/client-auth), [Android App Bundles](https://developer.android.com/guide/app-bundle).
+
+### OAuth Testing to In production
+
+This setting is in **Google Auth Platform > Audience**, separate from Google Play Console. Review the app's current branding, public homepage/privacy/terms URLs, authorized domains and requested scopes before publishing. A production audience does not, by itself, establish approval for restricted drive.readonly access or remove every unverified-app limitation. Verify branding and data-access status separately in the Verification Center.
+
+The logo/privacy/terms changes are still planned in the dev.2 review prompt. If they are needed before the dev.1 production transition, complete their reviewed implementation first; do not claim their existence or Google approval from this agenda entry. The intended Console project/app and Play track must be identified before a concrete external submission/rollout.
+
+Reference: [Google Auth audience and publishing statuses](https://support.google.com/cloud/answer/15549945).
