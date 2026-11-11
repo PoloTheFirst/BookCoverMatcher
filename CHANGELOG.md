@@ -13,8 +13,6 @@ This development checkpoint adds Google Drive to Saved Workbooks alongside OneDr
 
 ### Changed
 
-- **Dev.1 publication agenda expanded.** Google Play distribution of this version and the planned Google OAuth Audience transition from Testing to In production are assigned to dev.1. The owner reports completed Play developer-account verification and app-creation access; app release submission/rollout and the OAuth transition are not claimed as completed. Dev.2 branding/policy implementation remains a separate review draft.
-
 - **Import layout.** Local Import has its own row; OneDrive and Google Drive remain adjacent underneath with multiline labels, verified at 150% font scale.
 - **Origin persistence.** New Google entries atomically record `google_drive` without account identifiers, access tokens or remote file IDs. Duplicate bytes preserve the existing entry/provider. Local and OneDrive defaults remain compatible; Google entries cannot enter OneDrive rescan/update logic.
 - **Google SDK.** Direct `play-services-auth:22.0.0` upgrades the older auth version already brought in transitively by MSAL. Publisher POM declarations and resolved Google runtime versions are recorded in `THIRD_PARTY_NOTICES.md`.
@@ -52,7 +50,7 @@ This development checkpoint adds Google Drive to Saved Workbooks alongside OneDr
 
 - Initial scope is My Drive. Shared drives, Shared with me, shortcuts, Google Sheets conversion, background synchronization, Google remote update checking, upload/write-back and remote deletion are excluded.
 - Live tests exercised root and one child folder; deep nesting and pagination are covered by deterministic tests rather than a large live Drive fixture. Live OneDrive import/update UI regression and physical-device testing were not repeated for this checkpoint.
-- Play developer-account verification is complete and app creation is enabled, as reported by the owner. A specific Play app/track, release-signed upload bundle, Play app-signing OAuth registration and store rollout are still pending. Public OAuth production approval is not established. `drive.readonly` is a restricted scope, the existing release configuration uses debug signing, and proprietary Google SDK/GPL redistribution compatibility and the existing `display-mask` licence issue remain unresolved.
+- Public production approval is not established. `drive.readonly` is a restricted scope, the existing release configuration uses debug signing, and proprietary Google SDK/GPL redistribution compatibility and the existing `display-mask` licence issue remain unresolved.
 - The final JVM suite has 16 skipped tests; opt-in online provider tests were not enabled. Lint still reports 52 warnings.
 - The pre-existing fixed-width Back label clips at 150% font scale; both cloud import labels fit.
 - This is a GitHub development prerelease. Publishing it does not change Google OAuth production/verification status. The attached APK is the matching debug-signed build; the user-exported release APK uses a different key and is not this artifact.
