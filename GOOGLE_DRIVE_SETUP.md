@@ -166,6 +166,9 @@ Saved copies work offline and rescan locally. No Google synchronization, upload,
 
 ## If the emulator signs in but a physical phone does not
 
+**Vivo X100 Pro case resolved:** the owner confirmed the selected account was not a registered test user. Using a registered testing account resolved the failure. Earlier signing-certificate checks remain useful generally, but were not confirmed as the cause of that case.
+
+
 Using the same account rules out one common test-user mismatch, but it does not prove the phone uses the same signed APK or has the same Google Play services environment. Record the exact error and the installed app version first. A copied, identical APK uses the same certificate on both devices; Google OAuth registration is for package/certificate, not a separate registration for every phone.
 
 The initial 2.7.0-dev.1 APK labelled every non-success Android consent result as "cancelled or denied" before inspecting Google's result payload. That wording cannot establish that the user actually denied consent. The revised diagnostic APK parses any returned Google status, shows its numeric code, and reports a missing result separately. It logs only numeric status/result codes and whether data was present, under `GoogleDriveAuth`; it never logs tokens, account names, Intent contents or exception messages.
@@ -201,3 +204,47 @@ This setting is in **Google Auth Platform > Audience**, separate from Google Pla
 Logo, privacy policy, terms, Play release preparation and the OAuth transition now all belong to the same dev.2 review prompt. Complete their reviewed implementation and verify the required public documents and signing setup before any approved submission; do not claim Google approval from this agenda entry. The intended Console project/app and Play track must be identified before a concrete external submission/rollout.
 
 Reference: [Google Auth audience and publishing statuses](https://support.google.com/cloud/answer/15549945).
+
+
+## Planned dev.2 preparation order and repository links
+
+Complete branding materials before creating the Play app, as requested by the owner. This section describes future work; the PNG and policy files are not claimed as created or published yet.
+
+Planned repository locations:
+
+- Home/source: https://github.com/PoloTheFirst/BookCoverMatcher
+- Privacy Policy: https://github.com/PoloTheFirst/BookCoverMatcher/blob/main/PRIVACY_POLICY.md
+- Terms and Conditions: https://github.com/PoloTheFirst/BookCoverMatcher/blob/main/TERMS_AND_CONDITIONS.md
+- Logo for review/download: https://github.com/PoloTheFirst/BookCoverMatcher/blob/main/branding/bookcovermatcher-logo-120.png
+
+The Markdown files remain the shared source for repository and in-app copies. Verify these links anonymously after dev.2 files are actually published; until then, a planned URL may return 404. The Branding logo control takes the actual local PNG upload, not a GitHub file-page URL.
+
+### Branding first
+
+1. In the correct Google Cloud project, open Google Auth Platform > Branding.
+2. Upload `branding/bookcovermatcher-logo-120.png`: PNG, exactly 120 x 120, below 1 MB.
+3. Set the app name and owner-approved support contact. Fill the homepage, Privacy Policy and Terms of Service fields using the prepared public destinations.
+4. Save and inspect the verification result. Keep the URLs consistent with the homepage and in-app text.
+
+**Repository links are the requested starting point, not a guarantee of acceptance.** Google requires a homepage on a verified domain you own and policy-domain consistency. Owning this repository does not give ownership of github.com. Do not claim or register github.com as an owned domain. If Google rejects the repository/blob URLs, retain the Markdown sources in this repository and use an owner-approved hosted rendering on a verifiable domain; document the actual accepted URLs and required owner steps before submission.
+
+Reference: [Branding and public-URL requirements](https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification).
+
+### OAuth audience after branding preparation
+
+Open Google Auth Platform > Audience, confirm External and the intended project, then review **Publish app** / **In production** when the owner authorizes that transition. Production audience removes the Testing-list-only audience restriction, but unapproved restricted scopes can still carry warnings/limits or require review. Check branding and data-access verification independently; do not equate the audience switch with approval.
+
+Reference: [Audience and publishing status](https://support.google.com/cloud/answer/15549945).
+
+### Then create the app in Google Play Console
+
+1. Sign in at https://play.google.com/console with the verified developer account; select **Create app**.
+2. Enter BookCoverMatcher, package `com.bookcovermatcher` if requested, and the default language.
+3. Select App rather than Game. The owner chooses Free/Paid; do not infer pricing from GPL or choose it silently.
+4. Provide the owner-approved support contact. Read and accept required declarations, including the applicable Play signing terms, then select Create app.
+5. Use the Dashboard tasks to complete the listing/app-content declarations with the audited privacy/data facts and public policy link.
+6. Configure signing and an owner-selected testing track, then upload the properly signed dev.2 AAB. Register the actual Play app-signing OAuth certificate and test that delivered build before an approved rollout.
+
+Creating an app record is distinct from submitting a release or making it public. No Console click, declaration acceptance or rollout is authorized by this draft guide alone.
+
+Reference: [Create and set up your app](https://support.google.com/googleplay/android-developer/answer/9859152).

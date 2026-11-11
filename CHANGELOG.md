@@ -20,7 +20,7 @@ This development checkpoint adds Google Drive to Saved Workbooks alongside OneDr
 
 ### Fixed
 
-- **Google authorization error reporting.** Non-success Android consent results are now parsed for Google status instead of all being labelled cancellation/denial. Missing results are identified separately; safe numeric error codes are shown and logged without tokens/account data. A reported Vivo X100 Pro sign-in failure remains under investigation.
+- **Google authorization error reporting.** Non-success Android consent results are now parsed for Google status instead of all being labelled cancellation/denial. Missing results are identified separately; safe numeric error codes are shown and logged without tokens/account data. The separate Vivo X100 Pro incident was subsequently resolved by using a registered test account, as confirmed by the owner.
 
 - **Unreliable test ZIP hashes.** TestWorkbooks now fixes ZIP entry timestamps, so identical fixture content yields identical bytes across separate calls instead of changing with the clock.
 - **Host-dependent failed-write fixture.** The batch failure test now blocks the temporary output path with a directory, rather than assuming a read-only file cannot be deleted/replaced on Windows. Its original assertions about failure reporting and unchanged stored data remain intact. Application persistence behavior was not changed by these fixture repairs.
@@ -38,6 +38,8 @@ This development checkpoint adds Google Drive to Saved Workbooks alongside OneDr
 
 ### Verified
 
+- **Vivo X100 Pro - owner-confirmed resolution.** The owner identified that the selected account was not a registered OAuth test user. Signing in with a testing account resolved the failure. This is an owner-reported device result, not a new agent-run phone test; the earlier signing-certificate mismatch hypothesis was not established as its cause.
+
 - Official Google account selection/consent, My Drive root listing, entering a folder and navigating Up succeeded on `Medium_Phone_API_37.0`, `emulator-5554`.
 - Genuine owner-supplied `.xlsx` (**40,545,649 bytes**) and `.xlsm` (**40,494,234 bytes**) downloaded and reached Saved Workbooks. Both stored-file SHA-256 values matched the library index; both carried `google_drive` origin, no remote/account metadata, and left no partial files.
 - After force-stopping the app, disabling networking and relaunching, both workbooks opened and rescanned successfully from local storage. The `.xlsx` parsed 8 sheets, 999 comments and 165 images; `.xlsm` parsed 8 sheets, 125 comments and 165 images. Macro execution was not enabled.
@@ -46,10 +48,9 @@ This development checkpoint adds Google Drive to Saved Workbooks alongside OneDr
 
 ### Known limitations
 
-- **Vivo X100 Pro authorization:** the owner reports failure after account selection with the same test account. Emulator success does not establish physical-device support; a phone retest remains required. The locally exported release APK uses a different signing certificate from the emulator; its additional Android OAuth registration is documented in setup step 5A.
 
 - Initial scope is My Drive. Shared drives, Shared with me, shortcuts, Google Sheets conversion, background synchronization, Google remote update checking, upload/write-back and remote deletion are excluded.
-- Live tests exercised root and one child folder; deep nesting and pagination are covered by deterministic tests rather than a large live Drive fixture. Live OneDrive import/update UI regression and physical-device testing were not repeated for this checkpoint.
+- Live tests exercised root and one child folder; deep nesting and pagination are covered by deterministic tests rather than a large live Drive fixture. Live OneDrive import/update UI regression and agent-run physical-device testing were not repeated; the Vivo resolution above is owner-confirmed.
 - Public production approval is not established. `drive.readonly` is a restricted scope, the existing release configuration uses debug signing, and proprietary Google SDK/GPL redistribution compatibility and the existing `display-mask` licence issue remain unresolved.
 - The final JVM suite has 16 skipped tests; opt-in online provider tests were not enabled. Lint still reports 52 warnings.
 - The pre-existing fixed-width Back label clips at 150% font scale; both cloud import labels fit.
