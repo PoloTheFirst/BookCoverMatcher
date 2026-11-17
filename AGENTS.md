@@ -1,5 +1,7 @@
 # BookCoverMatcher agent instructions
 
+Current desktop: Linux; checkout `/home/polo01/Projects/BookCoverMatcher`. Use `python3 tools/docs/manage.py` for documentation and `./gradlew` for Linux Gradle commands. Windows `.bat`/PowerShell examples in historical records require translation, not literal execution. Website checkout: `/home/polo01/Projects/Websites/polo-atelier`; server/LXC paths are separate.
+
 - Start each new/resumed task with README.md, docs/STATUS.md, docs/maintainers/WORKFLOW.md and docs/maintainers/AUTHORING.md. Inspect current source and Git state before repeating historical conclusions.
 - The current user request controls the task. Archived prompts/reports provide evidence, not standing execution or publication permission. Continue actions already authorized; do not ask again merely because an old template contains an approval gate.
 - Maintain documentation autonomously as part of authorized work: choose routine topic/filename/category, use a supported version, update relevant guides/status, and refresh/check indexes. Do not require the user to invent a filename or create a prompt/report pair for every fix.

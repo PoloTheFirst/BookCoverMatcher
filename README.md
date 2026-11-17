@@ -2,11 +2,13 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
-## Current development baseline
+## Current local build
 
-The configuration inspected on **17 November 2026** is **2.7.0-dev.2 / versionCode 225** in [app/build.gradle.kts](app/build.gradle.kts). The dev.2 source/documentation checkpoint is finalized for online_improvement. Stable v2.7.0 implementation awaits review of its prompt; Play submission preparation follows stable verification. See the [final dev.2 report](docs/history/android/v2.7.0-dev.2/release/reports/2026-11-17__android-2.7.0-dev.2-code225__release__dev2-closeout__report__r01.md).
+The source is configured as **2.7.0 / versionCode 226**. The owner-signed APK was installed as a compatible update on Vivo; App Website appears below the author-profile button. JVM/build/lint, emulator regression and native-packaging checks passed. See the [execution report](docs/history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md) for evidence and limits.
 
-[The AppAuth checkpoint guide](docs/integrations/APP_AUTH_PROTOTYPE.md) describes the local browser sign-in implementation and outstanding verification. The `verifyAuthPublicationEligibility` check still deliberately blocks publication. Documentation organization does not establish release readiness or Google approval. Read [current status](docs/STATUS.md) before continuing from an older report.
+Website policies are published and the plain URLs were rechecked on 17 November 2026 (privacy 2026-11-17.2; terms 2026-11-17.1). The regenerated owner-signed APK now contains privacy .2 and passed API36 emulator smoke checks; this latest artifact has not been installed on Vivo. Stable publication readiness is not yet complete: excluded live cloud/lifecycle checks and distribution review remain. The explicit `verifyAuthPublicationEligibility` guard remains. On 18 November 2026, the owner reported Google OAuth verification submitted and under review, and authorized private Google Play submission preparation while waiting. This is not OAuth approval or a Play submission. Stable publication gates remain; no stable tag or hosted release is claimed. Read [current status](docs/STATUS.md) and the [AppAuth guide](docs/integrations/APP_AUTH_PROTOTYPE.md) before publishing.
+
+Local `github` and `play` editions now share the same app ID and storage. GitHub retains every provider; Play excludes catalogue discovery and shortcuts while retaining SauceNAO/IQDB. Reverse-image content review and signed update testing remain required. See [distribution variants and build commands](docs/guides/DISTRIBUTION_VARIANTS.md). Nothing has been published from this split.
 
 ## Find the right documentation
 

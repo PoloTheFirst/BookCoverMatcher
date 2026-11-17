@@ -33,3 +33,4 @@ Codes below are attributed configuration/historical evidence; null remains unkno
 | cross-version | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
 | current-source | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
 | unresolved-qa | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
+| 2.7.0 | 226 | True | Approved stable prompt; owner confirmed code226 not uploaded. Source configured as 2.7.0/226 for local validation on 17 November 2026; not a released or Play-approved artifact. |

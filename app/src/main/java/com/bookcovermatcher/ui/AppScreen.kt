@@ -51,6 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
+import com.bookcovermatcher.R
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,7 +69,7 @@ import com.bookcovermatcher.ToastKind
 import com.bookcovermatcher.ui.theme.Palette
 
 /**
- * Root of the UI: the bottom-navigation shell, the four destinations, and every overlay dialog.
+ * Root of the UI: the bottom-navigation shell, the five destinations, and every overlay dialog.
  *
  * Navigation is Compose state ([AppTab]) owned by the ViewModel, so a configuration change or a
  * tab switch never re-creates a repository or drops a session. Persistent data lives in the store,
@@ -185,6 +187,9 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
                             AppTab.MORE -> ScreenScroll {
                                 MoreScreen(ui, vm, onOpenUrl = { url -> openExternal(context, url, vm) })
                             }
+                            AppTab.PLUGINS -> ScreenScroll {
+                                PluginsScreen()
+                            }
                         }
                     }
                 }
@@ -250,6 +255,7 @@ private fun BottomBar(selected: AppTab, onSelect: (AppTab) -> Unit) {
         BottomItem(AppTab.SEARCH, "Search", Icons.Filled.Search, selected, onSelect, Modifier.weight(1f))
         BottomItem(AppTab.WISHLIST, "Wishlist", Icons.Filled.Star, selected, onSelect, Modifier.weight(1f))
         BottomItem(AppTab.MORE, "More", Icons.Filled.MoreVert, selected, onSelect, Modifier.weight(1f))
+        BottomItem(AppTab.PLUGINS, "Plugins", ImageVector.vectorResource(R.drawable.ic_puzzle), selected, onSelect, Modifier.weight(1f))
     }
 }
 

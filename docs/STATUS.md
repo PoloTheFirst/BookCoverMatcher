@@ -2,11 +2,11 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-17 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-18 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
-Dev.2 / 225 source checkpoint finalized on CachyOS; fresh JVM results 1429 passed and 16 skipped, debug assembly completed. See the release dev2-closeout report. Stable 2.7.0 prompt must be reviewed before execution; Play preparation follows stable finalization.
+Local v2.7.0/226. Regenerated owner-signed APK SHA256725d4d24d2e3731fca09385daf0bc71d5c5cb41cf1259089ed5e56788a4b9515 packages privacy2026-11-17.2/terms2026-11-17.1 and passes isolated API36 emulator launch/policy/navigation smoke checks; signature/native alignment verified. Latest artifact not installed on Vivo. Publication gates remain.
 
 ## Authentication checkpoint
 
@@ -14,7 +14,7 @@ Google and Microsoft AppAuth browser sign-in, profile lookup and account labels 
 
 ## Website and private coordination
 
-The owner reported successful sitemap submission and approved website policy publication in the companion website task. Android reports contain older website-state statements. This task did not inspect live policy parity or Google/Play approval; those old reports are not current approval evidence.
+Website PR5 merged at f000ed3432bd7eac0133c76961e7351244d694b1; owner reports completed LXC deployment, archive SHA256d23bb743cbb0f4dd96aae3b483065910cc17f683a29be345bdd20ba1608d0c86. Later fresh Chrome plain-URL checks returned HTTP200 with privacy2026-11-17.2/Limited Use and terms2026-11-17.1, effective17November2026; earlier cache discrepancy was not reproduced. Both canonical policies are now packaged in the regenerated signed APK. This does not release Android or establish Google approval.
 
 ## Version conflicts
 
@@ -26,7 +26,7 @@ v2.5.0-dev.2 prompt title targets stable v2.4.0. v2.6.0-stable-2 contains a supe
 
 ## Workbook source UI and navigation implementation
 
-Owner approved the dev.2 prompt. Local implementation adds source account/status/location, explicit re-linking and account labels; Use it now opens the viewer and Rescan targets its entry. JVM 1429 passed/16 skipped, debug app/test build and lint passed; emulator navigation/grant tests passed. See the development workbook-source-ui report for final artifact and live/device limits. Privacy revision 2026-11-14.1 needs website synchronization; publication remains blocked. Both provider sign-ins/profile labels also passed live on the final APK; this does not establish expiry/revocation or production approval.
+Owner approved the dev.2 prompt. Local implementation adds source account/status/location, explicit re-linking and account labels; Use it now opens the viewer and Rescan targets its entry. JVM 1429 passed/16 skipped, debug app/test build and lint passed; emulator navigation/grant tests passed. See the development workbook-source-ui report for final artifact and live/device limits. That checkpoint used privacy2026-11-14.1; subsequent approved website publication is described above. Android publication remains gated. Both provider sign-ins/profile labels also passed live on the final APK; this does not establish expiry/revocation or production approval.
 
 ## Policy reader layout correction (17 November 2026)
 
@@ -36,8 +36,37 @@ The owner accepts the current reader layout as intended design. No outstanding l
 
 Historical v2.7.0-dev.2.md and v2.7.0-dev.2-ag.md are preserved; the release dev2-closeout report supplies the final scope reconciliation. Source/documentation push targets online_improvement only. No binary release or Console action authorized in this checkpoint.
 
+## Stable prompt preparation after dev.2 push
+
+Owner approved execution. App Website implemented and verified on emulator/Vivo. Policy applicability updated to 2026-11-17.1. Stable changes remain local after pushed dev.2 checkpoint9a5318b; no stable release/Play preparation.
+
+## OAuth review and Play preparation (18 November 2026)
+
+Owner reports Google OAuth verification submitted and under review; approval is not established. Owner now authorizes private Play preparation while waiting, superseding the earlier sequencing instruction to defer all preparation. Private listing, declaration/access drafts, branding/screenshot candidates and a testing plan are prepared for2.7.0/code226. Owner approves18+ targeting and preserving existing-install signing compatibility. Current provider configurations and publication guard are unchanged; no Play upload or submission occurred. Exact Console/account/country choices and final distribution review remain open.
+
+## Public website access recheck (18 November 2026)
+
+Fresh automated requests to the app homepage, privacy, terms and support returned HTTP403; the web tool also could not fetch them. Earlier17November browser200 evidence remains historical. This does not establish browser outage; signed-out reviewer/browser accessibility needs rechecking before Play submission.
+
+## Play and GitHub distribution split (18 November 2026)
+
+Implemented locally on google_play from 9a5318b, preserving pre-existing changes. GitHub retains every provider; Play excludes catalogue discovery/shortcuts/adapters, retains SauceNAO/IQDB and uses on-device OCR plus neutral bookmark examples. Existing catalogue records remain stored but unavailable in Play. Both use com.bookcovermatcher, 2.7.0/code226 and the original signing setup. GitHub 1430 JVM tests passed/16 skipped, Play1321/12; both debug/release and instrumentation APK builds passed, lint zero errors/58 warnings each. New release APKs are unsigned; the previous owner-signed APK is unchanged. No installation, data mutation, commit, push or upload. Reverse-image content and existing publication gates remain unresolved; device execution and signed cross-edition updates remain unverified.
+
+## Play emulator launch recovery (18 November 2026)
+
+BCM_API36_CachyOS was offline. A data-preserving cold boot succeeded. Its installed BCM uses the local debug certificate, unlike the newly owner-signed release APKs in app/play/release and app/github/release. After verifying certificate compatibility, installed app-play-debug.apk with adb install -r; launch returned Status:ok, Play More help rendered, no crash recorded and first-install date remained16November2026. No uninstall/data clear, workbook/cloud changes or publication. This establishes a debug update/launch smoke check only, not signed release cross-edition data-retention verification. See the distribution guide for Android Studio playDebug instructions.
+
+## Shared Plugins tab (18 November 2026)
+
+Added Plugins immediately after More in both 2.7.0/code226 editions, using a project-owned puzzle vector and an informational no-plugins-available page. No loader, download, installation, provider migration or provider configuration change was implemented. All63 provider/edition source files match the pre-task hashes. Both debug APK builds and lint passed (zero errors,58 warnings each); source licensing check passed. API36 emulator verified five-tab order, Plugins content and More/Plugins return navigation for GitHub and Play using certificate-matching install-r updates. No uninstall, data clear, workbook/cloud operations, commit, push or publication; emulator left on Play. Implementation remains local in shared sources on google_play; no other branch was rewritten.
+
+## Source checkpoint and next development branch (18 November 2026)
+
+Owner authorized committing and pushing the reviewed v2.7.0 source checkpoint to google_play, then continuing on feature/plugin-framework. This checkpoint includes the pending stable baseline, separate distribution variants and shared Plugins placeholder. Main must remain unchanged; no tags, hosted releases, binary uploads or Google submissions are authorized. Downloadable plugins remain deferred. Local IDE settings, generated APK metadata, build artifacts and untracked QA logs are excluded from the source commit.
+
 ## Next steps
 
-1. After the dev.2 source/documentation push, prepare and review the stable v2.7.0 prompt before implementation.
-2. Stable scope includes an App Website link below the Author Page/profile link, prior requirement audit, authentication/release verification and website policy parity.
-3. Finalize v2.7.0 before preparing Google Play submission; keep external OAuth/Play approval separate from app verification.
+1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
+2. Review the private Play preparation package; confirm account type, app/upload state, countries, pricing and signing setup.
+3. Resolve provider-content/distribution review, reviewer access, Data safety, public URL access and remaining authentication/runtime gates before uploading a final signed AAB. Preserve existing-install compatibility and do not bypass verifyAuthPublicationEligibility.
+4. Review the local distribution split; sign with the existing release key and verify cross-edition updates/data retention on an isolated test installation. Resolve retained reverse-image content and edition-specific declarations/policies before any publication. See docs/guides/DISTRIBUTION_VARIANTS.md.

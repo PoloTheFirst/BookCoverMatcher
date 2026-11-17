@@ -1,73 +1,63 @@
-## v2.7.0-dev.2 (2026-11-17)
+## v2.7.0 (2026-11-17)
 
-# Development Checkpoint: Privacy Documents and Publication Preparation
+# Workbook Sources, Browser Sign-In and App Website
 
-This development source checkpoint adds offline policy readers and original-derived branding assets, and prepares the Android build for further release testing. Current discovery providers are preserved. Google Play submission and OAuth production changes remain deferred until stable v2.7.0 is verified and ready; this is not a production approval.
+This local v2.7.0 build consolidates the dev.2 workbook-source and policy work and adds the app website beneath the author-profile link. The owner-signed APK has been installed as an update on Vivo. External publication and Google approval remain pending.
 
 ### Added
 
-- Source details on saved workbook cards and the workbook viewer: importing account, source status, last known location, checks, explicit cloud re-linking and local-original re-linking with content verification.
-- Connected-account labels on both cloud-import buttons, using existing OAuth scopes.
+- Plugins tab with a puzzle icon after More in both editions; plugin downloads and installation are deferred.
 
-- Privacy Policy and Terms and Conditions in More, side by side immediately above Author, readable offline from canonical Markdown copied into the APK.
-- Original-derived 120px OAuth PNG, 512px Play icon, 1024x500 feature graphic, editable SVG and 1024px PNG master with provenance and SHA-256 inventory.
-- Policy packaging regression coverage for byte identity, Markdown readability and absolute public links.
+- Separate GitHub and Play build variants: GitHub retains all providers; Play retains SauceNAO/IQDB while excluding public catalogue discovery and shortcuts.
+
+- App Website in More > Author, opening the BookCoverMatcher homepage.
+- Offline Privacy Policy and Terms and Conditions, with canonical Markdown packaged in the app.
+- Workbook source account/status/location, explicit relinking and account labels on cloud-import buttons.
+- Original-derived OAuth logo, master artwork and Play branding assets with provenance.
 
 ### Changed
 
-- Compile/target SDK increased to 36; development version is 225 / 2.7.0-dev.2.
-- Release signing now uses optional owner-supplied BCM_UPLOAD_* environment variables. Without them release artifacts are unsigned; release builds no longer silently use the debug key. The locally installable debug APK remains debug-signed.
-- Public homepage references now use https://blog.p2nd.online/apps/bookcover-matcher/. Privacy revision is 2026-11-14.1 (source-account metadata and retained selected-document access); terms remain 2026-11-13.2; website synchronization/publication is separate.
+- Play uses neutral bookmark-form examples and on-device OCR, and preserves existing catalogue bookmarks as unavailable entries without deleting their stored data. Both editions retain the same package identity, storage and release-signing setup.
 
-- CameraX updated to 1.4.2 and ONNX Runtime to 1.23.2. Python dependencies are version-pinned; reviewed source-built FreeType/JPEG wheels include provenance, licences and hash verification.
+- Version code/name: 226 / 2.7.0; compile/target API36.
+- Direct Google Drive and OneDrive imports use AppAuth browser sign-in with process-memory sessions.
+- Policies apply to v2.7.0: privacy revision 2026-11-17.2 adds the owner-approved Google Limited Use commitment; terms remains 2026-11-17.1. Source metadata and retained selected-document access remain disclosed.
+- Native dependencies and Python wheels include the dev.2 16 KB packaging improvements.
 
 ### Fixed
 
-- Both cloud import results now open the exact workbook when Use it now is tapped, including duplicate results. Home scanning-source selection remains separate.
-- Rescan targets the open workbook rather than a previously selected scanning source. Duplicate imports preserve source ownership; mismatched accounts and late session results cannot update a workbook.
-
-- Corrected policy wording about IQDB: the app uses a manual browser/result-import workflow and does not automatically upload images to IQDB; SauceNAO image/API-key uploads remain disclosed.
-
-- Fixed native 16 KB alignment in OCR, CameraX and ONNX JNI, plus incompatible FreeType/JPEG binaries hidden inside Python asset archives. Added recursive ELF/RELRO verification.
-- Removed OCR exception/traceback and discovery URL/error payloads from diagnostics; removed proprietary authentication SDKs in the later local AppAuth prototype; OAuth tokens remain memory-only.
+- Use it now opens the exact imported workbook, including duplicates; Rescan targets the displayed workbook.
+- Source checks preserve account ownership and reject stale account-switch results.
+- OneDrive recovery distinguishes storage-delivery failures from genuine expired authorization.
+- Removed two source-file byte-order marks and excluded IDE metadata from the source licence check.
 
 ### Removed
 
-- Automatic debug-key fallback from release-build signing. No discovery provider was removed.
-- Direct Google and Microsoft proprietary authentication SDKs and the former display-mask workaround are replaced by the local AppAuth browser prototype; publication remains blocked pending its outstanding validation.
+- Proprietary GIS/MSAL runtime authentication dependencies; Google direct browsing is retained.
+- Automatic debug-key fallback for release signing.
 
 ### Tests
 
-- CachyOS closeout (17 November): JVM results **1,429 passed, 0 failures/errors, 16 skipped**; debug assembly and lint passed (0 errors, 58 warnings). See the final dev.2 closeout report for full command results and limits.
+- Distribution split: GitHub 1430 JVM tests passed/16 skipped; Play 1321 passed/12 skipped; zero failures/errors. Both debug/release and instrumentation APK builds passed; lint has zero errors and 58 warnings per edition. Instrumentation execution and signed cross-edition updates remain unverified. Earlier device evidence below predates this split.
 
-- Workbook-source UI checkpoint (14 November): **1,429 JVM tests passed, 0 failed, 16 skipped** (1,445 total); debug and Android-test APK assembly passed. Lint: **0 errors, 56 warnings**. Earlier checkpoint totals below are historical, not fresh runs.
-- API 37 emulator: two targeted instrumentation tests passed, including actual Use it now taps for both providers/new and duplicate results, exact viewer identity, Back, missing-copy failure, and local access-not-retained versus revoked states. No live provider authentication is implied by these fixture tests.
-
-- Full JVM suite: **1,396 passed, 0 failed, 16 skipped** (1,412 total), including policy packaging and payload-free OCR diagnostics.
-- Readiness device suite: **14 passed, 0 failed, 0 skipped on each of two emulators**: API 35 with 16 KB pages/compatibility mode disabled, and API 37 with 4 KB pages. Covers native OCR, ONNX CLIP inference, Pillow JPEG/font operations, camera JNI loading and forced missing-display-mask fallback. These are 14 distinct tests, not 28 distinct cases.
-- Earlier policy-reader checkpoint: 40 existing OCR/Author device tests passed; those full-suite results precede this readiness follow-up. Final readiness builds include debug, Android-test APK, unsigned release bundle and lint.
-- Lint: **0 errors, 49 warnings**. git diff --check passed. Repository licence checker still reports two pre-existing BOM failures in unchanged Author source/test files; this is separate from dependency metadata review.
+- 1429 JVM tests passed, 16 skipped, zero failures/errors; debug and test APK builds passed.
+- Lint: zero errors, 58 warnings. Source licence checker passes.
+- API36 emulator: 17 navigation, authentication-dependency and native/OCR regression cases passed on code226.
+- Both APK variants: 164 ELF64 entries checked with zero 16 KB failures; ZIP alignment passes.
 
 ### Verified
 
-- Workbook-source UI checkpoint: Google and Microsoft browser sign-in/profile lookup succeeded live on the API 37 emulator, and both import buttons displayed the account labels. Use it now fixture tests and viewer screenshots passed at normal/150% fonts; Rescan/Back clipping was corrected. The activity remains portrait-locked.
-- The new debug APK packages privacy revision 2026-11-14.1 and unchanged terms byte-for-byte from the canonical files. It remains an unpublished local dev.2 build.
-
-- APK metadata: com.bookcovermatcher, 225 / 2.7.0-dev.2, target/compile API 36; debug signature verified. Both APK and AAB contain policy text byte-identical to the canonical roots.
-- Emulator: policy control placement/order, both documents offline, full-screen/scroll/Back behaviour and 100%/150% font sizes checked; final header inspected at 150%.
-- OAuth PNG decodes to 120 x 120 and is 1,041 bytes. Original launcher resources preserved; feature graphic and logo inspected visually.
-- Release bundle is unsigned, confirmed by jarsigner; it is not ready for Play upload.
-
-- Recursive scan: **164 ELF64 libraries, zero LOAD/congruence/RELRO failures** in the rebuilt APK, including Python archives; APK ZIP alignment passes. Runtime testing uses x86_64; arm64 physical-device verification remains outstanding.
+- App Website is readable on the emulator at normal/150% fonts, opens the correct URL and handles a missing browser.
+- Owner-signed code226 APK matches the Vivo installation's certificate and installs as an update without uninstalling. App Website appears beneath the profile link and launches the correct Firefox URL.
+- The regenerated owner-signed APK contains canonical privacy .2 and terms .1 byte-for-byte. API36 emulator checks passed for launch, policy tabs, fullscreen/Back/Close, App Website routing and cold restart. Branding hashes and dimensions match their inventory.
 
 ### Known limitations
 
-- Existing cloud copies need explicit source-account confirmation or re-selection; old local copies have no recoverable original path until re-linked. Android providers may not expose full paths or retained read access. Generic 404 and network errors do not prove deletion.
-- Source metadata privacy revision 2026-11-14.1 still needs website synchronization; physical Vivo behavior and live cross-account switching remain separate checks. No publication or Google submission was performed for this update.
-- Existing providers are preserved by owner decision. The completed code/policy audit identifies adult-gallery shortcuts, mixed-catalogue and reverse-result filtering blockers before stable submission; an adult audience setting does not resolve prohibited-content issues.
-- Direct GIS/MSAL dependencies have been removed in favour of AppAuth. Final dependency/licence review, token expiry/revocation and process-lifecycle verification, production signing and restricted Drive scope verification remain outstanding. No Google approval or OAuth production transition is claimed.
-- Public policy/support routes await separate website synchronization and deployment. A local policy reader does not prove those links are live.
-- No new physical-device cloud test was performed at closeout. Earlier live emulator authorization results are recorded above; prior dev.1 Vivo resolution remains owner-reported. Existing My Drive-only scope and unsupported Drive operations are unchanged.
-- This is a source/documentation checkpoint on online_improvement, not a GitHub binary release or Google Play submission. Stable v2.7.0 follows prompt review, verification and necessary fixes, before Play submission preparation.
+- This is a local signed build, not a published GitHub release or Play submission. The publication guard remains.
+- Live cloud sign-in, grant revocation and workbook changes were excluded by the owner from this verification. Expiry/refresh, interrupted authorization and live cross-account/changed-content checks remain.
+- Website policy publication is complete per owner handback; fresh plain-URL browser checks returned HTTP200 with privacy .2 and terms .1, effective 17 November 2026. The regenerated signed Android artifact now matches privacy .2; Vivo has not been updated to this regenerated artifact.
+- Discovery-provider distribution review, OAuth restricted-scope approval and remaining release review are not established by build/test success. All providers remain in GitHub; Play retains SauceNAO/IQDB, whose results and external links still require content-policy review.
+- Physical arm64 camera/OCR/model end-to-end tests are not claimed. Intermittent USB disconnection interrupted the additional Vivo Back/policy-reader check.
+- Google/Microsoft sessions remain memory-only; restart requires sign-in. Cloud write-back and background synchronization are not implemented.
 
-**Version code/name: 225 / 2.7.0-dev.2.**
+**Version code/name: 226 / 2.7.0.**

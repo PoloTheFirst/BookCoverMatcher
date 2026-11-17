@@ -1,14 +1,14 @@
 # Third-party notices — BookCoverMatcher
 
-## Local AppAuth prototype - 2026-11-13 (unpublished)
+## Current authentication implementation — v2.7.0
 
-This supersedes the Google/MSAL runtime dependency descriptions below for the current local prototype only. Historical release notices remain as evidence for those releases. The direct dependencies on MSAL and Google Play services auth have been removed. The resolved releaseRuntimeClasspath no longer contains com.microsoft.identity, com.google.android.gms or display-mask coordinates.
+This supersedes the Google/MSAL runtime dependency descriptions below for the current implementation. Historical release notices remain as evidence for those releases. The direct dependencies on MSAL and Google Play services auth have been removed. The resolved releaseRuntimeClasspath no longer contains com.microsoft.identity, com.google.android.gms or display-mask coordinates.
 
 `net.openid:appauth:0.11.1` is provided by the OpenID Foundation under Apache License 2.0. Source and licence: https://github.com/openid/AppAuth-Android/tree/0.11.1 and https://github.com/openid/AppAuth-Android/blob/0.11.1/LICENSE. Its published POM declares androidx.browser:browser:1.3.0, androidx.appcompat:appcompat:1.3.0 and androidx.annotation:annotation:1.2.0; AndroidX components use Apache License 2.0. Resolved AndroidX versions may be raised by this app's existing dependencies. Existing project notices still apply to other components.
 
 Removing these proprietary authentication artifacts addresses that dependency path; this is not a whole-app legal certification or Google approval. Full redistribution review, OAuth verification, website policy synchronization and live-device authentication remain release gates. No licence exception or relicensing is introduced.
 
-Current local dev.2 note: `display-mask:0.3.0` is excluded from the application; earlier phase findings below describe historical builds. The current dependency changes and remaining Google SDK/GPL gate are recorded in the final section.
+Historical dev.2 note: `display-mask:0.3.0` is excluded from the application; earlier phase findings below describe historical builds. The current dependency changes and remaining Google SDK/GPL gate are recorded in the final section.
 
 BookCoverMatcher's own code is licensed under **GPL-3.0-or-later** (see `LICENSE`). The components below
 are **not** covered by that licence: they keep their own terms, and nothing in this repository's

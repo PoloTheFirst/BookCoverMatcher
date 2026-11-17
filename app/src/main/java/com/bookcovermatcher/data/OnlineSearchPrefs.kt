@@ -3,6 +3,7 @@
 package com.bookcovermatcher.data
 
 import android.content.Context
+import com.bookcovermatcher.core.online.DistributionEdition
 import com.bookcovermatcher.core.online.SearchLimits
 import com.bookcovermatcher.core.online.SearchRouting
 import com.bookcovermatcher.ocr.OcrEngineChoice
@@ -63,13 +64,13 @@ class OnlineSearchPrefs(context: Context) {
     var selectedProviders: Set<String>
         get() = SearchRouting.sanitize(sp.getStringSet(KEY_PROVIDERS, null))
         set(value) {
-            sp.edit().putStringSet(KEY_PROVIDERS, SearchRouting.sanitize(value)).apply()
+            if (DistributionEdition.catalogueEnabled) sp.edit().putStringSet(KEY_PROVIDERS, SearchRouting.sanitize(value)).apply()
         }
 
     /** Run the catalogue search straight after a successful OCR pass. */
     var autoSearch: Boolean
-        get() = sp.getBoolean(KEY_AUTO_SEARCH, true)
-        set(value) { sp.edit().putBoolean(KEY_AUTO_SEARCH, value).apply() }
+        get() = DistributionEdition.catalogueEnabled && sp.getBoolean(KEY_AUTO_SEARCH, true)
+        set(value) { if (DistributionEdition.catalogueEnabled) sp.edit().putBoolean(KEY_AUTO_SEARCH, value).apply() }
 
     /**
      * Which OCR engine READ THE COVER uses.
@@ -79,9 +80,9 @@ class OnlineSearchPrefs(context: Context) {
      * Writing normalises the value, which is the only place a legacy alias is rewritten.
      */
     var ocrEngine: String
-        get() = OcrEngineChoice.fromId(sp.getString(KEY_OCR_ENGINE, ENGINE_PYTHON)).id
+        get() = if (DistributionEdition.catalogueEnabled) OcrEngineChoice.fromId(sp.getString(KEY_OCR_ENGINE, ENGINE_PYTHON)).id else ENGINE_RUST
         set(value) {
-            sp.edit().putString(KEY_OCR_ENGINE, OcrEngineChoice.fromId(value).id).apply()
+            if (DistributionEdition.catalogueEnabled) sp.edit().putString(KEY_OCR_ENGINE, OcrEngineChoice.fromId(value).id).apply()
         }
 
     /**
@@ -93,8 +94,8 @@ class OnlineSearchPrefs(context: Context) {
      * found". DLsite (the doujin anchor) is never affected.
      */
     var secondarySources: Boolean
-        get() = sp.getBoolean(KEY_SECONDARY_SOURCES, true)
-        set(value) { sp.edit().putBoolean(KEY_SECONDARY_SOURCES, value).apply() }
+        get() = DistributionEdition.catalogueEnabled && sp.getBoolean(KEY_SECONDARY_SOURCES, true)
+        set(value) { if (DistributionEdition.catalogueEnabled) sp.edit().putBoolean(KEY_SECONDARY_SOURCES, value).apply() }
 
     companion object {
         /**

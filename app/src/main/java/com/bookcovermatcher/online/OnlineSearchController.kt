@@ -20,6 +20,7 @@ import com.bookcovermatcher.core.online.OnlineFailure
 import com.bookcovermatcher.core.online.ProductSearchDataSource
 import com.bookcovermatcher.core.online.ProductSearchOutcome
 import com.bookcovermatcher.core.online.ProductSearchResult
+import com.bookcovermatcher.core.online.DistributionEdition
 import com.bookcovermatcher.core.online.ProviderCatalog
 import com.bookcovermatcher.core.online.ProviderSpec
 import com.bookcovermatcher.core.online.SearchLimits
@@ -103,11 +104,7 @@ class OnlineSearchController(
      * [ProviderCatalog] for the browser-handoff card only (E-Hentai too, as an adult catalogue).
      * Which of these actually run is decided by the user's platform selection ([SearchRouting]).
      */
-    private val catalogues: List<ProductSearchDataSource> = listOf(
-        OpenLibraryBooksSource(),
-        GoogleBooksSource(),
-        DlsiteSource(),
-    ),
+    private val catalogues: List<ProductSearchDataSource> = CatalogueSources.create(),
     private val covers: CoverImageLoader = CoverImageLoader(),
     /**
      * The user's SauceNAO API key, encrypted with a Keystore-held key. Read at request time, never cached in a
@@ -356,6 +353,7 @@ class OnlineSearchController(
      * switched-off provider can never be reported as "searched, nothing found".
      */
     fun setSecondarySources(on: Boolean) {
+        if (!DistributionEdition.catalogueEnabled) return
         prefs.secondarySources = on
         _ui.update {
             it.copy(
@@ -686,6 +684,7 @@ class OnlineSearchController(
      * dropped: a late answer must not be shown as if it came from the new set of platforms.
      */
     fun toggleProvider(id: String) {
+        if (!DistributionEdition.catalogueEnabled) return
         val spec = ProviderCatalog.byId(id) ?: return
         // Browser-only cards are deliberately not selectable: they have no in-app search to enable.
         if (!spec.selectable) {
@@ -745,6 +744,7 @@ class OnlineSearchController(
     }
 
     fun setAutoSearch(on: Boolean) {
+        if (!DistributionEdition.catalogueEnabled) return
         prefs.autoSearch = on
         _ui.update { it.copy(autoSearch = on) }
     }
@@ -979,6 +979,7 @@ class OnlineSearchController(
      *  * an empty selection searches nothing (and says so) rather than silently querying defaults.
      */
     fun search(query: String = _ui.value.query) {
+        if (!DistributionEdition.catalogueEnabled) return
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
             onMessage("Nothing to search for - read the cover or type a title.", ToastKind.ERR)

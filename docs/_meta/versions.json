@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "current": "2.7.0-dev.2",
+  "current": "2.7.0",
   "versions": [
     {
       "id": "2.4.0",
@@ -541,6 +541,26 @@
       },
       "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
       "authorable": false
+    },
+    {
+      "id": "2.7.0",
+      "versionName": "2.7.0",
+      "versionCode": 226,
+      "root": "docs/history/android/v2.7.0",
+      "documentKey": "android-2.7.0-code226",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Approved stable prompt; owner confirmed code226 not uploaded. Source configured as 2.7.0/226 for local validation on 17 November 2026; not a released or Play-approved artifact.",
+      "authorable": true
     }
   ]
 }

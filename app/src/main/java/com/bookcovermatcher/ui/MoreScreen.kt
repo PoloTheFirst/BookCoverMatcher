@@ -46,6 +46,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bookcovermatcher.core.online.DistributionEdition
 import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.AuthorUi
 import com.bookcovermatcher.ModelUi
@@ -84,16 +85,18 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
         Panel("Online search settings") {
             SettingSwitch(
                 title = "Use online services",
-                subtitle = "Off by default. Sends the cover to Google Lens for OCR and the title to the catalogues.",
+                subtitle = if (DistributionEdition.catalogueEnabled) "Off by default. Uses the selected OCR engine and catalogue providers." else "Off by default. Enables SauceNAO and the IQDB browser handoff. OCR runs on device.",
                 checked = ui.online.enabled,
                 onChange = vm.online::setEnabled,
             )
+            if (DistributionEdition.catalogueEnabled) {
             SettingSwitch(
                 title = "Search after reading the cover",
                 subtitle = "When off, the recognised text is shown and you press Search yourself.",
                 checked = ui.online.autoSearch,
                 onChange = vm.online::setAutoSearch,
             )
+            }
             Spacer(Modifier.height(8.dp))
             LanguageField(
                 label = "OCR language (two letters, empty = detect)",
@@ -101,7 +104,7 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
                 onChange = vm.online::setOcrLanguage,
             )
             Spacer(Modifier.height(8.dp))
-            LanguageField(
+            if (DistributionEdition.catalogueEnabled) LanguageField(
                 label = "Translate to before searching (optional)",
                 value = ui.online.targetLanguage,
                 onChange = vm.online::setTargetLanguage,
@@ -111,12 +114,7 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
         Spacer(Modifier.height(14.dp))
         Panel("What runs where") {
             InfoLine("Offline matching", "On-device OpenCLIP comparison against the chosen workbook. No network.")
-            InfoLine("OCR", "Google Lens through chrome-lens-py, inside the app. Text only.")
-            InfoLine("Online search", "Open Library, Google Books and DLsite are queried with that text. Text match, not visual.")
-            InfoLine("Providers", "Eight of the eleven cards are browser-only shortcuts. Every card has its own browser link and never changes the selection.")
-            InfoLine("Providers not queried", "Melonbooks (product decision), Suruga-ya (robots.txt disallows /search/), Doujin no Mori (robots.txt disallows /comics/free-search), E-Hentai and nhentai (adult sites; robots/Cloudflare block automated access), Doujinshi.info (answers HTTP 403 to automated requests), MyAnimeList (no unauthenticated API) and Toranoana (no documented public API; 18+ catalogue). Their cards open the site's own search page and can never be selected.")
-            InfoLine("Visual cover search", "Not implemented: it requires a third-party image-similarity service and credentials the app does not ship.")
-            InfoLine("Prices / stock", "Only a DLsite listing's own current price is shown. No provider sends stock, so none is invented.")
+            EditionHelp()
         }
 
         Spacer(Modifier.height(14.dp))
@@ -177,7 +175,7 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
                 is ModelUi.Failed -> InfoLine("Image model", model.message)
             }
             InfoLine("Saved data", "folders \u2192 sessions \u2192 results; bookmarks independent")
-            InfoLine("Version", com.bookcovermatcher.BuildConfig.VERSION_NAME)
+            InfoLine("Version", com.bookcovermatcher.BuildConfig.VERSION_NAME + " · " + DistributionEdition.label)
         }
 
         Spacer(Modifier.height(14.dp))
@@ -350,6 +348,13 @@ private fun PanelsAuthor(ui: UiState, onOpenUrl: (String) -> Unit) {
             fontSize = 9.5.sp,
             modifier = Modifier.padding(top = 6.dp),
         )
+        GradientButton(
+            onClick = { onOpenUrl("https://blog.p2nd.online/apps/bookcover-matcher/") },
+            colors = Palette.NavyGradient,
+            contentColor = Palette.Text,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            minHeight = 48.dp,
+        ) { ButtonLabel("App Website", Palette.Text, 12.5f) }
     }
 }
 
@@ -449,7 +454,7 @@ private fun LanguageField(label: String, value: String, onChange: (String) -> Un
 }
 
 @Composable
-private fun InfoLine(label: String, value: String) {
+internal fun InfoLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(label, color = Palette.Accent2, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Text(value, color = Palette.Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))

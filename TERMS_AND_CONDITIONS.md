@@ -1,6 +1,6 @@
 # Terms and Conditions
 
-Document revision: 2026-11-13.2. Effective for development build 2.7.0-dev.2.
+Document revision: 2026-11-17.1. Applies to app version 2.7.0.
 
 ## The app and its developer
 

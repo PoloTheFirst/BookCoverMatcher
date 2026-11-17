@@ -59,7 +59,7 @@ class PromptUi(val id: Long, val recordId: String?, val text: String)
 // ---------------------------------------------------------------------------------------------
 
 /** Bottom-navigation destinations. Persistent data never depends on which tab is selected. */
-enum class AppTab { HOME, SEARCH, WISHLIST, MORE }
+enum class AppTab { HOME, SEARCH, WISHLIST, MORE, PLUGINS }
 
 /** The two lists of the Wishlist destination. Bookmarks is a folder, not a separate screen stack. */
 enum class WishlistSection { FOLDERS, BOOKMARKS }

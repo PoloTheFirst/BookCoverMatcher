@@ -13,22 +13,6 @@ import org.junit.Test
 /** Placeholders (sample text only) and field-level validation, in visual order. */
 class BookmarkFormTest {
 
-    @Test fun theFolderAndBookmarkPlaceholdersAreTheExactSamples() {
-        assertEquals("e.g. ブルアカ", BookmarkForm.FOLDER_NAME_PLACEHOLDER)
-        assertEquals("みつ", BookmarkForm.TITLE_PLACEHOLDER)
-        assertEquals(
-            "https://www.dlsite.com/maniax-touch/work/=/product_id/RJ01266914.html",
-            BookmarkForm.URL_PLACEHOLDER,
-        )
-    }
-
-    @Test fun theArtistCircleAndPricePlaceholdersAreTheExactSamples() {
-        assertEquals("eno", BookmarkForm.ARTIST_PLACEHOLDER)
-        assertEquals("榎屋", BookmarkForm.CIRCLE_PLACEHOLDER)
-        assertEquals("770円", BookmarkForm.PRICE_PLACEHOLDER)
-        assertEquals("先生がナギサ&サクラコとセックスします。", BookmarkForm.NOTES_PLACEHOLDER)
-    }
-
     @Test fun anEmptyNameIsReportedOnTheNameField() {
         val errors = BookmarkForm.validate("", "https://example.com/book")
 

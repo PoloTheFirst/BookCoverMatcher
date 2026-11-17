@@ -19,6 +19,7 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 
 - [docs/history/android/v2.7.0-dev.2/development/prompts/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__prompt__r01.md](history/android/v2.7.0-dev.2/development/prompts/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__prompt__r01.md)
 - [docs/history/android/v2.7.0-dev.2/development/reports/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__report__r01.md](history/android/v2.7.0-dev.2/development/reports/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__report__r01.md)
+- [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__distribution-variants__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__distribution-variants__report__r01.md)
 
 ## governance
 
@@ -48,6 +49,13 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 - [tools/ocr-reference/README.md](../tools/ocr-reference/README.md)
 - [vendor/python-wheels/README.md](../vendor/python-wheels/README.md)
 
+## policies
+
+- [docs/history/android/v2.7.0/policies/handoffs/2026-11-17__android-2.7.0-code226__policies__website-sync__handoff__r01.md](history/android/v2.7.0/policies/handoffs/2026-11-17__android-2.7.0-code226__policies__website-sync__handoff__r01.md)
+- [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__policy-apk-refresh__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__policy-apk-refresh__report__r01.md)
+- [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-approval__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-approval__report__r01.md)
+- [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-sync__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-sync__report__r01.md)
+
 ## policy-and-release
 
 - [CHANGELOG.md](../CHANGELOG.md)
@@ -60,6 +68,7 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 
 ## qa
 
+- [docs/history/android/v2.7.0/qa/reports/2026-11-17__android-2.7.0-code226__qa__signed-apk-verification__report__r01.md](history/android/v2.7.0/qa/reports/2026-11-17__android-2.7.0-code226__qa__signed-apk-verification__report__r01.md)
 
 ## reference
 
@@ -77,3 +86,9 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 ## release
 
 - [docs/history/android/v2.7.0-dev.2/release/reports/2026-11-17__android-2.7.0-dev.2-code225__release__dev2-closeout__report__r01.md](history/android/v2.7.0-dev.2/release/reports/2026-11-17__android-2.7.0-dev.2-code225__release__dev2-closeout__report__r01.md)
+- [docs/history/android/v2.7.0/release/prompts/2026-11-17__android-2.7.0-code226__release__stable-finalization__prompt__r01.md](history/android/v2.7.0/release/prompts/2026-11-17__android-2.7.0-code226__release__stable-finalization__prompt__r01.md)
+- [docs/history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md](history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md)
+
+## usage
+
+- [docs/guides/DISTRIBUTION_VARIANTS.md](guides/DISTRIBUTION_VARIANTS.md)

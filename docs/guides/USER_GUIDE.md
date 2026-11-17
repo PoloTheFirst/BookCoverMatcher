@@ -1,6 +1,6 @@
 # BookCover Matcher - User Guide (v2.6.0)
 
-This guide covers the four tabs, the saved-data rules, the batch (multi-select) actions and, since
+This guide covers the five tabs, the saved-data rules, the batch (multi-select) actions and, since
 v2.6.0, the OneDrive import and update workflow. For build instructions and architecture, see `README.md`
 and `docs/reference/ARCHITECTURE.md`.
 
@@ -715,3 +715,11 @@ Saved workbook cards and the open viewer show the importing account, link status
 **Use it now** in either cloud-import result opens that exact saved workbook, including an already-saved result, and selects it for scanning. Back returns to Saved Workbooks. Home's Saved selector still only selects a scanning source. Each cloud-import button shows its active account separately from the account recorded on older workbook copies.
 
 For older cloud copies, sign in to the account originally used and choose **Confirm source account** in Source details. Confirm only when this is the original account; the app checks access before saving the association. Signing into another account does not change existing links. Alternatively, **Choose source file to re-link** opens the relevant cloud browser and verifies identical content before changing the link. For a local copy with no location or lost access, choose **Re-link original file** and select an unchanged copy. This checks matching bytes and retains read access where supported; it never overwrites the saved workbook or original. Some document providers do not expose a full device path or persistent read access. Remove the saved entry to remove its source metadata and release unused document grants.
+
+## App Website (v2.7.0)
+
+In More > Author, choose **App Website** below **Visit GitHub Profile** to open https://blog.p2nd.online/apps/bookcover-matcher/ in your browser. The profile action still opens the author’s GitHub page. No GitHub sign-in is needed to use the app-website link.
+
+## Plugins (v2.7.0)
+
+The **Plugins** tab appears immediately after **More**, with a puzzle-piece icon, in both editions. It currently shows a placeholder: no plugins are available, and downloads/installation are not implemented. Existing providers remain in their current edition and settings; this tab does not migrate or disable them.

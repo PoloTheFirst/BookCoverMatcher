@@ -116,8 +116,8 @@ android {
         targetSdk = 36
         // 223 is 2.6.0: 222 was 2.6.0-dev.1, 221 the 2.5.0 stable release, 220 dev.5, 219 dev.4,
         // 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
-        versionCode = 225
-        versionName = "2.7.0-dev.2"
+        versionCode = 226
+        versionName = "2.7.0"
 
         // The custom-tab redirect is matched by MSAL's BrowserTabActivity intent filter. Its scheme,
         // host and path are taken from the registered Redirect_URL at build time, so no value from
@@ -155,6 +155,13 @@ android {
         keyPassword = uploadKeyValues[3]
     } else null
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") { dimension = "distribution" }
+        create("play") { dimension = "distribution" }
+    }
+    // Both editions intentionally share applicationId, version identity and signing configuration.
+    // A Play upload still requires the existing publication gate and matching app-signing certificate.
     buildTypes {
         release {
             // Shrinking is left off on purpose: ONNX Runtime uses JNI and the app is dominated by the model.
@@ -586,4 +593,13 @@ dependencies {
 // Invoke this explicit check before any publication workflow; local build tasks must remain usable.
 val verifyAuthPublicationEligibility = tasks.register("verifyAuthPublicationEligibility") {
     doLast { throw GradleException("Publication blocked: AppAuth prototype requires remaining lifecycle, policy and licensing verification. Local APK builds are allowed. See docs/integrations/APP_AUTH_PROTOTYPE.md.") }
+}
+
+tasks.register("verifyPlayPublicationEligibility") {
+    group = "verification"
+    description = "Checks the unresolved Play review gates; local builds do not imply publication approval."
+    dependsOn(verifyAuthPublicationEligibility)
+    doLast {
+        throw GradleException("Play publication blocked: retained SauceNAO/IQDB results and external links require content-policy review; declarations and signing continuity also require verification.")
+    }
 }

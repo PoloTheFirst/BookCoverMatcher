@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bookcovermatcher.core.online.DistributionEdition
 import com.bookcovermatcher.BridgeUi
 import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.OcrUi
@@ -88,8 +89,8 @@ fun OnlineSearchPanel(
             Column(Modifier.weight(1f)) {
                 Text("Use online services", color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Off by default. The cover is read by the selected OCR engine; the recognised text goes to " +
-                        "Open Library and Google Books.",
+                    if (DistributionEdition.catalogueEnabled) "Off by default. The selected OCR engine reads the cover; catalogue searches send the recognised text."
+                    else "Off by default. Reverse-image search sends your selected cover to SauceNAO. IQDB opens in your browser. OCR runs on device.",
                     color = Palette.Muted,
                     fontSize = 10.5.sp,
                 )
@@ -121,19 +122,24 @@ fun OnlineSearchPanel(
         Spacer(Modifier.height(12.dp))
         OcrSection(ui, controller)
         Spacer(Modifier.height(12.dp))
-        SecondarySourcesRow(ui, controller)
-        Spacer(Modifier.height(12.dp))
-        CatalogueSection(
-            ui = ui,
-            controller = controller,
-            onOpenUrl = onOpenUrl,
-            bookmarkedKeys = bookmarkedKeys,
-            wishlistedKeys = wishlistedKeys,
-            onToggleBookmark = onToggleBookmark,
-            onAddToWishlist = onAddToWishlist,
-            onBulkAdd = onBulkAdd,
-            onBookmarkAll = onBookmarkAll,
-        )
+        if (DistributionEdition.catalogueEnabled) {
+            SecondarySourcesRow(ui, controller)
+            Spacer(Modifier.height(12.dp))
+            CatalogueSection(
+                ui = ui,
+                controller = controller,
+                onOpenUrl = onOpenUrl,
+                bookmarkedKeys = bookmarkedKeys,
+                wishlistedKeys = wishlistedKeys,
+                onToggleBookmark = onToggleBookmark,
+                onAddToWishlist = onAddToWishlist,
+                onBulkAdd = onBulkAdd,
+                onBookmarkAll = onBookmarkAll,
+            )
+        }
+        if (!DistributionEdition.catalogueEnabled) {
+            ResultLimitPicker(ui.resultLimit, controller::setResultLimit)
+        }
         Spacer(Modifier.height(14.dp))
         ReverseImageSection(
             ui = ui,
@@ -167,7 +173,7 @@ private fun OcrEngineSection(ui: OnlineSearchUi, controller: OnlineSearchControl
     )
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (choice in OcrEngineChoice.ALL) {
+        for (choice in if (DistributionEdition.catalogueEnabled) OcrEngineChoice.ALL else listOf(OcrEngineChoice.PADDLE_OCR)) {
             EngineChip(
                 choice = choice,
                 selected = choice == selected,
@@ -308,7 +314,7 @@ private fun OcrSection(ui: OnlineSearchUi, controller: OnlineSearchController) {
             )
             Spacer(Modifier.height(6.dp))
             OcrTextField(ocr.text)
-            if (ocr.suggestion.isNotEmpty()) {
+            if (DistributionEdition.catalogueEnabled && ocr.suggestion.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier

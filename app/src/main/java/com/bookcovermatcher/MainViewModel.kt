@@ -3,6 +3,7 @@
 package com.bookcovermatcher
 
 import android.app.Activity
+import com.bookcovermatcher.core.online.DistributionPolicy
 import com.bookcovermatcher.data.googledrive.*
 import android.app.Application
 import android.net.Uri
@@ -2868,6 +2869,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 refreshLibrary()
                 return@launch
             }
+            if (!DistributionPolicy.showSavedItem(item.kind.name, item.provider)) {
+                showToast("This catalogue bookmark is preserved but unavailable in this edition.", ToastKind.INFO)
+                return@launch
+            }
             _ui.update {
                 it.copy(
                     customBookmark = CustomBookmarkUi(
@@ -3528,44 +3533,47 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         SessionKind.RESULT_PROFILE -> "Offline + online"
     }
 
-    private fun thumbFile(item: SavedItem): File? = item.thumbName?.let { wishlist.thumbFile(it) }?.takeIf { it.isFile }
+    private fun thumbFile(item: SavedItem): File? = if (!DistributionPolicy.showSavedItem(item.kind.name, item.provider)) null else item.thumbName?.let { wishlist.thumbFile(it) }?.takeIf { it.isFile }
 
-    private fun SavedItem.toUi(library: Library) = SavedItemUi(
-        id = id,
-        title = title,
-        url = url,
-        domain = sourceDomain,
-        provider = provider,
-        meta = listOfNotNull(
-            circle?.let { "circle $it" },
-            authors.joinToString(", ").ifEmpty { null },
-            identifier?.let { "id $it" },
-            cell?.let { "cell $it" },
-            percent?.let { Formatting.percent(it) + "%" },
-            price,
-            availability,
-        ).joinToString(" \u00B7 "),
-        circle = circle,
-        description = description,
-        // The card's own lines, built from the stored fields rather than from `meta`, so a saved
-        // bookmark reads exactly like the same online result did on the Search tab.
-        authors = authors,
-        identifier = identifier,
-        price = price,
-        availability = availability,
-        matchType = BookmarkPresentation.matchTypeLabel(matchType, matchTypeVerified),
-        kind = kind,
-        kindLabel = when (kind) {
-            ItemKind.WORKBOOK_MATCH -> "Workbook match"
-            ItemKind.ONLINE_RESULT -> "Online result"
-            ItemKind.MANUAL_BOOKMARK -> "Custom bookmark"
-        },
-        bookmarked = library.isBookmarked(id),
-        thumb = thumbFile(this),
-        addedText = Formatting.timestamp(createdAtMillis),
-        cell = cell,
-        percentText = percent?.let { Formatting.percent(it) + "%" },
-    )
+    private fun SavedItem.toUi(library: Library): SavedItemUi {
+        val visible = DistributionPolicy.showSavedItem(kind.name, provider)
+        return SavedItemUi(
+            id = id,
+            title = if (visible) title else "Catalogue result unavailable in this edition",
+            url = url.takeIf { visible },
+            domain = sourceDomain.takeIf { visible },
+            provider = provider.takeIf { visible },
+            meta = if (!visible) "Saved data is preserved." else listOfNotNull(
+                circle?.let { "circle $it" },
+                authors.joinToString(", ").ifEmpty { null },
+                identifier?.let { "id $it" },
+                cell?.let { "cell $it" },
+                percent?.let { Formatting.percent(it) + "%" },
+                price,
+                availability,
+            ).joinToString(" \u00B7 "),
+            circle = circle.takeIf { visible },
+            description = description.takeIf { visible },
+            // The card's own lines, built from the stored fields rather than from `meta`, so a saved
+            // bookmark reads exactly like the same online result did on the Search tab.
+            authors = if (visible) authors else emptyList(),
+            identifier = identifier.takeIf { visible },
+            price = price.takeIf { visible },
+            availability = availability.takeIf { visible },
+            matchType = BookmarkPresentation.matchTypeLabel(matchType, matchTypeVerified),
+            kind = kind,
+            kindLabel = when (kind) {
+                ItemKind.WORKBOOK_MATCH -> "Workbook match"
+                ItemKind.ONLINE_RESULT -> "Online result"
+                ItemKind.MANUAL_BOOKMARK -> "Custom bookmark"
+            },
+            bookmarked = library.isBookmarked(id),
+            thumb = thumbFile(this),
+            addedText = Formatting.timestamp(createdAtMillis),
+            cell = cell,
+            percentText = percent?.let { Formatting.percent(it) + "%" },
+        )
+    }
 
     /** One workbook match as the store sees it: cell, cosine and percent are real, the rest is not invented. */
     private fun RankedMatch.toDraft() = ItemDraft(

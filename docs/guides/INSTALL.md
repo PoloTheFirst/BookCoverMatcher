@@ -1,5 +1,11 @@
 # Installing BookCoverMatcher on a device
 
+## Current editions: 2.7.0 / code 226
+
+Use the [distribution build and signing guide](DISTRIBUTION_VARIANTS.md) for the new `play` and `github` APK paths. Both editions use the same package ID and require a matching release certificate to update an existing installation. Release builds no longer fall back to a debug signing key. Preserve app data: stop on signing incompatibility; do not uninstall or clear data.
+
+The measurements below are historical v2.5.0 troubleshooting evidence, not current filenames, hashes, sizes or signing instructions.
+
 This file exists because installing a build produced **"There was a problem parsing the package"**. Everything
 below is measured from the artifacts in this repository, not assumed. Use it to tell in one minute whether the
 problem is the APK or the device/transfer.
@@ -22,15 +28,7 @@ per-file hashes straight out of the archive.
 
 **Signing.** Both artifacts are signed with the *Android Debug* certificate configured in
 `app/build.gradle.kts`, so on this machine either installs over the other. A debug keystore is
-machine-local: an APK built elsewhere will not replace this one, and Android then reports the same
-"app not installed" / parsing error. Uninstall first:
-
-> ```powershell
-> adb uninstall com.bookcovermatcher
-> adb install -r app\build\outputs\apk\release\app-release.apk
-> ```
->
-> On a phone without adb: long-press the app icon → *Uninstall* → then install the APK again.
+machine-local: an APK built elsewhere may not replace this historical installation. For current editions, compare the actual certificates and stop if they differ. Rebuild using the correct existing key; uninstalling would remove local app data and is not an update strategy.
 
 ## 2. Check the APK before blaming the phone
 

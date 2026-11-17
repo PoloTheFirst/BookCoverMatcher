@@ -72,7 +72,6 @@ class SessionCacheMessageTest {
 
     @Test
     fun theFolderPlaceholderCarriesTheExamplePrefix() {
-        assertEquals("e.g. ブルアカ", BookmarkForm.FOLDER_NAME_PLACEHOLDER)
         assertTrue(BookmarkForm.FOLDER_NAME_PLACEHOLDER.startsWith("e.g. "))
         // A placeholder, never a value: nothing but the sample text itself.
         assertFalse(BookmarkForm.FOLDER_NAME_PLACEHOLDER.contains("Doujinshi"))

@@ -19,13 +19,13 @@ object BookmarkForm {
      * [FOLDER_NAME_PLACEHOLDER] is shared by both folder-creation entry points — Wishlist → Create
      * folder and Search → Add entire result profile — so the two dialogs cannot drift apart again.
      */
-    const val FOLDER_NAME_PLACEHOLDER = "e.g. ブルアカ"
-    const val TITLE_PLACEHOLDER = "みつ"
-    const val URL_PLACEHOLDER = "https://www.dlsite.com/maniax-touch/work/=/product_id/RJ01266914.html"
-    const val ARTIST_PLACEHOLDER = "eno"
-    const val CIRCLE_PLACEHOLDER = "榎屋"
-    const val PRICE_PLACEHOLDER = "770円"
-    const val NOTES_PLACEHOLDER = "先生がナギサ&サクラコとセックスします。"
+    const val FOLDER_NAME_PLACEHOLDER = BookmarkExamples.FOLDER_NAME_PLACEHOLDER
+    const val TITLE_PLACEHOLDER = BookmarkExamples.TITLE_PLACEHOLDER
+    const val URL_PLACEHOLDER = BookmarkExamples.URL_PLACEHOLDER
+    const val ARTIST_PLACEHOLDER = BookmarkExamples.ARTIST_PLACEHOLDER
+    const val CIRCLE_PLACEHOLDER = BookmarkExamples.CIRCLE_PLACEHOLDER
+    const val PRICE_PLACEHOLDER = BookmarkExamples.PRICE_PLACEHOLDER
+    const val NOTES_PLACEHOLDER = BookmarkExamples.NOTES_PLACEHOLDER
 
     /**
      * Field -> message, in visual order. **Every** invalid field is reported in one pass (the form shows

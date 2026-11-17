@@ -122,7 +122,7 @@ def check_license(root: Path) -> None:
 
 
 def eligible(rel: str) -> bool:
-    if rel in EXCLUDED_FILES or any(rel.startswith(p) for p in EXCLUDED_PREFIXES):
+    if ".idea" in Path(rel).parts or rel in EXCLUDED_FILES or any(rel.startswith(p) for p in EXCLUDED_PREFIXES):
         return False
     return Path(rel).suffix.lower() in CODE_EXTENSIONS
 
