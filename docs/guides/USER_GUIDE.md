@@ -722,4 +722,4 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-The **Plugins** tab appears immediately after **More**, with a puzzle-piece icon, in both editions. It currently shows a placeholder: no plugins are available, and downloads/installation are not implemented. Existing providers remain in their current edition and settings; this tab does not migrate or disable them.
+Open **Plugins** to the right of **More**. In a debug build, enable **Demo card** to see “Hello from BCM” immediately. Turn the switch off to hide it. The app remembers the switch after you leave or restart. Release builds currently show “No plugins available yet”. See [bundled plugins](BUNDLED_PLUGINS.md) for development instructions.

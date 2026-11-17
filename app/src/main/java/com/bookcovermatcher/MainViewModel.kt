@@ -5,6 +5,9 @@ package com.bookcovermatcher
 import android.app.Activity
 import com.bookcovermatcher.core.online.DistributionPolicy
 import com.bookcovermatcher.data.googledrive.*
+import com.bookcovermatcher.plugins.PluginManager
+import com.bookcovermatcher.plugins.bundledPlugins
+import com.bookcovermatcher.plugins.PluginSettings
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -134,6 +137,12 @@ import kotlinx.coroutines.withContext
  * Counterpart of v1's `main.js`, `auto-scan.js` and `wishlist.js` state handling.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
+    internal val plugins = PluginManager(
+        bundledPlugins,
+        PluginSettings(File(app.filesDir, "plugin-settings")),
+        viewModelScope,
+    )
+
 
     private val prefs = Prefs(app)
     private val modelStore = ModelStore(app)

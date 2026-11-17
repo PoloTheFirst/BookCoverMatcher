@@ -64,6 +64,14 @@ Added Plugins immediately after More in both 2.7.0/code226 editions, using a pro
 
 Owner authorized committing and pushing the reviewed v2.7.0 source checkpoint to google_play, then continuing on feature/plugin-framework. This checkpoint includes the pending stable baseline, separate distribution variants and shared Plugins placeholder. Main must remain unchanged; no tags, hosted releases, binary uploads or Google submissions are authorized. Downloadable plugins remain deferred. Local IDE settings, generated APK metadata, build artifacts and untracked QA logs are excluded from the source commit.
 
+## Plugin framework plan (18 November 2026)
+
+Prepared a draft plan on feature/plugin-framework based on pushed google_play commit c2141f4. Proposed scope: bundled Kotlin module contract/registry, independent persisted toggles, StateFlow-driven immediate activation/deactivation and a debug-only local demo. Existing providers/storage/signing remain unchanged; production has no real plugins yet. .kt is implementation source and .aar a build-time Android library; .bcmplugin is only a possible later data-package extension, not a chosen executable import format. Implementation awaits approval. No app code change, build, device operation, commit, push or publication in this planning task.
+
+## Bundled plugin framework implementation
+
+Approved and implemented locally on feature/plugin-framework for 2.7.0/226. Both debug editions offer a live Demo card switch and persist choices in an independent store. Release APKs exclude the demo and have empty registries. Both debug/release builds, debug unit suites, lint and API36 live-toggle/restart checks passed. The app retains its signing configuration, workbook data model and provider inventories. See the plugin-framework implementation report and bundled plugin developer guide.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

@@ -559,6 +559,8 @@ tasks.withType<Test>().configureEach {
 
 
 dependencies {
+    implementation(project(":plugin-api"))
+    debugImplementation(project(":plugins:demo"))
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     implementation(libs.androidx.compose.ui)

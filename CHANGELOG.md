@@ -6,7 +6,7 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 
 ### Added
 
-- Plugins tab with a puzzle icon after More in both editions; plugin downloads and installation are deferred.
+- Plugins tab after More supports live switches for bundled plugins. The debug demo card appears immediately and remembers its setting across restarts. Both release editions currently have an empty plugin list.
 
 - Separate GitHub and Play build variants: GitHub retains all providers; Play retains SauceNAO/IQDB while excluding public catalogue discovery and shortcuts.
 

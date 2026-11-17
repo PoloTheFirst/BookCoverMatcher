@@ -16,7 +16,7 @@ Existing catalogue bookmarks are retained in storage but displayed as unavailabl
 
 ## Plugins navigation
 
-Both editions include **Plugins** immediately after **More**, with a puzzle icon. In 2.7.0 this is an informational placeholder; downloads, installation and runtime plugin loading are deferred. Existing providers are unchanged. The shared tab passed debug build/lint and API36 emulator navigation checks for both editions on 18 November 2026.
+Both editions include **Plugins** immediately after **More**, with a puzzle icon. Debug builds bundle a local demo with a live switch. Release builds register zero plugins. See the [bundled plugin guide](BUNDLED_PLUGINS.md) for the developer contract and activation behavior.
 
 ## Build and verify locally
 
