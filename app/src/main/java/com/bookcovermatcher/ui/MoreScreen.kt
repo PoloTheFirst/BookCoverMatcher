@@ -183,6 +183,8 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
         Spacer(Modifier.height(14.dp))
         PanelsLicence(onOpenUrl)
         Spacer(Modifier.height(12.dp))
+        PolicyControls(onOpenUrl)
+        Spacer(Modifier.height(12.dp))
         PanelsAuthor(ui, onOpenUrl)
     }
 }
@@ -230,9 +232,8 @@ private fun PanelsLicence(onOpenUrl: (String) -> Unit) {
  * The Author section (v2.6.0): the GitHub identity, the bundled profile picture, the bundled profile README
  * rendered as Markdown, and a button that opens the profile.
  *
- * Everything here reads from the APK's own assets. Opening this page never contacts GitHub, so the section is
- * complete offline; only the two explicit link actions use the network, and they go through the app's
- * HTTPS-only external-link handler.
+ * Bundled/cached content is readable offline. The ViewModel separately refreshes public author content at
+ * startup; opening this section does not itself initiate that refresh. External links use the HTTPS handler.
  */
 @Composable
 private fun PanelsAuthor(ui: UiState, onOpenUrl: (String) -> Unit) {

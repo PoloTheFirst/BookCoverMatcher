@@ -20,6 +20,26 @@ class GoogleDriveTransportTest {
         override fun getInputStream() = ByteArrayInputStream(body.toByteArray())
     }
 
+    @Test fun tokenSourceIsConsultedForEveryRequestAndFailurePreventsNetwork() = runBlocking {
+        var calls = 0
+        var requests = 0
+        var denied = false
+        val source = GoogleDriveSource(tokenSource = AccessTokenSource {
+            calls++
+            if (denied) TokenResult.Failure(AuthFailure.INTERACTION_REQUIRED)
+            else TokenResult.Success(AccessToken.of("fresh-$calls"))
+        }) { url ->
+            requests++
+            Connection(url, 200, "{\"files\":[]}")
+        }
+        assertTrue(source.listFolder(null) is RemoteResult.Ok)
+        assertTrue(source.listFolder(null) is RemoteResult.Ok)
+        denied = true
+        assertTrue(source.listFolder(null) is RemoteResult.Err)
+        assertEquals(3, calls)
+        assertEquals(2, requests)
+    }
+
     @Test fun noRequestIsMadeWithoutAuthorization() = runBlocking {
         val source = GoogleDriveSource { error("Must not connect without token") }
         assertEquals(RemoteFailure.AuthRequired, (source.listFolder(null) as RemoteResult.Err).failure)

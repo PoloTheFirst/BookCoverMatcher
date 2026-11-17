@@ -223,7 +223,7 @@ class OneDriveSessionTest {
         assertFalse("the temporary file never survives", downloader.partFileFor(item).exists())
     }
 
-    @Test fun aLocallyImportedWorkbookGainsTheOneDriveSourceButKeepsItsIdentity() = runBlocking {
+    @Test fun aLocallyImportedWorkbookKeepsItsOriginalProvenance() = runBlocking {
         val bytes = workbookBytes()
         val local = (library.import(bytes.inputStream(), "covers.xlsx", now = 100L)
             as com.bookcovermatcher.data.ImportResult.Added).workbook
@@ -236,8 +236,8 @@ class OneDriveSessionTest {
         assertEquals("the existing entry is reused, not duplicated", local.id, result.workbookId)
         assertEquals(1, library.list().size)
         val linked = library.byId(local.id)!!
-        assertEquals("a local entry gains the source it never had", WorkbookOrigin.ONEDRIVE, linked.origin)
-        assertEquals("01ABCDEF!12", linked.remote?.itemId)
+        assertEquals("duplicate content preserves the local source", WorkbookOrigin.LOCAL, linked.origin)
+        assertNull(linked.remote)
         assertEquals("its own name is untouched", "covers.xlsx", linked.displayName)
         assertEquals("its import time is untouched", 100L, linked.importedAt)
     }

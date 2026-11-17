@@ -111,7 +111,8 @@ private fun Header(state: GoogleDriveUi, vm: MainViewModel) {
 private fun SignInPanel(state: GoogleDriveUi, vm: MainViewModel, activity: Activity?) {
     Text(
         "BookCoverMatcher copies the workbook from your Google Drive into its own storage. The Google Drive " +
-            "file is never modified, and the app asks only for read access.",
+            "file is never modified, and the app asks only for read access. " +
+            "After importing, Rescan checks for updates and asks before replacing your saved copy.",
         color = Palette.Muted,
         fontSize = 10.sp,
     )
@@ -274,7 +275,7 @@ private fun ImportedPanel(state: GoogleDriveUi, vm: MainViewModel) {
     Text(imported.displayName, color = Palette.Text, fontSize = 11.sp, maxLines = 2)
     Text(
         if (imported.alreadySaved) {
-            "The same file was already saved; its existing source is unchanged."
+            "The same file was already saved. Source details show its recorded link."
         } else {
             "A private copy is on this device. Opening it never needs a connection."
         },

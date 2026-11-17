@@ -75,11 +75,11 @@ object RemoteDiagnostics {
         val host = uri.host ?: return "-"
         val scheme = uri.scheme?.lowercase() ?: "https"
         val path = uri.path.orEmpty().ifEmpty { "/" }
-        return "$scheme://$host${path.replace(ITEM_ID_SEGMENT, "/items/{id}/")}"
+        return "$scheme://$host${path.replace(ITEM_ID_SEGMENT, "/items/{id}")}"
     }
 
     /** `/items/<anything>/` → `/items/{id}/`. Anything else is left exactly as it is. */
-    private val ITEM_ID_SEGMENT = Regex("/items/[^/]+/")
+    private val ITEM_ID_SEGMENT = Regex("/items/[^/]+(?=/|$)")
 
     /**
      * A single Graph-supplied token (an error code or a request id), bounded and stripped of anything that

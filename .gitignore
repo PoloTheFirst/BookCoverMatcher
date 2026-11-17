@@ -46,3 +46,6 @@ test_excel/doujin.xlsx
 # app/build.gradle.kts). It is a *packaged* MSAL resource — public application identifiers only —
 # but it is still generated, so it stays out of source control.
 app/src/main/res/raw/msal_config_default.json
+
+# Private documentation migration snapshots/journals (never commit).
+/.documentation-backups/

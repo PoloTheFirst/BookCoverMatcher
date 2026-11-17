@@ -83,7 +83,7 @@ class GoogleDriveImportTest {
                 val reloaded = WorkbookLibrary(dir)
                 val saved = reloaded.byId(result.workbookId)!!
                 assertEquals(WorkbookOrigin.GOOGLE_DRIVE, saved.origin)
-                assertNull(saved.remote)
+                assertEquals("same-id", saved.remote?.itemId)
                 assertArrayEquals(source.content, reloaded.fileOf(saved).readBytes())
                 assertFalse(dir.listFiles().orEmpty().any { it.name.endsWith(".part") })
             } finally { dir.deleteRecursively() }
@@ -135,4 +135,62 @@ class GoogleDriveImportTest {
             } finally { dir.deleteRecursively() }
         }
     }
+    @Test fun googleUpdateChecksMetadataWithoutDownloadAndPreservesProvider() = runBlocking {
+        val dir = Files.createTempDirectory("google-update").toFile()
+        try {
+            val library = WorkbookLibrary(dir)
+            val source = FakeRemoteWorkbookSource().apply { content = workbook() }
+            val monitor = FakeConnectivityMonitor(true)
+            val first = RemoteItem("drive-file", "book.xlsx", false, eTag = "v1")
+            val imported = GoogleDriveSession(source, monitor, library, SafeWorkbookDownload(dir))
+                .importItem(first) as GoogleDriveImportOutcome.Imported
+            val entry = library.byId(imported.workbookId)!!
+            val updates = com.bookcovermatcher.data.onedrive.OneDriveUpdateSession(source, monitor, library,
+                SafeWorkbookDownload(dir), provider = WorkbookOrigin.GOOGLE_DRIVE)
+            source.probeResult = RemoteResult.Ok(RemoteState.Present(first))
+            val downloads = source.downloadRequests
+            assertTrue(updates.check(entry) is com.bookcovermatcher.data.onedrive.RemoteCheck.Unchanged)
+            assertEquals(downloads, source.downloadRequests)
+            updates.recordUnchanged(entry, first)
+            assertEquals(WorkbookOrigin.GOOGLE_DRIVE, library.byId(entry.id)!!.origin)
+            val newer = first.copy(eTag = "v2")
+            source.probeResult = RemoteResult.Ok(RemoteState.Present(newer))
+            assertTrue(updates.check(entry) is com.bookcovermatcher.data.onedrive.RemoteCheck.Changed)
+            updates.recordCheckedOnly(entry, newer)
+            assertEquals("v1", library.byId(entry.id)!!.remote!!.eTag)
+            assertTrue(updates.apply(entry, newer) is com.bookcovermatcher.data.onedrive.UpdateOutcome.SameContent)
+            assertEquals(WorkbookOrigin.GOOGLE_DRIVE, library.byId(entry.id)!!.origin)
+            assertEquals("v2", library.byId(entry.id)!!.remote!!.eTag)
+            source.content = workbook() + byteArrayOf(1, 2, 3)
+            assertTrue(updates.apply(library.byId(entry.id)!!, newer.copy(eTag = "v3")) is com.bookcovermatcher.data.onedrive.UpdateOutcome.Applied)
+            assertEquals(WorkbookOrigin.GOOGLE_DRIVE, library.byId(entry.id)!!.origin)
+            val saved = library.fileOf(entry).readBytes()
+            source.downloadFailure = RemoteFailure.AuthExpired
+            assertTrue(updates.apply(library.byId(entry.id)!!, newer) is com.bookcovermatcher.data.onedrive.UpdateOutcome.Failed)
+            assertArrayEquals(saved, library.fileOf(entry).readBytes())
+        } finally { dir.deleteRecursively() }
+    }
+
+    @Test fun legacyGoogleAndLocalCopiesAreNotSilentlyRelinked() = runBlocking {
+        for (origin in listOf(WorkbookOrigin.LOCAL, WorkbookOrigin.GOOGLE_DRIVE)) {
+            val dir = Files.createTempDirectory("google-link").toFile()
+            try {
+                val library = WorkbookLibrary(dir)
+                val original = (library.import(workbook().inputStream(), "book.xlsx", origin = origin) as ImportResult.Added).workbook
+                val source = FakeRemoteWorkbookSource().apply { content = workbook() }
+                GoogleDriveSession(source, FakeConnectivityMonitor(true), library, SafeWorkbookDownload(dir))
+                    .importItem(RemoteItem("remote-id", "book.xlsx", false))
+                val after = library.byId(original.id)!!
+                assertEquals(origin, after.origin)
+                assertNull(after.remote)
+            } finally { dir.deleteRecursively() }
+        }
+    }
+
+    @Test fun contentFingerprintIgnoresMetadataOnlyVersionChange() {
+        val first = GoogleDriveFiles.item(metadata("book.xlsx") + mapOf("version" to "1", "md5Checksum" to "same"))!!
+        val second = GoogleDriveFiles.item(metadata("book.xlsx") + mapOf("version" to "2", "md5Checksum" to "same"))!!
+        assertEquals(first.eTag, second.eTag)
+    }
+
 }

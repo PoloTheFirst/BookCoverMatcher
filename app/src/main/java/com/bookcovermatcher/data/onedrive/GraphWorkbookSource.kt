@@ -71,7 +71,10 @@ class GraphWorkbookSource(
                     RemoteResult.Err(response.failure)
                 }
             }
-            when (val parsed = GraphJson.item((response as GraphHttp.JsonOutcome.Body).text)) {
+            val body = (response as GraphHttp.JsonOutcome.Body).text
+            val metadata = runCatching { com.bookcovermatcher.core.wishlist.MiniJson.parse(body) as? Map<*, *> }.getOrNull()
+            if (metadata?.get("deleted") is Map<*, *>) return@withContext RemoteResult.Ok(RemoteState.Deleted)
+            when (val parsed = GraphJson.item(body)) {
                 is RemoteResult.Ok -> RemoteResult.Ok(RemoteState.Present(parsed.value))
                 is RemoteResult.Err -> if (parsed.failure == RemoteFailure.NotFound) {
                     RemoteResult.Ok(RemoteState.Missing)

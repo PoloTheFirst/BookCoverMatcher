@@ -277,6 +277,10 @@ data class UiState(
     val comments: WorkbookCommentsUi = WorkbookCommentsUi(),
 
     /** The Saved workbooks library (v2.3.0): app-managed copies, pin/recency, storage sizes. */
+    val openWorkbookId: String? = null,
+    val sourceChecks: Map<String, com.bookcovermatcher.data.SourceObservation> = emptyMap(),
+    val googleAccount: com.bookcovermatcher.core.remote.SourceAccount? = null,
+    val microsoftAccount: com.bookcovermatcher.core.remote.SourceAccount? = null,
     val savedWorkbooks: List<com.bookcovermatcher.data.SavedWorkbook> = emptyList(),
     val libraryOpen: Boolean = false,
     /** Home/Search source picker: choose an already-imported workbook to scan (v2.3.0). */

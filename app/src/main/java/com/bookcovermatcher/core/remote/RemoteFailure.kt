@@ -23,6 +23,9 @@ sealed interface RemoteFailure {
     /** There is an account, but its tokens can no longer be renewed silently. */
     data object AuthExpired : RemoteFailure
 
+    /** File delivery was rejected; this does not establish that the Graph login expired. */
+    data object DownloadUnavailable : RemoteFailure
+
     /** The service asked us to slow down; [retryAfterSeconds] is its `Retry-After` when it sent one. */
     data class Throttled(val retryAfterSeconds: Long? = null) : RemoteFailure
 
@@ -122,6 +125,7 @@ fun RemoteFailure.isRetryable(): Boolean = when (this) {
     // The request and the file were fine; the answer was not understood. A second attempt is cheap and
     // a proxy or a half-written page can genuinely succeed next time.
     RemoteFailure.UnexpectedResponse,
+    RemoteFailure.DownloadUnavailable,
     -> true
 
     RemoteFailure.AuthRequired,
@@ -150,6 +154,8 @@ fun RemoteFailure.message(): String = when (this) {
         "Sign in with a personal Microsoft account to use OneDrive."
     RemoteFailure.AuthExpired ->
         "Your OneDrive sign-in expired. Sign in again to check for changes."
+    RemoteFailure.DownloadUnavailable ->
+        "OneDrive could not deliver this file. Try again later or import a downloaded copy. Your saved workbooks are unchanged."
     is RemoteFailure.Throttled ->
         if (retryAfterSeconds != null) {
             "OneDrive is busy. Try again in about $retryAfterSeconds second(s)."

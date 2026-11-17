@@ -34,7 +34,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REPORT = ROOT / "historical_prompt/gpl-v3-retag-report.csv"
+REPORT = ROOT / "docs/history/cross-version/licensing/evidence/gpl-v3-retag-report.csv"
 
 IDENTIFIER = "SPDX-License-Identifier: GPL-3.0-or-later"
 

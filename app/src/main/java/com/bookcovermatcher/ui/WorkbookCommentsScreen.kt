@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -77,7 +78,7 @@ import com.bookcovermatcher.ui.theme.Palette
 fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
     val state = ui.comments
     val controller = vm.comments
-    BackHandler { controller.close() }
+    BackHandler { vm.closeWorkbookComments() }
 
     var pendingExport by remember { mutableStateOf<String?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
@@ -97,7 +98,10 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize().background(Palette.Navy800)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            CommentsHeader(state, controller, vm::rescanOpenWorkbook)
+            CommentsHeader(state, vm::closeWorkbookComments, vm::rescanOpenWorkbook)
+            ui.savedWorkbooks.firstOrNull { it.id == ui.openWorkbookId }?.let {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) { WorkbookSourceInfo(it, ui, vm) }
+            }
             // Two lines per directory entry: the name on top, its count underneath. The count is a
             // separate Text, so opening or reloading a spreadsheet cannot push it out of the entry, and a
             // zero is still shown (`0 errors`) instead of disappearing.
@@ -197,43 +201,28 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
         // The explicit remote check of a saved OneDrive workbook (v2.6.0-dev.1 Phase 5): the question
         // before any download, and the progress of the replacement itself.
         RemoteUpdateDialogs(ui, vm)
+        OneDriveBrowserDialog(ui, vm)
+        GoogleDriveBrowserDialog(ui, vm)
     }
 }
 
 @Composable
-private fun CommentsHeader(state: WorkbookCommentsUi, controller: WorkbookCommentsController, onRescan: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("Workbook comments", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Text(
-                state.workbookName + if (state.model?.fromCache == true) " \u00B7 cached" else "",
-                color = Palette.Muted, fontSize = 10.5.sp,
-            )
+private fun CommentsHeader(state: WorkbookCommentsUi, onClose: () -> Unit, onRescan: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 8.dp)) {
+        Text("Workbook comments", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        Text(state.workbookName + if (state.model?.fromCache == true) " · cached" else "",
+            color = Palette.Muted, fontSize = 10.5.sp)
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
+            GradientButton(onClick = onRescan, colors = Palette.NavyGradient, contentColor = Palette.Text,
+                modifier = Modifier.widthIn(min = 96.dp), minHeight = 48.dp) {
+                Text("Rescan", color = Palette.Text, fontSize = 11.sp)
+            }
+            Spacer(Modifier.width(6.dp))
+            GradientButton(onClick = onClose, colors = Palette.GreyGradient, contentColor = Palette.Text,
+                modifier = Modifier.widthIn(min = 96.dp), minHeight = 48.dp) {
+                Text("Back", color = Palette.Text, fontSize = 11.sp)
+            }
         }
-        // No global "Sheets" button: the worksheet picker is opened from the section that filters by it
-        // (Comments, Images, Catalogue), because a single button in the shared header implied a filter that
-        // applied to every directory — including the ones that keep their own independent worksheet scope.
-        //
-        // Rescan goes through the ViewModel (v2.6.0-dev.1 Phase 5) so a saved OneDrive workbook can be
-        // checked remotely first; a local workbook reaches exactly the same reload it always used.
-        GradientButton(
-            onClick = onRescan,
-            colors = Palette.NavyGradient,
-            contentColor = Palette.Text,
-            modifier = Modifier.width(84.dp),
-            minHeight = 36.dp,
-        ) { ButtonLabel("Rescan", Palette.Text, 11f) }
-        Spacer(Modifier.width(6.dp))
-        GradientButton(
-            onClick = controller::close,
-            colors = Palette.GreyGradient,
-            contentColor = Palette.Text,
-            modifier = Modifier.width(64.dp),
-            minHeight = 36.dp,
-        ) { ButtonLabel("Back", Palette.Text, 11f) }
     }
 }
 

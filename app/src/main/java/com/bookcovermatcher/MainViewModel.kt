@@ -32,6 +32,8 @@ import com.bookcovermatcher.core.remote.AuthState
 import android.util.Log
 import androidx.compose.ui.graphics.asImageBitmap
 import com.bookcovermatcher.core.remote.RemoteDiagnostics
+import com.bookcovermatcher.core.remote.RemoteResult
+import com.bookcovermatcher.core.remote.RemoteState
 import com.bookcovermatcher.core.remote.RemoteFailure
 import com.bookcovermatcher.core.remote.RemoteItem
 import com.bookcovermatcher.core.remote.RemoteNotices
@@ -70,6 +72,10 @@ import com.bookcovermatcher.data.CommentImageCache
 import com.bookcovermatcher.data.ImportResult
 import com.bookcovermatcher.data.ModelStore
 import com.bookcovermatcher.data.Prefs
+import com.bookcovermatcher.data.LocalWorkbookSource
+import com.bookcovermatcher.data.LocalOrigin
+import com.bookcovermatcher.data.SourceObservation
+import com.bookcovermatcher.data.WorkbookSourceStatus
 import com.bookcovermatcher.data.SavedWorkbook
 import com.bookcovermatcher.data.StagedWorkbook
 import com.bookcovermatcher.data.WorkbookFiles
@@ -83,7 +89,7 @@ import com.bookcovermatcher.data.author.DecodedImage
 import com.bookcovermatcher.data.author.HttpAuthorRemote
 import com.bookcovermatcher.core.author.AuthorProfile
 import com.bookcovermatcher.data.onedrive.GraphWorkbookSource
-import com.bookcovermatcher.data.onedrive.MsalOneDriveAuth
+import com.bookcovermatcher.data.auth.BrowserAuthSessions
 import com.bookcovermatcher.data.onedrive.OneDriveAuth
 import com.bookcovermatcher.data.onedrive.OneDriveBrowse
 import com.bookcovermatcher.data.onedrive.OneDriveImportOutcome
@@ -180,16 +186,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * The downloader writes `*.part` files into the library directory: the library ignores files it did
      * not record, so a partial download is invisible to it, and the file is deleted after the commit.
      */
-    private val googleDriveSource = GoogleDriveSource()
+    private val googleDriveSource = GoogleDriveSource(tokenSource = BrowserAuthSessions.google)
     private val googleDriveSession = GoogleDriveSession(
         googleDriveSource, connectivity, library,
         SafeWorkbookDownload(File(app.filesDir, "google-drive-downloads")),
+        account = { BrowserAuthSessions.google.account },
+        generation = { BrowserAuthSessions.google.generation },
     )
+    private val googleDriveUpdates = OneDriveUpdateSession(
+        googleDriveSource, connectivity, library,
+        SafeWorkbookDownload(File(app.filesDir, "google-drive-updates")),
+        provider = WorkbookOrigin.GOOGLE_DRIVE,
+        mayAccess = ::mayCheckSource,
+        generation = { BrowserAuthSessions.google.generation },
+    )
+    private fun updatesFor(entry: SavedWorkbook) =
+        if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE) googleDriveUpdates else oneDriveUpdates
+    private fun providerText(entry: SavedWorkbook, text: String) =
+        if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE) text.replace("OneDrive", "Google Drive")
+            .replace("personal Microsoft account", "Google account") else text
+
     private var googleDriveAuthorizationWait: Job? = null
     private var googleDriveJob: Job? = null
     private var googleDriveSeq = 0L
 
-    private val oneDriveAuth: OneDriveAuth = MsalOneDriveAuth(app)
+    private val oneDriveAuth: OneDriveAuth = BrowserAuthSessions.microsoft
     private val oneDriveSource: RemoteWorkbookSource = GraphWorkbookSource(oneDriveAuth)
 
     /** The one downloader both OneDrive flows use: `*.part` files in the library directory. */
@@ -200,6 +221,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         connectivity = connectivity,
         library = library,
         downloader = downloads,
+        account = { BrowserAuthSessions.microsoft.account },
+        generation = { BrowserAuthSessions.microsoft.generation },
     )
 
     /**
@@ -227,6 +250,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         connectivity = connectivity,
         library = library,
         downloader = downloads,
+        mayAccess = ::mayCheckSource,
+        generation = { BrowserAuthSessions.microsoft.generation },
     )
 
     /** The one OneDrive operation in flight: a listing page, or a download+import. */
@@ -310,6 +335,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var lastAdd: LastAdd? = null
 
 
+    private val sourceJobs = mutableMapOf<String, Job>()
+    private var sourceEpoch = 0L
+    private var relinkCloudTarget: String? = null
+
     init {
         // Safe OneDrive diagnostics (v2.6.0-dev.1 crash-fix-5): stage, sanitized endpoint path, HTTP
         // status and Graph's own error code. Never a header, a token, a body, an account or a file name.
@@ -345,14 +374,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // ever touching MSAL. Only a user-facing label crosses over — never a token.
         viewModelScope.launch {
             oneDriveAuth.state.collect { auth ->
+                invalidateSourceChecks()
                 _ui.update { state ->
                     state.copy(
+                        microsoftAccount = BrowserAuthSessions.microsoft.account,
                         oneDrive = state.oneDrive.copy(
                             signedIn = auth is AuthState.SignedIn,
                             accountLabel = labelOf(auth),
+                            expired = auth is AuthState.Expired,
                         ),
                     )
                 }
+            }
+        }
+        viewModelScope.launch {
+            BrowserAuthSessions.google.state.collect { auth ->
+                invalidateSourceChecks()
+                _ui.update { state -> state.copy(
+                    googleAccount = BrowserAuthSessions.google.account,
+                    googleDrive = state.googleDrive.copy(signedIn = auth is AuthState.SignedIn,
+                        accountLabel = labelOf(auth), expired = auth is AuthState.Expired),
+                ) }
             }
         }
         viewModelScope.launch {
@@ -663,10 +705,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             showToast("Choose a workbook on Home first.", ToastKind.INFO)
             return
         }
+        _ui.update { it.copy(openWorkbookId = wb.entryId) }
         comments.open(wb.file, wb.sha256, wb.displayName)
+        wb.entryId?.let(::checkWorkbookSource)
     }
 
-    fun closeWorkbookComments() = comments.close()
+    fun closeWorkbookComments() {
+        invalidateSourceChecks()
+        _ui.update { it.copy(openWorkbookId = null) }
+        comments.close()
+    }
 
     // =====================================================================================
     // Saved workbooks (v2.3.0)
@@ -735,6 +783,172 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+
+    private fun authFor(entry: SavedWorkbook) =
+        if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE) BrowserAuthSessions.google else BrowserAuthSessions.microsoft
+
+    private fun sourceProblem(entry: SavedWorkbook): String? = WorkbookSourceStatus.accountProblem(
+        entry, authFor(entry).account, authFor(entry).state.value is AuthState.SignedIn,
+    )
+
+    private fun mayCheckSource(entry: SavedWorkbook): Boolean {
+        val current = library.byId(entry.id) ?: return false
+        return entry.origin != WorkbookOrigin.LOCAL && entry.remote != null && sourceProblem(entry) == null &&
+            current.origin == entry.origin && current.remote?.itemId == entry.remote.itemId &&
+            current.remote?.accountKey == entry.remote.accountKey
+    }
+
+    private fun invalidateSourceChecks() {
+        sourceEpoch++
+        sourceJobs.values.forEach { it.cancel() }
+        sourceJobs.clear()
+        rescanSeq++
+        rescanJob?.cancel()
+        _ui.update { it.copy(sourceChecks = emptyMap(), remoteUpdate = it.remoteUpdate.settled().copy(offer = null)) }
+    }
+
+    /** A metadata-only probe, independent of opening/reading the offline copy. */
+    fun checkWorkbookSource(id: String) {
+        val entry = library.byId(id) ?: return
+        sourceJobs.remove(id)?.cancel()
+        val epoch = sourceEpoch
+        val session = authFor(entry)
+        val generation = session.generation
+        sourceJobs[id] = viewModelScope.launch {
+            _ui.update { it.copy(sourceChecks = it.sourceChecks + (id to SourceObservation("Checking source…"))) }
+            val result = if (entry.origin == WorkbookOrigin.LOCAL) {
+                entry.local?.let { withContext(Dispatchers.IO) { LocalWorkbookSource(getApplication()).check(it) } }
+                    ?: SourceObservation("Unlinked · original location not recorded")
+            } else {
+                val problem = sourceProblem(entry)
+                if (problem != null) SourceObservation(problem)
+                else if (!connectivity.isUsableNow()) SourceObservation(WorkbookSourceStatus.failure(RemoteFailure.Offline))
+                else {
+                    val source = if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE) googleDriveSource else oneDriveSource
+                    val probed = try { source.probe(entry.remote!!.itemId) }
+                        catch (e: CancellationException) { throw e }
+                        catch (_: Exception) { RemoteResult.Err(RemoteFailure.UnexpectedResponse) }
+                    val stamp = System.currentTimeMillis()
+                    when (probed) {
+                        is RemoteResult.Err -> SourceObservation(WorkbookSourceStatus.failure(probed.failure), stamp)
+                        is RemoteResult.Ok -> when (probed.value) {
+                            RemoteState.Missing -> SourceObservation("File unavailable (missing or inaccessible)", stamp)
+                            RemoteState.Deleted -> SourceObservation("Deleted from drive (in trash)", stamp)
+                            is RemoteState.Present -> {
+                                val item = (probed.value as RemoteState.Present).item
+                                val path = if (entry.origin == WorkbookOrigin.ONEDRIVE && item.path.isNotBlank())
+                                    item.path.trimEnd('/') + "/" + item.name else null
+                                SourceObservation("Linked · source available", stamp, verified = true, path = path)
+                            }
+                        }
+                    }
+                }
+            }
+            val currentSource = library.byId(id) ?: return@launch
+            if (epoch != sourceEpoch || generation != session.generation || currentSource.origin != entry.origin ||
+                currentSource.remote?.itemId != entry.remote?.itemId || currentSource.remote?.accountKey != entry.remote?.accountKey ||
+                currentSource.local?.uri != entry.local?.uri) return@launch
+            if (result.verified) {
+                val current = library.byId(id)
+                current?.remote?.let { library.setRemote(id, it.copy(checkedAt = result.checkedAt, path = result.path ?: it.path), current.origin) }
+                refreshSavedWorkbooks()
+            }
+            _ui.update { it.copy(sourceChecks = it.sourceChecks + (id to result)) }
+        }
+    }
+
+    fun chooseCloudSource(id: String) {
+        val entry = library.byId(id) ?: return
+        if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE) openGoogleDriveBrowser() else openOneDriveBrowser()
+        relinkCloudTarget = id
+        showToast("Choose the unchanged original to re-link this saved workbook.", ToastKind.INFO)
+    }
+    /** Explicit confirmation for legacy links, never automatic migration to the current account. */
+    fun confirmSourceAccount(id: String) {
+        val entry = library.byId(id) ?: return
+        val remote = entry.remote ?: return
+        if (remote.accountKey != null) return
+        val session = authFor(entry)
+        val identity = session.account ?: run {
+            showToast("Sign in to the source account first.", ToastKind.INFO); return
+        }
+        val generation = session.generation
+        val epoch = sourceEpoch
+        viewModelScope.launch {
+            val source = if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE) googleDriveSource else oneDriveSource
+            val probed = source.probe(remote.itemId)
+            if (generation != session.generation || epoch != sourceEpoch || library.byId(id)?.remote != remote) return@launch
+            if (probed is RemoteResult.Ok && probed.value is RemoteState.Present) {
+                library.setRemote(id, remote.copy(accountKey = identity.key, accountLabel = identity.label), entry.origin)
+                refreshSavedWorkbooks()
+                checkWorkbookSource(id)
+            } else showToast("Could not verify this source in the selected account. Nothing was linked.", ToastKind.INFO)
+        }
+    }
+
+    /** Re-selecting a local original must prove identical content; it never replaces the saved bytes. */
+    fun relinkLocalWorkbook(id: String, uri: Uri) {
+        if (_ui.value.libraryBusy) return
+        val entry = library.byId(id)?.takeIf { it.origin == WorkbookOrigin.LOCAL } ?: return
+        _ui.update { it.copy(libraryBusy = true) }
+        viewModelScope.launch {
+            try {
+                val linked = withContext(Dispatchers.IO) {
+                    val app = getApplication<Application>()
+                    val digest = java.security.MessageDigest.getInstance("SHA-256")
+                    val input = app.contentResolver.openInputStream(uri) ?: return@withContext false
+                    input.use { stream ->
+                        val buffer = ByteArray(64 * 1024)
+                        var size = 0L
+                        while (true) {
+                            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                            val count = stream.read(buffer)
+                            if (count < 0) break
+                            size += count
+                            if (size > entry.sizeBytes) return@withContext false
+                            digest.update(buffer, 0, count)
+                        }
+                    }
+                    val hash = digest.digest().joinToString("") { "%02x".format(it) }
+                    if (hash != entry.sha256 || library.byId(id)?.sha256 != entry.sha256) return@withContext false
+                    val local = LocalWorkbookSource(app)
+                    val source = local.capture(uri, WorkbookFiles.displayName(app, uri))
+                    val saved = library.setLocal(id, source) != null
+                    if (!saved) local.releaseIfUnused(source.uri, library.list())
+                    else entry.local?.let { local.releaseIfUnused(it.uri, library.list()) }
+                    saved
+                }
+                showToast(if (linked) "Original file linked." else "Select an unchanged copy of this workbook. Nothing was linked.", ToastKind.INFO)
+                refreshSavedWorkbooks()
+                checkWorkbookSource(id)
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { showToast("The original could not be linked. The saved copy is unchanged.", ToastKind.ERR) }
+            finally { _ui.update { it.copy(libraryBusy = false) } }
+        }
+    }
+
+    private fun useImportedWorkbookNow(id: String) {
+        if (_ui.value.workbookLoading) return
+        _ui.update { it.copy(workbookLoading = true) }
+        viewModelScope.launch {
+            try {
+                val entry = library.byId(id) ?: error("That workbook is no longer saved.")
+                val file = library.fileOf(entry)
+                withContext(Dispatchers.IO) { openWorkbook(file).close() }
+                staged = StagedWorkbook(file, entry.displayName, file.length(), entry.sha256, entryId = id)
+                _ui.update { it.copy(
+                    workbook = WorkbookUi(entry.displayName, Formatting.fileSize(file.length())),
+                    libraryOpen = true,
+                    oneDrive = it.oneDrive.copy(imported = null, open = false),
+                    googleDrive = it.googleDrive.copy(imported = null, open = false),
+                ) }
+                openSavedWorkbook(id)
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { showToast("The saved workbook could not be opened. Try importing it again.", ToastKind.ERR) }
+            finally { _ui.update { it.copy(workbookLoading = false) } }
+        }
+    }
+
     fun refreshSavedWorkbooks() {
         viewModelScope.launch {
             val list = withContext(Dispatchers.IO) { library.list() }
@@ -744,18 +958,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Copies a picked workbook into app storage; the original file is never modified. */
-    fun importWorkbook(uri: Uri) {
+    fun importWorkbook(uri: Uri, validateDocument: Boolean = false) {
         if (_ui.value.libraryBusy) return
         _ui.update { it.copy(libraryBusy = true) }
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
+            val result = try { withContext(Dispatchers.IO) {
                 val app = getApplication<Application>()
                 val name = WorkbookFiles.displayName(app, uri)
                 val input = app.contentResolver.openInputStream(uri)
                 if (input == null) ImportResult.Rejected("The selected file could not be opened.")
-                else library.import(input, name)
+                else input.use {
+                    val imported = if (validateDocument) com.bookcovermatcher.data.DocumentWorkbookImport.import(it, name, app.cacheDir, library)
+                        else library.import(it, name)
+                    if (imported is ImportResult.Added) {
+                        val local = LocalWorkbookSource(app)
+                        val source = local.capture(uri, name)
+                        if (library.setLocal(imported.workbook.id, source) == null)
+                            local.releaseIfUnused(source.uri, library.list())
+                    }
+                    imported
+                }
+            } } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                ImportResult.Rejected("The selected file could not be copied. Check the file provider and try again.")
+            } finally {
+                _ui.update { it.copy(libraryBusy = false) }
             }
-            _ui.update { it.copy(libraryBusy = false) }
             when (result) {
                 is ImportResult.Added -> showToast("Saved \"${result.workbook.displayName}\".", ToastKind.OK)
                 is ImportResult.AlreadySaved ->
@@ -778,10 +1007,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             showToast("The saved copy is missing; import the workbook again.", ToastKind.ERR)
             return
         }
+        invalidateSourceChecks()
+        _ui.update { it.copy(openWorkbookId = id) }
         library.touch(id)
         comments.open(file, entry.sha256, entry.displayName, importedAt = entry.importedAt)
         watchSummary(id)
         refreshSavedWorkbooks()
+        checkWorkbookSource(id)
     }
 
     /** Waits for the first parse of an opened workbook and stores its counts in the library index. */
@@ -809,7 +1041,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun removeSavedWorkbook(id: String) {
         val entry = library.byId(id) ?: return
         val (entryRemoved, fileDeleted) = library.remove(id)
-        if (entryRemoved) CommentImageCache(commentsCacheDir).remove(entry.sha256)
+        if (entryRemoved) {
+            invalidateSourceChecks()
+            if (_ui.value.openWorkbookId == id) closeWorkbookComments()
+            entry.local?.let { LocalWorkbookSource(getApplication()).releaseIfUnused(it.uri, library.list()) }
+            CommentImageCache(commentsCacheDir).remove(entry.sha256)
+        }
         val message = when {
             !entryRemoved -> "The workbook was already gone."
             fileDeleted -> "Removed \"${entry.displayName}\" and its saved copy."
@@ -853,6 +1090,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * asks for it — opening the panel never pops an account prompt on its own.
      */
     fun openOneDriveBrowser() {
+        relinkCloudTarget = null
         if (_ui.value.oneDrive.downloading) return
         _ui.update {
             it.copy(oneDrive = it.oneDrive.copy(open = true, error = null, canRetry = false, imported = null))
@@ -887,6 +1125,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Closes the browser and stops whatever was in flight. A running download is cancelled. */
     fun closeOneDriveBrowser() {
+        relinkCloudTarget = null
         // Advancing the sequence first means the cancelled job cannot write anything after this point.
         oneDriveSeq++
         oneDriveJob?.cancel()
@@ -973,18 +1212,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Enters a folder row. Only the folder's **id** is used; its name is display only. */
     fun openGoogleDriveBrowser() {
+        relinkCloudTarget = null
         googleDriveSeq++
         googleDriveJob?.cancel()
-        _ui.update { it.copy(googleDrive = GoogleDriveUi(open = true)) }
-        googleDriveSource.token = null
+        val connected = BrowserAuthSessions.google.state.value is AuthState.SignedIn
+        _ui.update { it.copy(googleDrive = GoogleDriveUi(open = true, signedIn = connected, accountLabel = labelOf(BrowserAuthSessions.google.state.value))) }
+        if (connected) loadGoogleDrivePage(GoogleDriveBrowse.root(), false)
     }
 
     fun closeGoogleDriveBrowser() {
+        relinkCloudTarget = null
+        BrowserAuthSessions.google.cancelPending()
         googleDriveAuthorizationWait?.cancel()
         googleDriveSeq++
         googleDriveJob?.cancel()
-        googleDriveSource.token = null
-        _ui.update { it.copy(googleDrive = GoogleDriveUi()) }
+        _ui.update { it.copy(googleDrive = GoogleDriveUi(signedIn = BrowserAuthSessions.google.state.value is AuthState.SignedIn, accountLabel = labelOf(BrowserAuthSessions.google.state.value))) }
     }
 
     fun signInToGoogleDrive(activity: Activity?) {
@@ -1021,6 +1263,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun signOutOfGoogleDrive() {
+        BrowserAuthSessions.google.clear()
+        googleDriveSource.token = null
         closeGoogleDriveBrowser()
         openGoogleDriveBrowser()
     }
@@ -1096,7 +1340,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun importGoogleDriveFile(itemId: String) {
         val state = _ui.value.googleDrive
-        val item = state.browse.files.firstOrNull { it.id == itemId } ?: return
+        val selected = state.browse.files.firstOrNull { it.id == itemId } ?: return
+        val item = selected.copy(path = state.browse.path.joinToString("/") { it.name } + "/" + selected.name)
         if (state.downloading || state.busy) return
         googleDriveJob?.cancel()
         googleDriveJob = viewModelScope.launch {
@@ -1112,7 +1357,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             val outcome = try {
-                googleDriveSession.importItem(item) { progress ->
+                googleDriveSession.importItem(item, relinkId = relinkCloudTarget) { progress ->
                     if (seq == googleDriveSeq) {
                         _ui.update { current ->
                             val shown = current.googleDrive.download ?: return@update current
@@ -1135,6 +1380,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (seq != googleDriveSeq) return@launch
             when (outcome) {
                 is GoogleDriveImportOutcome.Imported -> {
+                    relinkCloudTarget = null
                     _ui.update {
                         it.copy(
                             googleDrive = it.googleDrive.copy(
@@ -1181,8 +1427,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** `Use it now`: the existing saved-workbook flow, unchanged — the local copy is the source. */
     fun useGoogleDriveImportNow() {
         val imported = _ui.value.googleDrive.imported ?: return
-        useSavedWorkbook(imported.workbookId)
-        _ui.update { it.copy(googleDrive = it.googleDrive.copy(imported = null, open = false)) }
+        useImportedWorkbookNow(imported.workbookId)
     }
 
     /** Dismiss the "saved" panel without opening the workbook. */
@@ -1296,7 +1541,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun importOneDriveFile(itemId: String) {
         val state = _ui.value.oneDrive
-        val item = state.browse.files.firstOrNull { it.id == itemId } ?: return
+        val selected = state.browse.files.firstOrNull { it.id == itemId } ?: return
+        val item = selected.copy(path = state.browse.path.joinToString("/") { it.name } + "/" + selected.name)
         if (state.downloading || state.busy) return
         oneDriveJob?.cancel()
         oneDriveJob = viewModelScope.launch {
@@ -1312,7 +1558,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             val outcome = try {
-                oneDriveSession.importItem(item) { progress ->
+                oneDriveSession.importItem(item, relinkId = relinkCloudTarget) { progress ->
                     if (seq == oneDriveSeq) {
                         _ui.update { current ->
                             val shown = current.oneDrive.download ?: return@update current
@@ -1335,6 +1581,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (seq != oneDriveSeq) return@launch
             when (outcome) {
                 is OneDriveImportOutcome.Imported -> {
+                    relinkCloudTarget = null
                     _ui.update {
                         it.copy(
                             oneDrive = it.oneDrive.copy(
@@ -1381,8 +1628,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** `Use it now`: the existing saved-workbook flow, unchanged — the local copy is the source. */
     fun useOneDriveImportNow() {
         val imported = _ui.value.oneDrive.imported ?: return
-        useSavedWorkbook(imported.workbookId)
-        _ui.update { it.copy(oneDrive = it.oneDrive.copy(imported = null, open = false)) }
+        useImportedWorkbookNow(imported.workbookId)
     }
 
     /** Dismiss the "saved" panel without opening the workbook. */
@@ -1453,13 +1699,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * downloaded only after the user says yes.
      */
     fun rescanOpenWorkbook() {
-        val workbook = staged ?: return
+        val viewedId = _ui.value.openWorkbookId
         if (!_ui.value.remoteUpdate.canRescan) return
         if (rescanJob?.isActive == true) return
 
-        val entry = workbook.entryId?.let { id -> library.byId(id) }
+        val entry = viewedId?.let { id -> library.byId(id) }
+        if (entry != null) checkWorkbookSource(entry.id)
         val remote = entry?.remote
-        if (entry == null || entry.origin != WorkbookOrigin.ONEDRIVE || remote == null) {
+        if (entry != null && entry.origin != WorkbookOrigin.LOCAL && !mayCheckSource(entry)) {
+            comments.reload()
+            showToast(sourceProblem(entry) ?: "Verify the source account first.", ToastKind.INFO)
+            return
+        }
+        if (entry == null || entry.origin == WorkbookOrigin.LOCAL || remote == null) {
             // Local behaviour, unchanged.
             comments.reload()
             return
@@ -1469,7 +1721,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         rescanJob = viewModelScope.launch {
             _ui.update { it.copy(remoteUpdate = it.remoteUpdate.copy(checking = true)) }
             val check = try {
-                oneDriveUpdates.check(entry)
+                updatesFor(entry).check(entry)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1484,10 +1736,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (seq != rescanSeq) return@launch
             when (check) {
                 is RemoteCheck.Unchanged -> {
-                    oneDriveUpdates.recordUnchanged(entry, check.remote)
+                    updatesFor(entry).recordUnchanged(entry, check.remote)
                     refreshSavedWorkbooks()
                     reloadLocalWorkbook()
-                    showToast("Up to date with OneDrive.", ToastKind.OK)
+                    showToast(providerText(entry, "Up to date with OneDrive."), ToastKind.OK)
                 }
                 is RemoteCheck.Changed -> {
                     // Nothing is downloaded and nothing is reloaded yet: the question comes first.
@@ -1498,7 +1750,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                                     workbookId = entry.id,
                                     displayName = entry.displayName,
                                     remote = check.remote,
-                                    text = RemoteUpdatePrompt.text(check.remote),
+                                    text = providerText(entry, RemoteUpdatePrompt.text(check.remote)),
                                 ),
                             ),
                         )
@@ -1507,15 +1759,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 RemoteCheck.Missing -> {
                     reloadLocalWorkbook()
                     // Only a genuine NOT_FOUND / Missing reaches here, so the deletion wording is honest.
-                    showToast(RemoteNotices.missing(), ToastKind.ERR)
+                    showToast("File unavailable (missing or inaccessible). The saved copy is unchanged.", ToastKind.INFO)
                 }
                 RemoteCheck.Unknown -> {
                     reloadLocalWorkbook()
-                    showToast(RemoteNotices.UNKNOWN_CHECK, ToastKind.INFO)
+                    showToast(providerText(entry, RemoteNotices.UNKNOWN_CHECK), ToastKind.INFO)
                 }
                 is RemoteCheck.Failed -> {
                     reloadLocalWorkbook()
-                    onCheckFailed(check.failure)
+                    onCheckFailed(check.failure, entry)
                 }
             }
         }
@@ -1529,11 +1781,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * the local copy has already been reloaded by the caller either way — a failed check never costs the
      * user their workbook.
      */
-    private fun onCheckFailed(failure: RemoteFailure) {
+    private fun onCheckFailed(failure: RemoteFailure, entry: SavedWorkbook) {
         if (failure == RemoteFailure.AuthRequired || failure == RemoteFailure.AuthExpired) {
-            _ui.update { it.copy(oneDrive = it.oneDrive.copy(signedIn = false)) }
+            _ui.update { if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE)
+                it.copy(googleDrive = it.googleDrive.copy(signedIn = false))
+                else it.copy(oneDrive = it.oneDrive.copy(signedIn = false)) }
         }
-        showToast(RemoteNotices.forCheck(failure), ToastKind.ERR)
+        showToast(providerText(entry, RemoteNotices.forCheck(failure)), ToastKind.ERR)
     }
 
     /** The existing local rescan path: same bytes, same hash, re-parsed from disk. */
@@ -1558,6 +1812,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
 
+        if (!mayCheckSource(entry) || offer.remote.id != entry.remote?.itemId) {
+            _ui.update { it.copy(remoteUpdate = it.remoteUpdate.copy(offer = null)) }
+            showToast(sourceProblem(entry) ?: "Verify the source account first.", ToastKind.INFO)
+            return
+        }
         val seq = ++rescanSeq
         rescanJob = viewModelScope.launch {
             _ui.update {
@@ -1573,7 +1832,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             val outcome = try {
-                oneDriveUpdates.apply(entry, offer.remote) { progress ->
+                updatesFor(entry).apply(entry, offer.remote) { progress ->
                     if (seq == rescanSeq) {
                         _ui.update { current ->
                             val shown = current.remoteUpdate.download ?: return@update current
@@ -1605,13 +1864,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 is UpdateOutcome.Applied -> {
                     installUpdatedWorkbook(outcome.workbook)
                     refreshSavedWorkbooks()
-                    showToast("Updated \"${outcome.workbook.displayName}\" from OneDrive.", ToastKind.OK)
+                    showToast("Updated \"${outcome.workbook.displayName}\" from ${if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE) "Google Drive" else "OneDrive"}.", ToastKind.OK)
                 }
                 is UpdateOutcome.SameContent -> {
                     // OneDrive's bytes matched ours; only the metadata moved, so nothing is re-opened.
                     refreshSavedWorkbooks()
                     reloadLocalWorkbook()
-                    showToast("OneDrive's copy is the same; the saved copy was not changed.", ToastKind.INFO)
+                    showToast(providerText(entry, "OneDrive's copy is the same; the saved copy was not changed."), ToastKind.INFO)
                 }
                 is UpdateOutcome.Rejected -> {
                     reloadLocalWorkbook()
@@ -1623,10 +1882,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         outcome.failure == RemoteFailure.AuthExpired
                     ) {
                         // Signing in again is the only way forward, and the panel is where that happens.
-                        _ui.update { it.copy(oneDrive = it.oneDrive.copy(signedIn = false)) }
+                        _ui.update { if (entry.origin == WorkbookOrigin.GOOGLE_DRIVE)
+                it.copy(googleDrive = it.googleDrive.copy(signedIn = false))
+                else it.copy(oneDrive = it.oneDrive.copy(signedIn = false)) }
                     }
                     showToast(
-                        RemoteNotices.forDownload(outcome.failure, offer.displayName),
+                        providerText(entry, RemoteNotices.forDownload(outcome.failure, offer.displayName)),
                         ToastKind.ERR,
                     )
                 }
@@ -1642,10 +1903,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun declineRemoteUpdate() {
         val offer = _ui.value.remoteUpdate.offer ?: return
         _ui.update { it.copy(remoteUpdate = it.remoteUpdate.copy(offer = null)) }
-        library.byId(offer.workbookId)?.let { entry -> oneDriveUpdates.recordCheckedOnly(entry, offer.remote) }
+        library.byId(offer.workbookId)?.let { entry -> updatesFor(entry).recordCheckedOnly(entry, offer.remote) }
         refreshSavedWorkbooks()
         reloadLocalWorkbook()
-        showToast("Kept the saved copy. OneDrive's newer version was not downloaded.", ToastKind.INFO)
+        showToast("Kept the saved copy. The cloud version was not downloaded.", ToastKind.INFO)
     }
 
     /**
@@ -1672,7 +1933,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun installUpdatedWorkbook(entry: SavedWorkbook) {
         val file = library.fileOf(entry)
         staged = StagedWorkbook(file, entry.displayName, entry.sizeBytes, entry.sha256, entryId = entry.id)
-        _ui.update { it.copy(workbook = WorkbookUi(entry.displayName, Formatting.fileSize(entry.sizeBytes))) }
+        _ui.update { it.copy(workbook = WorkbookUi(entry.displayName, Formatting.fileSize(entry.sizeBytes)), openWorkbookId = entry.id) }
         comments.open(file, entry.sha256, entry.displayName, importedAt = entry.importedAt)
     }
 

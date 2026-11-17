@@ -44,6 +44,7 @@ data class GoogleDriveUi(
     val signedIn: Boolean = false,
     /** The account name Google authorization reports for the signed-in user. User-facing only; never logged. */
     val accountLabel: String? = null,
+    val expired: Boolean = false,
     /** A folder listing is in flight (the first page). */
     val busy: Boolean = false,
     /** An interactive sign-in is in flight. */

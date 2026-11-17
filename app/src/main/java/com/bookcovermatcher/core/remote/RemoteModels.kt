@@ -32,6 +32,8 @@ data class RemoteListing(
 sealed interface RemoteState {
     data class Present(val item: RemoteItem) : RemoteState
     data object Missing : RemoteState
+    /** Affirmative provider tombstone/trash state, distinct from a generic 404. */
+    data object Deleted : RemoteState
 }
 
 /** Result of one remote call: a value, or the reason it is not there. */

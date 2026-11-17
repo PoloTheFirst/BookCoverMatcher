@@ -14,8 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
  * and download cannot start an interactive sign-in, cannot read an account name and cannot sign out.
  * Only the UI uses the rest, and it must pass the Activity it is running in.
  *
- * The implementation owns no token storage of its own: MSAL's encrypted cache is the only place a token
- * lives, and [AuthState] deliberately carries no token at all.
+ * The current AppAuth prototype keeps credentials in memory only. [AuthState] carries no token.
  */
 interface OneDriveAuth : AccessTokenSource {
 
@@ -23,15 +22,15 @@ interface OneDriveAuth : AccessTokenSource {
     val state: StateFlow<AuthState>
 
     /**
-     * Starts an interactive sign-in from [activity] (an Activity is what MSAL needs to launch the
+     * Starts an interactive sign-in from [activity] (an Activity is what the browser bridge needs to launch the
      * browser and receive the redirect). Returns the resulting state; a cancelled sign-in is a state,
      * not an exception.
      */
     suspend fun signIn(activity: Activity?): AuthState
 
-    /** Drops the account from MSAL's cache. Saved workbooks are never touched by this. */
+    /** Clears the active authentication session. Saved workbooks are never touched by this. */
     suspend fun signOut()
 
-    /** Re-reads the cached account without any network call, so the UI can show who is signed in. */
+    /** Refreshes the local session state without any network call, so the UI can show who is signed in. */
     suspend fun refreshState()
 }

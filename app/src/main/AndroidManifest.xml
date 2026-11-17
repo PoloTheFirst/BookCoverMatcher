@@ -5,8 +5,8 @@
 
     <!--
       The camera is the only permission the offline matcher needs. INTERNET exists solely for the
-      features that are opt-in or that the user starts explicitly; with them off the app makes no
-      request at all — the hosts it may contact are listed in ONLINE_SEARCH.md, not enumerated here,
+      online features and the automatic public Author-content refresh at startup;
+      the hosts it may contact are listed in ONLINE_SEARCH.md, not enumerated here,
       because this comment drifted out of date the last time a provider was added.
 
       ACCESS_NETWORK_STATE (v2.6.0) lets the app read the default network's capabilities, so it can
@@ -46,7 +46,7 @@
           (its own activities, INTERNET and ACCESS_NETWORK_STATE) arrives through manifest merging.
         -->
         <activity
-            android:name="com.microsoft.identity.client.BrowserTabActivity"
+            android:name="net.openid.appauth.RedirectUriReceiverActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -58,5 +58,6 @@
                     android:scheme="${azureRedirectScheme}" />
             </intent-filter>
         </activity>
+        <activity android:name=".data.auth.BrowserAuthActivity" android:exported="false" />
     </application>
 </manifest>

@@ -13,6 +13,7 @@ import kotlinx.coroutines.*
 
 /** Read-only My Drive transport. Tokens are memory-only and never enter persisted/UI state. */
 class GoogleDriveSource(
+    private val tokenSource: AccessTokenSource? = null,
     private val connectionFactory: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection },
 ) : RemoteWorkbookSource {
     @Volatile var token: String? = null
@@ -23,7 +24,7 @@ class GoogleDriveSource(
             val params = linkedMapOf(
                 "q" to "'$parent' in parents and trashed = false",
                 "spaces" to "drive", "pageSize" to "100", "orderBy" to "folder,name",
-                "fields" to "nextPageToken,files(id,name,mimeType,size,modifiedTime,capabilities(canDownload))",
+                "fields" to "nextPageToken,files(id,name,mimeType,size,modifiedTime,version,md5Checksum,capabilities(canDownload))",
             )
             if (pageToken != null) params["pageToken"] = pageToken
             val data = json("files?" + params.entries.joinToString("&") { enc(it.key) + "=" + enc(it.value) })
@@ -37,9 +38,10 @@ class GoogleDriveSource(
 
     override suspend fun probe(itemId: String): RemoteResult<RemoteState> = withContext(Dispatchers.IO) {
         try {
-            val data = json("files/${enc(itemId)}?fields=id,name,mimeType,size,modifiedTime,trashed,capabilities(canDownload)")
+            val data = json("files/${enc(itemId)}?fields=id,name,mimeType,size,modifiedTime,version,md5Checksum,trashed,capabilities(canDownload)")
             val item = GoogleDriveFiles.item(data)
-            if (item == null || data["trashed"] == true) RemoteResult.Ok(RemoteState.Missing)
+            if (data["trashed"] == true) RemoteResult.Ok(RemoteState.Deleted)
+            else if (item == null) RemoteResult.Err(RemoteFailure.InvalidWorkbook)
             else RemoteResult.Ok(RemoteState.Present(item))
         } catch (e: CancellationException) { throw e }
         catch (e: DriveFailure) { RemoteResult.Err(e.failure) }
@@ -81,8 +83,12 @@ class GoogleDriveSource(
         // Sink IO failures propagate to SafeWorkbookDownload, which distinguishes storage exhaustion.
     }
 
-    private fun connect(path: String): HttpURLConnection {
-        val accessToken = token ?: throw DriveFailure(RemoteFailure.AuthRequired)
+    private suspend fun connect(path: String): HttpURLConnection {
+        val accessToken = if (tokenSource == null) token ?: throw DriveFailure(RemoteFailure.AuthRequired)
+        else when (val result = tokenSource.accessToken()) {
+            is TokenResult.Success -> result.token.reveal()
+            is TokenResult.Failure -> throw DriveFailure(result.failure.toRemoteFailure())
+        }
         return connectionFactory(URL("https://www.googleapis.com/drive/v3/$path")).apply {
             instanceFollowRedirects = false
             connectTimeout = 20_000
@@ -105,7 +111,7 @@ class GoogleDriveSource(
         if (failure != null) throw DriveFailure(failure)
     }
 
-    private fun json(path: String): Map<*, *> {
+    private suspend fun json(path: String): Map<*, *> {
         val connection = connect(path)
         try {
             checkStatus(connection)
@@ -143,6 +149,9 @@ object GoogleDriveFiles {
         if (!folder && (data["capabilities"] as? Map<*, *>)?.get("canDownload") == false) return null
         if (data["trashed"] == true) return null
         return RemoteItem(id, name, folder,
+            eTag = (data["md5Checksum"] as? String)?.let { "md5:$it" }
+                ?: data["version"]?.toString()?.let { "version:$it" },
+            cTag = data["md5Checksum"] as? String,
             sizeBytes = data["size"]?.toString()?.toLongOrNull(),
             lastModified = (data["modifiedTime"] as? String)?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
         )

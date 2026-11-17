@@ -103,9 +103,9 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                     colors = Palette.NavyGradient,
                     contentColor = Palette.Text,
                     modifier = Modifier.weight(1f),
-                    minHeight = 36.dp,
+                    minHeight = 48.dp,
                     enabled = !ui.libraryBusy && ui.oneDrive.entryEnabled,
-                ) { Text("From OneDrive", color = Palette.Text, fontSize = 11.sp) }
+                ) { CloudImportLabel("OneDrive", ui.oneDrive.accountLabel, ui.oneDrive.signedIn, ui.oneDrive.expired, ui.oneDrive.signingIn) }
                 Spacer(Modifier.width(8.dp))
                 GradientButton(
                     onClick = vm::openGoogleDriveBrowser,
@@ -113,8 +113,8 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                     contentColor = Palette.Text,
                     modifier = Modifier.weight(1f),
                     minHeight = 48.dp,
-                    enabled = !ui.libraryBusy && ui.googleDrive.entryEnabled,
-                ) { Text("From Google Drive", color = Palette.Text, fontSize = 11.sp) }
+                    enabled = !ui.libraryBusy,
+                ) { CloudImportLabel("Google Drive", ui.googleDrive.accountLabel, ui.googleDrive.signedIn, ui.googleDrive.expired, ui.googleDrive.signingIn) }
                 }
 
             }
@@ -150,6 +150,8 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
                     items(ui.savedWorkbooks, key = { it.id }) { entry ->
                         LibraryRow(
                             entry = entry,
+                            ui = ui,
+                            vm = vm,
                             selectedForComparison = ui.comparison.isSelected(entry.id),
                             onOpen = { vm.openSavedWorkbook(entry.id) },
                             onCompare = { vm.toggleComparisonSelection(entry.id) },
@@ -199,6 +201,8 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
 @Composable
 private fun LibraryRow(
     entry: SavedWorkbook,
+    ui: UiState,
+    vm: MainViewModel,
     selectedForComparison: Boolean,
     onOpen: () -> Unit,
     onCompare: () -> Unit,
@@ -234,6 +238,7 @@ private fun LibraryRow(
             "${entry.originalName} \u00B7 ${entry.format.uppercase()} \u00B7 ${Formatting.fileSize(entry.sizeBytes)}",
             color = Palette.Muted, fontSize = 9.5.sp, maxLines = 1,
         )
+        WorkbookSourceInfo(entry, ui, vm)
         Text(
             entry.lastOpenedAt?.let { "Last opened ${stamp(it)}" } ?: "Never opened in this app",
             color = Palette.Muted, fontSize = 9.sp,

@@ -25,8 +25,8 @@ Both functions return an **envelope** rather than raising::
 Raising instead would force Kotlin to classify failures by matching text inside a ``PyException``
 traceback, which is exactly how one bug was reported as one generic message. ``error_code`` is a
 stable machine-readable category (see ERROR_CODES), ``error_message`` is safe to show, and
-``error_detail`` is the Python traceback for the developer log only. No image data appears in any
-of the three.
+``error_detail`` is retained only in the in-process error envelope. It may contain
+provider details and must never be written to logs.
 """
 
 import asyncio

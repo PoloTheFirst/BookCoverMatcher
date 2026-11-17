@@ -97,18 +97,27 @@ val azureRedirectForManifest = azureEnvValues()["Redirect_URL"]?.takeIf { it.isN
     ?: azurePlaceholderValues.getValue("Redirect_URL")
 val azureRedirectParts = redirectParts(azureRedirectForManifest)
 
+// Public native-client identifiers only. Never package a client secret or the .env file.
+val googleNativeClient = azureEnvValues()["GOOGLE_OAUTH_CLIENT_ID"].orEmpty()
+require(googleNativeClient.isEmpty() || googleNativeClient.matches(Regex("[A-Za-z0-9-]+\\.apps\\.googleusercontent\\.com"))) {
+    "GOOGLE_OAUTH_CLIENT_ID must be a Google Android OAuth client ID."
+}
+val googleRedirectScheme = if (googleNativeClient.isEmpty()) "com.bookcovermatcher.google.unconfigured"
+    else "com.googleusercontent.apps." + googleNativeClient.removeSuffix(".apps.googleusercontent.com")
+fun configString(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 android {
     namespace = "com.bookcovermatcher"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = appPackageName
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // 223 is 2.6.0: 222 was 2.6.0-dev.1, 221 the 2.5.0 stable release, 220 dev.5, 219 dev.4,
         // 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
-        versionCode = 224
-        versionName = "2.7.0-dev.1"
+        versionCode = 225
+        versionName = "2.7.0-dev.2"
 
         // The custom-tab redirect is matched by MSAL's BrowserTabActivity intent filter. Its scheme,
         // host and path are taken from the registered Redirect_URL at build time, so no value from
@@ -119,6 +128,12 @@ android {
         manifestPlaceholders["azureRedirectHost"] = azureRedirectParts.second
         manifestPlaceholders["azureRedirectPath"] = azureRedirectParts.third
 
+        manifestPlaceholders["appAuthRedirectScheme"] = googleRedirectScheme
+        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", configString(googleNativeClient))
+        buildConfigField("String", "GOOGLE_OAUTH_REDIRECT", configString("$googleRedirectScheme:/oauth2redirect"))
+        buildConfigField("String", "MICROSOFT_OAUTH_CLIENT_ID", configString(azureEnvValues()["Application_ID"].orEmpty()))
+        buildConfigField("String", "MICROSOFT_OAUTH_REDIRECT", configString(azureRedirectForManifest))
+
         // ONNX Runtime ships four ABIs (~15 MB each). Real phones are arm64-v8a;
         // x86_64 keeps the emulator working. Add "armeabi-v7a" for old 32-bit phones.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
@@ -126,12 +141,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Optional production upload key supplied by the owner outside source control.
+    // Missing configuration produces an unsigned release, never a debug-signed store artifact.
+    val uploadKeyNames = listOf("BCM_UPLOAD_STORE_FILE", "BCM_UPLOAD_STORE_PASSWORD", "BCM_UPLOAD_KEY_ALIAS", "BCM_UPLOAD_KEY_PASSWORD")
+    val uploadKeyValues = uploadKeyNames.map { providers.environmentVariable(it).orNull }
+    if (uploadKeyValues.any { !it.isNullOrBlank() } && uploadKeyValues.any { it.isNullOrBlank() }) {
+        throw GradleException("Upload signing configuration is incomplete; supply all four BCM_UPLOAD_* environment variables.")
+    }
+    val uploadSigning = if (uploadKeyValues.all { !it.isNullOrBlank() }) signingConfigs.create("upload") {
+        storeFile = file(uploadKeyValues[0]!!)
+        storePassword = uploadKeyValues[1]
+        keyAlias = uploadKeyValues[2]
+        keyPassword = uploadKeyValues[3]
+    } else null
+
     buildTypes {
         release {
             // Shrinking is left off on purpose: ONNX Runtime uses JNI and the app is dominated by the model.
             isMinifyEnabled = false
-            // So `assembleRelease` gives an installable APK out of the box. Replace with your own keystore to publish.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = uploadSigning
         }
     }
 
@@ -182,6 +210,13 @@ chaquopy {
         buildPythonPath?.let { buildPython(it) }
 
         pip {
+            // Source-rebuilt, licence-preserving Android wheels; see vendor/python-wheels/README.md.
+            // Their 16 KB alignment also matters inside Chaquopy's extracted asset archives.
+            options("--find-links", rootProject.file("vendor/python-wheels").absolutePath)
+            install("-r", project.file("requirements-android.txt").absolutePath)
+            install("chaquopy-freetype==2.9.1")
+            install("chaquopy-libjpeg==2.1.5")
+            install("pillow==11.0.0")
             // The upstream library, unmodified and version-pinned (MIT licensed, pure Python).
             install("chrome-lens-py==3.8.2")
             // chrome-lens-py asks for protobuf>=6.33.5,<8. Only the 6.33.x line still publishes a
@@ -199,7 +234,7 @@ chaquopy {
 // file is missing, truncated or different. Verified local copies are reused, so only the first
 // build (or CI) needs network access.
 //
-// Provenance (see `historical_prompt/v2.5.0-dev.5-ag.md`):
+// Provenance (see `docs/history/android/v2.5.0-dev.5/release/reports/v2.5.0-dev.5-ag.md`):
 //   detector    PaddlePaddle/PP-OCRv6_medium_det_onnx  @ 61323801669c338b7891481ec7bac61ce31b576a
 //   recogniser  PaddlePaddle/PP-OCRv6_medium_rec_onnx   @ 50c7eacafc52fa7bcf4194e8cd08e46f8558504b
 //   dictionary  ppocr/utils/dict/ppocrv6_dict.txt       (Apache-2.0, already tracked in this repo)
@@ -227,6 +262,29 @@ fun sha256OfFile(file: File): String {
         }
     }
     return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+val verifyPythonNativeWheels = tasks.register("verifyPythonNativeWheels") {
+    val directory = rootProject.file("vendor/python-wheels")
+    inputs.dir(directory)
+    doLast {
+        val manifest = groovy.json.JsonSlurper().parse(directory.resolve("manifest.json")) as List<*>
+        check(manifest.size == 4) { "Expected four reviewed Python native wheels." }
+        manifest.forEach { entry ->
+            val row = entry as Map<*, *>
+            val file = directory.resolve(row["file"] as String)
+            check(file.isFile && sha256OfFile(file) == row["sha256"]) {
+                "Missing or modified Python native wheel: ${file.name}. Rebuild and review its manifest."
+            }
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("install") && name.endsWith("PythonRequirements")) {
+        dependsOn(verifyPythonNativeWheels)
+        inputs.dir(rootProject.file("vendor/python-wheels"))
+    }
 }
 
 val paddleOcrAssets = listOf(
@@ -328,6 +386,8 @@ val syncLicenseAssets = tasks.register("syncLicenseAssets") {
     val sources = listOf(
         root.resolve("LICENSE") to "GPL-3.0.txt",
         root.resolve("THIRD_PARTY_NOTICES.md") to "THIRD_PARTY_NOTICES.md",
+        root.resolve("PRIVACY_POLICY.md") to "PRIVACY_POLICY.md",
+        root.resolve("TERMS_AND_CONDITIONS.md") to "TERMS_AND_CONDITIONS.md",
     )
     inputs.files(sources.map { it.first })
     outputs.dir(licenseAssetDir)
@@ -366,7 +426,7 @@ tasks.named("preBuild") { dependsOn(syncLicenseAssets) }
 // the runtime configuration: the intended authority is the personal-accounts endpoint
 // `https://login.microsoftonline.com/consumers`, which MSAL derives from the
 // `PersonalMicrosoftAccount` audience. Putting a tenant id beside that audience would be wrong — see
-// `historical_prompt/v2.6.0-dev.1-ag.md` §20.4.
+// `docs/history/android/v2.6.0-dev.1/release/reports/v2.6.0-dev.1-ag.md` §20.4.
 //
 // A missing `.env` (fresh clone, CI, another developer) is normal: the placeholders from
 // `.env.example` are used instead, so every build still works and no value is invented. A `.env` that
@@ -512,10 +572,7 @@ dependencies {
 
     implementation(libs.androidx.exifinterface)
     implementation(libs.onnxruntime.android)
-    // Microsoft sign-in for the OneDrive import (v2.6.0). MIT-licensed, minSdk 24; see
-    // THIRD_PARTY_NOTICES.md and historical_prompt/v2.6.0-dev.1-ag.md §20.2.
-    implementation(libs.msal.android)
-    implementation("com.google.android.gms:play-services-auth:22.0.0")
+    implementation("net.openid:appauth:0.11.1")
     // Draws the SVG badge and contribution graph on the Author page (Apache-2.0; see THIRD_PARTY_NOTICES.md).
     implementation(libs.androidsvg)
 
@@ -523,4 +580,10 @@ dependencies {
 
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+}
+
+// Publication review is separate from producing a local APK for device testing.
+// Invoke this explicit check before any publication workflow; local build tasks must remain usable.
+val verifyAuthPublicationEligibility = tasks.register("verifyAuthPublicationEligibility") {
+    doLast { throw GradleException("Publication blocked: AppAuth prototype requires remaining lifecycle, policy and licensing verification. Local APK builds are allowed. See docs/integrations/APP_AUTH_PROTOTYPE.md.") }
 }

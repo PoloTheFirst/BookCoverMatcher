@@ -2,6 +2,7 @@
 
 package com.bookcovermatcher.data.onedrive
 
+import kotlinx.coroutines.ensureActive
 import com.bookcovermatcher.core.net.ConnectivityMonitor
 import com.bookcovermatcher.core.remote.DownloadProgress
 import com.bookcovermatcher.core.remote.RemoteChange
@@ -73,6 +74,9 @@ class OneDriveUpdateSession(
     private val library: WorkbookLibrary,
     private val downloader: SafeWorkbookDownload,
     private val now: () -> Long = System::currentTimeMillis,
+    private val mayAccess: (SavedWorkbook) -> Boolean = { true },
+    private val generation: () -> Long = { 0L },
+    private val provider: com.bookcovermatcher.data.WorkbookOrigin = com.bookcovermatcher.data.WorkbookOrigin.ONEDRIVE,
 ) {
 
     /**
@@ -83,13 +87,17 @@ class OneDriveUpdateSession(
      * of reach — and it is reported as itself so the UI can say so.
      */
     suspend fun check(entry: SavedWorkbook): RemoteCheck {
+        if (!mayAccess(entry)) return RemoteCheck.Failed(RemoteFailure.AuthRequired)
         val remote = entry.remote ?: return RemoteCheck.Unknown
+        val epoch = generation()
         if (!connectivity.isUsableNow()) return RemoteCheck.Failed(RemoteFailure.Offline)
 
-        return when (val probed = source.probe(remote.itemId)) {
+        val probed = source.probe(remote.itemId)
+        if (epoch != generation() || !mayAccess(entry)) return RemoteCheck.Failed(RemoteFailure.AuthRequired)
+        return when (probed) {
             is RemoteResult.Err -> RemoteCheck.Failed(probed.failure)
             is RemoteResult.Ok -> when (val state = probed.value) {
-                RemoteState.Missing -> RemoteCheck.Missing
+                RemoteState.Missing, RemoteState.Deleted -> RemoteCheck.Missing
                 is RemoteState.Present -> when (
                     RemoteChangeDetector.compare(
                         savedETag = remote.eTag,
@@ -119,6 +127,8 @@ class OneDriveUpdateSession(
         item: RemoteItem,
         onProgress: (DownloadProgress) -> Unit = {},
     ): UpdateOutcome {
+        if (!mayAccess(entry)) return UpdateOutcome.Failed(RemoteFailure.AuthRequired)
+        val epoch = generation()
         if (item.isFolder) return UpdateOutcome.Failed(RemoteFailure.BadRequest)
         val remote = entry.remote ?: return UpdateOutcome.Failed(RemoteFailure.BadRequest)
         if (!connectivity.isUsableNow()) return UpdateOutcome.Failed(RemoteFailure.Offline)
@@ -127,6 +137,8 @@ class OneDriveUpdateSession(
             DownloadResult.Cancelled -> UpdateOutcome.Cancelled
             is DownloadResult.Failed -> UpdateOutcome.Failed(downloaded.failure)
             is DownloadResult.Ready -> try {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (epoch != generation() || !mayAccess(entry)) return UpdateOutcome.Cancelled
                 val stamp = now()
                 val origin = RemoteOrigin(
                     itemId = item.id,
@@ -139,8 +151,10 @@ class OneDriveUpdateSession(
                     syncedAt = stamp,
                     // The bytes were just fetched and validated, so this is also a successful check.
                     checkedAt = stamp,
+                    accountKey = remote.accountKey,
+                    accountLabel = remote.accountLabel,
                 )
-                when (val replaced = library.replaceFrom(entry.id, downloaded.file, origin)) {
+                when (val replaced = library.replaceFrom(entry.id, downloaded.file, origin, provider)) {
                     is ReplaceResult.Replaced -> UpdateOutcome.Applied(replaced.workbook)
                     is ReplaceResult.SameContent -> UpdateOutcome.SameContent(replaced.workbook)
                     is ReplaceResult.Rejected -> UpdateOutcome.Rejected(replaced.message)
@@ -171,6 +185,7 @@ class OneDriveUpdateSession(
                 sizeBytes = item.sizeBytes ?: remote.sizeBytes,
                 checkedAt = stamp,
             ),
+            provider,
         )
     }
 
@@ -189,6 +204,7 @@ class OneDriveUpdateSession(
                 path = item.path.ifBlank { remote.path },
                 checkedAt = now(),
             ),
+            provider,
         )
     }
 }

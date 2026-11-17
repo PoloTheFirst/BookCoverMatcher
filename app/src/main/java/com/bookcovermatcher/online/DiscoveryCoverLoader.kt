@@ -46,7 +46,7 @@ class DiscoveryCoverLoader(
         providerImage(providerImageUrl)?.let { return it }
         val page = pageUrl?.trim()?.takeIf { SafeImageUrl.isFetchable(it) }
         if (page == null) {
-            android.util.Log.d(TAG, "no fetchable page for a candidate (${pageUrl?.take(60)})")
+            android.util.Log.d(TAG, "no fetchable page for a candidate")
             return null
         }
         val extracted = extractFor(page) ?: return null
@@ -72,10 +72,10 @@ class DiscoveryCoverLoader(
             android.util.Log.d(TAG, "page ${SafeImageUrl.host(page)} ${fetched.bytes.size}B ${fetched.contentType}")
             CoverImageExtractor.fromHtml(String(fetched.bytes, Charsets.UTF_8), page)
         } catch (e: ItemUnavailable) {
-            android.util.Log.d(TAG, "page ${SafeImageUrl.host(page)} failed: ${e.message}")
+            android.util.Log.d(TAG, "page ${SafeImageUrl.host(page)} failed")
             null
         } catch (e: Exception) {
-            android.util.Log.d(TAG, "page ${SafeImageUrl.host(page)} crashed: ${e.message}")
+            android.util.Log.d(TAG, "page ${SafeImageUrl.host(page)} crashed")
             null
         }
         remember(page, extracted)
@@ -97,10 +97,10 @@ class DiscoveryCoverLoader(
             android.util.Log.d(TAG, "image ${SafeImageUrl.host(url)} ${fetched.bytes.size}B ${fetched.contentType}")
             if (isUsableImage(fetched.bytes)) fetched.bytes else null
         } catch (e: ItemUnavailable) {
-            android.util.Log.d(TAG, "image ${SafeImageUrl.host(url)} failed: ${e.message}")
+            android.util.Log.d(TAG, "image ${SafeImageUrl.host(url)} failed")
             null
         } catch (e: Exception) {
-            android.util.Log.d(TAG, "image ${SafeImageUrl.host(url)} crashed: ${e.message}")
+            android.util.Log.d(TAG, "image ${SafeImageUrl.host(url)} crashed")
             null
         } ?: return null
         images.put(url, bytes)

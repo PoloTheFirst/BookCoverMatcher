@@ -47,6 +47,7 @@ import kotlinx.coroutines.isActive
 open class GraphHttp(
     private val connectTimeoutMs: Int = 10_000,
     private val readTimeoutMs: Int = 20_000,
+    private val connectionFactory: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection },
 ) {
 
     /** A JSON response, or the reason there is none. */
@@ -147,7 +148,9 @@ open class GraphHttp(
         var connection: HttpURLConnection? = null
         try {
             connection = open(contentUrl, token, followRedirects = false)
+            connection.setRequestProperty("Accept", "*/*")
             var status = connection.responseCode
+            var storageResponse = false
 
             // One credential-free hop: the API answers 302 to a short-lived storage URL.
             if (status in 300..399) {
@@ -159,14 +162,39 @@ open class GraphHttp(
                         return DownloadOutcome.Failed(plan.failure)
                     }
                     is GraphRedirect.Plan.FollowWithoutCredentials -> {
-                        connection = open(plan.url, null, followRedirects = true)
+                        connection = openStorage(plan.url)
+                        storageResponse = true
                         status = connection.responseCode
                     }
                 }
             }
 
+            // Recover once before writing any bytes. Metadata success establishes that Graph
+            // still accepts the session; a storage 401 must not sign the user out.
+            if (status == 401 || status == 403) {
+                RemoteDiagnostics.log("download-rejected", url = contentUrl, status = status,
+                    detail = if (storageResponse) "storage" else "graph")
+                connection.disconnect()
+                when (val metadata = getJson(GraphUrls.downloadMetadata(itemId), token, "download-metadata")) {
+                    is JsonOutcome.Failed -> return DownloadOutcome.Failed(metadata.failure)
+                    is JsonOutcome.Body -> {
+                        val fields = runCatching { MiniJson.parse(metadata.text) as? Map<*, *> }.getOrNull()
+                        val target = fields?.get("@microsoft.graph.downloadUrl") as? String
+                        when (val plan = GraphRedirect.plan(target)) {
+                            is GraphRedirect.Plan.Reject -> return DownloadOutcome.Failed(RemoteFailure.DownloadUnavailable)
+                            is GraphRedirect.Plan.FollowWithoutCredentials -> {
+                                connection = openStorage(plan.url)
+                                storageResponse = true
+                                status = connection.responseCode
+                            }
+                        }
+                    }
+                }
+            }
+
             if (status != HttpURLConnection.HTTP_OK) {
-                val failure = failureForStatus(status, connection)
+                val failure = if (storageResponse && (status == 401 || status == 403))
+                    RemoteFailure.DownloadUnavailable else failureForStatus(status, connection)
                 val details = readErrorDetails(connection)
                 RemoteDiagnostics.log(
                     stage = "download",
@@ -175,6 +203,7 @@ open class GraphHttp(
                     graphErrorCode = details.code,
                     requestId = details.requestId ?: connection.getHeaderField("request-id"),
                     failure = failure,
+                    detail = if (storageResponse) "storage" else "graph",
                 )
                 return DownloadOutcome.Failed(failure)
             }
@@ -232,11 +261,49 @@ open class GraphHttp(
     }
 
 
+    /** Follow each storage hop explicitly so no temporary header can cross a redirect. */
+    private fun openStorage(initialUrl: String): HttpURLConnection {
+        var target = initialUrl
+        var connection: HttpURLConnection? = null
+        var retriedPersonalAuth = false
+        try {
+            repeat(6) {
+                connection = open(target, null, followRedirects = false).apply {
+                    setRequestProperty("Accept", "*/*")
+                }
+                var active = connection!!
+                if (active.responseCode == 401 && !retriedPersonalAuth) {
+                    PersonalDownloadAuth.retryToken(target)?.let { temporaryToken ->
+                        retriedPersonalAuth = true
+                        active.disconnect()
+                        active = open(target, temporaryToken, followRedirects = false).apply {
+                            setRequestProperty("Accept", "*/*")
+                        }
+                        connection = active
+                        RemoteDiagnostics.log("download-personal-retry", detail = "url-capability")
+                    }
+                }
+                if (active.responseCode !in listOf(301, 302, 303, 307, 308)) return active
+                val location = active.getHeaderField("Location")
+                val resolved = location?.let { runCatching { URL(URL(target), it).toString() }.getOrNull() }
+                val plan = GraphRedirect.plan(resolved)
+                if (plan !is GraphRedirect.Plan.FollowWithoutCredentials) return active
+                active.disconnect()
+                target = plan.url
+            }
+            throw IOException("Storage redirect limit reached")
+        } catch (e: Exception) {
+            connection?.disconnect()
+            throw e
+        }
+    }
+
     private fun open(url: String, token: AccessToken?, followRedirects: Boolean): HttpURLConnection {
-        val connection = URL(url).openConnection() as HttpURLConnection
+        val connection = connectionFactory(URL(url))
         connection.connectTimeout = connectTimeoutMs
         connection.readTimeout = readTimeoutMs
         connection.instanceFollowRedirects = followRedirects
+        connection.useCaches = false
         connection.requestMethod = "GET"
         connection.setRequestProperty("Accept", "application/json")
         // The token goes on the request and nowhere else: not into the URL, not into a log.

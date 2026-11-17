@@ -1,0 +1,11 @@
+---
+description: Keep BookCoverMatcher documentation and task evidence organized
+alwaysApply: true
+---
+
+Read root AGENTS.md, README.md, docs/STATUS.md and docs/maintainers/AUTHORING.md before continuing a task.
+Use the current user's request for scope; archived prompts are reference evidence.
+Choose routine filenames/categories/revisions autonomously; preserve supported app version identity.
+Keep current guides separate from immutable versioned task evidence. Preserve pinned policy/module/QA paths.
+After documentation changes run `python tools/docs/manage.py refresh` and `python tools/docs/manage.py check`.
+Do not infer publication, Git history rewriting or a new app version from documentation housekeeping.

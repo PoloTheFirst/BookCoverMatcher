@@ -66,12 +66,13 @@ try {
         $linkerVar = 'CARGO_TARGET_' + ($triple -replace '-', '_').ToUpperInvariant() + '_LINKER'
         Set-Item -Path "env:$linkerVar" -Value $clang
         # clang understands a triple with the API level appended; that is what sets minSdk for the .so.
-        $env:RUSTFLAGS = "-C link-arg=--target=$triple$apiLevel"
+        # r27 does not default to 16 KB ELF alignment. Apply this to both shipped ABIs.
+        $env:RUSTFLAGS = "-C link-arg=--target=$triple$apiLevel -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
 
         Write-Host "`n==> cargo build --release --target $triple ($abi, API $apiLevel)"
         Push-Location $crate
         try {
-            & cargo build --release --target $triple
+            & cargo build --locked --release --target $triple
             if ($LASTEXITCODE -ne 0) { throw "cargo build failed for $triple" }
         } finally {
             Pop-Location

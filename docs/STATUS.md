@@ -1,0 +1,43 @@
+# Current status
+
+Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
+
+Facts reviewed: 2026-11-17 (Asia/Hong_Kong).
+
+## Configured Android baseline
+
+Dev.2 / 225 source checkpoint finalized on CachyOS; fresh JVM results 1429 passed and 16 skipped, debug assembly completed. See the release dev2-closeout report. Stable 2.7.0 prompt must be reviewed before execution; Play preparation follows stable finalization.
+
+## Authentication checkpoint
+
+Google and Microsoft AppAuth browser sign-in, profile lookup and account labels were verified live on the emulator in the workbook-source-ui task. Tokens remain memory-only. verifyAuthPublicationEligibility remains deliberately failing; expiry/revocation, persistence, cross-account and physical-device publication gates remain open.
+
+## Website and private coordination
+
+The owner reported successful sitemap submission and approved website policy publication in the companion website task. Android reports contain older website-state statements. This task did not inspect live policy parity or Google/Play approval; those old reports are not current approval evidence.
+
+## Version conflicts
+
+v2.5.0-dev.2 prompt title targets stable v2.4.0. v2.6.0-stable-2 contains a superseded 2.6.1 proposal. Historical codes 213/214/215 belong to distinct 2.4.0 checkpoints; filenames alone are insufficient.
+
+## Git checkpoint for workbook UI implementation
+
+14 November 2026: online_improvement at eed8f60236873822a9ac4af67671f7ec64f50c7c remains unchanged. Extensive pre-existing tracked/untracked changes were preserved; this task adds local source/tests/docs without staging, committing or publishing.
+
+## Workbook source UI and navigation implementation
+
+Owner approved the dev.2 prompt. Local implementation adds source account/status/location, explicit re-linking and account labels; Use it now opens the viewer and Rescan targets its entry. JVM 1429 passed/16 skipped, debug app/test build and lint passed; emulator navigation/grant tests passed. See the development workbook-source-ui report for final artifact and live/device limits. Privacy revision 2026-11-14.1 needs website synchronization; publication remains blocked. Both provider sign-ins/profile labels also passed live on the final APK; this does not establish expiry/revocation or production approval.
+
+## Policy reader layout correction (17 November 2026)
+
+The owner accepts the current reader layout as intended design. No outstanding layout defect is tracked and no layout entry is included in the current changelog.
+
+## Dev.2 closeout
+
+Historical v2.7.0-dev.2.md and v2.7.0-dev.2-ag.md are preserved; the release dev2-closeout report supplies the final scope reconciliation. Source/documentation push targets online_improvement only. No binary release or Console action authorized in this checkpoint.
+
+## Next steps
+
+1. After the dev.2 source/documentation push, prepare and review the stable v2.7.0 prompt before implementation.
+2. Stable scope includes an App Website link below the Author Page/profile link, prior requirement audit, authentication/release verification and website policy parity.
+3. Finalize v2.7.0 before preparing Google Play submission; keep external OAuth/Play approval separate from app verification.

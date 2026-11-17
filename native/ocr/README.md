@@ -1,7 +1,7 @@
 # `bc_ocr` — native OCR core (v2.5.0-dev.5, Android integration verified on an emulator)
 
 This crate is the native half of the migration described in
-`historical_prompt/v2.5.0-dev.5.md`: PP-OCRv6 text detection + recognition on ONNX Runtime,
+`docs/history/android/v2.5.0-dev.5/release/prompts/v2.5.0-dev.5.md`: PP-OCRv6 text detection + recognition on ONNX Runtime,
 called from Kotlin through JNI, replacing the embedded-Python `chrome-lens-py` OCR.
 
 **It is not the application's default OCR engine yet.** `chrome-lens-py` still ships and is still the
@@ -273,7 +273,7 @@ as a gain.
 
 `tools/ocr-reference/` holds the harness used for all of this — fixtures with hand-written ground truth,
 an independent implementation of the official algorithm, CER/recall scoring, and stage bisectors — plus
-`cargo run --example eval` on the Rust side. See `NATIVE_OCR_ANDROID.md` §10 for the numbers and the
+`cargo run --example eval` on the Rust side. See `docs/reference/NATIVE_OCR_ANDROID.md` §10 for the numbers and the
 blocked cases.
 
 source is ASCII-only (CJK written as `\u` escapes) so no console or editor can transcode it.

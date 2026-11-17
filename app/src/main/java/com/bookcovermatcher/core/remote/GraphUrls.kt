@@ -43,10 +43,14 @@ object GraphUrls {
         withPage("$BASE/me/drive/items/${encodeItemId(folderId)}/children?$SELECT_QUERY&$TOP_QUERY", pageToken)
 
     /** Metadata of one item. */
-    fun item(itemId: String): String = "$BASE/me/drive/items/${encodeItemId(itemId)}?$SELECT_QUERY"
+    fun item(itemId: String): String = "$BASE/me/drive/items/${encodeItemId(itemId)}?$SELECT_QUERY,deleted"
 
     /** The content endpoint; it answers with a redirect to a pre-authenticated URL. */
     fun content(itemId: String): String = "$BASE/me/drive/items/${encodeItemId(itemId)}/content"
+
+    /** Obtain a fresh short-lived download URL only when a content request is rejected. */
+    fun downloadMetadata(itemId: String): String =
+        "$BASE/me/drive/items/${encodeItemId(itemId)}?\$select=id,@microsoft.graph.downloadUrl"
 
     /**
      * A page token **is** a complete URL (`@odata.nextLink`), so it replaces the URL we would build

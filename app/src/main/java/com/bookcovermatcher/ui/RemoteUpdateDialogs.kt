@@ -66,7 +66,7 @@ private fun ConfirmUpdateDialog(text: String, onConfirm: () -> Unit, onDismiss: 
                 .padding(14.dp),
         ) {
             Text(
-                "Newer version on OneDrive",
+                "Newer cloud version",
                 color = Palette.Text,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.ExtraBold,

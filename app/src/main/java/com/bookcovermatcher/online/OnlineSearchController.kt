@@ -812,7 +812,7 @@ class OnlineSearchController(
                 engine.id,
                 "availability " + when (status) {
                     is BridgeUi.Ready -> "ready ${status.library} ${status.version}"
-                    is BridgeUi.Unavailable -> "unavailable ${status.reason}"
+                    is BridgeUi.Unavailable -> "unavailable"
                     BridgeUi.Checking -> "checking"
                 },
             )
@@ -864,7 +864,7 @@ class OnlineSearchController(
      * this feature so hard to diagnose.
      */
     fun onCaptureFailed(message: String, detail: String? = null) {
-        OnlineSearchLog.warn("cover encoding failed: ${detail ?: message}")
+        OnlineSearchLog.warn("cover encoding failed")
         _ui.update {
             it.copy(ocr = OcrUi.Failed("${OcrErrorMessages.detail(OcrFailure.BAD_IMAGE)}\n$message"))
         }
@@ -909,7 +909,7 @@ class OnlineSearchController(
                 },
                 onFailure = { e ->
                     if (e is CancellationException) throw e
-                    OnlineSearchLog.ocrEngineResult(engine.id, "failed ${e.javaClass.simpleName}: ${e.message}")
+                    OnlineSearchLog.ocrEngineResult(engine.id, "failed")
                     if (session.isCurrent(token)) reportOcrFailure(e)
                 },
             )

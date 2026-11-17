@@ -1,0 +1,22 @@
+[
+  {
+    "file": "chaquopy_freetype-2.9.1-3-py3-none-android_24_arm64_v8a.whl",
+    "bytes": 1387231,
+    "sha256": "55cd236d9c0534fb6ae47b327e2b805837d74a2dbad3a65840b60446c61e108f"
+  },
+  {
+    "file": "chaquopy_freetype-2.9.1-3-py3-none-android_24_x86_64.whl",
+    "bytes": 1426260,
+    "sha256": "3bcf52fcc05aa7eeb19f50706dc209951a7ea0211f2e710deef371f79a64d8a6"
+  },
+  {
+    "file": "chaquopy_libjpeg-2.1.5-3-py3-none-android_24_arm64_v8a.whl",
+    "bytes": 520527,
+    "sha256": "f2a8f30201b290a0a15cb19f65a637dd5417fe95e644be49617234811c2bf721"
+  },
+  {
+    "file": "chaquopy_libjpeg-2.1.5-3-py3-none-android_24_x86_64.whl",
+    "bytes": 521153,
+    "sha256": "04811c52642ba57ddfe65fd65ce0074ede11176c2ea29047579be111e4ac008d"
+  }
+]

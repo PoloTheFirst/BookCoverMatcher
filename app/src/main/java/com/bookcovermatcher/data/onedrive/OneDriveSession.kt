@@ -2,6 +2,8 @@
 
 package com.bookcovermatcher.data.onedrive
 
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import com.bookcovermatcher.core.net.ConnectivityMonitor
 import com.bookcovermatcher.core.remote.DownloadProgress
 import com.bookcovermatcher.core.remote.RemoteFailure
@@ -64,6 +66,8 @@ class OneDriveSession(
     private val library: WorkbookLibrary,
     private val downloader: SafeWorkbookDownload,
     private val now: () -> Long = System::currentTimeMillis,
+    private val account: () -> com.bookcovermatcher.core.remote.SourceAccount? = { null },
+    private val generation: () -> Long = { 0L },
 ) {
 
     /**
@@ -93,20 +97,63 @@ class OneDriveSession(
      */
     suspend fun importItem(
         item: RemoteItem,
+        relinkId: String? = null,
         onProgress: (DownloadProgress) -> Unit = {},
     ): OneDriveImportOutcome {
+        val identity = account()
+        val epoch = generation()
         if (item.isFolder) return OneDriveImportOutcome.Failed(RemoteFailure.BadRequest)
         if (!connectivity.isUsableNow()) return OneDriveImportOutcome.Failed(RemoteFailure.Offline)
 
         return when (val downloaded = downloader.download(item, source, onProgress)) {
             DownloadResult.Cancelled -> OneDriveImportOutcome.Cancelled
             is DownloadResult.Failed -> OneDriveImportOutcome.Failed(downloaded.failure)
-            is DownloadResult.Ready -> commit(item, downloaded)
+            is DownloadResult.Ready -> {
+                if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
+                    downloaded.file.delete()
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                }
+                if (epoch != generation() || identity != account()) {
+                    downloaded.file.delete()
+                    OneDriveImportOutcome.Cancelled
+                } else if (relinkId != null) {
+                    try { relink(relinkId, downloaded, item, identity) } finally { downloaded.file.delete() }
+                } else commit(item, downloaded, identity)
+            }
         }
     }
 
+    private suspend fun relink(id: String, downloaded: DownloadResult.Ready, item: RemoteItem,
+        identity: com.bookcovermatcher.core.remote.SourceAccount?): OneDriveImportOutcome {
+        val entry = library.byId(id)
+        if (identity == null || entry == null || entry.origin != com.bookcovermatcher.data.WorkbookOrigin.ONEDRIVE)
+            return OneDriveImportOutcome.Failed(RemoteFailure.BadRequest, "Sign in to the source account and try again.")
+        val epoch = generation()
+        val hash = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            downloaded.file.inputStream().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count)
+                }
+            }
+            digest.digest().joinToString("") { "%02x".format(it) }
+        }
+        if (epoch != generation() || identity != account()) return OneDriveImportOutcome.Cancelled
+        if (library.byId(id)?.sha256 != entry.sha256) return OneDriveImportOutcome.Cancelled
+        if (hash != entry.sha256) return OneDriveImportOutcome.Failed(RemoteFailure.InvalidWorkbook,
+            "Select an unchanged copy of this workbook. Nothing was linked or replaced.")
+        val stamp = now()
+        val saved = library.setRemote(id, RemoteOrigin(item.id, item.path, item.eTag, item.cTag,
+            item.lastModified, item.sizeBytes, stamp, stamp, identity.key, identity.label),
+            com.bookcovermatcher.data.WorkbookOrigin.ONEDRIVE)
+        return if (saved != null) OneDriveImportOutcome.Imported(id, entry.displayName, true)
+            else OneDriveImportOutcome.Failed(RemoteFailure.NoStorage)
+    }
+
     /** Copies the validated file into the library, records where it came from, then removes it. */
-    private fun commit(item: RemoteItem, downloaded: DownloadResult.Ready): OneDriveImportOutcome = try {
+    private fun commit(item: RemoteItem, downloaded: DownloadResult.Ready, identity: com.bookcovermatcher.core.remote.SourceAccount?): OneDriveImportOutcome = try {
         val imported = downloaded.file.inputStream().use { stream ->
             // `use`, not the library's own close: the library closes the stream itself, but not on the
             // early rejections (bad name, unusable directory), and a leaked descriptor per failed
@@ -115,13 +162,13 @@ class OneDriveSession(
         }
         when (imported) {
             is ImportResult.Added -> {
-                linkRemote(imported.workbook, item)
+                linkRemote(imported.workbook, item, identity)
                 OneDriveImportOutcome.Imported(imported.workbook.id, imported.workbook.displayName, false)
             }
             is ImportResult.AlreadySaved -> {
                 // The same bytes are already saved. Record the OneDrive source so a later refresh has
                 // somewhere to check — `linkRemote` decides whether that is safe.
-                linkRemote(imported.workbook, item)
+                // Duplicate content never changes source ownership.
                 OneDriveImportOutcome.Imported(imported.workbook.id, imported.workbook.displayName, true)
             }
             is ImportResult.Rejected -> OneDriveImportOutcome.Failed(
@@ -141,7 +188,7 @@ class OneDriveSession(
      * remote item (its metadata is refreshed). An entry that came from a *different* OneDrive file with
      * identical bytes is left alone rather than silently re-pointed.
      */
-    private fun linkRemote(workbook: SavedWorkbook, item: RemoteItem) {
+    private fun linkRemote(workbook: SavedWorkbook, item: RemoteItem, identity: com.bookcovermatcher.core.remote.SourceAccount?) {
         val current = library.byId(workbook.id) ?: return
         val safe = current.origin == WorkbookOrigin.LOCAL ||
             (current.origin == WorkbookOrigin.ONEDRIVE && current.remote?.itemId == item.id)
@@ -158,6 +205,8 @@ class OneDriveSession(
                 // The bytes were just fetched and validated, so this import is also the first check.
                 syncedAt = stamp,
                 checkedAt = stamp,
+                accountKey = identity?.key,
+                accountLabel = identity?.label,
             ),
         )
     }

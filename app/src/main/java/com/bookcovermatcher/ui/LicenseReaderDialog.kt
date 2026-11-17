@@ -62,8 +62,26 @@ fun LicenseReaderDialog(
     onOpenUrl: (String) -> Unit,
     onLinkRefused: (String) -> Unit = {},
 ) {
+    PackagedDocumentReader(
+        documents = LicenseDocuments.ordered.map { ReaderDocument(it.assetPath, it.title, it.subtitle, it.shortLabel) },
+        startIndex = LicenseDocuments.ordered.indexOf(start),
+        onClose = onClose, onOpenUrl = onOpenUrl, onLinkRefused = onLinkRefused,
+    )
+}
+
+internal data class ReaderDocument(val assetPath: String, val title: String, val subtitle: String, val shortLabel: String)
+
+@Composable
+internal fun PackagedDocumentReader(
+    documents: List<ReaderDocument>,
+    startIndex: Int,
+    onClose: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+    onLinkRefused: (String) -> Unit = {},
+) {
     val context = LocalContext.current
-    var current by rememberSaveable { mutableStateOf(start) }
+    var currentIndex by rememberSaveable { mutableStateOf(startIndex) }
+    val current = documents[currentIndex]
     var fullScreen by rememberSaveable { mutableStateOf(false) }
     val scroll = rememberScrollState()
 
@@ -114,7 +132,7 @@ fun LicenseReaderDialog(
                 onToggleFullScreen = { fullScreen = !fullScreen },
             )
             Spacer(Modifier.height(8.dp))
-            DocumentTabs(current) { current = it }
+            DocumentTabs(documents, current) { currentIndex = documents.indexOf(it) }
             Spacer(Modifier.height(8.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (val document = loaded) {
@@ -126,7 +144,7 @@ fun LicenseReaderDialog(
 
                     LoadedDocument.Failed -> Text(
                         "This document could not be read from the APK, so nothing is shown rather than a " +
-                            "partial copy of a licence.",
+                            "partial document.",
                         color = Palette.Warn,
                         fontSize = 11.sp,
                     )
@@ -170,7 +188,7 @@ private sealed interface LoadedDocument {
 
 @Composable
 private fun Header(
-    document: LicenseDocuments,
+    document: ReaderDocument,
     fullScreen: Boolean,
     onToggleFullScreen: () -> Unit,
 ) {
@@ -189,9 +207,9 @@ private fun Header(
 }
 
 @Composable
-private fun DocumentTabs(current: LicenseDocuments, onSelect: (LicenseDocuments) -> Unit) {
+private fun DocumentTabs(documents: List<ReaderDocument>, current: ReaderDocument, onSelect: (ReaderDocument) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        LicenseDocuments.ordered.forEach { document ->
+        documents.forEach { document ->
             GradientButton(
                 onClick = { onSelect(document) },
                 colors = if (document == current) Palette.AccentGradient else Palette.NavyGradient,

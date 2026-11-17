@@ -1,0 +1,546 @@
+{
+  "schemaVersion": 1,
+  "current": "2.7.0-dev.2",
+  "versions": [
+    {
+      "id": "2.4.0",
+      "versionName": "2.4.0",
+      "versionCode": 215,
+      "root": "docs/history/android/v2.4.0",
+      "documentKey": "android-2.4.0-code215",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Current app/build.gradle.kts for 225; otherwise attributed historical README/report claims, not fresh APK verification.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-dev.1",
+      "versionName": "2.4.0-dev.1",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-dev.1",
+      "documentKey": "android-2.4.0-dev.1",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-dev.2",
+      "versionName": "2.4.0-dev.2",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-dev.2",
+      "documentKey": "android-2.4.0-dev.2",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-dev.3",
+      "versionName": "2.4.0-dev.3",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-dev.3",
+      "documentKey": "android-2.4.0-dev.3",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-dev.4",
+      "versionName": "2.4.0-dev.4",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-dev.4",
+      "documentKey": "android-2.4.0-dev.4",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-fixtures",
+      "versionName": "2.4.0-fixtures",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-fixtures",
+      "documentKey": "android-2.4.0-fixtures",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-qa-code213",
+      "versionName": "2.4.0-qa-code213",
+      "versionCode": 213,
+      "root": "docs/history/android/v2.4.0-qa-code213",
+      "documentKey": "android-2.4.0-qa-code213-code213",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Current app/build.gradle.kts for 225; otherwise attributed historical README/report claims, not fresh APK verification.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-rc.1",
+      "versionName": "2.4.0-rc.1",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-rc.1",
+      "documentKey": "android-2.4.0-rc.1",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-rc.2",
+      "versionName": "2.4.0-rc.2",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-rc.2",
+      "documentKey": "android-2.4.0-rc.2",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-rc.3",
+      "versionName": "2.4.0-rc.3",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-rc.3",
+      "documentKey": "android-2.4.0-rc.3",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-rc.4",
+      "versionName": "2.4.0-rc.4",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-rc.4",
+      "documentKey": "android-2.4.0-rc.4",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-rc.5",
+      "versionName": "2.4.0-rc.5",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-rc.5",
+      "documentKey": "android-2.4.0-rc.5",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-rc.6",
+      "versionName": "2.4.0-rc.6",
+      "versionCode": null,
+      "root": "docs/history/android/v2.4.0-rc.6",
+      "documentKey": "android-2.4.0-rc.6",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.4.0-rc.7",
+      "versionName": "2.4.0-rc.7",
+      "versionCode": 214,
+      "root": "docs/history/android/v2.4.0-rc.7",
+      "documentKey": "android-2.4.0-rc.7-code214",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Current app/build.gradle.kts for 225; otherwise attributed historical README/report claims, not fresh APK verification.",
+      "authorable": false
+    },
+    {
+      "id": "2.5.0",
+      "versionName": "2.5.0",
+      "versionCode": 221,
+      "root": "docs/history/android/v2.5.0",
+      "documentKey": "android-2.5.0-code221",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Current app/build.gradle.kts for 225; otherwise attributed historical README/report claims, not fresh APK verification.",
+      "authorable": false
+    },
+    {
+      "id": "2.5.0-dev.1",
+      "versionName": "2.5.0-dev.1",
+      "versionCode": null,
+      "root": "docs/history/android/v2.5.0-dev.1",
+      "documentKey": "android-2.5.0-dev.1",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.5.0-dev.2",
+      "versionName": "2.5.0-dev.2",
+      "versionCode": null,
+      "root": "docs/history/android/v2.5.0-dev.2",
+      "documentKey": "android-2.5.0-dev.2",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.5.0-dev.3",
+      "versionName": "2.5.0-dev.3",
+      "versionCode": null,
+      "root": "docs/history/android/v2.5.0-dev.3",
+      "documentKey": "android-2.5.0-dev.3",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.5.0-dev.4",
+      "versionName": "2.5.0-dev.4",
+      "versionCode": null,
+      "root": "docs/history/android/v2.5.0-dev.4",
+      "documentKey": "android-2.5.0-dev.4",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.5.0-dev.5",
+      "versionName": "2.5.0-dev.5",
+      "versionCode": null,
+      "root": "docs/history/android/v2.5.0-dev.5",
+      "documentKey": "android-2.5.0-dev.5",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.6.0",
+      "versionName": "2.6.0",
+      "versionCode": 223,
+      "root": "docs/history/android/v2.6.0",
+      "documentKey": "android-2.6.0-code223",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Current app/build.gradle.kts for 225; otherwise attributed historical README/report claims, not fresh APK verification.",
+      "authorable": false
+    },
+    {
+      "id": "2.6.0-dev.1",
+      "versionName": "2.6.0-dev.1",
+      "versionCode": null,
+      "root": "docs/history/android/v2.6.0-dev.1",
+      "documentKey": "android-2.6.0-dev.1",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "2.7.0-dev.1",
+      "versionName": "2.7.0-dev.1",
+      "versionCode": 224,
+      "root": "docs/history/android/v2.7.0-dev.1",
+      "documentKey": "android-2.7.0-dev.1-code224",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Current app/build.gradle.kts for 225; otherwise attributed historical README/report claims, not fresh APK verification.",
+      "authorable": false
+    },
+    {
+      "id": "2.7.0-dev.2",
+      "versionName": "2.7.0-dev.2",
+      "versionCode": 225,
+      "root": "docs/history/android/v2.7.0-dev.2",
+      "documentKey": "android-2.7.0-dev.2-code225",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Current app/build.gradle.kts for 225; otherwise attributed historical README/report claims, not fresh APK verification.",
+      "authorable": true
+    },
+    {
+      "id": "cross-version",
+      "versionName": "cross-version",
+      "versionCode": null,
+      "root": "docs/history/cross-version",
+      "documentKey": "android-cross-version",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "current-source",
+      "versionName": "current-source",
+      "versionCode": null,
+      "root": "docs/history/current-source",
+      "documentKey": "android-current-source",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    },
+    {
+      "id": "unresolved-qa",
+      "versionName": "unresolved-qa",
+      "versionCode": null,
+      "root": "docs/history/unresolved-qa",
+      "documentKey": "android-unresolved-qa",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "No unambiguous versionCode assigned during documentation migration. Do not guess.",
+      "authorable": false
+    }
+  ]
+}

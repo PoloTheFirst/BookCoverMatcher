@@ -46,7 +46,14 @@ data class RemoteOrigin(
     val sizeBytes: Long? = null,
     val syncedAt: Long? = null,
     val checkedAt: Long? = null,
+    val accountKey: String? = null,
+    val accountLabel: String? = null,
 )
+
+/** A document-provider link, not a guessed filesystem path. Never logged. */
+data class LocalOrigin(val uri: String, val location: String, val retained: Boolean) {
+    override fun toString() = "LocalOrigin(***)"
+}
 
 /** One workbook the app keeps a copy of. [id] is the stable identity; the display name never is. */
 data class SavedWorkbook(
@@ -69,8 +76,9 @@ data class SavedWorkbook(
      * schema-1 entry migrates to and what every locally imported workbook is.
      */
     val origin: WorkbookOrigin = WorkbookOrigin.LOCAL,
-    /** Non-null exactly for a [WorkbookOrigin.ONEDRIVE] entry; never holds a token or an account id. */
+    /** For a direct cloud entry; holds source identity metadata, never credentials. */
     val remote: RemoteOrigin? = null,
+    val local: LocalOrigin? = null,
 )
 
 /** What an import actually did. */
@@ -142,6 +150,7 @@ class WorkbookLibrary(private val dir: File) {
     private var indexFromNewerSchema = false
 
     /** Pinned first, then most recently opened, then most recently imported; ties by id. */
+    @Synchronized
     fun list(): List<SavedWorkbook> = readAll().sortedWith(
         compareByDescending<SavedWorkbook> { it.pinned }
             .thenByDescending { it.lastOpenedAt ?: 0L }
@@ -149,6 +158,7 @@ class WorkbookLibrary(private val dir: File) {
             .thenBy { it.id },
     )
 
+    @Synchronized
     fun byId(id: String): SavedWorkbook? = readAll().firstOrNull { it.id == id }
 
     fun fileOf(entry: SavedWorkbook): File = File(dir, entry.fileName)
@@ -160,6 +170,7 @@ class WorkbookLibrary(private val dir: File) {
      * same validation the workbook staging path uses. The copy is hashed while it is written; a failure
      * at any point deletes the partial file and leaves the library untouched.
      */
+    @Synchronized
     fun import(
         input: InputStream,
         originalName: String,
@@ -260,6 +271,7 @@ class WorkbookLibrary(private val dir: File) {
     }
 
     /** Renames the user-facing name only: the stored file, its bytes and the id never change. */
+    @Synchronized
     fun rename(id: String, displayName: String): SavedWorkbook? {
         val name = displayName.trim()
         if (name.isEmpty()) return null
@@ -271,6 +283,7 @@ class WorkbookLibrary(private val dir: File) {
         return if (writeAll(next)) updated else null
     }
 
+    @Synchronized
     fun setPinned(id: String, pinned: Boolean): SavedWorkbook? {
         val list = readAll()
         val index = list.indexOfFirst { it.id == id }
@@ -281,6 +294,7 @@ class WorkbookLibrary(private val dir: File) {
     }
 
     /** Records that the workbook was opened now; drives the recent list. */
+    @Synchronized
     fun touch(id: String, now: Long = System.currentTimeMillis()): SavedWorkbook? {
         val list = readAll()
         val index = list.indexOfFirst { it.id == id }
@@ -297,6 +311,7 @@ class WorkbookLibrary(private val dir: File) {
      * a copy that could not be deleted is reported instead of leaving the caller to guess, and the
      * metadata is still cleaned so a broken entry cannot linger.
      */
+    @Synchronized
     fun remove(id: String): Pair<Boolean, Boolean> {
         val list = readAll()
         val entry = list.firstOrNull { it.id == id } ?: return false to false
@@ -311,11 +326,13 @@ class WorkbookLibrary(private val dir: File) {
     }
 
     /** Bytes occupied by the saved copies (not by caches). */
+    @Synchronized
     fun bytes(): Long = readAll().sumOf { entry ->
         runCatching { fileOf(entry).length() }.getOrDefault(0L)
     }
 
     /** Stores the counts of the last successful parse, so the library can show them without parsing. */
+    @Synchronized
     fun setSummary(id: String, sheets: Int, comments: Int, images: Int): SavedWorkbook? {
         val list = readAll()
         val index = list.indexOfFirst { it.id == id }
@@ -333,13 +350,23 @@ class WorkbookLibrary(private val dir: File) {
      * the copy, the id, the file name, the display name, the pin, the recency and the parsed counts are
      * all left exactly as they are, so a later remote failure can never damage what the user already has.
      */
-    fun setRemote(id: String, remote: RemoteOrigin): SavedWorkbook? {
+    @Synchronized
+    fun setRemote(id: String, remote: RemoteOrigin, provider: WorkbookOrigin = WorkbookOrigin.ONEDRIVE): SavedWorkbook? {
         val list = readAll()
         val index = list.indexOfFirst { it.id == id }
         if (index < 0) return null
-        val updated = list[index].copy(origin = WorkbookOrigin.ONEDRIVE, remote = remote)
+        val updated = list[index].copy(origin = provider, remote = remote)
         val next = list.toMutableList().also { it[index] = updated }
         return if (writeAll(next)) updated else null
+    }
+
+    @Synchronized
+    fun setLocal(id: String, source: LocalOrigin): SavedWorkbook? {
+        val list = readAll()
+        val index = list.indexOfFirst { it.id == id && it.origin == WorkbookOrigin.LOCAL }
+        if (index < 0) return null
+        val updated = list[index].copy(local = source)
+        return if (writeAll(list.toMutableList().also { it[index] = updated })) updated else null
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -366,10 +393,12 @@ class WorkbookLibrary(private val dir: File) {
      * This does not download and does not validate the workbook format beyond what [import] checks: the
      * caller downloads and validates first (see `OneDriveUpdateSession`), and this method only installs.
      */
+    @Synchronized
     fun replaceFrom(
         id: String,
         newBytes: File,
         remote: RemoteOrigin,
+        provider: WorkbookOrigin = WorkbookOrigin.ONEDRIVE,
     ): ReplaceResult {
         val list = readAll()
         val index = list.indexOfFirst { it.id == id }
@@ -441,7 +470,7 @@ class WorkbookLibrary(private val dir: File) {
 
         if (sha == entry.sha256) {
             staging.delete()
-            val updated = entry.copy(origin = WorkbookOrigin.ONEDRIVE, remote = remote)
+            val updated = entry.copy(origin = provider, remote = remote)
             val next = list.toMutableList().also { it[index] = updated }
             return if (writeAll(next)) {
                 ReplaceResult.SameContent(updated)
@@ -473,7 +502,7 @@ class WorkbookLibrary(private val dir: File) {
         val updated = entry.copy(
             sizeBytes = total,
             sha256 = sha,
-            origin = WorkbookOrigin.ONEDRIVE,
+            origin = provider,
             remote = remote,
             // Counts from the old bytes say nothing about the new ones.
             sheetCount = null,
@@ -600,6 +629,10 @@ class WorkbookLibrary(private val dir: File) {
             // read as local rather than leaving a half-OneDrive entry for the later phases to defend on.
             origin = if (origin == WorkbookOrigin.ONEDRIVE && remote == null) WorkbookOrigin.LOCAL else origin,
             remote = remote,
+            local = (map["local"] as? Map<*, *>)?.let {
+                val uri = it["uri"] as? String ?: return@let null
+                LocalOrigin(uri, it["location"] as? String ?: "Location unavailable", it["retained"] == true)
+            },
         )
     }
 
@@ -615,6 +648,8 @@ class WorkbookLibrary(private val dir: File) {
             sizeBytes = (map["bytes"] as? Double)?.toLong(),
             syncedAt = (map["synced"] as? Double)?.toLong(),
             checkedAt = (map["checked"] as? Double)?.toLong(),
+            accountKey = map["accountKey"] as? String,
+            accountLabel = map["accountLabel"] as? String,
         )
     }
 
@@ -655,6 +690,7 @@ class WorkbookLibrary(private val dir: File) {
                 ).apply {
                     // Written only when there is one, so a local entry's line carries no `remote` key at
                     // all and a migrated schema-1 library differs from the original by adding `origin`.
+                    entry.local?.let { put("local", linkedMapOf("uri" to it.uri, "location" to it.location, "retained" to it.retained)) }
                     entry.remote?.let { remote ->
                         put(
                             "remote",
@@ -667,6 +703,8 @@ class WorkbookLibrary(private val dir: File) {
                                 "bytes" to remote.sizeBytes,
                                 "synced" to remote.syncedAt,
                                 "checked" to remote.checkedAt,
+                                "accountKey" to remote.accountKey,
+                                "accountLabel" to remote.accountLabel,
                             ),
                         )
                     }

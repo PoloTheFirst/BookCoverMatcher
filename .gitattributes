@@ -3,3 +3,9 @@
 # core.autocrlf=true on Windows, which would otherwise check the file out with CRLF and change its
 # bytes. The parser tolerates CRLF, but the documented hash would no longer reproduce.
 native/ocr/assets/ppocrv6_dict.txt eol=lf
+
+# Documentation inventory preserves exact authored/historical bytes across platforms.
+*.md -text
+*.mdc -text
+*.csv -text
+docs/_meta/*.json -text

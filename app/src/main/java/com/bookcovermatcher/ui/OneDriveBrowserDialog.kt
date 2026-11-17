@@ -274,7 +274,7 @@ private fun ImportedPanel(state: OneDriveUi, vm: MainViewModel) {
     Text(imported.displayName, color = Palette.Text, fontSize = 11.sp, maxLines = 2)
     Text(
         if (imported.alreadySaved) {
-            "The same file was already saved; its OneDrive source is now recorded."
+            "The same file was already saved. Source details show its recorded link."
         } else {
             "A private copy is on this device. Opening it never needs a connection."
         },

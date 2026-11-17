@@ -12,8 +12,8 @@ name = "bc_ocr"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# ONNX Runtime bindings, pinned to the API level of the runtime the app already ships
-# (com.microsoft.onnxruntime:onnxruntime-android:1.20.0) and built with `load-dynamic`:
+# ONNX Runtime bindings use the backward-compatible API 20 provided by the packaged
+# com.microsoft.onnxruntime:onnxruntime-android:1.23.2, built with `load-dynamic`:
 # the crate links no ONNX Runtime of its own and resolves `libonnxruntime.so` from the
 # process at run time, so two runtimes can never coexist.
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["api-20", "load-dynamic", "std"] }
