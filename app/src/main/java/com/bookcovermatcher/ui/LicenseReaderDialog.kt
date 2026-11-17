@@ -5,7 +5,7 @@ package com.bookcovermatcher.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,7 +113,6 @@ fun LicenseReaderDialog(
                 document = current,
                 fullScreen = fullScreen,
                 onToggleFullScreen = { fullScreen = !fullScreen },
-                onClose = onClose,
             )
             Spacer(Modifier.height(8.dp))
             DocumentTabs(current) { current = it }
@@ -175,47 +174,33 @@ private fun Header(
     document: LicenseDocuments,
     fullScreen: Boolean,
     onToggleFullScreen: () -> Unit,
-    onClose: () -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Column(Modifier.weight(1f)) {
-            Text(document.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text(document.subtitle, color = Palette.Muted, fontSize = 10.sp)
+    Column(Modifier.fillMaxWidth()) {
+        Text(document.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+        Text(document.subtitle, color = Palette.Muted, fontSize = 10.sp)
+        Spacer(Modifier.height(8.dp))
+        GradientButton(
+            onClick = onToggleFullScreen, colors = Palette.NavyGradient,
+            contentColor = Palette.Text, modifier = Modifier.fillMaxWidth(), minHeight = 48.dp,
+            contentPadding = 8.dp,
+        ) {
+            Text(if (fullScreen) "Exit full screen" else "Full screen", color = Palette.Text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
-        Text(
-            text = if (fullScreen) "Exit full screen" else "Full screen",
-            color = Palette.Accent,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .padding(start = 10.dp)
-                .clickable { onToggleFullScreen() }
-                .padding(4.dp),
-        )
-        Text(
-            text = "Close",
-            color = Palette.Muted,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .padding(start = 8.dp)
-                .clickable { onClose() }
-                .padding(4.dp),
-        )
     }
 }
 
 @Composable
 private fun DocumentTabs(current: LicenseDocuments, onSelect: (LicenseDocuments) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LicenseDocuments.ordered.forEach { document ->
             GradientButton(
                 onClick = { onSelect(document) },
                 colors = if (document == current) Palette.AccentGradient else Palette.NavyGradient,
                 contentColor = Palette.Text,
-                modifier = Modifier.weight(1f),
-                minHeight = 34.dp,
-            ) { ButtonLabel(document.shortLabel, Palette.Text, 10.5f) }
+                modifier = Modifier,
+                minHeight = 48.dp,
+                contentPadding = 8.dp,
+            ) { Text(document.shortLabel, color = Palette.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
         }
     }
 }
