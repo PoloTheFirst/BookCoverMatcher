@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "3e33c44768752ac5c2a815d69def6b57508f01a09d1c1d7f743a491ffe2f6dda",
+  "fingerprint": "85b12076e8e13c232eca9ca61fc86a0ccc2a5a0f5c5b5f3dfb547df7f82b06d2",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 4928,
-      "sha256": "e3e25fe9baa26ae7af87997c1b9d03b6621c51538c9b63475f9309b4a29ad54d",
+      "bytes": 5078,
+      "sha256": "8858916eedff37457d97b447bf901c43ac33380789bd5b1b5edf0b3af79748db",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 10263,
-      "sha256": "6d8552fd377b8bc26003fa41bac990d70366e0a878c04cddf97d6565258bde7e",
+      "bytes": 11714,
+      "sha256": "1769f6061238a94824dd9e8de65f1568fb603c10d707abb50f75ef13887c8d28",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/BUNDLED_PLUGINS.md",
-      "bytes": 2981,
-      "sha256": "9bec366b4c340c2f09cef7e13f13404dbfe436e22bbc8c8bcf85907807a541fe",
+      "bytes": 2856,
+      "sha256": "f38e1995f1231496347dc5eb748f4a8851acc6f6132ad4f6f15b5aa93b4a3734",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 8610,
-      "sha256": "5e5242666c690213cc208e191dc44916a6afcf7af9962df537213277ba6bdffb",
+      "bytes": 8826,
+      "sha256": "27a60c5fd0bde375aa05514e73d602a17e9110d5d5ccbf97e5ab7823f335c2df",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -568,8 +568,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 52632,
-      "sha256": "bec7b6bc9acc06c25c33f9cf45097be063eaf27cf41296c39f9c146983de69b6",
+      "bytes": 53222,
+      "sha256": "0946b3ab7d843362d80d2ac7af610fd27b94a55dd3238bc7697b01a844282f67",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -1663,6 +1663,38 @@
       "originalPath": "historical_prompt/v2.7.0-dev.2-ag.md"
     },
     {
+      "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r01.md",
+      "bytes": 8359,
+      "sha256": "9858653722ba9877988631bb5c6fdbfcfce26511f05699cb0571f9a210572ebd",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//dlsite-plugin/prompt/2026-11-18",
+        "title": "DLsite as a bundled GitHub catalogue plugin",
+        "kind": "prompt",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "dlsite-plugin",
+        "created_at": "2026-11-18T05:10:26+08:00",
+        "updated_at": "2026-11-18T05:35:01+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Plan the first real bundled plugin for the GitHub edition with immediate DLsite on/off switching. Keep main and google_play unchanged and defer publication."
+      }
+    },
+    {
       "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md",
       "bytes": 13158,
       "sha256": "973910e83e2d23003e7cef7c97130b4c032812ebc67451ac95c459dd0ab5f0ee",
@@ -1724,6 +1756,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Owner approved local google_play branch and separate build variants, retaining SauceNAO and IQDB in Play, all providers in GitHub, preserving workbook data and update compatibility, without publishing."
+      }
+    },
+    {
+      "path": "docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__report__r01.md",
+      "bytes": 4160,
+      "sha256": "255c8d3724d248df612fc0f5983947d730e1dbc79ae5c220a9db5becd32086aa",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//dlsite-plugin/report/2026-11-18",
+        "title": "Manual DLsite plugin import and live switching",
+        "kind": "report",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "dlsite-plugin",
+        "created_at": "2026-11-18T05:26:31+08:00",
+        "updated_at": "2026-11-18T05:35:01+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Implement the approved GitHub-only DLsite plugin with manual import and verify it on the emulator."
       }
     },
     {
@@ -2221,8 +2285,8 @@
     },
     {
       "path": "docs/reference/ARCHITECTURE.md",
-      "bytes": 73903,
-      "sha256": "9259839c8e3f0f4761dcde720865c1e78a3f185a1efacbeb4faf22114cefbea7",
+      "bytes": 74056,
+      "sha256": "7ca68d78f02c5f01bdce44c8cb30690fed112d40564387db90748aaff8dd690a",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2243,8 +2307,8 @@
     },
     {
       "path": "docs/reference/ONLINE_SEARCH.md",
-      "bytes": 49717,
-      "sha256": "5fec2d1274c16e276c1743e37fca3f207f531596fe1c69934114ffc88846e810",
+      "bytes": 49829,
+      "sha256": "a62b8bdb88b9942ae7cdc632f3fde8f2e9d1095443112e62b7ae21da3a68b87d",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2276,8 +2340,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4873,
-      "sha256": "c26e7ddec22a2431b3bb313abfb04c6584ee262f1b07412ef6da1e0aed8fab5c",
+      "bytes": 4984,
+      "sha256": "01ca64c988b18ace3c444e17e905b0b07a0c46201aa1a5049a7807635b1992d5",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

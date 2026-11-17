@@ -55,7 +55,7 @@ or all, then use the system **Copy** command and paste it into the query box.
 
 **Choose your platforms.** The panel shows eleven cards in `ProviderCatalog` order:
 
-* Searched in the app (selectable): **Open Library**, **Google Books**, **DLsite**.
+* GitHub searches **Open Library** and **Google Books**. To add **DLsite**, import its descriptor in **Plugins** and turn it on. Its results may include mature listings.
 * Browser-only (never selectable): **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**,
   **Doujinshi.info**, **MyAnimeList**, **nhentai**, **Toranoana**.
 
@@ -684,8 +684,8 @@ and you can import it again later.
 ## Data and privacy
 
 Everything is stored locally in the app's private storage. Offline matching sends nothing. With
-online search on, the cover JPEG goes to Google Lens and the recognised text goes to the three
-providers the app queries: Open Library, Google Books and DLsite. The eight browser-only cards
+GitHub online search enabled, selecting Google Lens sends it the cover JPEG. Catalogue searches
+send the query to the selected providers. DLsite participates only after you import and enable it. The eight browser-only cards
 (Melonbooks, Suruga-ya, Doujin no Mori, E-Hentai, Doujinshi.info, MyAnimeList, nhentai, Toranoana) are
 never contacted by the app - their search pages open in your browser. No account, analytics or ads. The
 app refuses non-HTTPS links.
@@ -722,4 +722,9 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-Open **Plugins** to the right of **More**. In a debug build, enable **Demo card** to see “Hello from BCM” immediately. Turn the switch off to hide it. The app remembers the switch after you leave or restart. Release builds currently show “No plugins available yet”. See [bundled plugins](BUNDLED_PLUGINS.md) for development instructions.
+1. Save [dlsite.bcmplugin](../../plugins/manifests/dlsite.bcmplugin) to Downloads on your device.
+2. In the GitHub edition, open **Plugins** to the right of **More**, tap **Import plugin**, and select the file.
+3. Switch **DLsite** on. With online search enabled, your next catalogue search can query DLsite. Switching it off removes its search row and transient results immediately. You can still access previously saved GitHub bookmarks.
+4. BCM remembers the switch. On the first import after an upgrade, BCM uses your last explicitly saved provider selection. With no explicit selection it starts off.
+
+Both debug editions also accept [demo.bcmplugin](../../plugins/manifests/demo.bcmplugin). Turn on **Demo card** to see “Hello from BCM”. See the [developer guide](BUNDLED_PLUGINS.md) to create descriptors.

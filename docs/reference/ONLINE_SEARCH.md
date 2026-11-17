@@ -1,6 +1,6 @@
 # Online search, OCR and bookmarks — implementation notes (v2.4.0)
 
-This document describes what the online feature actually does. It deliberately separates four
+The 2.7.0 GitHub edition gates DLsite catalogue queries behind a [manually imported plugin](../guides/BUNDLED_PLUGINS.md). The following implementation notes describe v2.4.0. It deliberately separates four
 capabilities that are easy to confuse:
 
 | Capability | Implementation | Output |

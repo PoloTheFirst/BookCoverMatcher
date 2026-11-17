@@ -11,11 +11,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.Button
+import com.bookcovermatcher.plugins.readPluginId
+import kotlinx.coroutines.*
 import androidx.compose.material3.Switch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bookcovermatcher.plugins.PluginManager
+import com.bookcovermatcher.plugins.card
 import com.bookcovermatcher.plugins.PluginStatus
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -31,9 +40,28 @@ import com.bookcovermatcher.ui.theme.Palette
 
 @Composable
 internal fun PluginsScreen(manager: PluginManager) {
-    val rows = manager.rows.collectAsStateWithLifecycle().value
+    val imported = manager.imported.collectAsStateWithLifecycle().value
+    val rows = manager.rows.collectAsStateWithLifecycle().value.filter { it.descriptor.id in imported }
+    val resolver = LocalContext.current.contentResolver
+    val scope = rememberCoroutineScope()
+    var message by rememberSaveable { mutableStateOf<String?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            message = try {
+                val id = withContext(Dispatchers.IO) {
+                    require(uri.scheme == "content")
+                    requireNotNull(resolver.openInputStream(uri)).use(::readPluginId)
+                }
+                manager.importDescriptor(id)
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { "Import failed. Choose a valid .bcmplugin file and try again." }
+        }
+    }
     Column(Modifier.fillMaxWidth()) {
         Text("Plugins", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Import plugin") }
+        message?.let { Text(it, color = Palette.Text) }
         Spacer(Modifier.height(12.dp))
         for (row in rows) {
             val descriptor = row.descriptor
@@ -76,10 +104,10 @@ internal fun PluginsScreen(manager: PluginManager) {
                 modifier = Modifier.size(40.dp),
             )
             Spacer(Modifier.height(12.dp))
-            Text("No plugins available yet", color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("No imported plugins", color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Plugin downloads and installation are not available in this version.",
+                "Choose a .bcmplugin file to add a plugin supported by this edition.",
                 color = Palette.Muted,
                 fontSize = 13.sp,
             )

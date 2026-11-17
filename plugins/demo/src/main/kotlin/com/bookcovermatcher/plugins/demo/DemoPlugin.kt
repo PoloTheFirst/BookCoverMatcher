@@ -5,7 +5,7 @@ import com.bookcovermatcher.plugins.*
 
 private val demo = PluginDescriptor(
     "bcm.demo", "Demo card", "Show a sample card on this page.", "1.0",
-    1..1, setOf(Capability.INFORMATION_CARD),
+    2..2, setOf(Capability.INFORMATION_CARD),
 )
 
 val demoRegistration = Registration(demo) { DemoPlugin() }

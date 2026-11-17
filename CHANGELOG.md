@@ -6,7 +6,7 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 
 ### Added
 
-- Plugins tab after More supports live switches for bundled plugins. The debug demo card appears immediately and remembers its setting across restarts. Both release editions currently have an empty plugin list.
+- Plugins now accepts manually selected `.bcmplugin` files. In the GitHub edition, import DLsite to manage it with a live switch. Fresh installs and upgrades that used the implicit provider default start off. First import honors an explicitly saved DLsite selection, and subsequent launches restore the plugin switch. Both debug editions support the demo card.
 
 - Separate GitHub and Play build variants: GitHub retains all providers; Play retains SauceNAO/IQDB while excluding public catalogue discovery and shortcuts.
 

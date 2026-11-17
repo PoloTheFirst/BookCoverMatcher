@@ -14,7 +14,7 @@ stand in this tree and were not rewritten.
 
 ## Bundled plugins in 2.7.0
 
-The app owns the registry, lifecycle and Compose settings. The pure Kotlin `:plugin-api` module defines descriptors and information cards, while `:plugins:demo` demonstrates the contract in debug builds. See the [developer guide](../guides/BUNDLED_PLUGINS.md).
+The app owns the registry, lifecycle and Compose settings. The pure Kotlin `:plugin-api` module defines descriptors, information cards and catalogue contributions. A manual descriptor import selects a registered implementation. The GitHub registration creates a DLsite adapter on activation, while `:plugins:demo` demonstrates the contract in debug builds. See the [developer guide](../guides/BUNDLED_PLUGINS.md).
 
 ## Layers
 

@@ -6,14 +6,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PluginManagerTest {
-    private val descriptor = PluginDescriptor("bcm.test", "Test", "", "1", 1..1, setOf(Capability.INFORMATION_CARD))
+    private val descriptor = PluginDescriptor("bcm.test", "Test", "", "1", 2..2, setOf(Capability.INFORMATION_CARD))
     private val card = InfoCard("Sample", "Content")
-    private class Choices : PluginChoices {
+    private class Choices(initiallyImported: Boolean = true) : PluginChoices {
+        private val importedIds = if (initiallyImported) mutableSetOf("bcm.test") else mutableSetOf()
         val saved = mutableMapOf("other.edition" to true)
         var writeFails = false
+        override fun imported(id: String) = id in importedIds
         override fun enabled(id: String) = saved[id] == true
         override fun save(id: String, enabled: Boolean) {
             check(!writeFails)
+            importedIds += id
             saved[id] = enabled
         }
     }
@@ -32,6 +35,36 @@ class PluginManagerTest {
         }
         return PluginManager(listOf(registration), choices, CoroutineScope(SupervisorJob()),
             Dispatchers.Unconfined, timeoutMs = 100)
+    }
+
+    @Test fun manualImportRespectsExistingSelectionOnlyOnce() = runBlocking {
+        for (legacy in listOf(null, false, true)) {
+            val choices = Choices(initiallyImported = false)
+            val id = descriptor.id
+            if (legacy != null) choices.saved[id] = legacy
+            val manager = fixture(choices)
+            manager.toggle(id, true)!!.join()
+            assertTrue(manager.imported.value.isEmpty())
+            assertNull(manager.rows.value.single().card)
+            manager.importDescriptor("unknown.plugin")
+            assertTrue(manager.imported.value.isEmpty())
+            manager.importDescriptor(id)
+            assertEquals(setOf(id), manager.imported.value)
+            assertEquals(legacy == true, manager.rows.value.single().card != null)
+            manager.toggle(id, false)!!.join()
+            manager.importDescriptor(id)
+            val restored = fixture(choices)
+            assertEquals(setOf(id), restored.imported.value)
+            assertNull(restored.rows.value.single().card)
+        }
+    }
+
+    @Test fun descriptorRequiresAnExactBoundedDataFormat() {
+        assertEquals("bcm.dlsite", readPluginId("BCM-PLUGIN/1\r\nbcm.dlsite\r\n".byteInputStream()))
+        for (bad in listOf("", "BCM-PLUGIN/1", "BCM-PLUGIN/2\nbcm.dlsite",
+            "BCM-PLUGIN/1\n../dlsite", "BCM-PLUGIN/1\nbcm.dlsite\nextra", "a".repeat(257))) {
+            assertThrows(IllegalArgumentException::class.java) { readPluginId(bad.byteInputStream()) }
+        }
     }
 
     @Test fun repeatAndRestore() = runBlocking {
@@ -55,7 +88,7 @@ class PluginManagerTest {
 
     @Test fun incompatibleRestoreAndDuplicateIds() {
         val choices = Choices().apply { saved[descriptor.id] = true }
-        val manager = fixture(choices, descriptor.copy(hostVersions = 2..3), activate = { error("unexpected") })
+        val manager = fixture(choices, descriptor.copy(hostVersions = 3..3), activate = { error("unexpected") })
         assertEquals(PluginStatus.UNAVAILABLE, manager.rows.value.single().status)
         assertEquals(true, choices.saved[descriptor.id])
         val entry = Registration(descriptor) { error("unexpected creation") }

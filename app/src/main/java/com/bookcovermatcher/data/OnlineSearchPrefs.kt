@@ -61,6 +61,8 @@ class OnlineSearchPrefs(context: Context) {
      * empty: "search nothing" is a real choice and must not silently revert to the defaults. Unknown
      * ids are dropped by [SearchRouting.sanitize], so a provider removed in a later build cannot linger.
      */
+    val explicitDlsiteSelection get() = sp.getStringSet(KEY_PROVIDERS, null)?.contains("dl") == true
+
     var selectedProviders: Set<String>
         get() = SearchRouting.sanitize(sp.getStringSet(KEY_PROVIDERS, null))
         set(value) {

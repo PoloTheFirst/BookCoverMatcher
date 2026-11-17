@@ -126,6 +126,8 @@ class OnlineSearchController(
      * Deliberately separate from the search: a missing picture never changes a provider's result state.
      */
     private val discoveryCovers: DiscoveryCoverLoader = DiscoveryCoverLoader(),
+    private val activeDlsite: () -> ProductSearchDataSource? = { null },
+    private val disableDlsite: () -> Unit = {},
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
     // ---- reverse-image discovery ---------------------------------------------------------------
@@ -138,6 +140,47 @@ class OnlineSearchController(
     // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The generation
     // counter is the stale-response guard: a result whose token is no longer current is dropped instead of
     // overwriting the answer to a newer request.
+    private fun effectiveSelection(): Set<String> {
+        val legacy = prefs.selectedProviders - "dl"
+        return if (activeDlsite() != null) legacy + "dl" else legacy
+    }
+
+    private var searchDlsite: ProductSearchDataSource? = null
+
+    /** Runs on the UI thread. Saved bookmarks and independent reverse-image runs are untouched. */
+    fun refreshCataloguePlugins() {
+        val previous = searchDlsite
+        val invalid = previous != null && previous !== activeDlsite()
+        if (invalid) {
+            if (_ui.value.catalogue is CatalogueUi.Running) job?.cancel()
+            searchDlsite = null
+        }
+        session.clearEntries()
+        val selection = effectiveSelection()
+        _ui.update { state ->
+            val current = state.catalogue
+            val catalogue = when {
+                !invalid -> current
+                current is CatalogueUi.Found -> {
+                    val remaining = current.items.filterNot { it.provider == previous?.name }
+                    if (remaining.isEmpty()) CatalogueUi.Idle else current.copy(
+                        items = remaining,
+                        source = remaining.map { it.source }.distinct().joinToString(" + "),
+                        totalAvailable = null,
+                        note = null,
+                    )
+                }
+                else -> CatalogueUi.Idle
+            }
+            val previousRows = state.providers.associateBy { it.id }
+            val providers = providerStatuses(state.query, selection).map { row ->
+                val old = previousRows[row.id]
+                if (row.id != "dl" && old != null && (!invalid || old.state != ProviderState.SEARCHING)) old else row
+            }
+            state.copy(selectedProviders = selection, providers = providers, catalogue = catalogue)
+        }
+    }
+
     private val reverseRunner = ReverseImageSearchRunner(reverseSources)
     private val reverseRuns = LinkedHashMap<String, ReverseImageRun>()
     private var reverseJob: Job? = null
@@ -165,9 +208,9 @@ class OnlineSearchController(
             ocrLanguage = prefs.ocrLanguage,
             targetLanguage = prefs.targetLanguage,
             ocrEngine = prefs.ocrEngine,
-            selectedProviders = prefs.selectedProviders,
+            selectedProviders = effectiveSelection(),
             resultLimit = prefs.resultLimit,
-            providers = providerStatuses(query = "", selected = prefs.selectedProviders),
+            providers = providerStatuses(query = "", selected = effectiveSelection()),
             reverse = ReverseImageUi(
                 // Explicitly "no runs yet": the resting rows come from the providers' own readiness, so this
                 // initializer depends on nothing mutable.
@@ -201,6 +244,7 @@ class OnlineSearchController(
         val limit: Int,
         /** Which platforms were selected when this answer was produced. */
         val selectionKey: String,
+        val dlsite: ProductSearchDataSource?,
         val results: List<ProductSearchResult>,
         val totalAvailable: Int?,
         val source: String,
@@ -227,7 +271,7 @@ class OnlineSearchController(
         automated: Map<String, Pair<ProviderState, String>> = emptyMap(),
         searching: Boolean = false,
         secondaryOn: Boolean = prefs.secondarySources,
-    ): List<ProviderStatusUi> = ProviderCatalog.ALL.map { spec ->
+    ): List<ProviderStatusUi> = ProviderCatalog.ALL.filter { it.id != "dl" || activeDlsite() != null }.map { spec ->
         val manual = !spec.selectable
         val isSelected = spec.selectable && spec.id in selected
         val switchedOff = isSelected && !secondaryOn && ProviderCapabilities.isSecondary(spec.id)
@@ -269,7 +313,7 @@ class OnlineSearchController(
                 catalogue = CatalogueUi.Idle,
                 query = "",
                 // A disabled feature has searched nothing: every row goes back to its resting state.
-                providers = providerStatuses(query = "", selected = prefs.selectedProviders),
+                providers = providerStatuses(query = "", selected = effectiveSelection()),
             )
         }
         if (on) {
@@ -358,7 +402,7 @@ class OnlineSearchController(
         _ui.update {
             it.copy(
                 reverse = it.reverse.copy(secondarySources = on),
-                providers = providerStatuses(it.query, prefs.selectedProviders, secondaryOn = on),
+                providers = providerStatuses(it.query, effectiveSelection(), secondaryOn = on),
             )
         }
         onMessage(
@@ -694,10 +738,15 @@ class OnlineSearchController(
             )
             return
         }
-        val current = prefs.selectedProviders
+        if (id == "dl") {
+            disableDlsite()
+            return
+        }
+        val current = effectiveSelection()
         val next = SearchRouting.toggle(current, id)
         if (next == current) return
-        prefs.selectedProviders = next
+        // Preserve only the explicit legacy DLsite bit. Other picker edits cannot opt a new user in.
+        prefs.selectedProviders = if (prefs.explicitDlsiteSelection) next + "dl" else next - "dl"
 
         val wasRunning = _ui.value.catalogue is CatalogueUi.Running
         if (wasRunning) {
@@ -991,7 +1040,7 @@ class OnlineSearchController(
         }
         if (_ui.value.isBusy) return
 
-        val selection = prefs.selectedProviders
+        val selection = effectiveSelection()
         val limit = SearchLimits.sanitize(prefs.resultLimit)
         val selectionKey = SearchRouting.key(selection)
         val secondaryOn = prefs.secondarySources
@@ -1008,9 +1057,9 @@ class OnlineSearchController(
                 // Selected, but every selected provider is a general-book source the user switched off.
                 switchedOffOnly ->
                     "Open Library and Google Books are switched off, so nothing was queried. Turn the " +
-                        "general-book sources back on, or select DLsite."
+                        "general-book sources back on or enable an imported catalogue plugin."
                 shortcuts.isEmpty() ->
-                    "Select at least one platform to search (Open Library, Google Books or DLsite)."
+                    "Select a platform to search."
                 else ->
                     "No in-app platform is selected. Browser-only shortcuts ($shortcuts) open their own " +
                         "search pages with the Open \u2197 buttons above."
@@ -1032,7 +1081,9 @@ class OnlineSearchController(
         }
 
         val selectedIds = automatedSpecs.map { it.id }.toSet()
-        val sources = catalogues.filter { specFor(it)?.id in selectedIds }
+        val dlsite = activeDlsite()
+        searchDlsite = dlsite
+        val sources = (catalogues + listOfNotNull(dlsite)).filter { specFor(it)?.id in selectedIds }
 
         val fingerprint = capture?.let { ImageFingerprint.of(it) }
         if (fingerprint != null) {
@@ -1041,7 +1092,7 @@ class OnlineSearchController(
             if (cached != null &&
                 cached.query == trimmed &&
                 cached.limit == limit &&
-                cached.selectionKey == selectionKey
+                cached.selectionKey == selectionKey && cached.dlsite === dlsite
             ) {
                 applyResults(
                     results = cached.results,
@@ -1079,6 +1130,7 @@ class OnlineSearchController(
                 coroutineScope {
                     sources.map { source ->
                         async {
+                            if (source === dlsite && dlsite !== activeDlsite()) throw kotlinx.coroutines.CancellationException()
                             val ask = SearchLimits.forProvider(limit, source.maxResults)
                             source to runCatching {
                                 withTimeout(PROVIDER_TIMEOUT_MS) { source.search(trimmed, ask) }
@@ -1087,7 +1139,7 @@ class OnlineSearchController(
                     }.awaitAll()
                 }
             }
-            if (!session.isCurrent(token)) return@launch
+            if (!session.isCurrent(token) || (dlsite != null && dlsite !== activeDlsite())) return@launch
             applyOutcomes(
                 query = trimmed,
                 outcomes = outcomes,
@@ -1226,7 +1278,7 @@ class OnlineSearchController(
         if (fingerprint != null && !fromCache) {
             session.store(
                 fingerprint,
-                CachedSearch(query, limit, selectionKey, results, totalAvailable, source, note, providers),
+                CachedSearch(query, limit, selectionKey, searchDlsite, results, totalAvailable, source, note, providers),
             )
         }
         _ui.update {
@@ -1249,11 +1301,18 @@ class OnlineSearchController(
 
     /** Covers arrive after the text, one at a time, so the list is readable immediately. */
     private fun loadCovers(results: List<ProductSearchResult>, token: Long) {
+        val dlsite = searchDlsite
         scope.launch {
             for (item in results) {
-                val bytes = withContext(Dispatchers.IO) { runCatching { covers.load(item.coverUrl) }.getOrNull() }
+                if (!session.isCurrent(token)) return@launch
+                if (item.source == dlsite?.name && activeDlsite() !== dlsite) continue
+                val bytes = withContext(Dispatchers.IO) {
+                    if (item.source == dlsite?.name && activeDlsite() !== dlsite) null
+                    else runCatching { covers.load(item.coverUrl) }.getOrNull()
+                }
                     ?: continue
                 if (!session.isCurrent(token)) return@launch
+                if (item.source == dlsite?.name && activeDlsite() !== dlsite) continue
                 _ui.update { state ->
                     val current = state.catalogue as? CatalogueUi.Found ?: return@update state
                     // by id, never by index: the list can be deduplicated or reordered underneath us

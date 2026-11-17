@@ -72,7 +72,10 @@ class SessionCache<T : Any>(private val maxEntries: Int = 4) {
 
     fun isCurrent(token: Long): Boolean = token == generation
 
-    /** Drops every cached result and the selected capture. Saved data is untouched by definition. */
+    /** Forget catalogue results while keeping the active capture and any pending OCR. */
+    fun clearEntries() = entries.clear()
+
+    /** Drop the active capture and reject callbacks carrying its previous generation. */
     fun invalidate() {
         fingerprint = null
         entries.clear()

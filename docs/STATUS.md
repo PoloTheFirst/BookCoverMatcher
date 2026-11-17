@@ -72,6 +72,18 @@ Prepared a draft plan on feature/plugin-framework based on pushed google_play co
 
 Approved and implemented locally on feature/plugin-framework for 2.7.0/226. Both debug editions offer a live Demo card switch and persist choices in an independent store. Release APKs exclude the demo and have empty registries. Both debug/release builds, debug unit suites, lint and API36 live-toggle/restart checks passed. The app retains its signing configuration, workbook data model and provider inventories. See the plugin-framework implementation report and bundled plugin developer guide.
 
+## DLsite plugin planning
+
+Prepared a local GitHub-only DLsite catalogue plugin plan for review on feature/plugin-framework at 1b3dbee. It covers immediate switching, legacy selection migration, cancellation, cache invalidation, saved records and Play separation. Current runtime behavior remains at the bundled framework checkpoint.
+
+## Manual plugin imports and GitHub DLsite
+
+Local 2.7.0/226 on plugin/dlsite accepts data-only .bcmplugin files for bundled implementations. Fresh installs start off. On first import explicit legacy choices carry over. DLsite is available in GitHub debug/release. Emulator manual import, live toggling, restart persistence and isolated routing/upgrade instrumentation passed.
+
+## Live DLsite catalogue verification
+
+On 18 November 2026 the GitHub 2.7.0 (226) debug build on the API 36 emulator returned five live DLsite results for COMIC. The imported DLsite plugin was enabled in Plugins. Online services were on and general-book sources were switched off during the search. Search selected platforms displayed “5 result(s) shown · max 5 · DLsite”. The installed APK matched the local GitHub debug APK (SHA-256 4fcd93855c3100148ce3738b62e413e02b6d6260571f088e1046a8fd6349053c). After testing, general-book sources were restored to on and the imported DLsite plugin to off.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

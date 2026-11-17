@@ -13,11 +13,14 @@ internal enum class PluginStatus { DISABLED, ENABLING, ENABLED, DISABLING, FAILE
 internal data class PluginRow(
     val descriptor: PluginDescriptor,
     val status: PluginStatus,
-    val card: InfoCard? = null,
+    val contribution: PluginContribution? = null,
     val message: String? = null,
 )
 
+internal val PluginRow.card get() = contribution as? InfoCard
+
 internal interface PluginChoices {
+    fun imported(id: String): Boolean
     fun enabled(id: String): Boolean
     fun save(id: String, enabled: Boolean)
 }
@@ -43,11 +46,27 @@ internal class PluginManager(
     }
     private val state = MutableStateFlow(registrations.map {
         val d = it.descriptor
-        if (HOST_PLUGIN_API in d.hostVersions && Capability.INFORMATION_CARD in d.capabilities)
+        if (HOST_PLUGIN_API in d.hostVersions && d.capabilities.isNotEmpty())
             PluginRow(d, PluginStatus.DISABLED)
         else PluginRow(d, PluginStatus.UNAVAILABLE, message = "Incompatible with this app version")
     })
     val rows = state.asStateFlow()
+
+    private val importedIds = MutableStateFlow(emptySet<String>())
+    val imported = importedIds.asStateFlow()
+
+    suspend fun importDescriptor(id: String): String = withContext(worker) {
+        val entry = entries[id] ?: return@withContext "This plugin is unavailable in this edition."
+        entry.lock.withLock {
+            if (row(entry).status == PluginStatus.UNAVAILABLE) return@withLock "Incompatible plugin."
+            if (id in importedIds.value) return@withLock "Already imported."
+            val initial = choices.enabled(id)
+            choices.save(id, initial)
+            importedIds.update { it + id }
+            if (initial) enable(entry)
+            "Imported ${entry.registration.descriptor.name}."
+        }
+    }
 
     init {
         for (entry in entries.values) {
@@ -57,7 +76,10 @@ internal class PluginManager(
                     withContext(worker) {
                         if (row(entry).status != PluginStatus.UNAVAILABLE) {
                             try {
-                                if (choices.enabled(id(entry))) enable(entry)
+                                if (choices.imported(id(entry))) {
+                                    importedIds.update { it + id(entry) }
+                                    if (choices.enabled(id(entry))) enable(entry)
+                                }
                             } catch (e: Exception) {
                                 currentCoroutineContext().ensureActive()
                                 set(entry, PluginStatus.FAILED, message = "Could not restore setting")
@@ -73,7 +95,7 @@ internal class PluginManager(
         val entry = entries[id] ?: return null
         return owner.launch(worker) {
             entry.lock.withLock {
-                if (row(entry).status == PluginStatus.UNAVAILABLE) return@withLock
+                if (id !in importedIds.value || row(entry).status == PluginStatus.UNAVAILABLE) return@withLock
                 if (enabled) enable(entry) else disable(entry)
             }
         }
@@ -81,7 +103,7 @@ internal class PluginManager(
 
     private fun id(entry: Entry) = entry.registration.descriptor.id
     private fun row(entry: Entry) = state.value.first { it.descriptor.id == id(entry) }
-    private fun set(entry: Entry, status: PluginStatus, card: InfoCard? = null, message: String? = null) {
+    private fun set(entry: Entry, status: PluginStatus, card: PluginContribution? = null, message: String? = null) {
         state.update { list -> list.map {
             if (it.descriptor.id == id(entry)) PluginRow(it.descriptor, status, card, message) else it
         } }
@@ -98,13 +120,19 @@ internal class PluginManager(
             return
         }
         set(entry, PluginStatus.ENABLING)
-        val ready = CompletableDeferred<InfoCard>()
+        val ready = CompletableDeferred<PluginContribution>()
         val job = owner.launch(worker) {
             try {
                 val plugin = entry.registration.create()
                 try {
                     require(plugin.descriptor == entry.registration.descriptor)
-                    ready.complete(plugin.activate())
+                    val contribution = plugin.activate()
+                    val capability = when (contribution) {
+                        is InfoCard -> Capability.INFORMATION_CARD
+                        is CatalogueProvider -> Capability.CATALOGUE_PROVIDER
+                    }
+                    require(capability in plugin.descriptor.capabilities)
+                    ready.complete(contribution)
                     awaitCancellation()
                 } finally {
                     try {
@@ -142,7 +170,7 @@ internal class PluginManager(
         try {
             choices.save(id(entry), false)
         } catch (_: Exception) {
-            set(entry, previous.status, previous.card, "Could not save setting. Try again.")
+            set(entry, previous.status, previous.contribution, "Could not save setting. Try again.")
             return
         }
         val job = entry.lifetime

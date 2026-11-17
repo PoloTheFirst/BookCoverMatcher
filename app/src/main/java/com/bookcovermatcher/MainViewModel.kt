@@ -5,6 +5,10 @@ package com.bookcovermatcher
 import android.app.Activity
 import com.bookcovermatcher.core.online.DistributionPolicy
 import com.bookcovermatcher.data.googledrive.*
+import com.bookcovermatcher.core.online.ProductSearchDataSource
+import com.bookcovermatcher.data.OnlineSearchPrefs
+import com.bookcovermatcher.plugins.CatalogueProvider
+import com.bookcovermatcher.plugins.editionPlugins
 import com.bookcovermatcher.plugins.PluginManager
 import com.bookcovermatcher.plugins.bundledPlugins
 import com.bookcovermatcher.plugins.PluginSettings
@@ -138,8 +142,10 @@ import kotlinx.coroutines.withContext
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     internal val plugins = PluginManager(
-        bundledPlugins,
-        PluginSettings(File(app.filesDir, "plugin-settings")),
+        bundledPlugins + editionPlugins,
+        PluginSettings(File(app.filesDir, "plugin-settings")) { id ->
+            id == "bcm.dlsite" && OnlineSearchPrefs(app).explicitDlsiteSelection
+        },
         viewModelScope,
     )
 
@@ -163,7 +169,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * captured cover and shares the toast channel, but it keeps its own state flow ([online]) and
      * never touches the offline matcher. Everything in it is inert until the user switches it on.
      */
-    val online = OnlineSearchController(app, viewModelScope, onMessage = ::showToast)
+    private fun activeDlsite() = plugins.rows.value.firstOrNull {
+        (it.contribution as? CatalogueProvider)?.providerId == "dl"
+    }?.contribution as? ProductSearchDataSource
+
+    val online = OnlineSearchController(app, viewModelScope,
+        activeDlsite = ::activeDlsite,
+        disableDlsite = { plugins.toggle("bcm.dlsite", false) },
+        onMessage = ::showToast,
+    )
 
     /**
      * Offline preview of the workbook's legacy comment images (v2.3.0). Owned here so it can see the
@@ -371,6 +385,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_ui.value.autoScan) camera.autoSink = AutoScanSink { now, frame -> onAutoTick(now, frame) }
         prepareModel()
         refreshLibrary()
+        viewModelScope.launch {
+            var previous: ProductSearchDataSource? = null
+            plugins.rows.collect {
+                val active = activeDlsite()
+                if (previous !== active) online.refreshCataloguePlugins()
+                previous = active
+            }
+        }
         // The online controller owns its own StateFlow; mirror it into UiState. Without this the
         // panel keeps drawing the default (off) state and never shows the switch the user flipped
         // - the actual reason online search appeared nonfunctional.

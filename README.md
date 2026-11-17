@@ -10,7 +10,7 @@ Website policies are published and the plain URLs were rechecked on 17 November 
 
 Local `github` and `play` editions now share the same app ID and storage. GitHub retains every provider; Play excludes catalogue discovery and shortcuts while retaining SauceNAO/IQDB. Reverse-image content review and signed update testing remain required. See [distribution variants and build commands](docs/guides/DISTRIBUTION_VARIANTS.md). Nothing has been published from this split.
 
-The Plugins tab supports live switches for bundled features. Both debug editions include a local demo card. See the [bundled plugin guide](docs/guides/BUNDLED_PLUGINS.md).
+In the GitHub edition, open **Plugins → Import plugin**, choose `dlsite.bcmplugin`, then switch on **DLsite** to include it in catalogue searches immediately. Both debug editions also support importing the demo card. See the [bundled plugin guide](docs/guides/BUNDLED_PLUGINS.md).
 
 ## Find the right documentation
 

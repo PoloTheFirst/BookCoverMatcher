@@ -2,9 +2,9 @@
 package com.bookcovermatcher.plugins
 
 /** Public contract for trusted implementations linked into the application. */
-const val HOST_PLUGIN_API = 1
+const val HOST_PLUGIN_API = 2
 
-enum class Capability { INFORMATION_CARD }
+enum class Capability { INFORMATION_CARD, CATALOGUE_PROVIDER }
 
 data class PluginDescriptor(
     val id: String,
@@ -15,13 +15,15 @@ data class PluginDescriptor(
     val capabilities: Set<Capability>,
 )
 
-data class InfoCard(val title: String, val body: String)
+sealed interface PluginContribution
+data class InfoCard(val title: String, val body: String) : PluginContribution
+abstract class CatalogueProvider(val providerId: String) : PluginContribution
 
 interface BundledPlugin {
     val descriptor: PluginDescriptor
 
-    /** Prepare this activation's card. Implementations must cooperate with cancellation. */
-    suspend fun activate(): InfoCard
+    /** Prepare this activation's contribution. Implementations must cooperate with cancellation. */
+    suspend fun activate(): PluginContribution
 
     /** Release activation resources, including after partial initialization. */
     suspend fun deactivate() {}

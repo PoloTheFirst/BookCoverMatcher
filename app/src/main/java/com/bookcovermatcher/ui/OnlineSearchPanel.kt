@@ -233,7 +233,7 @@ private fun SecondarySourcesRow(ui: OnlineSearchUi, controller: OnlineSearchCont
         Column(Modifier.weight(1f)) {
             Text("General-book sources", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Open Library and Google Books. Off = not queried at all; DLsite is never affected.",
+                "Open Library and Google Books. Off = not queried at all; catalogue plugins use their own switches.",
                 color = Palette.Muted,
                 fontSize = 10.sp,
             )
