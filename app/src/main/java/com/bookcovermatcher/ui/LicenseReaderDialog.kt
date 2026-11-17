@@ -5,7 +5,6 @@ package com.bookcovermatcher.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -191,13 +190,13 @@ private fun Header(
 
 @Composable
 private fun DocumentTabs(current: LicenseDocuments, onSelect: (LicenseDocuments) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LicenseDocuments.ordered.forEach { document ->
             GradientButton(
                 onClick = { onSelect(document) },
                 colors = if (document == current) Palette.AccentGradient else Palette.NavyGradient,
                 contentColor = Palette.Text,
-                modifier = Modifier,
+                modifier = Modifier.weight(1f),
                 minHeight = 48.dp,
                 contentPadding = 8.dp,
             ) { Text(document.shortLabel, color = Palette.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
