@@ -102,14 +102,6 @@ class OnlineSearchController internal constructor(
     /** Durable confirmations/rejections, one file per wishlist profile. */
     private val decisionStore: CandidateDecisionStore = CandidateDecisionStore(context),
     /**
-     * The reverse-image providers of this build, in the order the specification fixes: SauceNAO first, IQDB
-     * second. IQDB's adapter is manual-only and says so; see [IqdbProtocol] for the verified reason.
-     */
-    private val reverseSources: List<ReverseImageSource> = listOf(
-        SauceNaoReverseImageSource(apiKey = { sauceNaoKey.key() }),
-        IqdbReverseImageSource(),
-    ),
-    /**
      * Fetches each discovery candidate's picture (provider thumbnail first, then the page's own declared image).
      * Deliberately separate from the search: a missing picture never changes a provider's result state.
      */
@@ -145,6 +137,13 @@ class OnlineSearchController internal constructor(
 
     /** Revoke the previous activation even if another instance of the same group is already active. */
     fun refreshCataloguePlugins() {
+        val activation = activeReverseGroup()
+        if (activation !== reverseActivation) {
+            reverseActivation = activation
+            reverseSources = discoverySources()
+            pastedCandidates = emptyList()
+            resetReverse()
+        }
         val active = activeSources()
         val removed = searchSources.filterNot { it in active }.map { it.name }.toSet()
         val invalid = removed.isNotEmpty()
@@ -178,7 +177,15 @@ class OnlineSearchController internal constructor(
         }
     }
 
-    private val reverseRunner = ReverseImageSearchRunner(reverseSources)
+    private fun activeReverseGroup() = activeGroups().firstOrNull { it.group.reverseSources != null }
+    private var reverseActivation = activeReverseGroup()
+    private fun discoverySources(): List<ReverseImageSource> =
+        if (DistributionEdition.catalogueEnabled) reverseActivation?.group?.reverseSources?.invoke(sauceNaoKey::key).orEmpty()
+        else listOf(SauceNaoReverseImageSource(apiKey = sauceNaoKey::key), IqdbReverseImageSource())
+
+    private var reverseSources = discoverySources()
+    fun reverseAvailable() = reverseSources.isNotEmpty() && reverseActivation === activeReverseGroup()
+
     private val reverseRuns = LinkedHashMap<String, ReverseImageRun>()
     private var reverseJob: Job? = null
 
@@ -420,6 +427,7 @@ class OnlineSearchController internal constructor(
      * results are visible while IQDB is still being handled — nothing waits for the slower provider.
      */
     fun runReverseSearch() {
+        if (!reverseAvailable()) return
         val bytes = capture
         if (bytes == null) {
             onMessage("Scan a cover first — reverse-image search needs the image itself.", ToastKind.ERR)
@@ -444,7 +452,7 @@ class OnlineSearchController internal constructor(
             mimeType = "image/jpeg",
             maxResults = SearchLimits.sanitize(prefs.resultLimit).coerceAtMost(ReverseImageRequest.MAX_RESULTS),
         )
-        val runner = reverseRunner
+        val runner = ReverseImageSearchRunner(reverseSources)
 
         reverseJob?.cancel()
         reverseJob = scope.launch {
@@ -462,19 +470,19 @@ class OnlineSearchController internal constructor(
                     request = request,
                     token = generation,
                     // Cancellation is cooperative: the runner asks before every provider.
-                    shouldContinue = { token -> !reverseCancelled && token == reverseGeneration },
+                    shouldContinue = { token -> !reverseCancelled && token == reverseGeneration && reverseAvailable() },
                     onRun = { run -> publishReverseRun(run, generation) },
                 )
             }
             // A newer run (or a cancel) took over: this answer belongs to a request nobody is waiting for.
-            if (generation != reverseGeneration) return@launch
+            if (generation != reverseGeneration || !reverseAvailable()) return@launch
             applyReverseResult(result)
         }
     }
 
     /** Publishes one provider's row: `SEARCHING` first, then the provider's real answer. */
     private fun publishReverseRun(run: ReverseImageRun, generation: Long) {
-        if (generation != reverseGeneration) return
+        if (generation != reverseGeneration || !reverseAvailable()) return
         reverseRuns[run.providerId] = run
         _ui.update { state -> state.copy(reverse = state.reverse.copy(providers = reverseProviderRows())) }
     }
@@ -536,6 +544,7 @@ class OnlineSearchController internal constructor(
      * [IqdbResultParser] only normalises what they brought back. Rows without a URL are dropped.
      */
     fun importIqdbResult(text: String) {
+        if (!reverseAvailable()) return
         val now = System.currentTimeMillis()
         val pasted = IqdbResultParser.parsePasted(text, now)
         val hits = pasted.ifEmpty { IqdbResultParser.parsePage(text, now) }
@@ -636,11 +645,11 @@ class OnlineSearchController internal constructor(
         coverJob?.cancel()
         coverJob = scope.launch {
             for (target in targets) {
-                if (generation != reverseGeneration) return@launch
+                if (generation != reverseGeneration || !reverseAvailable()) return@launch
                 val loaded = withContext(Dispatchers.IO) {
                     discoveryCovers.load(target.imageUrl, target.sourceUrl)
                 }
-                if (generation != reverseGeneration) return@launch
+                if (generation != reverseGeneration || !reverseAvailable()) return@launch
                 patchCandidate(target.key) { candidate ->
                     if (loaded == null) {
                         candidate.copy(imageState = DiscoveryImageState.UNAVAILABLE)

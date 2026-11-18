@@ -3,6 +3,7 @@ package com.bookcovermatcher.plugins
 
 import com.bookcovermatcher.core.online.ProductSearchDataSource
 import com.bookcovermatcher.core.online.ProviderCatalog
+import com.bookcovermatcher.core.online.reverse.ReverseImageSource
 import com.bookcovermatcher.core.online.ProviderSpec
 
 /** One settings switch controls availability. Each entry keeps its legacy identity and position. */
@@ -12,6 +13,7 @@ internal open class PlatformGroup(
     name: String,
     description: String,
     val entries: List<ProviderSpec>,
+    val reverseSources: ((() -> String?) -> List<ReverseImageSource>)? = null,
     val createSources: () -> List<ProductSearchDataSource> = { emptyList() },
 ) {
     val registration: Registration
