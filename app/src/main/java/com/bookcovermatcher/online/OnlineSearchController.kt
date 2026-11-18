@@ -140,7 +140,7 @@ class OnlineSearchController internal constructor(
     private var searchSources = emptyList<ProductSearchDataSource>()
 
     fun canOpenPlatform(url: String): Boolean = activeGroups().platforms().any {
-        it.hasLink && it.searchUrl(_ui.value.query) == url
+        it.hasLink && runCatching { it.searchUrl(_ui.value.query) }.getOrNull() == url
     }
 
     /** Revoke the previous activation even if another instance of the same group is already active. */
@@ -1143,7 +1143,6 @@ class OnlineSearchController internal constructor(
                 fingerprint = fingerprint,
                 token = token,
                 limit = limit,
-                selection = selection,
                 selectionKey = selectionKey,
             )
         }
@@ -1167,7 +1166,6 @@ class OnlineSearchController internal constructor(
         fingerprint: String?,
         token: Long,
         limit: Int,
-        selection: Set<String>,
         selectionKey: String,
     ) {
         val found = ArrayList<ProductSearchResult>()
@@ -1222,7 +1220,7 @@ class OnlineSearchController internal constructor(
         // The rows report this search's outcome, but their Open links follow the text field: the user
         // may have typed something else while this search was running, and a late answer must never
         // drag the browser links back to the query that produced it.
-        val providers = providerStatuses(query, selection, perProvider).withQuery(_ui.value.query)
+        val providers = providerStatuses(query, effectiveSelection(), perProvider).withQuery(_ui.value.query)
         val sourceLabel = answered.distinct().joinToString(" + ")
             .ifEmpty { outcomes.joinToString(" + ") { it.first.name } }
         if (answered.isEmpty() && found.isEmpty()) {
