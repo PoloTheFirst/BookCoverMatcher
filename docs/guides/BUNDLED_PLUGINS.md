@@ -46,3 +46,7 @@ BCM reads up to 256 bytes and checks the format, ID, host API and edition regist
 ## Verify
 
 Build the target editions and run their debug unit suites. Check the compiled APKs for edition-only implementations. The GitHub emulator fixture `DlsitePluginDeviceTest` exercises the actual controller with local OCR, catalogue and cover fixtures. See [distribution variants](DISTRIBUTION_VARIANTS.md) for Gradle commands and signing details.
+
+## Reverse Image Discovery
+
+Import `plugins/manifests/reverse-image-discovery.bcmplugin` on the standalone GitHub branch and turn on **Reverse Image Discovery**. With online search enabled, Search displays SauceNAO and the IQDB browser handoff. Switching the plugin off cancels discovery, clears temporary results, and retains your saved key, bookmarks and workbooks. Play retains its existing reverse-image tools.

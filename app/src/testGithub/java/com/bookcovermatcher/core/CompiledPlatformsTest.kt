@@ -10,11 +10,11 @@ class CompiledPlatformsTest {
     @Test fun eachBundledGroupOwnsItsProvidersAndOnlyFetchGroupsCreateAdapters() {
         val expected = listOf(listOf("ol", "gb"), listOf("dl"), listOf("mb", "sy", "tr"), listOf("nh", "eh", "dm", "mal", "di"))
         for (group in editionGroups) {
-            assertEquals(expected[group.index], group.entries.map { it.id })
+            assertEquals(expected.getOrElse(group.index) { emptyList() }, group.entries.map { it.id })
             assertEquals(group.entries.filter { it.selectable }.map { it.name }, group.createSources().map { it.name })
         }
         val active = editionGroups.reversed().map { ActivePlatforms(it, emptyList()) }
-        assertEquals(editionGroups.sortedBy { it.index }.flatMap { expected[it.index] }, active.platforms().map { it.id })
+        assertEquals(editionGroups.sortedBy { it.index }.flatMap { expected.getOrElse(it.index) { emptyList() } }, active.platforms().map { it.id })
         assertEquals(emptyList<String>(), emptyList<ActivePlatforms>().platforms().map { it.id })
         ProviderCatalog.byId("mal")?.let { assertEquals("myanimelist.net", it.host) }
     }

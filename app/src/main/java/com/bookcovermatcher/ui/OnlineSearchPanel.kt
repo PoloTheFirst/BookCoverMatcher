@@ -140,17 +140,19 @@ fun OnlineSearchPanel(
         if (!DistributionEdition.catalogueEnabled) {
             ResultLimitPicker(ui.resultLimit, controller::setResultLimit)
         }
-        Spacer(Modifier.height(14.dp))
-        ReverseImageSection(
-            ui = ui,
-            controller = controller,
-            onOpenUrl = onOpenUrl,
-            bookmarkedKeys = bookmarkedKeys,
-            wishlistedKeys = wishlistedKeys,
-            onToggleBookmark = onToggleDiscoveryBookmark,
-            onAddToWishlist = onAddDiscoveryToWishlist,
-            onBookmarkAllDiscovery = onBookmarkAllDiscovery,
-        )
+        if (ui.reverse.providers.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            ReverseImageSection(
+                ui = ui,
+                controller = controller,
+                onOpenUrl = { url -> if (controller.reverseAvailable()) onOpenUrl(url) },
+                bookmarkedKeys = bookmarkedKeys,
+                wishlistedKeys = wishlistedKeys,
+                onToggleBookmark = onToggleDiscoveryBookmark,
+                onAddToWishlist = onAddDiscoveryToWishlist,
+                onBookmarkAllDiscovery = onBookmarkAllDiscovery,
+            )
+        }
     }
 }
 
