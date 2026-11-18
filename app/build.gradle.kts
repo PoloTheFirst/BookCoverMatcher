@@ -17,15 +17,7 @@ plugins {
 // task below checks the redirect URI against the package name the app is actually installed under.
 val appPackageName = "com.bookcovermatcher"
 
-// ---- Azure app-registration values (consumed by the manifest and the generator task) ----------
-//
-// The three values are machine-local: they live in the repository root's git-ignored `.env` and are
-// never written into a tracked file, a log line or a report. They are read here so the MSAL intent
-// filter and the generated configuration always agree, and read again by `generateAzureAppConfig`,
-// which is where they are validated and written out.
-//
-// The client id and redirect URI are **public application identifiers** — MSAL cannot work without
-// them in the APK — while the `.env` file itself is never packaged. See the generator task below.
+// GitHub plugin branches contribute independent source files. Generate a typed registry at build time.
 abstract class GeneratePlatformRegistry : DefaultTask() {
     @get:Input abstract val groupClasses: ListProperty<String>
     @get:OutputDirectory abstract val output: DirectoryProperty
@@ -58,6 +50,15 @@ androidComponents.onVariants(androidComponents.selector().withFlavor("distributi
     variant.sources.java?.addGeneratedSourceDirectory(generate, GeneratePlatformRegistry::output)
 }
 
+// ---- Azure app-registration values (consumed by the manifest and the generator task) ----------
+//
+// The three values are machine-local: they live in the repository root's git-ignored `.env` and are
+// never written into a tracked file, a log line or a report. They are read here so the MSAL intent
+// filter and the generated configuration always agree, and read again by `generateAzureAppConfig`,
+// which is where they are validated and written out.
+//
+// The client id and redirect URI are **public application identifiers** — MSAL cannot work without
+// them in the APK — while the `.env` file itself is never packaged. See the generator task below.
 val azureEnvFile = rootProject.file(".env")
 val azurePlaceholderValues = linkedMapOf(
     "Application_ID" to "00000000-0000-0000-0000-000000000000",

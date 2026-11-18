@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "88db9fbd5a9a5625678e28808a4519d4afbd4a2e4f00358d36115fb6855ebf24",
+  "fingerprint": "50a94fe71f58ddf9b145acf697370b749bc3b0c950a583fb321575d224fedc39",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 12614,
-      "sha256": "2293ab7e16845754086266ad5097dd5c8f3c90fa8cc4bb56506078d7d6a86cd9",
+      "bytes": 13088,
+      "sha256": "a702d0e16ceed6877222b178cd099066771c4196fbc765d2dbad56dd23fd25f7",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -1820,6 +1820,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Implement the approved GitHub-only DLsite plugin with manual import and verify it on the emulator."
+      }
+    },
+    {
+      "path": "docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__platform-plugin-groups__report__r01.md",
+      "bytes": 4553,
+      "sha256": "4b9587d1ccc027cd595366b4dce99f3ab59252be9a210b6df3af0dce736824c1",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//platform-plugin-groups/report/2026-11-18",
+        "title": "Indexed platform groups on four local plugin branches",
+        "kind": "report",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "platform-plugin-groups",
+        "created_at": "2026-11-18T15:11:07+08:00",
+        "updated_at": "2026-11-18T15:14:30+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Migrate the original catalogue providers and shortcuts onto four independent plugin branches and verify their ordered presentation."
       }
     },
     {

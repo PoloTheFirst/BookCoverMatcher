@@ -20,9 +20,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class DlsitePluginDeviceTest {
-    @org.junit.Before fun requireFetchProviders() {
-        org.junit.Assume.assumeTrue(ProviderCatalog.byId("ol") != null && ProviderCatalog.byId("dl") != null)
-    }
     private val base = InstrumentationRegistry.getInstrumentation().targetContext
     private val prefix = "plugin-fixture-" + UUID.randomUUID()
     private val context = object : ContextWrapper(base) {
@@ -31,6 +28,7 @@ class DlsitePluginDeviceTest {
     }
 
     @Test fun explicitLegacySettingAndPluginPrecedence() {
+        org.junit.Assume.assumeNotNull(ProviderCatalog.byId("dl"))
         val prefs = OnlineSearchPrefs(context)
         val directory = File(base.cacheDir, prefix)
         val settings = PluginSettings(directory) { "dl" in prefs.explicitProviderIds.orEmpty() }
@@ -52,6 +50,7 @@ class DlsitePluginDeviceTest {
     }
 
     @Test fun switchingPreservesAWorkbookAndSavedDlsiteBookmark() = runBlocking {
+        org.junit.Assume.assumeNotNull(ProviderCatalog.byId("dl"))
         val root = File(base.cacheDir, prefix)
         val workbooks = com.bookcovermatcher.data.WorkbookLibrary(File(root, "workbooks"))
         val bookmarks = com.bookcovermatcher.core.wishlist.WishlistRepository(File(root, "bookmarks"))
@@ -97,7 +96,58 @@ class DlsitePluginDeviceTest {
         }
     }
 
+    @Test fun libraryGroupHonorsSelectionsAndGeneralBookSwitch() = runBlocking {
+        val library = com.bookcovermatcher.plugins.editionGroups.firstOrNull { it.index == 0 }
+        org.junit.Assume.assumeNotNull(library)
+        val prefs = OnlineSearchPrefs(context)
+        val store = context.getSharedPreferences("bookcover_online", Context.MODE_PRIVATE)
+        store.edit().putStringSet("online_providers", setOf("gb", "dl")).commit()
+        prefs.enabled = true
+        val book = FixtureSource("Open Library", "ol")
+        val google = FixtureSource("Google Books", "gb")
+        val group = com.bookcovermatcher.plugins.ActivePlatforms(library!!, listOf(book, google))
+        var groups = emptyList<com.bookcovermatcher.plugins.ActivePlatforms>()
+        val owner = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val controller = withContext(Dispatchers.Main) {
+            OnlineSearchController(context, owner, prefs, activeGroups = { groups })
+        }
+        suspend fun search(query: String, count: Int) {
+            withContext(Dispatchers.Main) { controller.search(query) }
+            withTimeout(5000) {
+                controller.ui.first { (it.catalogue as? CatalogueUi.Found)?.let { found ->
+                    found.query == query && found.items.size == count
+                } == true }
+            }
+        }
+        try {
+            withContext(Dispatchers.Main) {
+                controller.search("No imported library")
+                groups = listOf(group)
+                controller.refreshCataloguePlugins()
+            }
+            assertEquals(0, book.calls.get() + google.calls.get())
+            search("First query", 1)
+            assertEquals(0, book.calls.get())
+            assertEquals(1, google.calls.get())
+            withContext(Dispatchers.Main) {
+                controller.toggleProvider("ol")
+                controller.setSecondarySources(false)
+                controller.search("General books off")
+            }
+            assertEquals(setOf("ol", "gb", "dl"), prefs.explicitProviderIds)
+            assertEquals(1, book.calls.get() + google.calls.get())
+            withContext(Dispatchers.Main) { controller.setSecondarySources(true) }
+            search("Both libraries", 2)
+            assertEquals(1, book.calls.get())
+            assertEquals(2, google.calls.get())
+        } finally {
+            owner.cancel()
+            base.deleteSharedPreferences(prefix + "bookcover_online")
+        }
+    }
+
     @Test fun switchingRevokesQueriesAndCoversAndPreservesOtherResults() = runBlocking {
+        org.junit.Assume.assumeTrue(ProviderCatalog.byId("dl") != null && ProviderCatalog.byId("ol") != null)
         val prefs = OnlineSearchPrefs(context)
         prefs.enabled = true
         prefs.selectedProviders = setOf("ol", "dl")

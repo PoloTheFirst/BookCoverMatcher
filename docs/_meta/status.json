@@ -89,6 +89,10 @@
     {
       "subject": "Indexed GitHub platform group branches",
       "value": "Approved for local development on four independent plugin branches. Fixed order is ordinary libraries (0), DLsite (1), doujin shop shortcuts (2), explicit database shortcuts (3), then the ungrouped Doujinshi.info shortcut. MyAnimeList uses myanimelist.net. The marketplace is deferred."
+    },
+    {
+      "subject": "Indexed platform migration verified locally",
+      "value": "Four independent branches supply the GitHub groups at indices 0–3. A combined API 36 emulator build displayed the approved eleven-platform sequence after manual imports and reverse-order activation. GitHub and Play debug/release builds and unit suites passed; Play rejected the four descriptors. The versioned platform-plugin-groups report records branch and artifact evidence."
     }
   ],
   "nextSteps": [
