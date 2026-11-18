@@ -41,7 +41,8 @@ import com.bookcovermatcher.ui.theme.Palette
 @Composable
 internal fun PluginsScreen(manager: PluginManager) {
     val imported = manager.imported.collectAsStateWithLifecycle().value
-    val rows = manager.rows.collectAsStateWithLifecycle().value.filter { it.descriptor.id in imported }
+    val registry = manager.rows.collectAsStateWithLifecycle().value
+    val rows = registry.filter { it.descriptor.id in imported }
     val resolver = LocalContext.current.contentResolver
     val scope = rememberCoroutineScope()
     var message by rememberSaveable { mutableStateOf<String?>(null) }
@@ -90,6 +91,7 @@ internal fun PluginsScreen(manager: PluginManager) {
                     Switch(checked = active, onCheckedChange = null, enabled = interactive)
                 }
             }
+            key(descriptor.id) { EditionPluginPanel(row, registry, imported) }
             row.card?.let { card ->
                 Spacer(Modifier.height(12.dp))
                 Panel(card.title) { Text(card.body, color = Palette.Text) }

@@ -32,4 +32,4 @@ internal class ActivePlatforms(val group: PlatformGroup, val sources: List<Produ
 internal fun List<ActivePlatforms>.platforms(): List<ProviderSpec> =
     sortedBy { it.group.index }.flatMap { it.group.entries } + ProviderCatalog.ungrouped
 
-internal val editionPlugins get() = editionGroups.map { it.registration }
+internal val editionPlugins get() = editionGroups.map { it.registration } + editionPanels

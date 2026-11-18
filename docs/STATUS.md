@@ -96,6 +96,14 @@ Approved for local development on four independent plugin branches. Fixed order 
 
 Four independent branches supply the GitHub groups at indices 0–3. A combined API 36 emulator build displayed the approved eleven-platform sequence after manual imports and reverse-order activation. GitHub and Play debug/release builds and unit suites passed; Play rejected the four descriptors. The versioned platform-plugin-groups report records branch and artifact evidence.
 
+## Plugin branches on GitHub and marketplace prompt review
+
+Verified four GitHub branch tips with their plugin documentation: ordinary-library-fetch 2871b4a, dlsite-fetch 3b38b2f, doujin-shop-shortcut 33c1e8f and explicit-database-shortcut b0bc3c3. The remote main, google_play and feature/plugin-framework refs retained their pre-push revisions. Owner approved the GitHub-only marketplace direction and requested working prompt revision 3 for review before implementation.
+
+## Optional GitHub plugin marketplace
+
+Android 2.7.0 (226) on plugin/plugin-marketplace includes a manually imported marketplace and all four platform groups. Saving a pinned descriptor and importing it are separate user actions. Isolated API 36 testing covered real saving, cancellation, offline failure, independent switches, restart and a build missing a group. Both editions built and Play rejected the marketplace descriptor. See the versioned plugin-marketplace report.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

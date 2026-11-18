@@ -14,6 +14,8 @@ Play also uses neutral bookmark-form examples; GitHub retains its existing examp
 
 Existing catalogue bookmarks are retained in storage but displayed as unavailable in Play, with their thumbnail, metadata and link hidden. Workbook matches, custom bookmarks and results whose provider provenance consists only of SauceNAO/IQDB remain usable. Switching back to GitHub restores access to retained catalogue records. This boundary does not filter arbitrary personal workbook content, custom URLs or reverse-image results.
 
+The `plugin/plugin-marketplace` branch builds all four groups and the optional descriptor marketplace into its GitHub APK. Its Play source set excludes the marketplace registration, catalogue and downloader.
+
 ## Plugins navigation
 
 Both editions include **Plugins** immediately after **More**, with a puzzle icon. In GitHub debug and release, users can import the descriptors for groups compiled into their build and toggle them. Play excludes these groups and rejects their descriptors, including after a GitHub update. Both debug editions also accept the demo descriptor. Play release has no registered plugins. See the [bundled plugin guide](BUNDLED_PLUGINS.md) for the developer contract and activation behavior.

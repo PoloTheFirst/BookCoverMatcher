@@ -2,9 +2,18 @@
 
 Use Kotlin `.kt` files to implement a plugin. Give users a small `.bcmplugin` descriptor to import in **Plugins → Import plugin**. Adding new Kotlin code requires a new app build. Importing or switching an implementation already bundled with BCM takes effect in the running app.
 
+## Save descriptors from the GitHub marketplace
+
+1. Install the GitHub edition built from `plugin/plugin-marketplace`. This branch includes the four platform groups and the marketplace. Get [marketplace.bcmplugin](../../plugins/manifests/marketplace.bcmplugin) from this branch and save the file to your device.
+2. Open **Plugins → Import plugin**, pick `marketplace.bcmplugin`, turn on **Plugin marketplace**, then tap **Marketplace**. The catalogue opens offline and shows which groups are available to import, imported or enabled.
+3. Choose **Save descriptor** under the group you want. This contacts GitHub’s raw file service for that single pinned revision. The request identifies the descriptor and exposes ordinary connection information to GitHub. It contains no search query, workbook, provider credential or photo. After BCM validates the file, choose a destination in Android’s save dialog.
+4. Open **Plugins → Import plugin** and select the saved file. The existing switch and upgrade rules apply on import. Switching the marketplace off leaves other groups’ choices intact. Keep the saved file if you want to import it again offline.
+
+If a group says **Requires a GitHub build containing this plugin**, its Kotlin implementation is absent or incompatible in this installation. A compatible GitHub build is needed to use it. You can still save its descriptor. If fetching fails, check the connection and retry. If writing fails, select a writable location and retry. The Play edition excludes the marketplace.
+
 ## Platform groups in the GitHub edition
 
-Each local plugin branch supplies one group and its descriptor in `plugins/manifests/`. A combined developer build can include several. Only implementations compiled into the installed GitHub APK can be imported. Play rejects all four descriptors.
+Each provider branch supplies one group and its descriptor in `plugins/manifests/`. A combined developer build can include several. Only implementations compiled into the installed GitHub APK can be imported. Play rejects all four descriptors.
 
 | Index | Branch under `plugin/` | Descriptor | Platforms in display order |
 | --- | --- | --- | --- |

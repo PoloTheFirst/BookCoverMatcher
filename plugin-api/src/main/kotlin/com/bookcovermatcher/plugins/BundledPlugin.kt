@@ -4,7 +4,7 @@ package com.bookcovermatcher.plugins
 /** Public contract for trusted implementations linked into the application. */
 const val HOST_PLUGIN_API = 2
 
-enum class Capability { INFORMATION_CARD, CATALOGUE_PROVIDER, PLATFORM_GROUP }
+enum class Capability { INFORMATION_CARD, CATALOGUE_PROVIDER, PLATFORM_GROUP, SETTINGS_PANEL }
 
 data class PluginDescriptor(
     val id: String,
@@ -17,6 +17,7 @@ data class PluginDescriptor(
 
 sealed interface PluginContribution
 data class InfoCard(val title: String, val body: String) : PluginContribution
+abstract class SettingsPanelContribution : PluginContribution
 abstract class PlatformGroupContribution : PluginContribution
 abstract class CatalogueProvider(val providerId: String) : PluginContribution
 

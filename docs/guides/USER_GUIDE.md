@@ -718,6 +718,8 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
+On the GitHub marketplace build, import `marketplace.bcmplugin`, enable **Plugin marketplace**, and open **Marketplace**. Tap **Save descriptor** for the group you want. Choose the saved file in **Plugins → Import plugin** and use its switch. See the [marketplace walkthrough](BUNDLED_PLUGINS.md#save-descriptors-from-the-github-marketplace).
+
 1. Save `dlsite.bcmplugin` from the DLsite branch to Downloads on your device.
 2. In the GitHub edition, open **Plugins** to the right of **More**, tap **Import plugin**, and select the file.
 3. Switch **DLsite** on. With online search enabled, your next catalogue search can query DLsite. Switching it off removes its search row and transient results immediately. You can still access previously saved GitHub bookmarks.

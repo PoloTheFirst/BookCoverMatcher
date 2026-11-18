@@ -41,7 +41,7 @@ class PlayDistributionDeviceTest {
             val manager = com.bookcovermatcher.plugins.PluginManager(
                 com.bookcovermatcher.plugins.editionPlugins, choices, scope, Dispatchers.Unconfined)
             kotlinx.coroutines.runBlocking {
-                for (id in listOf("bcm.ordinary-library", "bcm.dlsite", "bcm.doujin-shop", "bcm.explicit-database")) {
+                for (id in listOf("bcm.ordinary-library", "bcm.dlsite", "bcm.doujin-shop", "bcm.explicit-database", "bcm.marketplace")) {
                     assertEquals("This plugin is unavailable in this edition.", manager.importDescriptor(id))
                 }
             }

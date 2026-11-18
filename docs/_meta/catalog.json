@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "50a94fe71f58ddf9b145acf697370b749bc3b0c950a583fb321575d224fedc39",
+  "fingerprint": "b47088c19701040a30ec98ca94484e1a1269df216aa0297ed551010311c15240",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 5205,
-      "sha256": "4e78369f143cc59f5eccabc0bfb403df83fa2a9c30f301b928e6716c675727eb",
+      "bytes": 5305,
+      "sha256": "1028c7ac1dbc9cf68f58168ef2069e14ebfe79c9137756be91109f90dc0f6ff4",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 13088,
-      "sha256": "a702d0e16ceed6877222b178cd099066771c4196fbc765d2dbad56dd23fd25f7",
+      "bytes": 14130,
+      "sha256": "20ff0658e3258c7c630b6e4a70a2939095642c835146d54fe895e59189e41c63",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/BUNDLED_PLUGINS.md",
-      "bytes": 3593,
-      "sha256": "f7487c9ff18772f7eacae218bd549330707dc4421730f066f13f548b000734a7",
+      "bytes": 5122,
+      "sha256": "896d70b35fb7ae6e6e1a02a7e8935e1cefe7ce262f4f0b930b826632e2e6c1fc",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 8844,
-      "sha256": "80970754bda3ab512e4eeaacc5eede5b5450f995ab887c4d3fa620e15860b31e",
+      "bytes": 9053,
+      "sha256": "ab561c52ef9984cff33f15aef23ac112efe4bada3ee3a4a2d436b1e16aaaec1f",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -568,8 +568,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 53173,
-      "sha256": "2a49de90a16af8c2f2d2ba70ffdc7a189e50019cffe6de5fb364d7a348f62f0a",
+      "bytes": 53519,
+      "sha256": "5fe798cbab0b354768e7345ec34a3c5a3a852a53e71011176655542563ee219e",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -1727,6 +1727,38 @@
       }
     },
     {
+      "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r03.md",
+      "bytes": 19863,
+      "sha256": "a8ea054b7ac616d476d106b0b06bb8bb57ccf55d6a5ae3b2e7453fe35d2f0380",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r3",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//dlsite-plugin/prompt/2026-11-18",
+        "title": "GitHub plugin marketplace for manual descriptor import",
+        "kind": "prompt",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "dlsite-plugin",
+        "created_at": "2026-11-18T05:10:26+08:00",
+        "updated_at": "2026-11-18T15:21:33+08:00",
+        "revision": 3,
+        "status": "final",
+        "supersedes": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r02.md",
+        "related_versions": [],
+        "source_request": "Append the approved GitHub-only plugin marketplace proposal to the working prompt and pause for owner review before implementation."
+      }
+    },
+    {
       "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md",
       "bytes": 13158,
       "sha256": "973910e83e2d23003e7cef7c97130b4c032812ebc67451ac95c459dd0ab5f0ee",
@@ -1884,6 +1916,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Implement the approved bundled framework and update its documentation."
+      }
+    },
+    {
+      "path": "docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-marketplace__report__r01.md",
+      "bytes": 4661,
+      "sha256": "61a3e95d05b8899e944598c24c8be1e8ca46a700f4d0c84a98e54b078d3a685b",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//plugin-marketplace/report/2026-11-18",
+        "title": "GitHub marketplace for manually imported plugin descriptors",
+        "kind": "report",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "plugin-marketplace",
+        "created_at": "2026-11-18T15:30:27+08:00",
+        "updated_at": "2026-11-18T15:44:38+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Implement and push the approved GitHub-only plugin marketplace, with four pinned descriptor downloads and a separate manual import step."
       }
     },
     {
@@ -2404,8 +2468,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5050,
-      "sha256": "2db7a02ad65d5a14721550a14fd5717e1849af171b71c1d1e862f3e63045fa91",
+      "bytes": 5165,
+      "sha256": "2eb846c2b19065c361d8b09444d27b37d8093101f517b8ff68bc055fb6f110a2",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

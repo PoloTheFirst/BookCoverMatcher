@@ -128,6 +128,7 @@ internal class PluginManager(
                     require(plugin.descriptor == entry.registration.descriptor)
                     val contribution = plugin.activate()
                     val capability = when (contribution) {
+                        is SettingsPanelContribution -> Capability.SETTINGS_PANEL
                         is InfoCard -> Capability.INFORMATION_CARD
                         is CatalogueProvider -> Capability.CATALOGUE_PROVIDER
                         is PlatformGroupContribution -> Capability.PLATFORM_GROUP

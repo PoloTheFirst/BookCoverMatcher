@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-193 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
+195 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
 
 | File | Version/group | Category | Kind |
 |---|---|---|---|
@@ -152,11 +152,13 @@ Generated navigation; edit the relevant sources, then run tools/docs/manage.py r
 | [docs/history/android/v2.7.0-dev.2/release/reports/v2.7.0-dev.2-ag.md](history/android/v2.7.0-dev.2/release/reports/v2.7.0-dev.2-ag.md) | 2.7.0-dev.2 | release | report |
 | [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r01.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r01.md) | 2.7.0 | development | record |
 | [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r02.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r02.md) | 2.7.0 | development | record |
+| [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r03.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r03.md) | 2.7.0 | development | record |
 | [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md) | 2.7.0 | development | record |
 | [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__distribution-variants__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__distribution-variants__report__r01.md) | 2.7.0 | development | record |
 | [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__report__r01.md) | 2.7.0 | development | record |
 | [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__platform-plugin-groups__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__platform-plugin-groups__report__r01.md) | 2.7.0 | development | record |
 | [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-framework__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-framework__report__r01.md) | 2.7.0 | development | record |
+| [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-marketplace__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-marketplace__report__r01.md) | 2.7.0 | development | record |
 | [docs/history/android/v2.7.0/policies/handoffs/2026-11-17__android-2.7.0-code226__policies__website-sync__handoff__r01.md](history/android/v2.7.0/policies/handoffs/2026-11-17__android-2.7.0-code226__policies__website-sync__handoff__r01.md) | 2.7.0 | policies | record |
 | [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__policy-apk-refresh__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__policy-apk-refresh__report__r01.md) | 2.7.0 | policies | record |
 | [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-approval__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-approval__report__r01.md) | 2.7.0 | policies | record |
