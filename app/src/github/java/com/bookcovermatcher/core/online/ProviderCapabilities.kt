@@ -37,6 +37,7 @@ object ProviderCapabilities {
 
     /** Every capability of this build, in catalogue order. */
     val ALL: List<ProviderCapability> = listOf(OPEN_LIBRARY, GOOGLE_BOOKS, DLSITE)
+        .filter { ProviderCatalog.byId(it.providerId) != null }
 
     /** The capability of [providerId], or null when this build does not query that provider. */
     fun of(providerId: String): ProviderCapability? =

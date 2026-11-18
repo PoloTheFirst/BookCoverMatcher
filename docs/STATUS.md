@@ -92,6 +92,10 @@ Revision 2 of the DLsite working prompt awaits owner review. Proposed Platforms 
 
 Approved for local development on four independent plugin branches. Fixed order is ordinary libraries (0), DLsite (1), doujin shop shortcuts (2), explicit database shortcuts (3), then the ungrouped Doujinshi.info shortcut. MyAnimeList uses myanimelist.net. The marketplace is deferred.
 
+## Indexed platform migration verified locally
+
+Four independent branches supply the GitHub groups at indices 0–3. A combined API 36 emulator build displayed the approved eleven-platform sequence after manual imports and reverse-order activation. GitHub and Play debug/release builds and unit suites passed; Play rejected the four descriptors. The versioned platform-plugin-groups report records branch and artifact evidence.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
