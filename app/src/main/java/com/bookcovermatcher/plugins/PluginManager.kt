@@ -69,7 +69,7 @@ internal class PluginManager(
     suspend fun importDescriptor(id: String): String = withContext(worker) {
         val entry = entries[id] ?: return@withContext "This plugin is unavailable in this edition."
         lock.withLock {
-            if (isChild(id)) return@withLock "Manage this plugin in Plugin marketplace."
+            if (isChild(id)) return@withLock "Manage this plugin in Plugin Marketplace."
             if (row(entry).status == PluginStatus.UNAVAILABLE) return@withLock "Incompatible plugin."
             if (id in importedIds.value) return@withLock "Already imported."
             install(entry)

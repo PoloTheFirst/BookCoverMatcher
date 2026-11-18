@@ -5,8 +5,8 @@ Use Kotlin `.kt` files to implement a plugin. Give users a small `.bcmplugin` de
 ## Use the GitHub marketplace
 
 1. Install the GitHub edition from `plugin/plugin-marketplace`. In **Plugins → Import plugin**, select [marketplace.bcmplugin](../../plugins/manifests/marketplace.bcmplugin).
-2. Turn on **Plugin marketplace**. BCM fetches missing group descriptors from pinned GitHub commits, validates their format and IDs, and places each group’s switch under the marketplace. GitHub receives the file requests and normal connection information. BCM sends no workbook, search query or provider credential in these requests.
-3. Turn on the groups you want. **DLsite-fetch** includes the DLsite books search. If your old build had a DLsite switch, BCM uses the same saved choice here. New groups start off unless an explicit legacy selection exists.
+2. Turn on **Plugin Marketplace**. BCM fetches missing group descriptors from pinned GitHub commits, validates their format and IDs, and places each group’s switch under the marketplace. GitHub receives the file requests and normal connection information. BCM sends no workbook, search query or provider credential in these requests.
+3. Turn on the groups you want. **DLsite Fetch** includes the DLsite books search. If your old build had a DLsite switch, BCM uses the same saved choice here. New groups start off unless an explicit legacy selection exists.
 4. Turn off the marketplace to pause its providers. Downloaded cards are dimmed and marked **Inactive · Marketplace is off**. Their switches retain their positions. Turning the marketplace on restores selected providers immediately, including offline.
 5. Use **Remove** under a group to drop it and clear its switch. BCM remembers the removal across restarts. With the marketplace on, tap **Download** to add it again, initially off. If a download fails, use **Retry download**. Removing the marketplace pauses its groups and keeps their choices for a later marketplace import.
 
@@ -24,7 +24,7 @@ Each provider branch supplies one group and its descriptor in `plugins/manifests
 1. On standalone provider branches, copy the matching descriptor to Downloads on the device. Open **Plugins → Import plugin** and select the file.
 2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info appears only with Explicit Database Shortcuts enabled. Import order and restart do not affect sorting.
 3. A catalogue search sends text to selected fetch providers when online services are enabled. General-book sources and per-library selections still control Open Library and Google Books. Shortcut groups open a site only when you tap its browser action. Some sites contain mature material.
-4. Fresh installs start off. An explicit legacy selection can enable a fetch group on its first import. Saved plugin choices take precedence on subsequent imports. The DLsite branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.
+4. Fresh installs start off. An explicit legacy selection can enable a fetch group on its first import. Saved plugin choices take precedence on subsequent imports. The `plugin/dlsite-fetch` branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.
 
 Both debug editions accept the [demo card descriptor](../../plugins/manifests/demo.bcmplugin).
 

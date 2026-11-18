@@ -53,7 +53,7 @@ runtime and asks whether `chrome-lens-py` is available.
 **Read the cover.** The OCR text is read-only, but you can copy it: long-press it, drag to select part
 or all, then use the system **Copy** command and paste it into the query box.
 
-**Choose your platforms.** Import a supported descriptor in **Plugins** and enable its switch. The GitHub panel lists ordinary libraries (Open Library, Google Books), DLsite, shop shortcuts (Melonbooks, Suruga-ya, Toranoana), then database shortcuts (nhentai, E-Hentai, Doujin no Mori, MyAnimeList). Doujinshi.info follows the enabled groups. Shortcut cards open the external browser on tap.
+**Choose your platforms.** Import a supported descriptor in **Plugins** and enable its switch. The GitHub panel lists Ordinary Library Fetch (Open Library, Google Books), DLsite Fetch, Doujin Shop Shortcuts (Melonbooks, Suruga-ya, Toranoana), then Explicit Database Shortcuts (nhentai, E-Hentai, Doujin no Mori, MyAnimeList, Doujinshi.info). To use SauceNAO and IQDB in the GitHub edition, enable Reverse Image Discovery. Shortcut cards open the external browser on tap.
 
 Tap a selectable card body to include or exclude it: a selected card turns blue with a soft glow, an
 accent border and a check mark; an unselected one is greyed down but still usable. **Open** on every
@@ -718,7 +718,7 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-On the GitHub marketplace build, import `marketplace.bcmplugin` and turn on **Plugin marketplace**. Missing groups download automatically. Switch on a downloaded group, such as **DLsite-fetch**, to use it. Turning the marketplace off pauses the groups and keeps their switch positions. Use **Remove** to keep a group out until you download it again. See the [marketplace walkthrough](BUNDLED_PLUGINS.md#use-the-github-marketplace).
+On the GitHub marketplace build, import `marketplace.bcmplugin` and turn on **Plugin Marketplace**. Missing groups download automatically. Switch on a downloaded group, such as **Ordinary Library Fetch** or **Reverse Image Discovery**, to use it. Turning the marketplace off pauses the groups and keeps their switch positions. Use **Remove** to keep a group out until you download it again. See the [marketplace walkthrough](BUNDLED_PLUGINS.md#use-the-github-marketplace).
 
 1. Save `dlsite.bcmplugin` from the DLsite branch to Downloads on your device.
 2. In the GitHub edition, open **Plugins** to the right of **More**, tap **Import plugin**, and select the file.

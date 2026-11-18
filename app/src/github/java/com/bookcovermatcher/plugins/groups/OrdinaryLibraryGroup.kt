@@ -9,7 +9,7 @@ import com.bookcovermatcher.online.GoogleBooksSource
 internal class OrdinaryLibraryGroup : PlatformGroup(
     id = "bcm.ordinary-library",
     index = 0,
-    name = "Ordinary libraries",
+    name = "Ordinary Library Fetch",
     description = "Search Open Library and Google Books using your catalogue query.",
     entries = listOf(
         ProviderSpec(

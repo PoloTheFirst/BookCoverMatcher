@@ -43,13 +43,15 @@ class PlayDistributionDeviceTest {
             val manager = com.bookcovermatcher.plugins.PluginManager(
                 com.bookcovermatcher.plugins.editionPlugins, choices, scope, Dispatchers.Unconfined)
             kotlinx.coroutines.runBlocking {
-                for (id in listOf("bcm.ordinary-library", "bcm.dlsite", "bcm.doujin-shop", "bcm.explicit-database", "bcm.marketplace")) {
+                for (id in listOf("bcm.ordinary-library", "bcm.dlsite", "bcm.doujin-shop", "bcm.explicit-database", "bcm.marketplace", "bcm.reverse-image-discovery")) {
                     assertEquals("This plugin is unavailable in this edition.", manager.importDescriptor(id))
                 }
             }
             assertTrue(manager.imported.value.isEmpty())
             val controller = OnlineSearchController(context, scope, prefs = prefs)
             try {
+                assertTrue(controller.reverseAvailable())
+                assertEquals(2, controller.ui.value.reverse.providers.size)
                 controller.search("restored query")
                 controller.setAutoSearch(true)
                 controller.setSecondarySources(true)

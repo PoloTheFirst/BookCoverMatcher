@@ -8,8 +8,8 @@ import javax.net.ssl.HttpsURLConnection
 
 internal object ActiveMarketplace : SettingsPanelContribution()
 
-private val marketplace = PluginDescriptor("bcm.marketplace", "Plugin marketplace",
-    "Turn on to download provider plugins from GitHub. Providers with adult content are labeled below.", "1.0", 2..2, setOf(Capability.SETTINGS_PANEL))
+private val marketplace = PluginDescriptor("bcm.marketplace", "Plugin Marketplace",
+    "Downloads plugins from GitHub when enabled.", "1.0", 2..2, setOf(Capability.SETTINGS_PANEL))
 
 internal val editionPanels = listOf(Registration(marketplace) {
     object : BundledPlugin {
@@ -46,14 +46,16 @@ internal class MarketplaceEntry(val name: String, val slug: String, private val 
 }
 
 internal val marketplaceEntries = listOf(
-    MarketplaceEntry("Ordinary libraries", "ordinary-library", "2871b4a6021901c8701dba05248da79f14c60be3",
+    MarketplaceEntry("Ordinary Library Fetch", "ordinary-library", "227ce7e3f412c272670cb56d4e15a87d36a95fb5",
         "Search Open Library and Google Books."),
-    MarketplaceEntry("DLsite-fetch", "dlsite", "3b38b2f3c9129854686271213ba56067d083c465",
+    MarketplaceEntry("DLsite Fetch", "dlsite", "e4794a5005a489f944bb1cb70eea645301671015",
         "Search the DLsite books catalogue. Results may include mature listings."),
-    MarketplaceEntry("Doujin shop shortcuts", "doujin-shop", "33c1e8fed567accb68b37dd5322f8b2a8813f75b",
+    MarketplaceEntry("Doujin Shop Shortcuts", "doujin-shop", "835dfcbe44ad8a59f7db95be022d751a432622f4",
         "Open Melonbooks, Suruga-ya and Toranoana in your browser. Some listings are for adults."),
-    MarketplaceEntry("Explicit database shortcuts", "explicit-database", "b0bc3c383b59e12357036efd1d0fa670b4282caf",
-        "Includes links to explicit adult sites. Opens nhentai, E-Hentai, Doujin no Mori or MyAnimeList in your browser."),
+    MarketplaceEntry("Explicit Database Shortcuts", "explicit-database", "36f47ba18d483d767a893b5decac6531c8b51058",
+        "Includes links to explicit adult sites. Opens nhentai, E-Hentai, Doujin no Mori, MyAnimeList or Doujinshi.info in your browser."),
+    MarketplaceEntry("Reverse Image Discovery", "reverse-image-discovery", "8e78300d488d3801807cf01978f838ee06ffa5e0",
+        "Search a cover with SauceNAO or open IQDB in your browser."),
 )
 
 internal val editionCatalogue = PluginCatalogue(marketplace.id, marketplaceEntries.associate { entry ->

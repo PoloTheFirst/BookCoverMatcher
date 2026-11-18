@@ -39,10 +39,10 @@ class MarketplaceLifecycleTest {
             assertTrue(row(child).rememberedOn)
             assertNull(row(child).contribution)
             assertTrue(fetched.isEmpty())
-            assertEquals("Manage this plugin in Plugin marketplace.", manager.importDescriptor(child))
+            assertEquals("Manage this plugin in Plugin Marketplace.", manager.importDescriptor(child))
             manager.toggle(parent, true)!!.join()
             waitFor(library, PluginStatus.FAILED)
-            assertEquals(3, fetched.size)
+            assertEquals(editionCatalogue.fetch.keys - child, fetched.toSet())
             assertTrue(row(child).contribution is ActivePlatforms)
             offline = false
             manager.download(library).join()

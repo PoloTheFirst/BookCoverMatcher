@@ -7,10 +7,11 @@ import org.junit.Test
 class MarketplaceTest {
     @Test fun catalogueUsesThePublishedDescriptorsInPlatformOrder() {
         val pins = listOf(
-            "ordinary-library" to "2871b4a6021901c8701dba05248da79f14c60be3",
-            "dlsite" to "3b38b2f3c9129854686271213ba56067d083c465",
-            "doujin-shop" to "33c1e8fed567accb68b37dd5322f8b2a8813f75b",
-            "explicit-database" to "b0bc3c383b59e12357036efd1d0fa670b4282caf",
+            "ordinary-library" to "227ce7e3f412c272670cb56d4e15a87d36a95fb5",
+            "dlsite" to "e4794a5005a489f944bb1cb70eea645301671015",
+            "doujin-shop" to "835dfcbe44ad8a59f7db95be022d751a432622f4",
+            "explicit-database" to "36f47ba18d483d767a893b5decac6531c8b51058",
+            "reverse-image-discovery" to "8e78300d488d3801807cf01978f838ee06ffa5e0",
         )
         assertEquals(pins.map { it.first }, marketplaceEntries.map { it.slug })
         for ((entry, pin) in marketplaceEntries.zip(pins)) {
@@ -31,6 +32,6 @@ class MarketplaceTest {
 
     @Test fun catalogueContainsEachGroupOnceAndRetainsTheDlsiteId() {
         assertEquals(marketplaceEntries.map { it.id }, editionCatalogue.fetch.keys.toList())
-        assertEquals("DLsite-fetch", marketplaceEntries.single { it.id == "bcm.dlsite" }.name)
+        assertEquals("DLsite Fetch", marketplaceEntries.single { it.id == "bcm.dlsite" }.name)
     }
 }

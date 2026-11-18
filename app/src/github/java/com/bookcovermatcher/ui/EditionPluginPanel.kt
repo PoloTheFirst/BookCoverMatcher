@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.bookcovermatcher.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -20,13 +21,14 @@ import com.bookcovermatcher.ui.theme.Palette
 internal fun EditionPluginPanel(row: PluginRow, registry: List<PluginRow>, imported: Set<String>, manager: PluginManager) {
     if (row.descriptor.id != manager.catalogue?.parent) return
     val active = row.status == PluginStatus.ENABLED
-    Column(Modifier.padding(start = 12.dp)) {
+    Column(Modifier.padding(start = 12.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         for (entry in marketplaceEntries) key(entry.id) {
             val child = registry.firstOrNull { it.descriptor.id == entry.id }
             if (child != null && entry.id in imported) {
-                PluginSwitchCard(child, "Marketplace plugin", manager)
+                PluginSwitchCard(child, manager)
             } else if (active) {
-                Panel(entry.name) {
+                Panel(null) {
+                    Text(entry.name, color = Palette.Text)
                     Text(entry.summary, color = Palette.Muted)
                     when (child?.status) {
                         null, PluginStatus.UNAVAILABLE -> Text("Requires a GitHub build containing this plugin", color = Palette.Muted)

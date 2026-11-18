@@ -28,6 +28,10 @@ import com.bookcovermatcher.plugins.PluginManager
 import com.bookcovermatcher.plugins.card
 import com.bookcovermatcher.plugins.PluginStatus
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.draw.alpha
@@ -68,7 +72,7 @@ internal fun PluginsScreen(manager: PluginManager) {
         Spacer(Modifier.height(12.dp))
         for (row in rows) {
             val descriptor = row.descriptor
-            PluginSwitchCard(row, "Bundled plugin", manager)
+            PluginSwitchCard(row, manager)
             key(descriptor.id) { EditionPluginPanel(row, registry, imported, manager) }
             row.card?.let { card ->
                 Spacer(Modifier.height(12.dp))
@@ -96,33 +100,32 @@ internal fun PluginsScreen(manager: PluginManager) {
 }
 
 @Composable
-internal fun PluginSwitchCard(row: PluginRow, heading: String, manager: PluginManager) {
+internal fun PluginSwitchCard(row: PluginRow, manager: PluginManager) {
     val id = row.descriptor.id
     val paused = row.status == PluginStatus.PAUSED
     val checked = row.status == PluginStatus.ENABLED || (paused && row.rememberedOn)
     val interactive = row.status in setOf(PluginStatus.DISABLED, PluginStatus.ENABLED, PluginStatus.FAILED)
-    Panel(heading) {
-        Row(
-            Modifier.fillMaxWidth().alpha(if (paused) 0.5f else 1f).toggleable(
-                value = checked, enabled = interactive, role = Role.Switch,
-                onValueChange = { manager.toggle(id, it) },
-            ).padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(painterResource(R.drawable.ic_puzzle), null, tint = if (paused) Palette.Muted else Palette.Accent)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(row.descriptor.name, color = Palette.Text, fontWeight = FontWeight.Bold)
-                Text(row.descriptor.description, color = Palette.Muted)
-                val status = when (row.status) {
-                    PluginStatus.ENABLING -> "Enabling…"
-                    PluginStatus.DISABLING -> "Disabling…"
-                    else -> row.message
-                }
-                if (status != null) Text(status, color = Palette.Text)
+    Panel(null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).heightIn(min = 48.dp).alpha(if (paused) 0.5f else 1f)
+                    .toggleable(value = checked, enabled = interactive, role = Role.Switch,
+                        onValueChange = { manager.toggle(id, it) }),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(row.descriptor.name, Modifier.weight(1f), color = Palette.Text, fontWeight = FontWeight.Bold)
+                Switch(checked = checked, onCheckedChange = null, enabled = interactive)
             }
-            Switch(checked = checked, onCheckedChange = null, enabled = interactive)
+            IconButton(onClick = { manager.remove(id) }) {
+                Icon(Icons.Filled.Delete, contentDescription = "Remove ${row.descriptor.name}", tint = Palette.Muted)
+            }
         }
-        androidx.compose.material3.TextButton(onClick = { manager.remove(id) }) { Text("Remove") }
+        Text(row.descriptor.description, color = Palette.Muted, fontSize = 12.sp, lineHeight = 16.sp)
+        val status = when (row.status) {
+            PluginStatus.ENABLING -> "Enabling…"
+            PluginStatus.DISABLING -> "Disabling…"
+            else -> row.message
+        }
+        if (status != null) Text(status, color = Palette.Muted, fontSize = 12.sp)
     }
 }

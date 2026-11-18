@@ -105,6 +105,10 @@
     {
       "subject": "Marketplace provider lifecycle",
       "value": "Revision 4 on plugin/plugin-marketplace replaces the earlier save-and-import flow. Enabling the marketplace fetches its missing GitHub descriptors. The four group switches, including DLsite-fetch, live under the parent. Switching off pauses groups without losing their selections. A removed group requires explicit download to return. On BCM_API36_CachyOS the updated GitHub APK fetched the missing groups, displayed DLsite-fetch as checked and inactive while its parent was off, and preserved all four switch positions after re-enabling. Two isolated Android lifecycle tests passed, including removal/re-download, offline retry, process restoration and late fetch cancellation. GitHub and Play debug/release builds, debug unit tests and lint completed."
+    },
+    {
+      "subject": "Marketplace layout and discovery plugins",
+      "value": "Marketplace revision 5 uses compact, spaced cards and title-case names. Ordinary Library Fetch, DLsite Fetch, Doujin Shop Shortcuts and Explicit Database Shortcuts own the platform lists; Doujinshi.info belongs to the explicit group. The fifth GitHub plugin, Reverse Image Discovery, activates SauceNAO and IQDB. Play retains its existing reverse-image features. Verified all five installed cards on the API 36 emulator. Seven GitHub instrumentation tests passed, including checks for revoking the Doujinshi.info link and clearing temporary IQDB results. One isolated Play test confirmed its two built-in reverse-image providers."
     }
   ],
   "nextSteps": [

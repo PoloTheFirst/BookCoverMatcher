@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "678840da696e5bae4373f74a606fa5834fee5da10740aa340b00d9b362b5009d",
+  "fingerprint": "5b6535ec189065bb7f106cbc7ebc147bdd6d3233b0c7dc5cd82d54fc19d64688",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 5451,
-      "sha256": "25780d49332391c5ea6835bb102ac4d96ad7ca2fa2e9c985dd1962f5e816b0b6",
+      "bytes": 5524,
+      "sha256": "facfeddaefaa4206af2a02f95b867a3f97401784bdd16744e4a70375ae8d3f46",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 14965,
-      "sha256": "fc07c56a9e9506c4f3ff8b381802c450ef4b40bc3c3cf67e921f826089db23f1",
+      "bytes": 15686,
+      "sha256": "bff3d33bafc2bf49c5d88e07e90c221a81a010b5c6899e60ead5255c3c3a7d9d",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/BUNDLED_PLUGINS.md",
-      "bytes": 4970,
-      "sha256": "fde398d5b0778d8f291ccfb1582cd4a25fc28dbf8415741cf27e4dfda09965e2",
+      "bytes": 5458,
+      "sha256": "f38bcaa3463d1091cfda7b4e23455304726db54208035bb27f3ad9e7e2b14daf",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 9156,
-      "sha256": "f969ddb24926b4377a8649dcf3c72321ffc0256e3e07800d39114da9e92ad354",
+      "bytes": 9186,
+      "sha256": "69086f94bdbfdf319925007e153bcf08cb961f0ed6187568e87d893897cb9ba2",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -568,8 +568,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 53606,
-      "sha256": "a090bd441765d3d9e5b18b9bf59963f28115ece1c87a0bd04ea6888e5176fe34",
+      "bytes": 53726,
+      "sha256": "3f7946ae2eba454d628dbe19c5ca5fb0b51e9b1cbf9221ac7fdf1ce364ae89bd",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -1791,6 +1791,38 @@
       }
     },
     {
+      "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r05.md",
+      "bytes": 21439,
+      "sha256": "48bfba71f6c802affaed216a15909f2d77e4a67f9ecd5dc0caa2d4f2df893c56",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r5",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//dlsite-plugin/prompt/2026-11-18",
+        "title": "Marketplace layout and discovery provider membership",
+        "kind": "prompt",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "dlsite-plugin",
+        "created_at": "2026-11-18T05:10:26+08:00",
+        "updated_at": "2026-11-18T16:32:25+08:00",
+        "revision": 5,
+        "status": "final",
+        "supersedes": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r04.md",
+        "related_versions": [],
+        "source_request": "Compact, spaced marketplace cards, Reverse Image Discovery plugin, title case names including Ordinary Library Fetch, and Doujinshi.info under Explicit Database Shortcuts."
+      }
+    },
+    {
       "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md",
       "bytes": 13158,
       "sha256": "973910e83e2d23003e7cef7c97130b4c032812ebc67451ac95c459dd0ab5f0ee",
@@ -2500,8 +2532,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5167,
-      "sha256": "e5ce37d2bb1ad91332e632a11cc565eb2e0585a2a9eaee25fd39123c5fae73a0",
+      "bytes": 5224,
+      "sha256": "64950f38f5d614519479a1aef251063bf21e3d9cc6b810705e66d1e6f1837ba6",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

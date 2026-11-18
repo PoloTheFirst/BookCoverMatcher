@@ -10,7 +10,7 @@ Website policies are published and the plain URLs were rechecked on 17 November 
 
 Local `github` and `play` editions now share the same app ID and storage. GitHub retains every provider; Play excludes catalogue discovery and shortcuts while retaining SauceNAO/IQDB. Reverse-image content review and signed update testing remain required. See [distribution variants and build commands](docs/guides/DISTRIBUTION_VARIANTS.md). Nothing has been published from this split.
 
-On `plugin/plugin-marketplace`, open **Plugins → Import plugin**, select `marketplace.bcmplugin` and turn on **Plugin marketplace**. BCM downloads the available groups from GitHub. Toggle **DLsite-fetch** and the other providers inside the marketplace. Turning the marketplace off pauses its groups and remembers their selections. On standalone plugin branches, import the group descriptor directly. See the [bundled plugin guide](docs/guides/BUNDLED_PLUGINS.md).
+On `plugin/plugin-marketplace`, open **Plugins → Import plugin**, select `marketplace.bcmplugin` and turn on **Plugin Marketplace**. BCM downloads the available groups from GitHub. Toggle **Ordinary Library Fetch**, **DLsite Fetch**, **Reverse Image Discovery** and the shortcut groups inside the marketplace. Turning the marketplace off pauses its groups and remembers their selections. On standalone plugin branches, import the group descriptor directly. See the [bundled plugin guide](docs/guides/BUNDLED_PLUGINS.md).
 
 ## Find the right documentation
 
