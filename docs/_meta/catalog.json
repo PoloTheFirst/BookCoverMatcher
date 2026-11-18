@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "88db9fbd5a9a5625678e28808a4519d4afbd4a2e4f00358d36115fb6855ebf24",
+  "fingerprint": "98fe2b16ac225f0eac6ca2169c771bfd8208cd22a498848c2f489f056b765761",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/BUNDLED_PLUGINS.md",
-      "bytes": 3593,
-      "sha256": "f7487c9ff18772f7eacae218bd549330707dc4421730f066f13f548b000734a7",
+      "bytes": 4066,
+      "sha256": "4494e17c48dedf79a79f1bb972f98ba71e69fcc5df7257fdd7bfb6c7df709c5e",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
