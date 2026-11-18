@@ -7,7 +7,7 @@ import com.bookcovermatcher.plugins.PlatformGroup
 internal class ExplicitDatabaseGroup : PlatformGroup(
     id = "bcm.explicit-database",
     index = 3,
-    name = "Database shortcuts",
+    name = "Explicit Database Shortcuts",
     description = "Open a selected database in your browser. Some sites contain explicit material.",
     entries = listOf(
         ProviderSpec(
@@ -45,6 +45,15 @@ internal class ExplicitDatabaseGroup : PlatformGroup(
             note = "Manga catalogue. Browser only: no unauthenticated API; its manga search opens in your browser.",
             searchTemplate = "https://myanimelist.net/manga.php?q={q}&cat=manga",
             landingUrl = "https://myanimelist.net/manga.php",
+        ),
+        ProviderSpec(
+            id = "di",
+            name = "Doujinshi.info",
+            host = "doujinshi.info",
+            access = ProviderAccess.BROWSER_ONLY,
+            note = "Browser only: automated requests are refused (HTTP 403), so its search opens in your browser.",
+            searchTemplate = "https://www.doujinshi.info/works?query={q}",
+            landingUrl = "https://www.doujinshi.info/",
         ),
     ),
 )

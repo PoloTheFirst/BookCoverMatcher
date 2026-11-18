@@ -11,10 +11,10 @@ Each local plugin branch supplies one group and its descriptor in `plugins/manif
 | 0 | ordinary-library-fetch | ordinary-library.bcmplugin | Open Library, Google Books |
 | 1 | dlsite-fetch | dlsite.bcmplugin | DLsite |
 | 2 | doujin-shop-shortcut | doujin-shop.bcmplugin | Melonbooks, Suruga-ya, Toranoana |
-| 3 | explicit-database-shortcut | explicit-database.bcmplugin | nhentai, E-Hentai, Doujin no Mori, MyAnimeList |
+| 3 | explicit-database-shortcut | explicit-database.bcmplugin | nhentai, E-Hentai, Doujin no Mori, MyAnimeList, Doujinshi.info |
 
 1. Copy the matching descriptor to Downloads on the device. Open **Plugins → Import plugin** and select the file.
-2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info follows them. Import order and restart do not affect sorting.
+2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info appears only with Explicit Database Shortcuts enabled. Import order and restart do not affect sorting.
 3. A catalogue search sends text to selected fetch providers when online services are enabled. General-book sources and per-library selections still control Open Library and Google Books. Shortcut groups open a site only when you tap its browser action. Some sites contain mature material.
 4. Fresh installs start off. An explicit legacy selection can enable a fetch group on its first import. Saved plugin choices take precedence on subsequent imports. The DLsite branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.
 
