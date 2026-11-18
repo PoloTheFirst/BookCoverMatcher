@@ -2,7 +2,6 @@
 package com.bookcovermatcher.plugins
 
 import com.bookcovermatcher.core.online.ProductSearchDataSource
-import com.bookcovermatcher.core.online.ProviderCatalog
 import com.bookcovermatcher.core.online.ProviderSpec
 
 /** One settings switch controls availability. Each entry keeps its legacy identity and position. */
@@ -30,6 +29,6 @@ internal class ActivePlatforms(val group: PlatformGroup, val sources: List<Produ
     PlatformGroupContribution()
 
 internal fun List<ActivePlatforms>.platforms(): List<ProviderSpec> =
-    sortedBy { it.group.index }.flatMap { it.group.entries } + ProviderCatalog.ungrouped
+    sortedBy { it.group.index }.flatMap { it.group.entries }
 
 internal val editionPlugins get() = editionGroups.map { it.registration }
