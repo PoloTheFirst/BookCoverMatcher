@@ -7,7 +7,7 @@ import com.bookcovermatcher.plugins.PlatformGroup
 internal class DoujinShopGroup : PlatformGroup(
     id = "bcm.doujin-shop",
     index = 2,
-    name = "Doujin shop shortcuts",
+    name = "Doujin Shop Shortcuts",
     description = "Open a selected shop in your browser. Some listings are intended for adults.",
     entries = listOf(
         ProviderSpec(
