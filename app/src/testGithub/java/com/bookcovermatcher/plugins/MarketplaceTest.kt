@@ -29,14 +29,8 @@ class MarketplaceTest {
         }
     }
 
-    @Test fun availabilityUsesBothTheInstalledRegistryAndTheSavedChoice() {
-        val entry = marketplaceEntries.first()
-        val descriptor = editionGroups.single { it.id == entry.id }.registration.descriptor
-        val row = PluginRow(descriptor, PluginStatus.DISABLED)
-        val imported = setOf(entry.id)
-        assertEquals("Requires a GitHub build containing this plugin", entry.availability(emptyList(), imported))
-        assertEquals("Available to import", entry.availability(listOf(row), emptySet()))
-        assertEquals("Imported", entry.availability(listOf(row), imported))
-        assertEquals("Enabled", entry.availability(listOf(row.copy(status = PluginStatus.ENABLED)), imported))
+    @Test fun catalogueContainsEachGroupOnceAndRetainsTheDlsiteId() {
+        assertEquals(marketplaceEntries.map { it.id }, editionCatalogue.fetch.keys.toList())
+        assertEquals("DLsite-fetch", marketplaceEntries.single { it.id == "bcm.dlsite" }.name)
     }
 }

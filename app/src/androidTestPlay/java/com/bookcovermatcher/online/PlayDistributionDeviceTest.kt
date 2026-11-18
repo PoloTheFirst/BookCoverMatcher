@@ -34,6 +34,8 @@ class PlayDistributionDeviceTest {
             assertFalse(prefs.secondarySources)
             assertEquals("rust", prefs.ocrEngine)
             val choices = object : com.bookcovermatcher.plugins.PluginChoices {
+                override fun removed(id: String) = false
+                override fun remove(id: String) = error("Unexpected removal")
                 override fun imported(id: String) = true
                 override fun enabled(id: String) = true
                 override fun save(id: String, enabled: Boolean) = error("Unexpected plugin setting write")

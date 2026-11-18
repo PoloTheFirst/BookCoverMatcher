@@ -8,7 +8,7 @@ import com.bookcovermatcher.online.DlsiteSource
 internal class DlsiteGroup : PlatformGroup(
     id = "bcm.dlsite",
     index = 1,
-    name = "DLsite",
+    name = "DLsite-fetch",
     description = "A search sends your query to the DLsite books catalogue. Results may include mature listings.",
     entries = listOf(
         ProviderSpec(

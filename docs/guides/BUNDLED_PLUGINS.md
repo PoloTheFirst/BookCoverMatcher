@@ -2,14 +2,13 @@
 
 Use Kotlin `.kt` files to implement a plugin. Give users a small `.bcmplugin` descriptor to import in **Plugins → Import plugin**. Adding new Kotlin code requires a new app build. Importing or switching an implementation already bundled with BCM takes effect in the running app.
 
-## Save descriptors from the GitHub marketplace
+## Use the GitHub marketplace
 
-1. Install the GitHub edition built from `plugin/plugin-marketplace`. This branch includes the four platform groups and the marketplace. Get [marketplace.bcmplugin](../../plugins/manifests/marketplace.bcmplugin) from this branch and save the file to your device.
-2. Open **Plugins → Import plugin**, pick `marketplace.bcmplugin`, turn on **Plugin marketplace**, then tap **Marketplace**. The catalogue opens offline and shows which groups are available to import, imported or enabled.
-3. Choose **Save descriptor** under the group you want. This contacts GitHub’s raw file service for that single pinned revision. The request identifies the descriptor and exposes ordinary connection information to GitHub. It contains no search query, workbook, provider credential or photo. After BCM validates the file, choose a destination in Android’s save dialog.
-4. Open **Plugins → Import plugin** and select the saved file. The existing switch and upgrade rules apply on import. Switching the marketplace off leaves other groups’ choices intact. Keep the saved file if you want to import it again offline.
-
-If a group says **Requires a GitHub build containing this plugin**, its Kotlin implementation is absent or incompatible in this installation. A compatible GitHub build is needed to use it. You can still save its descriptor. If fetching fails, check the connection and retry. If writing fails, select a writable location and retry. The Play edition excludes the marketplace.
+1. Install the GitHub edition from `plugin/plugin-marketplace`. In **Plugins → Import plugin**, select [marketplace.bcmplugin](../../plugins/manifests/marketplace.bcmplugin).
+2. Turn on **Plugin marketplace**. BCM fetches missing group descriptors from pinned GitHub commits, validates their format and IDs, and places each group’s switch under the marketplace. GitHub receives the file requests and normal connection information. BCM sends no workbook, search query or provider credential in these requests.
+3. Turn on the groups you want. **DLsite-fetch** includes the DLsite books search. If your old build had a DLsite switch, BCM uses the same saved choice here. New groups start off unless an explicit legacy selection exists.
+4. Turn off the marketplace to pause its providers. Downloaded cards are dimmed and marked **Inactive · Marketplace is off**. Their switches retain their positions. Turning the marketplace on restores selected providers immediately, including offline.
+5. Use **Remove** under a group to drop it and clear its switch. BCM remembers the removal across restarts. With the marketplace on, tap **Download** to add it again, initially off. If a download fails, use **Retry download**. Removing the marketplace pauses its groups and keeps their choices for a later marketplace import.
 
 ## Platform groups in the GitHub edition
 
@@ -22,7 +21,7 @@ Each provider branch supplies one group and its descriptor in `plugins/manifests
 | 2 | doujin-shop-shortcut | doujin-shop.bcmplugin | Melonbooks, Suruga-ya, Toranoana |
 | 3 | explicit-database-shortcut | explicit-database.bcmplugin | nhentai, E-Hentai, Doujin no Mori, MyAnimeList |
 
-1. Copy the matching descriptor to Downloads on the device. Open **Plugins → Import plugin** and select the file.
+1. On standalone provider branches, copy the matching descriptor to Downloads on the device. Open **Plugins → Import plugin** and select the file.
 2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info follows them. Import order and restart do not affect sorting.
 3. A catalogue search sends text to selected fetch providers when online services are enabled. General-book sources and per-library selections still control Open Library and Google Books. Shortcut groups open a site only when you tap its browser action. Some sites contain mature material.
 4. Fresh installs start off. An explicit legacy selection can enable a fetch group on its first import. Saved plugin choices take precedence on subsequent imports. The DLsite branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.

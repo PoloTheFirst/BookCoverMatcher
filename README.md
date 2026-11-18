@@ -10,7 +10,7 @@ Website policies are published and the plain URLs were rechecked on 17 November 
 
 Local `github` and `play` editions now share the same app ID and storage. GitHub retains every provider; Play excludes catalogue discovery and shortcuts while retaining SauceNAO/IQDB. Reverse-image content review and signed update testing remain required. See [distribution variants and build commands](docs/guides/DISTRIBUTION_VARIANTS.md). Nothing has been published from this split.
 
-In the GitHub edition, open **Plugins → Import plugin**, select the descriptor supplied by your plugin branch, and enable the group to see it in **Search → Online → Platforms**. Doujinshi.info follows the enabled groups. Both debug editions also support importing the demo card. On `plugin/plugin-marketplace`, import `marketplace.bcmplugin` to browse and save descriptors for all four groups. See the [bundled plugin guide](docs/guides/BUNDLED_PLUGINS.md).
+On `plugin/plugin-marketplace`, open **Plugins → Import plugin**, select `marketplace.bcmplugin` and turn on **Plugin marketplace**. BCM downloads the available groups from GitHub. Toggle **DLsite-fetch** and the other providers inside the marketplace. Turning the marketplace off pauses its groups and remembers their selections. On standalone plugin branches, import the group descriptor directly. See the [bundled plugin guide](docs/guides/BUNDLED_PLUGINS.md).
 
 ## Find the right documentation
 

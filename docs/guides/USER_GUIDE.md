@@ -718,7 +718,7 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-On the GitHub marketplace build, import `marketplace.bcmplugin`, enable **Plugin marketplace**, and open **Marketplace**. Tap **Save descriptor** for the group you want. Choose the saved file in **Plugins → Import plugin** and use its switch. See the [marketplace walkthrough](BUNDLED_PLUGINS.md#save-descriptors-from-the-github-marketplace).
+On the GitHub marketplace build, import `marketplace.bcmplugin` and turn on **Plugin marketplace**. Missing groups download automatically. Switch on a downloaded group, such as **DLsite-fetch**, to use it. Turning the marketplace off pauses the groups and keeps their switch positions. Use **Remove** to keep a group out until you download it again. See the [marketplace walkthrough](BUNDLED_PLUGINS.md#use-the-github-marketplace).
 
 1. Save `dlsite.bcmplugin` from the DLsite branch to Downloads on your device.
 2. In the GitHub edition, open **Plugins** to the right of **More**, tap **Import plugin**, and select the file.

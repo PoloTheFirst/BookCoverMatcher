@@ -6,7 +6,7 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 
 ### Added
 
-- Plugins now accepts manually selected `.bcmplugin` files. GitHub platform plugins now group ordinary libraries, DLsite, doujin-shop shortcuts and database shortcuts in that order. Each group has a live switch and Doujinshi.info follows the active groups. Fresh installs and upgrades that used the implicit provider default start off. First import honors an explicitly saved DLsite selection, and subsequent launches restore the plugin switch. The GitHub marketplace branch can save pinned descriptors from GitHub for subsequent manual import. Both debug editions support the demo card.
+- Plugins now accepts manually selected `.bcmplugin` files. GitHub platform plugins now group ordinary libraries, DLsite, doujin-shop shortcuts and database shortcuts in that order. Each group has a live switch and Doujinshi.info follows the active groups. Fresh installs and upgrades that used the implicit provider default start off. First import honors an explicitly saved DLsite selection, and subsequent launches restore the plugin switch. Enabling the GitHub marketplace downloads its provider descriptors. DLsite-fetch and the other groups have switches and removal controls inside the marketplace. Switching the marketplace off pauses those providers and preserves their selections. Both debug editions support the demo card.
 
 - Separate GitHub and Play build variants: GitHub retains all providers; Play retains SauceNAO/IQDB while excluding public catalogue discovery and shortcuts.
 

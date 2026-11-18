@@ -7,6 +7,7 @@ import com.bookcovermatcher.core.online.DistributionPolicy
 import com.bookcovermatcher.data.googledrive.*
 import com.bookcovermatcher.data.OnlineSearchPrefs
 import com.bookcovermatcher.plugins.ActivePlatforms
+import com.bookcovermatcher.plugins.editionCatalogue
 import com.bookcovermatcher.plugins.editionGroups
 import com.bookcovermatcher.plugins.editionPlugins
 import com.bookcovermatcher.plugins.PluginManager
@@ -148,6 +149,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             editionGroups.firstOrNull { it.id == id }?.entries?.any { it.selectable && it.id in selected } == true
         },
         viewModelScope,
+        catalogue = editionCatalogue,
     )
 
 

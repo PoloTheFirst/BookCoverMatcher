@@ -12,6 +12,8 @@ class PluginManagerTest {
         private val importedIds = if (initiallyImported) mutableSetOf("bcm.test") else mutableSetOf()
         val saved = mutableMapOf("other.edition" to true)
         var writeFails = false
+        override fun removed(id: String) = false
+        override fun remove(id: String) { importedIds.remove(id); saved.remove(id) }
         override fun imported(id: String) = id in importedIds
         override fun enabled(id: String) = saved[id] == true
         override fun save(id: String, enabled: Boolean) {

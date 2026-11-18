@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "b47088c19701040a30ec98ca94484e1a1269df216aa0297ed551010311c15240",
+  "fingerprint": "678840da696e5bae4373f74a606fa5834fee5da10740aa340b00d9b362b5009d",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 5305,
-      "sha256": "1028c7ac1dbc9cf68f58168ef2069e14ebfe79c9137756be91109f90dc0f6ff4",
+      "bytes": 5451,
+      "sha256": "25780d49332391c5ea6835bb102ac4d96ad7ca2fa2e9c985dd1962f5e816b0b6",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 14130,
-      "sha256": "20ff0658e3258c7c630b6e4a70a2939095642c835146d54fe895e59189e41c63",
+      "bytes": 14965,
+      "sha256": "fc07c56a9e9506c4f3ff8b381802c450ef4b40bc3c3cf67e921f826089db23f1",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/BUNDLED_PLUGINS.md",
-      "bytes": 5122,
-      "sha256": "896d70b35fb7ae6e6e1a02a7e8935e1cefe7ce262f4f0b930b826632e2e6c1fc",
+      "bytes": 4970,
+      "sha256": "fde398d5b0778d8f291ccfb1582cd4a25fc28dbf8415741cf27e4dfda09965e2",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 9053,
-      "sha256": "ab561c52ef9984cff33f15aef23ac112efe4bada3ee3a4a2d436b1e16aaaec1f",
+      "bytes": 9156,
+      "sha256": "f969ddb24926b4377a8649dcf3c72321ffc0256e3e07800d39114da9e92ad354",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -568,8 +568,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 53519,
-      "sha256": "5fe798cbab0b354768e7345ec34a3c5a3a852a53e71011176655542563ee219e",
+      "bytes": 53606,
+      "sha256": "a090bd441765d3d9e5b18b9bf59963f28115ece1c87a0bd04ea6888e5176fe34",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -1759,6 +1759,38 @@
       }
     },
     {
+      "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r04.md",
+      "bytes": 20762,
+      "sha256": "fe3a6237a8da96ca624c6b241da21e2261264132a97c3583dec2959f9cf18fcb",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r4",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//dlsite-plugin/prompt/2026-11-18",
+        "title": "GitHub marketplace provider lifecycle",
+        "kind": "prompt",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "dlsite-plugin",
+        "created_at": "2026-11-18T05:10:26+08:00",
+        "updated_at": "2026-11-18T16:04:31+08:00",
+        "revision": 4,
+        "status": "final",
+        "supersedes": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r03.md",
+        "related_versions": [],
+        "source_request": "Fetch plugins automatically, nest DLsite-fetch and preserve switch choices while marketplace is off."
+      }
+    },
+    {
       "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md",
       "bytes": 13158,
       "sha256": "973910e83e2d23003e7cef7c97130b4c032812ebc67451ac95c459dd0ab5f0ee",
@@ -2468,8 +2500,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5165,
-      "sha256": "2eb846c2b19065c361d8b09444d27b37d8093101f517b8ff68bc055fb6f110a2",
+      "bytes": 5167,
+      "sha256": "e5ce37d2bb1ad91332e632a11cc565eb2e0585a2a9eaee25fd39123c5fae73a0",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
