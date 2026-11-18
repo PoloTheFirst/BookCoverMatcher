@@ -37,9 +37,9 @@ class PlatformGroupsDeviceTest {
         }
         suspend fun refresh() = withContext(Dispatchers.Main) { c.refreshCataloguePlugins() }
         fun rows() = c.ui.value.providers.map { it.id }
-        val expected = editionGroups.sortedBy { it.index }.flatMap { it.entries }.map { it.id } + "di"
+        val expected = editionGroups.sortedBy { it.index }.flatMap { it.entries }.map { it.id }
         try {
-            assertEquals(listOf("di"), rows())
+            assertEquals(emptyList<String>(), rows())
             for (g in editionGroups.reversed()) {
                 manager.importDescriptor(readPluginId(("BCM-PLUGIN/1\n" + g.id).byteInputStream()))
                 assertFalse(settings.enabled(g.id))
@@ -68,7 +68,7 @@ class PlatformGroupsDeviceTest {
                     assertFalse(c.canOpenPlatform(spec.searchUrl("Blue Archive")))
                 }
             }
-            assertEquals(listOf("di"), rows())
+            assertEquals(emptyList<String>(), rows())
             for (g in editionGroups) manager.toggle(g.id, true)!!.join()
             manager = restore()
             refresh()

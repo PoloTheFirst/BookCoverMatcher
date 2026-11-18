@@ -2,6 +2,8 @@
 
 Use Kotlin `.kt` files to implement a plugin. Give users a small `.bcmplugin` descriptor to import in **Plugins → Import plugin**. Adding new Kotlin code requires a new app build. Importing or switching an implementation already bundled with BCM takes effect in the running app.
 
+The plugin supplied by this branch is **DLsite Fetch**.
+
 ## Platform groups in the GitHub edition
 
 Each local plugin branch supplies one group and its descriptor in `plugins/manifests/`. A combined developer build can include several. Only implementations compiled into the installed GitHub APK can be imported. Play rejects all four descriptors.
@@ -14,7 +16,7 @@ Each local plugin branch supplies one group and its descriptor in `plugins/manif
 | 3 | explicit-database-shortcut | explicit-database.bcmplugin | nhentai, E-Hentai, Doujin no Mori, MyAnimeList |
 
 1. Copy the matching descriptor to Downloads on the device. Open **Plugins → Import plugin** and select the file.
-2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info follows them. Import order and restart do not affect sorting.
+2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info belongs to Explicit Database Shortcuts and is absent from this standalone build. Import order and restart do not affect sorting.
 3. A catalogue search sends text to selected fetch providers when online services are enabled. General-book sources and per-library selections still control Open Library and Google Books. Shortcut groups open a site only when you tap its browser action. Some sites contain mature material.
 4. Fresh installs start off. An explicit legacy selection can enable a fetch group on its first import. Saved plugin choices take precedence on subsequent imports. The DLsite branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.
 
