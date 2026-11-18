@@ -130,6 +130,7 @@ internal class PluginManager(
                     val capability = when (contribution) {
                         is InfoCard -> Capability.INFORMATION_CARD
                         is CatalogueProvider -> Capability.CATALOGUE_PROVIDER
+                        is PlatformGroupContribution -> Capability.PLATFORM_GROUP
                     }
                     require(capability in plugin.descriptor.capabilities)
                     ready.complete(contribution)

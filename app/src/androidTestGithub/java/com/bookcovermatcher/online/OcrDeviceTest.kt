@@ -101,7 +101,10 @@ class OcrDeviceTest {
      */
     @Test
     fun bothCatalogueSourcesAnswerOrReportAFailure() {
-        val openLibrary = OpenLibraryBooksSource().search("the hobbit tolkien", 3)
+        val group = com.bookcovermatcher.plugins.editionGroups.firstOrNull { it.entries.any { spec -> spec.id == "ol" } }
+        org.junit.Assume.assumeNotNull(group)
+        val sources = group!!.createSources()
+        val openLibrary = sources.first { it.name == "Open Library" }.search("the hobbit tolkien", 3)
         assertTrue(
             "Open Library should answer, got: $openLibrary",
             openLibrary is com.bookcovermatcher.core.online.ProductSearchOutcome.Found,
@@ -110,7 +113,7 @@ class OcrDeviceTest {
         assertTrue(openResults.isNotEmpty())
         assertTrue(openResults.all { it.detailUrl.startsWith("https://openlibrary.org/") })
 
-        val google = GoogleBooksSource().search("the hobbit tolkien", 3)
+        val google = sources.first { it.name == "Google Books" }.search("the hobbit tolkien", 3)
         when (google) {
             is com.bookcovermatcher.core.online.ProductSearchOutcome.Found -> {
                 assertTrue(google.results.isNotEmpty())

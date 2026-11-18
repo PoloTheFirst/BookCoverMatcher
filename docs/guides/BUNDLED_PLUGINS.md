@@ -2,16 +2,27 @@
 
 Use Kotlin `.kt` files to implement a plugin. Give users a small `.bcmplugin` descriptor to import in **Plugins → Import plugin**. Adding new Kotlin code requires a new app build. Importing or switching an implementation already bundled with BCM takes effect in the running app.
 
-## Import DLsite
+## Platform groups in the GitHub edition
 
-1. Copy [dlsite.bcmplugin](../../plugins/manifests/dlsite.bcmplugin) to a location accessible in Android’s file picker, such as Downloads.
-2. In the GitHub edition, select that file using **Plugins → Import plugin**. A fresh installation shows DLsite switched off. On first import after an upgrade, BCM honors an explicitly stored DLsite selection. Subsequent imports preserve the plugin switch.
-3. Enable **DLsite** and open Search. With online search enabled, the next manual or OCR-triggered catalogue search can send its query to DLsite. Listings may include mature content. Toggling alone sends no query. Disabling removes active DLsite discovery immediately. GitHub bookmarks and workbooks retain their saved contents.
-4. To try the information card in either debug edition, import [demo.bcmplugin](../../plugins/manifests/demo.bcmplugin). The Play edition rejects the DLsite descriptor.
+Each local plugin branch supplies one group and its descriptor in `plugins/manifests/`. A combined developer build can include several. Only implementations compiled into the installed GitHub APK can be imported. Play rejects all four descriptors.
 
-## Define an implementation
+| Index | Branch under `plugin/` | Descriptor | Platforms in display order |
+| --- | --- | --- | --- |
+| 0 | ordinary-library-fetch | ordinary-library.bcmplugin | Open Library, Google Books |
+| 1 | dlsite-fetch | dlsite.bcmplugin | DLsite |
+| 2 | doujin-shop-shortcut | doujin-shop.bcmplugin | Melonbooks, Suruga-ya, Toranoana |
+| 3 | explicit-database-shortcut | explicit-database.bcmplugin | nhentai, E-Hentai, Doujin no Mori, MyAnimeList |
 
-Depend on `:plugin-api` and implement `BundledPlugin` in Kotlin. Use a stable lowercase ID and declare the supported host API range and capability. Host API 2 accepts an `InfoCard` or a `CatalogueProvider`. Return a fresh contribution from `activate()` and release resources in `deactivate()`. The host serializes transitions for each ID. Observe the [demo implementation](../../plugins/demo/src/main/kotlin/com/bookcovermatcher/plugins/demo/DemoPlugin.kt) or the [GitHub DLsite registration](../../app/src/github/java/com/bookcovermatcher/plugins/EditionPlugins.kt). Register code in the edition or build type that provides it.
+1. Copy the matching descriptor to Downloads on the device. Open **Plugins → Import plugin** and select the file.
+2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info follows them. Import order and restart do not affect sorting.
+3. A catalogue search sends text to selected fetch providers when online services are enabled. General-book sources and per-library selections still control Open Library and Google Books. Shortcut groups open a site only when you tap its browser action. Some sites contain mature material.
+4. Fresh installs start off. An explicit legacy selection can enable a fetch group on its first import. Saved plugin choices take precedence on subsequent imports. The DLsite branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.
+
+Both debug editions accept the [demo card descriptor](../../plugins/manifests/demo.bcmplugin).
+
+## Define a platform group
+
+Place an internal Kotlin class ending in `Group` in the GitHub source package `com.bookcovermatcher.plugins.groups`, one class per matching `*Group.kt` file. Extend `PlatformGroup`, supply a unique ID and index, and declare ordered provider specifications. Fetch groups supply a factory creating fresh adapters on activation. Shortcut groups declare browser links. Gradle generates typed registrations using the classes present in that checkout. Concrete groups live on their own plugin branches, outside the framework branch.
 
 ## Create the descriptor
 

@@ -26,6 +26,38 @@ val appPackageName = "com.bookcovermatcher"
 //
 // The client id and redirect URI are **public application identifiers** — MSAL cannot work without
 // them in the APK — while the `.env` file itself is never packaged. See the generator task below.
+abstract class GeneratePlatformRegistry : DefaultTask() {
+    @get:Input abstract val groupClasses: ListProperty<String>
+    @get:OutputDirectory abstract val output: DirectoryProperty
+
+    @TaskAction fun generate() {
+        val constructors = groupClasses.get().joinToString(", ") { "new $it()" }
+        val file = output.file("com/bookcovermatcher/plugins/groups/CompiledGroups.java").get().asFile
+        file.parentFile.mkdirs()
+        file.writeText("""
+            package com.bookcovermatcher.plugins.groups;
+            import com.bookcovermatcher.plugins.PlatformGroup;
+            public final class CompiledGroups {
+                public static java.util.List<PlatformGroup> all() {
+                    return java.util.Arrays.<PlatformGroup>asList($constructors);
+                }
+            }
+        """.trimIndent())
+    }
+}
+
+val platformClasses = fileTree("src/github/java/com/bookcovermatcher/plugins/groups") {
+    include("*Group.kt")
+}.files.map { it.nameWithoutExtension }.sorted()
+
+androidComponents.onVariants(androidComponents.selector().withFlavor("distribution" to "github")) { variant ->
+    val generate = tasks.register<GeneratePlatformRegistry>("generate${variant.name.replaceFirstChar { it.uppercase() }}PlatformRegistry") {
+        groupClasses.set(platformClasses)
+        output.set(layout.buildDirectory.dir("generated/platforms/${variant.name}"))
+    }
+    variant.sources.java?.addGeneratedSourceDirectory(generate, GeneratePlatformRegistry::output)
+}
+
 val azureEnvFile = rootProject.file(".env")
 val azurePlaceholderValues = linkedMapOf(
     "Application_ID" to "00000000-0000-0000-0000-000000000000",
@@ -162,6 +194,11 @@ android {
     }
     // Both editions intentionally share applicationId, version identity and signing configuration.
     // A Play upload still requires the existing publication gate and matching app-signing certificate.
+    sourceSets {
+        if (platformClasses.containsAll(listOf("OrdinaryLibraryGroup", "DlsiteGroup", "DoujinShopGroup", "ExplicitDatabaseGroup"))) {
+            getByName("testGithub").java.srcDir("src/testCombinedPlatforms/java")
+        }
+    }
     buildTypes {
         release {
             // Shrinking is left off on purpose: ONNX Runtime uses JNI and the app is dominated by the model.

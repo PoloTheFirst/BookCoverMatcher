@@ -81,6 +81,14 @@
     {
       "subject": "Live DLsite catalogue verification",
       "value": "On 18 November 2026 the GitHub 2.7.0 (226) debug build on the API 36 emulator returned five live DLsite results for COMIC. The imported DLsite plugin was enabled in Plugins. Online services were on and general-book sources were switched off during the search. Search selected platforms displayed “5 result(s) shown · max 5 · DLsite”. The installed APK matched the local GitHub debug APK (SHA-256 4fcd93855c3100148ce3738b62e413e02b6d6260571f088e1046a8fd6349053c). After testing, general-book sources were restored to on and the imported DLsite plugin to off."
+    },
+    {
+      "subject": "Four platform plugin groups proposed for review",
+      "value": "Revision 2 of the DLsite working prompt awaits owner review. Proposed Platforms order is ordinary library fetch (0), DLsite fetch (1), doujin shop shortcuts (2) and explicit database shortcuts (3). Provider implementations stay on plugin branches. A separate GitHub-only descriptor marketplace is a recommendation. The working prompt flags the existing MyAnimeList .net destination and the proposed handling of Doujinshi.info."
+    },
+    {
+      "subject": "Indexed GitHub platform group branches",
+      "value": "Approved for local development on four independent plugin branches. Fixed order is ordinary libraries (0), DLsite (1), doujin shop shortcuts (2), explicit database shortcuts (3), then the ungrouped Doujinshi.info shortcut. MyAnimeList uses myanimelist.net. The marketplace is deferred."
     }
   ],
   "nextSteps": [

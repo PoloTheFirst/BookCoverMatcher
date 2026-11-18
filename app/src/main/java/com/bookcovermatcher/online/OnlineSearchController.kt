@@ -21,6 +21,8 @@ import com.bookcovermatcher.core.online.ProductSearchDataSource
 import com.bookcovermatcher.core.online.ProductSearchOutcome
 import com.bookcovermatcher.core.online.ProductSearchResult
 import com.bookcovermatcher.core.online.DistributionEdition
+import com.bookcovermatcher.plugins.ActivePlatforms
+import com.bookcovermatcher.plugins.platforms
 import com.bookcovermatcher.core.online.ProviderCatalog
 import com.bookcovermatcher.core.online.ProviderSpec
 import com.bookcovermatcher.core.online.SearchLimits
@@ -86,25 +88,11 @@ import kotlinx.coroutines.withTimeout
  *
  * Nothing runs when [OnlineSearchPrefs.enabled] is off, and no step touches the offline matcher.
  */
-class OnlineSearchController(
+class OnlineSearchController internal constructor(
     context: Context,
     private val scope: CoroutineScope,
     private val prefs: OnlineSearchPrefs = OnlineSearchPrefs(context),
     private val bridge: OcrTextSource = OcrEngines.create(context),
-    /**
-     * Every provider the app can query itself, each through its own adapter:
-     *  * **Open Library** — library catalogue, JSON API;
-     *  * **Google Books** — book catalogue, JSON API;
-     *  * **DLsite** — doujinshi / digital works shop, public search page (HTML).
-     *
-     * Melonbooks and Suruga-ya are deliberately **not** here: the first is browser-only by product
-     * decision (v2.2.2 patch), the second because its `robots.txt` disallows `/search/`. Doujin no Mori
-     * disallows its own search route in `robots.txt`, Doujinshi.info and nhentai answer HTTP 403 to
-     * automated clients, and MyAnimeList has no unauthenticated API — all five are listed by
-     * [ProviderCatalog] for the browser-handoff card only (E-Hentai too, as an adult catalogue).
-     * Which of these actually run is decided by the user's platform selection ([SearchRouting]).
-     */
-    private val catalogues: List<ProductSearchDataSource> = CatalogueSources.create(),
     private val covers: CoverImageLoader = CoverImageLoader(),
     /**
      * The user's SauceNAO API key, encrypted with a Keystore-held key. Read at request time, never cached in a
@@ -126,8 +114,8 @@ class OnlineSearchController(
      * Deliberately separate from the search: a missing picture never changes a provider's result state.
      */
     private val discoveryCovers: DiscoveryCoverLoader = DiscoveryCoverLoader(),
-    private val activeDlsite: () -> ProductSearchDataSource? = { null },
-    private val disableDlsite: () -> Unit = {},
+    private val activeGroups: () -> List<ActivePlatforms> = { emptyList() },
+    private val disableGroup: (String) -> Unit = {},
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
     // ---- reverse-image discovery ---------------------------------------------------------------
@@ -140,20 +128,29 @@ class OnlineSearchController(
     // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The generation
     // counter is the stale-response guard: a result whose token is no longer current is dropped instead of
     // overwriting the answer to a newer request.
-    private fun effectiveSelection(): Set<String> {
-        val legacy = prefs.selectedProviders - "dl"
-        return if (activeDlsite() != null) legacy + "dl" else legacy
+    private fun effectiveSelection(groups: List<ActivePlatforms> = activeGroups()): Set<String> {
+        val selected = prefs.selectedProviders
+        return groups.flatMap { activation ->
+            val entries = activation.group.entries
+            entries.filter { it.selectable && (entries.size == 1 || it.id in selected) }
+        }.mapTo(mutableSetOf()) { it.id }
     }
 
-    private var searchDlsite: ProductSearchDataSource? = null
+    private fun activeSources() = activeGroups().flatMap { it.sources }
+    private var searchSources = emptyList<ProductSearchDataSource>()
 
-    /** Runs on the UI thread. Saved bookmarks and independent reverse-image runs are untouched. */
+    fun canOpenPlatform(url: String): Boolean = activeGroups().platforms().any {
+        it.hasLink && it.searchUrl(_ui.value.query) == url
+    }
+
+    /** Revoke the previous activation even if another instance of the same group is already active. */
     fun refreshCataloguePlugins() {
-        val previous = searchDlsite
-        val invalid = previous != null && previous !== activeDlsite()
+        val active = activeSources()
+        val removed = searchSources.filterNot { it in active }.map { it.name }.toSet()
+        val invalid = removed.isNotEmpty()
         if (invalid) {
             if (_ui.value.catalogue is CatalogueUi.Running) job?.cancel()
-            searchDlsite = null
+            searchSources = searchSources.filter { it in active }
         }
         session.clearEntries()
         val selection = effectiveSelection()
@@ -162,7 +159,7 @@ class OnlineSearchController(
             val catalogue = when {
                 !invalid -> current
                 current is CatalogueUi.Found -> {
-                    val remaining = current.items.filterNot { it.provider == previous?.name }
+                    val remaining = current.items.filterNot { it.provider in removed }
                     if (remaining.isEmpty()) CatalogueUi.Idle else current.copy(
                         items = remaining,
                         source = remaining.map { it.source }.distinct().joinToString(" + "),
@@ -175,7 +172,7 @@ class OnlineSearchController(
             val previousRows = state.providers.associateBy { it.id }
             val providers = providerStatuses(state.query, selection).map { row ->
                 val old = previousRows[row.id]
-                if (row.id != "dl" && old != null && (!invalid || old.state != ProviderState.SEARCHING)) old else row
+                if (old != null && row.name !in removed && row.selected == old.selected && (!invalid || old.state != ProviderState.SEARCHING)) old else row
             }
             state.copy(selectedProviders = selection, providers = providers, catalogue = catalogue)
         }
@@ -244,7 +241,7 @@ class OnlineSearchController(
         val limit: Int,
         /** Which platforms were selected when this answer was produced. */
         val selectionKey: String,
-        val dlsite: ProductSearchDataSource?,
+        val sources: List<ProductSearchDataSource>,
         val results: List<ProductSearchResult>,
         val totalAvailable: Int?,
         val source: String,
@@ -271,7 +268,7 @@ class OnlineSearchController(
         automated: Map<String, Pair<ProviderState, String>> = emptyMap(),
         searching: Boolean = false,
         secondaryOn: Boolean = prefs.secondarySources,
-    ): List<ProviderStatusUi> = ProviderCatalog.ALL.filter { it.id != "dl" || activeDlsite() != null }.map { spec ->
+    ): List<ProviderStatusUi> = activeGroups().platforms().map { spec ->
         val manual = !spec.selectable
         val isSelected = spec.selectable && spec.id in selected
         val switchedOff = isSelected && !secondaryOn && ProviderCapabilities.isSecondary(spec.id)
@@ -729,7 +726,8 @@ class OnlineSearchController(
      */
     fun toggleProvider(id: String) {
         if (!DistributionEdition.catalogueEnabled) return
-        val spec = ProviderCatalog.byId(id) ?: return
+        val group = activeGroups().firstOrNull { active -> active.group.entries.any { it.id == id } } ?: return
+        val spec = group.group.entries.first { it.id == id }
         // Browser-only cards are deliberately not selectable: they have no in-app search to enable.
         if (!spec.selectable) {
             onMessage(
@@ -738,15 +736,14 @@ class OnlineSearchController(
             )
             return
         }
-        if (id == "dl") {
-            disableDlsite()
+        if (group.group.entries.size == 1) {
+            disableGroup(group.group.id)
             return
         }
         val current = effectiveSelection()
         val next = SearchRouting.toggle(current, id)
         if (next == current) return
-        // Preserve only the explicit legacy DLsite bit. Other picker edits cannot opt a new user in.
-        prefs.selectedProviders = if (prefs.explicitDlsiteSelection) next + "dl" else next - "dl"
+        prefs.setProviderSelected(id, id in next, group.group.entries.map { it.id }.toSet())
 
         val wasRunning = _ui.value.catalogue is CatalogueUi.Running
         if (wasRunning) {
@@ -1040,7 +1037,8 @@ class OnlineSearchController(
         }
         if (_ui.value.isBusy) return
 
-        val selection = effectiveSelection()
+        val groups = activeGroups()
+        val selection = effectiveSelection(groups)
         val limit = SearchLimits.sanitize(prefs.resultLimit)
         val selectionKey = SearchRouting.key(selection)
         val secondaryOn = prefs.secondarySources
@@ -1052,7 +1050,7 @@ class OnlineSearchController(
         if (automatedSpecs.isEmpty()) {
             session.invalidate()
             val switchedOffOnly = SearchRouting.automated(selection).isNotEmpty()
-            val shortcuts = SearchRouting.shortcuts().filter { it.hasLink }.joinToString { it.name }
+            val shortcuts = groups.platforms().filter { !it.selectable && it.hasLink }.joinToString { it.name }
             val message = when {
                 // Selected, but every selected provider is a general-book source the user switched off.
                 switchedOffOnly ->
@@ -1081,9 +1079,8 @@ class OnlineSearchController(
         }
 
         val selectedIds = automatedSpecs.map { it.id }.toSet()
-        val dlsite = activeDlsite()
-        searchDlsite = dlsite
-        val sources = (catalogues + listOfNotNull(dlsite)).filter { specFor(it)?.id in selectedIds }
+        val sources = groups.flatMap { it.sources }.filter { specFor(it)?.id in selectedIds }
+        searchSources = sources
 
         val fingerprint = capture?.let { ImageFingerprint.of(it) }
         if (fingerprint != null) {
@@ -1092,7 +1089,7 @@ class OnlineSearchController(
             if (cached != null &&
                 cached.query == trimmed &&
                 cached.limit == limit &&
-                cached.selectionKey == selectionKey && cached.dlsite === dlsite
+                cached.selectionKey == selectionKey && cached.sources == sources
             ) {
                 applyResults(
                     results = cached.results,
@@ -1130,7 +1127,7 @@ class OnlineSearchController(
                 coroutineScope {
                     sources.map { source ->
                         async {
-                            if (source === dlsite && dlsite !== activeDlsite()) throw kotlinx.coroutines.CancellationException()
+                            if (source !in activeSources()) throw kotlinx.coroutines.CancellationException()
                             val ask = SearchLimits.forProvider(limit, source.maxResults)
                             source to runCatching {
                                 withTimeout(PROVIDER_TIMEOUT_MS) { source.search(trimmed, ask) }
@@ -1139,7 +1136,7 @@ class OnlineSearchController(
                     }.awaitAll()
                 }
             }
-            if (!session.isCurrent(token) || (dlsite != null && dlsite !== activeDlsite())) return@launch
+            if (!session.isCurrent(token) || !activeSources().containsAll(sources)) return@launch
             applyOutcomes(
                 query = trimmed,
                 outcomes = outcomes,
@@ -1227,7 +1224,7 @@ class OnlineSearchController(
         // drag the browser links back to the query that produced it.
         val providers = providerStatuses(query, selection, perProvider).withQuery(_ui.value.query)
         val sourceLabel = answered.distinct().joinToString(" + ")
-            .ifEmpty { catalogues.joinToString(" + ") { it.name } }
+            .ifEmpty { outcomes.joinToString(" + ") { it.first.name } }
         if (answered.isEmpty() && found.isEmpty()) {
             val reason = failures.joinToString("; ").ifEmpty { "No provider answered." }
             _ui.update { it.copy(catalogue = CatalogueUi.Failed(reason), providers = providers) }
@@ -1278,7 +1275,7 @@ class OnlineSearchController(
         if (fingerprint != null && !fromCache) {
             session.store(
                 fingerprint,
-                CachedSearch(query, limit, selectionKey, searchDlsite, results, totalAvailable, source, note, providers),
+                CachedSearch(query, limit, selectionKey, searchSources, results, totalAvailable, source, note, providers),
             )
         }
         _ui.update {
@@ -1301,18 +1298,19 @@ class OnlineSearchController(
 
     /** Covers arrive after the text, one at a time, so the list is readable immediately. */
     private fun loadCovers(results: List<ProductSearchResult>, token: Long) {
-        val dlsite = searchDlsite
+        val sources = searchSources.associateBy { it.name }
+        fun revoked(item: ProductSearchResult) = sources[item.source] !in activeSources()
         scope.launch {
             for (item in results) {
                 if (!session.isCurrent(token)) return@launch
-                if (item.source == dlsite?.name && activeDlsite() !== dlsite) continue
+                if (revoked(item)) continue
                 val bytes = withContext(Dispatchers.IO) {
-                    if (item.source == dlsite?.name && activeDlsite() !== dlsite) null
+                    if (revoked(item)) null
                     else runCatching { covers.load(item.coverUrl) }.getOrNull()
                 }
                     ?: continue
                 if (!session.isCurrent(token)) return@launch
-                if (item.source == dlsite?.name && activeDlsite() !== dlsite) continue
+                if (revoked(item)) continue
                 _ui.update { state ->
                     val current = state.catalogue as? CatalogueUi.Found ?: return@update state
                     // by id, never by index: the list can be deduplicated or reordered underneath us

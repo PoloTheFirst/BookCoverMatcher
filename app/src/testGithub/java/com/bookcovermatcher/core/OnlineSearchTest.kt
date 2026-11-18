@@ -224,7 +224,9 @@ class OpenLibraryResponseParserTest {
         // OpenLibraryBooksSource is the real implementation; a blank query must short-circuit
         // before HttpJsonClient is touched, which is what keeps a mistyped search from costing
         // the user a request.
-        val outcome = com.bookcovermatcher.online.OpenLibraryBooksSource().search("   ", 5)
+        val group = com.bookcovermatcher.plugins.editionGroups.firstOrNull { it.entries.any { spec -> spec.id == "ol" } }
+        org.junit.Assume.assumeNotNull(group)
+        val outcome = group!!.createSources().first { it.name == "Open Library" }.search("   ", 5)
 
         assertTrue(outcome is ProductSearchOutcome.Empty)
         assertEquals("", (outcome as ProductSearchOutcome.Empty).query)

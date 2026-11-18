@@ -7,6 +7,6 @@ import org.junit.Test
 
 class PlayCatalogueSourcesTest {
     @Test fun buildRegistersNoCatalogueNetworkAdapters() {
-        assertTrue(CatalogueSources.create().isEmpty())
+        assertTrue(com.bookcovermatcher.plugins.editionGroups.isEmpty())
     }
 }

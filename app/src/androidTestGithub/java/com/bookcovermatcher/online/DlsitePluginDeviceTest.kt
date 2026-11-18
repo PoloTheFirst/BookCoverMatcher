@@ -20,6 +20,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class DlsitePluginDeviceTest {
+    @org.junit.Before fun requireFetchProviders() {
+        org.junit.Assume.assumeTrue(ProviderCatalog.byId("ol") != null && ProviderCatalog.byId("dl") != null)
+    }
     private val base = InstrumentationRegistry.getInstrumentation().targetContext
     private val prefix = "plugin-fixture-" + UUID.randomUUID()
     private val context = object : ContextWrapper(base) {
@@ -30,7 +33,7 @@ class DlsitePluginDeviceTest {
     @Test fun explicitLegacySettingAndPluginPrecedence() {
         val prefs = OnlineSearchPrefs(context)
         val directory = File(base.cacheDir, prefix)
-        val settings = PluginSettings(directory) { prefs.explicitDlsiteSelection }
+        val settings = PluginSettings(directory) { "dl" in prefs.explicitProviderIds.orEmpty() }
         val id = "bcm.dlsite"
         try {
             assertFalse(settings.enabled(id))
@@ -68,7 +71,7 @@ class DlsitePluginDeviceTest {
             manager.importDescriptor("bcm.dlsite")
             for (on in listOf(true, false, true)) {
                 manager.toggle("bcm.dlsite", on)!!.join()
-                assertEquals(on, manager.rows.value.single().contribution != null)
+                assertEquals(on, manager.rows.value.single { it.descriptor.id == "bcm.dlsite" }.contribution != null)
                 assertEquals(entry.id, workbooks.list().single().id)
                 assertArrayEquals(bytes, workbooks.fileOf(entry).readBytes())
                 assertEquals(url, bookmarks.library().items.single().url)
@@ -123,9 +126,12 @@ class DlsitePluginDeviceTest {
                                    timeoutSeconds: Int) =
                 OcrText("Example Catalogue", listOf(1f), "en", null, 2, 1, "1")
         }
+        val library = com.bookcovermatcher.plugins.editionGroups.single { it.index == 0 }
+        val dlsite = com.bookcovermatcher.plugins.editionGroups.single { it.index == 1 }
+        val books = com.bookcovermatcher.plugins.ActivePlatforms(library, listOf(book))
         val controller = withContext(Dispatchers.Main) {
-            OnlineSearchController(context, owner, prefs, bridge = ocr, catalogues = listOf(book),
-                covers = CoverImageLoader(cache = cache), activeDlsite = current::get)
+            OnlineSearchController(context, owner, prefs, bridge = ocr, covers = CoverImageLoader(cache = cache),
+                activeGroups = { listOfNotNull(books, current.get()?.let { com.bookcovermatcher.plugins.ActivePlatforms(dlsite, listOf(it)) }) })
         }
         suspend fun select(source: ProductSearchDataSource?) = withContext(Dispatchers.Main) {
             current.set(source)

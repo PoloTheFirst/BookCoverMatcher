@@ -4,7 +4,7 @@ Validated locally on CachyOS on 18 November 2026 against Android 2.7.0 / code 22
 
 ## What each edition contains
 
-- **GitHub:** Open Library, Google Books, manually imported DLsite, browser shortcuts, OCR choices, SauceNAO and IQDB.
+- **GitHub:** manually imported catalogue and shortcut groups, the Doujinshi.info shortcut, OCR choices, SauceNAO and IQDB.
 - **Play:** no public catalogue searches or provider shortcuts. SauceNAO and IQDB remain at the owner's request. Cover text uses on-device PaddleOCR. Offline matching, local/cloud workbook import, source information, Rescan and personal library features remain.
 - The edition is visible in More's version information. Play is an intended distribution destination, not a claim of Google approval.
 
@@ -16,7 +16,7 @@ Existing catalogue bookmarks are retained in storage but displayed as unavailabl
 
 ## Plugins navigation
 
-Both editions include **Plugins** immediately after **More**, with a puzzle icon. In GitHub debug and release, users can import the DLsite descriptor and toggle the provider. Play excludes the DLsite implementation and rejects its descriptor, including after a GitHub update. Both debug editions also accept the demo descriptor. Play release has no registered plugins. See the [bundled plugin guide](BUNDLED_PLUGINS.md) for the developer contract and activation behavior.
+Both editions include **Plugins** immediately after **More**, with a puzzle icon. In GitHub debug and release, users can import the descriptors for groups compiled into their build and toggle them. Play excludes these groups and rejects their descriptors, including after a GitHub update. Both debug editions also accept the demo descriptor. Play release has no registered plugins. See the [bundled plugin guide](BUNDLED_PLUGINS.md) for the developer contract and activation behavior.
 
 ## Build and verify locally
 

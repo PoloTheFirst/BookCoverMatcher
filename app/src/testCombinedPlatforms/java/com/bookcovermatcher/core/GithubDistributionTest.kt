@@ -9,7 +9,7 @@ import org.junit.Test
 class GithubDistributionTest {
     @Test fun fullProviderInventoryAndStoredItemsRemainAvailable() {
         assertTrue(DistributionEdition.catalogueEnabled)
-        assertEquals(setOf("ol", "gb", "dl", "mb", "sy", "dm", "eh", "di", "mal", "nh", "tr"), ProviderCatalog.ALL.map { it.id }.toSet())
+        assertEquals(setOf("ol", "gb", "dl", "mb", "sy", "tr", "nh", "eh", "dm", "mal", "di"), ProviderCatalog.ALL.map { it.id }.toSet())
         assertEquals(3, ProviderCatalog.AUTOMATED.size)
         assertEquals(8, SearchRouting.shortcuts().size)
         assertTrue(DistributionPolicy.showSavedItem("ONLINE_RESULT", "DLsite"))

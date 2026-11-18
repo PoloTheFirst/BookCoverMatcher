@@ -5,9 +5,9 @@ package com.bookcovermatcher
 import android.app.Activity
 import com.bookcovermatcher.core.online.DistributionPolicy
 import com.bookcovermatcher.data.googledrive.*
-import com.bookcovermatcher.core.online.ProductSearchDataSource
 import com.bookcovermatcher.data.OnlineSearchPrefs
-import com.bookcovermatcher.plugins.CatalogueProvider
+import com.bookcovermatcher.plugins.ActivePlatforms
+import com.bookcovermatcher.plugins.editionGroups
 import com.bookcovermatcher.plugins.editionPlugins
 import com.bookcovermatcher.plugins.PluginManager
 import com.bookcovermatcher.plugins.bundledPlugins
@@ -144,7 +144,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     internal val plugins = PluginManager(
         bundledPlugins + editionPlugins,
         PluginSettings(File(app.filesDir, "plugin-settings")) { id ->
-            id == "bcm.dlsite" && OnlineSearchPrefs(app).explicitDlsiteSelection
+            val selected = OnlineSearchPrefs(app).explicitProviderIds.orEmpty()
+            editionGroups.firstOrNull { it.id == id }?.entries?.any { it.selectable && it.id in selected } == true
         },
         viewModelScope,
     )
@@ -169,13 +170,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * captured cover and shares the toast channel, but it keeps its own state flow ([online]) and
      * never touches the offline matcher. Everything in it is inert until the user switches it on.
      */
-    private fun activeDlsite() = plugins.rows.value.firstOrNull {
-        (it.contribution as? CatalogueProvider)?.providerId == "dl"
-    }?.contribution as? ProductSearchDataSource
+    private fun activeGroups() = plugins.rows.value.mapNotNull { it.contribution as? ActivePlatforms }
 
     val online = OnlineSearchController(app, viewModelScope,
-        activeDlsite = ::activeDlsite,
-        disableDlsite = { plugins.toggle("bcm.dlsite", false) },
+        activeGroups = ::activeGroups,
+        disableGroup = { plugins.toggle(it, false) },
         onMessage = ::showToast,
     )
 
@@ -386,10 +385,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prepareModel()
         refreshLibrary()
         viewModelScope.launch {
-            var previous: ProductSearchDataSource? = null
+            var previous = emptyList<ActivePlatforms>()
             plugins.rows.collect {
-                val active = activeDlsite()
-                if (previous !== active) online.refreshCataloguePlugins()
+                val active = activeGroups()
+                if (previous != active) online.refreshCataloguePlugins()
                 previous = active
             }
         }

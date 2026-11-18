@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "85b12076e8e13c232eca9ca61fc86a0ccc2a5a0f5c5b5f3dfb547df7f82b06d2",
+  "fingerprint": "88db9fbd5a9a5625678e28808a4519d4afbd4a2e4f00358d36115fb6855ebf24",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 5078,
-      "sha256": "8858916eedff37457d97b447bf901c43ac33380789bd5b1b5edf0b3af79748db",
+      "bytes": 5205,
+      "sha256": "4e78369f143cc59f5eccabc0bfb403df83fa2a9c30f301b928e6716c675727eb",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 11714,
-      "sha256": "1769f6061238a94824dd9e8de65f1568fb603c10d707abb50f75ef13887c8d28",
+      "bytes": 12614,
+      "sha256": "2293ab7e16845754086266ad5097dd5c8f3c90fa8cc4bb56506078d7d6a86cd9",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/BUNDLED_PLUGINS.md",
-      "bytes": 2856,
-      "sha256": "f38e1995f1231496347dc5eb748f4a8851acc6f6132ad4f6f15b5aa93b4a3734",
+      "bytes": 3593,
+      "sha256": "f7487c9ff18772f7eacae218bd549330707dc4421730f066f13f548b000734a7",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 8826,
-      "sha256": "27a60c5fd0bde375aa05514e73d602a17e9110d5d5ccbf97e5ab7823f335c2df",
+      "bytes": 8844,
+      "sha256": "80970754bda3ab512e4eeaacc5eede5b5450f995ab887c4d3fa620e15860b31e",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -568,8 +568,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 53222,
-      "sha256": "0946b3ab7d843362d80d2ac7af610fd27b94a55dd3238bc7697b01a844282f67",
+      "bytes": 53173,
+      "sha256": "2a49de90a16af8c2f2d2ba70ffdc7a189e50019cffe6de5fb364d7a348f62f0a",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -1695,6 +1695,38 @@
       }
     },
     {
+      "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r02.md",
+      "bytes": 15456,
+      "sha256": "6809317fc9af221cbd2b926b3e26daa6c6f8c630cce071ea0c5bed1595aeff73",
+      "version": "2.7.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r2",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/development//dlsite-plugin/prompt/2026-11-18",
+        "title": "GitHub platform plugins and display order",
+        "kind": "prompt",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "dlsite-plugin",
+        "created_at": "2026-11-18T05:10:26+08:00",
+        "updated_at": "2026-11-18T14:48:39+08:00",
+        "revision": 2,
+        "status": "final",
+        "supersedes": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r01.md",
+        "related_versions": [],
+        "source_request": "Append the four requested plugin groups, platform ordering and marketplace recommendation to the working prompt. Preserve compatible earlier work and pause for owner review."
+      }
+    },
+    {
       "path": "docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md",
       "bytes": 13158,
       "sha256": "973910e83e2d23003e7cef7c97130b4c032812ebc67451ac95c459dd0ab5f0ee",
@@ -2285,8 +2317,8 @@
     },
     {
       "path": "docs/reference/ARCHITECTURE.md",
-      "bytes": 74056,
-      "sha256": "7ca68d78f02c5f01bdce44c8cb30690fed112d40564387db90748aaff8dd690a",
+      "bytes": 74148,
+      "sha256": "ee0bf01b49262c2d453145d8e2e49f238e35d5bfed356fc06562022ce7f6f55f",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2307,8 +2339,8 @@
     },
     {
       "path": "docs/reference/ONLINE_SEARCH.md",
-      "bytes": 49829,
-      "sha256": "a62b8bdb88b9942ae7cdc632f3fde8f2e9d1095443112e62b7ae21da3a68b87d",
+      "bytes": 49843,
+      "sha256": "ec31eeac233263a92544ec968543457eb1fb4fca2de4871c1b83ceacc5272673",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2340,8 +2372,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4984,
-      "sha256": "01ca64c988b18ace3c444e17e905b0b07a0c46201aa1a5049a7807635b1992d5",
+      "bytes": 5050,
+      "sha256": "2db7a02ad65d5a14721550a14fd5717e1849af171b71c1d1e862f3e63045fa91",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

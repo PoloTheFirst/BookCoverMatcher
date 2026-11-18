@@ -3,6 +3,7 @@
 package com.bookcovermatcher.core.online
 
 object ProviderCatalog {
+    val ungrouped = emptyList<ProviderSpec>()
     val ALL: List<ProviderSpec> = emptyList()
     val AUTOMATED: List<ProviderSpec> = emptyList()
     val SELECTABLE: List<ProviderSpec> = emptyList()

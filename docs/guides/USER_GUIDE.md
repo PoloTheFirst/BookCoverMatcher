@@ -28,7 +28,7 @@ placeholder.
 
 * **Workbook (n)** - the offline comparison: spreadsheet controls, the five match rows and
   **Save this scan as a session**. The count is the number of workbook matches for the current scan.
-* **Online (n)** - the OCR text (read-only but selectable), the editable query, the eleven platform cards,
+* **Online (n)** - the OCR text (read-only but selectable), the editable query, the active platform cards,
   the 5-50 result maximum, and the results from the selected platforms. The count is the number of
   unique, displayable results; failures and placeholders are not counted.
 * **Bookmarks (n)** - the results of the current search that are already in the `Bookmarks`
@@ -53,11 +53,7 @@ runtime and asks whether `chrome-lens-py` is available.
 **Read the cover.** The OCR text is read-only, but you can copy it: long-press it, drag to select part
 or all, then use the system **Copy** command and paste it into the query box.
 
-**Choose your platforms.** The panel shows eleven cards in `ProviderCatalog` order:
-
-* GitHub searches **Open Library** and **Google Books**. To add **DLsite**, import its descriptor in **Plugins** and turn it on. Its results may include mature listings.
-* Browser-only (never selectable): **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**,
-  **Doujinshi.info**, **MyAnimeList**, **nhentai**, **Toranoana**.
+**Choose your platforms.** Import a supported descriptor in **Plugins** and enable its switch. The GitHub panel lists ordinary libraries (Open Library, Google Books), DLsite, shop shortcuts (Melonbooks, Suruga-ya, Toranoana), then database shortcuts (nhentai, E-Hentai, Doujin no Mori, MyAnimeList). Doujinshi.info follows the enabled groups. Shortcut cards open the external browser on tap.
 
 Tap a selectable card body to include or exclude it: a selected card turns blue with a soft glow, an
 accent border and a check mark; an unselected one is greyed down but still usable. **Open** on every
@@ -722,7 +718,7 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-1. Save [dlsite.bcmplugin](../../plugins/manifests/dlsite.bcmplugin) to Downloads on your device.
+1. Save `dlsite.bcmplugin` from the DLsite branch to Downloads on your device.
 2. In the GitHub edition, open **Plugins** to the right of **More**, tap **Import plugin**, and select the file.
 3. Switch **DLsite** on. With online search enabled, your next catalogue search can query DLsite. Switching it off removes its search row and transient results immediately. You can still access previously saved GitHub bookmarks.
 4. BCM remembers the switch. On the first import after an upgrade, BCM uses your last explicitly saved provider selection. With no explicit selection it starts off.

@@ -123,7 +123,7 @@ fun OnlineSearchPanel(
         OcrSection(ui, controller)
         Spacer(Modifier.height(12.dp))
         if (DistributionEdition.catalogueEnabled) {
-            SecondarySourcesRow(ui, controller)
+            if (ui.providers.any { com.bookcovermatcher.core.online.ProviderCapabilities.isSecondary(it.id) }) SecondarySourcesRow(ui, controller)
             Spacer(Modifier.height(12.dp))
             CatalogueSection(
                 ui = ui,
@@ -395,7 +395,7 @@ private fun CatalogueSection(
     onBulkAdd: () -> Unit,
     onBookmarkAll: () -> Unit,
 ) {
-    FieldLabel("B · Search the catalogues (Open Library + Google Books)")
+    FieldLabel("B · Search the catalogues")
 
     BasicTextField(
         value = ui.query,
@@ -433,7 +433,7 @@ private fun CatalogueSection(
     PlatformPicker(
         providers = ui.providers,
         onToggle = controller::toggleProvider,
-        onOpenLink = onOpenUrl,
+        onOpenLink = { url -> if (controller.canOpenPlatform(url)) onOpenUrl(url) },
     )
     Spacer(Modifier.height(10.dp))
     ResultLimitPicker(ui.resultLimit, controller::setResultLimit)
