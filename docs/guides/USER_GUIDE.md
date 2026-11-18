@@ -718,11 +718,32 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-On the GitHub marketplace build, import `marketplace.bcmplugin` and turn on **Plugin Marketplace**. Missing groups download automatically. Switch on a downloaded group, such as **Ordinary Library Fetch** or **Reverse Image Discovery**, to use it. Turning the marketplace off pauses the groups and keeps their switch positions. Use **Remove** to keep a group out until you download it again. See the [marketplace walkthrough](BUNDLED_PLUGINS.md#use-the-github-marketplace).
+In **Search → Online**, turn on **Use online services**. If no catalogue or shortcut group is active, **Search the catalogues → Open Plugins** takes you to setup. **How to import plugins** is available on the Plugins tab whenever you need it.
 
-1. Save `dlsite.bcmplugin` from the DLsite branch to Downloads on your device.
-2. In the GitHub edition, open **Plugins** to the right of **More**, tap **Import plugin**, and select the file.
-3. Switch **DLsite** on. With online search enabled, your next catalogue search can query DLsite. Switching it off removes its search row and transient results immediately. You can still access previously saved GitHub bookmarks.
-4. BCM remembers the switch. On the first import after an upgrade, BCM uses your last explicitly saved provider selection. With no explicit selection it starts off.
+### Set up your plugin folder
+
+1. On your phone, open the **Files** app. Tap **Internal storage**, then **Documents**.
+2. In **Documents**, create a folder named **BookCoverMatcher**. Open the **BookCoverMatcher** folder.
+3. In **BookCoverMatcher**, create a folder named **Plugins**. Open the **Plugins** folder.
+
+If either folder already exists, open the existing folder. Save the marketplace setup file and custom plugin files in this **Plugins** folder. For example, the full path to the marketplace file is `Internal storage/Documents/BookCoverMatcher/Plugins/marketplace.bcmplugin`.
+
+If your browser saved the file to **Downloads**, select it in the Files app, choose **Move to**, then open **Internal storage → Documents → BookCoverMatcher → Plugins**. If you downloaded it on a computer, copy it into that folder on your phone.
+
+### Import from Plugin Marketplace
+
+`marketplace.bcmplugin` is the small setup file that adds the **Plugin Marketplace** switch to the GitHub edition of BCM. If that switch is already on your Plugins tab, skip the download and use it directly.
+
+1. On the Android device running BCM, tap **Plugins** (the puzzle piece next to **More** in the bottom bar). Open **How to import plugins → Get marketplace.bcmplugin**. On the GitHub file page, choose **Download raw file** and save or move it to `Documents/BookCoverMatcher/Plugins/marketplace.bcmplugin` on your phone.
+
+2. Return to **BCM → Plugins**. Tap **Import plugin** at the top of the screen. Select **marketplace.bcmplugin**. BCM asks Android to open your Plugins folder. If the picker opens elsewhere, browse to **Internal storage → Documents → BookCoverMatcher → Plugins**. You can also select a file from another location. The picker closes and the **Plugin Marketplace** switch appears. Turn it on to fetch the available plugins.
+3. When the descriptors finish downloading, turn on **Ordinary Library Fetch** or **DLsite Fetch**. Return to **Search → Online** and enter a title. Groups with browser shortcuts show an **Open** action for each site. Reverse Image Discovery has its own section.
+4. You can keep the file in your Plugins folder for future imports. Moving it after import preserves your existing switches. Turning off the marketplace pauses its providers and preserves their switch positions. A removed group can be downloaded again from its marketplace card.
+
+### Import a custom catalogue plugin
+
+1. Save the author’s `.bcmplugin` file to **Documents → BookCoverMatcher → Plugins** on your phone and confirm that your installed GitHub build includes that plugin’s Kotlin implementation.
+2. Open **Plugins → Import plugin**, select the author’s file from the Plugins folder, and enable its switch. An already-imported plugin has an existing switch. If BCM reports that the plugin is unavailable in this edition, check which build the author supports. If BCM directs you to the marketplace, enable the group there.
+3. Return to **Search → Online**. You can use compatible custom and marketplace groups together. BCM orders their platforms automatically. You do not need to assign a number or import them in a particular order.
 
 Both debug editions also accept [demo.bcmplugin](../../plugins/manifests/demo.bcmplugin). Turn on **Demo card** to see “Hello from BCM”. See the [developer guide](BUNDLED_PLUGINS.md) to create descriptors.

@@ -7,3 +7,6 @@ import com.bookcovermatcher.plugins.PluginRow
 
 @Composable
 internal fun EditionPluginPanel(row: PluginRow, registry: List<PluginRow>, imported: Set<String>, manager: PluginManager) = Unit
+
+@Composable
+internal fun EditionImportHelp(onOpenUrl: (String) -> Unit) = Unit

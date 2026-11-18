@@ -188,7 +188,7 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
                                 MoreScreen(ui, vm, onOpenUrl = { url -> openExternal(context, url, vm) })
                             }
                             AppTab.PLUGINS -> ScreenScroll {
-                                PluginsScreen(vm.plugins)
+                                PluginsScreen(vm.plugins, actions.onOpenUrl)
                             }
                         }
                     }

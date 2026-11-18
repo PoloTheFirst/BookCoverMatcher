@@ -109,6 +109,10 @@
     {
       "subject": "Marketplace layout and discovery plugins",
       "value": "Marketplace revision 5 uses compact, spaced cards and title-case names. Ordinary Library Fetch, DLsite Fetch, Doujin Shop Shortcuts and Explicit Database Shortcuts own the platform lists; Doujinshi.info belongs to the explicit group. The fifth GitHub plugin, Reverse Image Discovery, activates SauceNAO and IQDB. Play retains its existing reverse-image features. Verified all five installed cards on the API 36 emulator. Seven GitHub instrumentation tests passed, including checks for revoking the Doujinshi.info link and clearing temporary IQDB results. One isolated Play test confirmed its two built-in reverse-image providers."
+    },
+    {
+      "subject": "Catalogue setup and plugin ordering",
+      "value": "On the GitHub marketplace branch, an empty catalogue offers Open Plugins. The Plugins tab has instructions for the marketplace and compatible custom descriptors. Group display order uses the numeric index, then stable plugin ID for ties. A shortcut-only selection keeps the query and browser actions. The API 36 emulator opened the Plugins tab from the empty catalogue notice and displayed both tutorials. Both debug editions built, their debug unit suites passed, and the platform-groups device test passed. The import tutorial identifies marketplace.bcmplugin as the marketplace setup file and gives the path from the bottom Plugins tab to Documents/BookCoverMatcher/Plugins in shared storage. The plugin picker requests this initial folder and allows selecting files elsewhere."
     }
   ],
   "nextSteps": [

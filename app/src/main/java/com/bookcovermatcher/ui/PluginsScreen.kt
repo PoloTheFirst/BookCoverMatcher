@@ -2,6 +2,9 @@
 
 package com.bookcovermatcher.ui
 
+import android.content.Context
+import android.content.Intent
+import android.provider.DocumentsContract
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,15 +47,27 @@ import com.bookcovermatcher.R
 import com.bookcovermatcher.ui.components.Panel
 import com.bookcovermatcher.ui.theme.Palette
 
+internal const val PLUGIN_DOCUMENTS_FOLDER = "Documents/BookCoverMatcher/Plugins"
+
+private object OpenPluginDocument : ActivityResultContracts.OpenDocument() {
+    override fun createIntent(context: Context, input: Array<String>): Intent =
+        super.createIntent(context, input).putExtra(
+            DocumentsContract.EXTRA_INITIAL_URI,
+            DocumentsContract.buildDocumentUri(
+                "com.android.externalstorage.documents", "primary:$PLUGIN_DOCUMENTS_FOLDER",
+            ),
+        )
+}
+
 @Composable
-internal fun PluginsScreen(manager: PluginManager) {
+internal fun PluginsScreen(manager: PluginManager, onOpenUrl: (String) -> Unit) {
     val imported = manager.imported.collectAsStateWithLifecycle().value
     val registry = manager.rows.collectAsStateWithLifecycle().value
     val rows = registry.filter { it.descriptor.id in imported && manager.catalogue?.fetch?.containsKey(it.descriptor.id) != true }
     val resolver = LocalContext.current.contentResolver
     val scope = rememberCoroutineScope()
     var message by rememberSaveable { mutableStateOf<String?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val picker = rememberLauncherForActivityResult(OpenPluginDocument) { uri ->
         if (uri != null) scope.launch {
             message = try {
                 val id = withContext(Dispatchers.IO) {
@@ -68,6 +83,7 @@ internal fun PluginsScreen(manager: PluginManager) {
         Text("Plugins", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(12.dp))
         Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Import plugin") }
+        EditionImportHelp(onOpenUrl)
         message?.let { Text(it, color = Palette.Text) }
         Spacer(Modifier.height(12.dp))
         for (row in rows) {

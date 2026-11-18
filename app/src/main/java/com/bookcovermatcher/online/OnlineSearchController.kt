@@ -1015,7 +1015,7 @@ class OnlineSearchController internal constructor(
         }
         when {
             suggestion == null -> onMessage("Text found, but no title could be picked out.", ToastKind.INFO)
-            prefs.autoSearch -> search(suggestion.query)
+            prefs.autoSearch && _ui.value.providers.any { !it.manual } -> search(suggestion.query)
             else -> onMessage("Cover text read.", ToastKind.OK)
         }
     }

@@ -30,7 +30,9 @@ internal open class PlatformGroup(
 internal class ActivePlatforms(val group: PlatformGroup, val sources: List<ProductSearchDataSource>) :
     PlatformGroupContribution()
 
+internal val platformOrder = compareBy<PlatformGroup>({ it.index }, { it.id })
+
 internal fun List<ActivePlatforms>.platforms(): List<ProviderSpec> =
-    sortedBy { it.group.index }.flatMap { it.group.entries }
+    map { it.group }.sortedWith(platformOrder).flatMap { it.entries }
 
 internal val editionPlugins get() = editionGroups.map { it.registration } + editionPanels

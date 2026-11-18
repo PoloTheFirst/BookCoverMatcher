@@ -8,6 +8,8 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 
 - Plugins now accepts manually selected `.bcmplugin` files. GitHub platform plugins now group Ordinary Library Fetch, DLsite Fetch, Doujin Shop Shortcuts and Explicit Database Shortcuts in that order. Each group has a live switch and Doujinshi.info appears only with Explicit Database Shortcuts enabled. Fresh installs and upgrades that used the implicit provider default start off. First import honors an explicitly saved DLsite selection, and subsequent launches restore the plugin switch. Enabling the GitHub marketplace downloads its provider descriptors. Reverse Image Discovery, DLsite Fetch and the other plugins have switches and removal controls inside the marketplace. Switching the marketplace off pauses those providers and preserves their selections. Both debug editions support the demo card.
 
+- When no catalogue provider is active, Search the Catalogues links to Plugins. The import guide covers marketplace and compatible custom plugins. Groups sharing a display index are ordered by plugin ID.
+
 - Separate GitHub and Play build variants: GitHub retains all providers; Play retains SauceNAO/IQDB while excluding public catalogue discovery and shortcuts.
 
 - App Website in More > Author, opening the BookCoverMatcher homepage.
