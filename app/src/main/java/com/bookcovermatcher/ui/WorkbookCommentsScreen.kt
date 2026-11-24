@@ -476,7 +476,7 @@ private fun ViewerOverlay(
     onGoToSource: (() -> Unit)? = null,
 ) {
     BackHandler { onClose() }
-    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xF00B121C))) {
+    Box(Modifier.fillMaxSize().background(Palette.Navy900)) {
         Column(Modifier.fillMaxSize().statusBarsPadding().padding(12.dp)) {
             val bytes = rememberMediaBytes(mediaPath, controller)
             val dimensions = remember(bytes) { bytes?.let { measure(it) } }
@@ -593,7 +593,7 @@ private fun SourceOverlay(
     onClose: () -> Unit,
 ) {
     BackHandler { onClose() }
-    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xF00B121C))) {
+    Box(Modifier.fillMaxSize().background(Palette.Navy900)) {
         Column(Modifier.fillMaxSize().statusBarsPadding().padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

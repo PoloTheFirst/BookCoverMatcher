@@ -87,7 +87,7 @@ private fun Working(label: String, progress: Float?) {
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth(),
                 color = Palette.Accent,
-                trackColor = Color.White.copy(alpha = 0.09f),
+                trackColor = Palette.Line,
             )
         }
     }
@@ -100,7 +100,7 @@ private fun Instructions(error: String?, onImport: () -> Unit) {
             Text(
                 error,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                color = Color(0xFFFFD9D9),
+                color = Palette.Danger,
                 fontSize = 13.sp,
             )
         }

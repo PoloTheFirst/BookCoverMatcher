@@ -74,9 +74,18 @@ import com.bookcovermatcher.UiState
 import com.bookcovermatcher.camera.CameraController
 import com.bookcovermatcher.core.Config
 import com.bookcovermatcher.core.autoscan.ScanPhase
-import com.bookcovermatcher.ui.theme.Palette
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+
+// The viewfinder always sits over the camera preview; its cues follow the launcher artwork in both modes.
+private object ViewfinderColors {
+    val Accent = Color(0xFF00D4FF)
+    val Accent2 = Color(0xFF22E0C8)
+    val Muted = Color(0xFFB6C8D8)
+    val Warn = Color(0xFFFFB020)
+    val Ok = Color(0xFF3DDC84)
+    val Line = Color(0xFF496075)
+}
 
 /**
  * The viewfinder: live preview, the capture guide and the Auto Scan feedback.
@@ -133,19 +142,19 @@ fun CameraCard(
     val phase = if (auto) tick?.phase else null
 
     val guideTarget = when (phase) {
-        null -> Palette.Accent.copy(alpha = 0.40f)
-        ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> Palette.Warn.copy(alpha = 0.85f)
-        ScanPhase.STABILIZING -> Palette.Accent2.copy(alpha = 0.90f)
-        ScanPhase.SAME_COVER -> Palette.Muted.copy(alpha = 0.80f)
-        ScanPhase.CAPTURED -> Palette.Ok
+        null -> ViewfinderColors.Accent.copy(alpha = 0.40f)
+        ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> ViewfinderColors.Warn.copy(alpha = 0.85f)
+        ScanPhase.STABILIZING -> ViewfinderColors.Accent2.copy(alpha = 0.90f)
+        ScanPhase.SAME_COVER -> ViewfinderColors.Muted.copy(alpha = 0.80f)
+        ScanPhase.CAPTURED -> ViewfinderColors.Ok
     }
     val guideColor by animateColorAsState(guideTarget, tween(220), label = "guideColor")
     val bracketTarget = when (phase) {
-        null -> Palette.Accent
-        ScanPhase.STABILIZING -> Palette.Accent2
-        ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> Palette.Warn
-        ScanPhase.SAME_COVER -> Palette.Muted
-        ScanPhase.CAPTURED -> Palette.Ok
+        null -> ViewfinderColors.Accent
+        ScanPhase.STABILIZING -> ViewfinderColors.Accent2
+        ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> ViewfinderColors.Warn
+        ScanPhase.SAME_COVER -> ViewfinderColors.Muted
+        ScanPhase.CAPTURED -> ViewfinderColors.Ok
     }
     val bracketColor by animateColorAsState(bracketTarget, tween(220), label = "bracketColor")
 
@@ -162,7 +171,7 @@ fun CameraCard(
                 .height(cardHeight)
                 .clip(shape)
                 .background(Color.Black)
-                .border(1.dp, Palette.Line, shape),
+                .border(1.dp, ViewfinderColors.Line, shape),
         ) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
@@ -170,7 +179,7 @@ fun CameraCard(
                 Text(
                     "Camera is off\nTap “Scan Book Cover” to start",
                     modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
-                    color = Palette.Muted.copy(alpha = 0.8f),
+                    color = ViewfinderColors.Muted.copy(alpha = 0.8f),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                 )
@@ -192,9 +201,9 @@ fun CameraCard(
 
             // status badge (top-left)
             val badgeColor = when (phase) {
-                ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> Palette.Warn
-                ScanPhase.CAPTURED -> Palette.Ok
-                else -> Palette.Accent
+                ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> ViewfinderColors.Warn
+                ScanPhase.CAPTURED -> ViewfinderColors.Ok
+                else -> ViewfinderColors.Accent
             }
             Text(
                 state.cameraBadge.uppercase(),
@@ -226,7 +235,7 @@ fun CameraCard(
                                 Modifier
                                     .size(9.dp)
                                     .clip(CircleShape)
-                                    .background(if (i < filled) Palette.Accent2 else Color.White.copy(alpha = 0.25f)),
+                                    .background(if (i < filled) ViewfinderColors.Accent2 else Color.White.copy(alpha = 0.25f)),
                             )
                         }
                     }
@@ -251,7 +260,7 @@ fun CameraCard(
                 val p = focusPoint
                 if (p != null && focusAlpha.value > 0f) {
                     drawCircle(
-                        color = Palette.Accent.copy(alpha = focusAlpha.value),
+                        color = ViewfinderColors.Accent.copy(alpha = focusAlpha.value),
                         radius = 30.dp.toPx(),
                         center = p,
                         style = Stroke(width = 2.dp.toPx()),
@@ -309,9 +318,13 @@ private fun DrawScope.drawGuide(guideColor: Color, bracketColor: Color) {
         lineTo(left + len, top)
     }
     val pivot = Offset(size.width / 2f, size.height / 2f)
-    val stroke = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+    val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+    val bloom = Stroke(width = 7.dp.toPx(), cap = StrokeCap.Round)
     for ((sx, sy) in listOf(1f to 1f, -1f to 1f, 1f to -1f, -1f to -1f)) {
-        scale(sx, sy, pivot) { drawPath(bracket, bracketColor, style = stroke) }
+        scale(sx, sy, pivot) {
+            drawPath(bracket, bracketColor.copy(alpha = 0.18f), style = bloom)
+            drawPath(bracket, bracketColor, style = stroke)
+        }
     }
 }
 
@@ -344,9 +357,9 @@ private fun ScanLine(color: Color) {
 @Composable
 private fun QualityChip(label: String, ok: Boolean?) {
     val color = when (ok) {
-        true -> Palette.Ok
-        false -> Palette.Warn
-        null -> Palette.Muted
+        true -> ViewfinderColors.Ok
+        false -> ViewfinderColors.Warn
+        null -> ViewfinderColors.Muted
     }
     Row(
         Modifier

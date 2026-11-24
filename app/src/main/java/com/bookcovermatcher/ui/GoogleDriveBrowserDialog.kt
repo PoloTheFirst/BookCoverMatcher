@@ -226,14 +226,14 @@ private fun DownloadPanel(download: GoogleDriveDownloadUi, vm: MainViewModel) {
                 progress = { fraction },
                 modifier = bar,
                 color = Palette.Accent,
-                trackColor = Color.White.copy(alpha = 0.09f),
+                trackColor = Palette.Line,
             )
         } else {
             // No size from Google Drive: the bar stays indeterminate rather than inventing a percentage.
             LinearProgressIndicator(
                 modifier = bar,
                 color = Palette.Accent,
-                trackColor = Color.White.copy(alpha = 0.09f),
+                trackColor = Palette.Line,
             )
         }
         Spacer(Modifier.height(4.dp))

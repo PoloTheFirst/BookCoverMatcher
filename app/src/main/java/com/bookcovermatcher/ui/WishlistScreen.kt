@@ -750,7 +750,7 @@ private fun BookmarkFilter(value: String, onChange: (String) -> Unit) {
             .fillMaxWidth()
             .heightIn(min = 40.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color.Black.copy(alpha = 0.22f))
+            .background(Palette.Navy900)
             .border(1.dp, Palette.Line, RoundedCornerShape(10.dp))
             .padding(horizontal = 10.dp, vertical = 10.dp),
         decorationBox = { inner ->
@@ -769,7 +769,7 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (active) Palette.Accent.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.04f))
+            .background(if (active) Palette.Accent.copy(alpha = 0.18f) else Palette.Navy800)
             .border(1.dp, if (active) Palette.Accent.copy(alpha = 0.5f) else Palette.Line, RoundedCornerShape(8.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
