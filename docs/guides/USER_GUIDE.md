@@ -4,7 +4,13 @@ BCM matches captured or selected covers against the pictures in an Excel workboo
 
 ## Display
 
-Open **More → Display** and choose **Follow system**, **Light**, or **Dark**. Follow system is the initial setting and follows Android’s day/night schedule. Choosing Light or Dark overrides the phone and takes effect immediately. BCM remembers the selection on this device. Changing the phone’s wallpaper or accent color leaves the app colors in the Sophie palette. Both appearances use Polo’s Atelier palette, including the scanner controls and the glowing frame around the cover. The camera preview shows the original colors of the cover.
+Open **More → Display** in BCM or BCM Plus. Under **Appearance**, choose **Follow system** (the default), **Light**, or **Dark**. The color settings below work with all three choices.
+
+- **Sophie palette** is the default. It uses the rose, peach and cream colors from Polo’s Atelier.
+- **Use phone colors** uses Android’s system palette on Android 12 and newer. For example, you can follow the phone’s colors while keeping BCM in Light mode. Turn the switch off to return to the last manual palette.
+- **Custom palette** lets you move the **Accent hue** slider or enter a six-digit hex color such as `#287C85` and tap **Apply**. BCM takes the hue from that color and generates matching accents, surfaces and text for both appearances. Select **Sophie palette** to restore the website colors.
+
+Changes take effect immediately and are remembered on this device. The scanner controls use the selected palette. The live camera image keeps its original colors.
 
 The open-book logo on Home follows the selected appearance. Light uses blush and ivory pages outlined in rose on a cream tile. Dark uses a deep rose tile. Android controls the launcher icon independently. On compatible launchers, enabling **Themed icons** tints the book while preserving the glint on its right page.
 

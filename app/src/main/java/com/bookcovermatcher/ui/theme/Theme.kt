@@ -2,21 +2,28 @@
 
 package com.bookcovermatcher.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import com.bookcovermatcher.data.PalettePreferences
 
 /** Maps existing BCM component colors onto the Material roles used by the website. */
 @Immutable
@@ -125,8 +132,22 @@ internal val Palette: BcmPalette
     @Composable @ReadOnlyComposable get() = LocalPalette.current
 
 @Composable
-fun BookCoverTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val palette = if (darkTheme) DarkPalette else LightPalette
+internal fun BookCoverTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    colors: PalettePreferences = PalettePreferences(),
+    content: @Composable () -> Unit,
+) {
+    val context = LocalContext.current
+    val palette = remember(context, LocalConfiguration.current, colors, darkTheme) {
+        val base = if (darkTheme) DarkPalette else LightPalette
+        val scheme = when {
+            colors.phone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            colors.custom -> customColorScheme(base.scheme, colors.hue, darkTheme)
+            else -> return@remember base
+        }
+        BcmPalette(scheme, base.Ok, base.Warn)
+    }
     MaterialExpressiveTheme(colorScheme = palette.scheme) {
         CompositionLocalProvider(LocalPalette provides palette, LocalContentColor provides palette.Text, content = content)
     }

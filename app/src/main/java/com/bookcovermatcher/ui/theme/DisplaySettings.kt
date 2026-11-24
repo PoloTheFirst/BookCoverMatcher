@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.bookcovermatcher.data.PalettePreferences
 import com.bookcovermatcher.data.Prefs
 
 internal enum class DisplayMode(val key: String, val label: String) {
@@ -30,7 +31,12 @@ internal fun DisplayMode.isDark(): Boolean = when (this) {
     DisplayMode.DARK -> true
 }
 
-internal class DisplaySettings(val mode: DisplayMode, val select: (DisplayMode) -> Unit)
+internal class DisplaySettings(
+    val mode: DisplayMode,
+    val select: (DisplayMode) -> Unit,
+    val palette: PalettePreferences,
+    val setPalette: (PalettePreferences) -> Unit,
+)
 
 internal val LocalDisplaySettings = compositionLocalOf<DisplaySettings> {
     error("Display settings must be supplied at the app root")
@@ -41,14 +47,13 @@ internal fun rememberDisplaySettings(): DisplaySettings {
     val app = LocalContext.current.applicationContext
     val prefs = remember(app) { Prefs(app) }
     var mode by remember(prefs) { mutableStateOf(DisplayMode.fromPreference(prefs.displayModeId)) }
+    var palette by remember(prefs) { mutableStateOf(prefs.palette) }
     DisposableEffect(prefs) {
-        val stopObserving = prefs.observeDisplayMode { mode = DisplayMode.fromPreference(it) }
+        val stopObserving = prefs.observeDisplay {
+            mode = DisplayMode.fromPreference(prefs.displayModeId)
+            palette = prefs.palette
+        }
         onDispose(stopObserving)
     }
-    return remember(mode, prefs) {
-        DisplaySettings(mode) { choice ->
-            prefs.displayModeId = choice.key
-            mode = choice
-        }
-    }
+    return DisplaySettings(mode, { prefs.displayModeId = it.key }, palette, { prefs.palette = it })
 }

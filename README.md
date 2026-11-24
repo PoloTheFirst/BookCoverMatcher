@@ -4,11 +4,13 @@ An Android app for matching book covers against images in an Excel workbook, kee
 
 ## Development prereleases
 
+**v3.0.0-dev.6 (232)** adds phone colors and a custom accent hue in both editions. Open **More → Display** to try them. The default is the Sophie palette from Polo’s Atelier. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-v3.0.0-dev.6.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-Plus-v3.0.0-dev.6.apk)
+
 **v3.0.0-dev.5 (231)** updates the matching button, Online result actions and release APK names. Download either signed edition. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-v3.0.0-dev.5.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-Plus-v3.0.0-dev.5.apk)
 
 **3.0.0-dev.4 (230)** is a version-only update to the standard Play edition. The same GitHub release also offers an explicit APK with bundled plugins. Choose the filename starting with `BCM-Plus-` for that edition. Both carry forward the dev.3 open-book logo. The light mark pairs rose-outlined blush and ivory pages with a cream tile. The dark mark pairs blush and ivory pages with a rose tile. On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0.
 
-Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. Both modes use the same Sophie color scheme as the scanner.
+Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. The app and scanner controls share your selected palette in either mode.
 
 Development releases are available on GitHub. [v3.0.0-dev.4 (230)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.4) · [v3.0.0-dev.3 (229)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.3) · [v3.0.0-dev.2 (228)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.2) · [v3.0.0-dev.1 (227)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.1)
 

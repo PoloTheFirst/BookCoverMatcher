@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "320a8322abe8880050fbbfdcd662e1c2ee3cbc01bc1b469b7cbc0891bb60f4a6",
+  "fingerprint": "78f8c97330c96d80e2b688d284f6348e21cc91c720c24be46496a713147c9521",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 1549,
-      "sha256": "9e3282df3c1e463a248f0a3824820a1086a7901d3fb22e52610d50ffbe167c92",
+      "bytes": 1838,
+      "sha256": "318a6a6ae0217d0ce05d6de4bf1bfee3425524916d8563b90ee869f271b190ef",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 13681,
-      "sha256": "6023f5e8ac03421caedea382a548ea4c76d8084f9bc8c405f4588f5ea7135381",
+      "bytes": 14020,
+      "sha256": "902f2e9f2edd3570e74fa9c26a0323a20780e8bbf479bba79f705c44ffb25b85",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 23427,
-      "sha256": "46ac1d7f9e5da15e7b8e07cb37f1d23723c943bd93ab400b0126bc905fbdf591",
+      "bytes": 24105,
+      "sha256": "5bc741280cd982a14ee779225ce3a4bdbda9f158dea0d5d90760b9ac10bc0d7b",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 11249,
-      "sha256": "6ddb8fcac7c5716c15f3c08d70e3a9b53ebc6aa5d5e063b1e6551fb937cc2931",
+      "bytes": 11903,
+      "sha256": "daca157be9103a3091994cbe2011c896096be459d0e40f61367bb00ca09ae925",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5618,
-      "sha256": "b4c8225d70226f13b6dc69c1aedda034798f9e200dfed52f00be36d0a6b32724",
+      "bytes": 5621,
+      "sha256": "c39e60a61fc75b5fac275f64b0cc316503faecb21b63c59abda1451bb02c5a7c",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -558,8 +558,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 54114,
-      "sha256": "7c3ea0e8a4933c7f2c93bab97734cc72f2339d6d3f71ca8daeb6e8c9fb77f435",
+      "bytes": 54529,
+      "sha256": "7802749dc2b517f4fae9160c17db96e607c77be8c7a0d9b315b7aa540b95f407",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2531,8 +2531,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4830,
-      "sha256": "1664c28f6870d4f02b39fa9b7bf5a8d19971ac2a80dc69873b1c0343f9b97cd8",
+      "bytes": 5252,
+      "sha256": "df338f88ce3ab6475e1be85031981480915d7cf9de602d8211b3cea13ca1abac",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

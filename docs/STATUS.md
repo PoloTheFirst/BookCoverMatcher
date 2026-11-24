@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-24 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-25 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
@@ -107,6 +107,10 @@ Dev.5 (231) removes the matching button glow and lets Online result actions wrap
 ## GitHub dev.5 publication
 
 The v3.0.0-dev.5 (231) GitHub prerelease offers signed BCM and BCM Plus APKs. See the dev.5 publication report for sources, asset sizes and verified hashes.
+
+## Display colors in v3.0.0-dev.6 (232)
+
+BCM and BCM Plus default to the Sophie website palette. More → Display supports Android 12+ system colors and a custom accent hue. Follow system, Light and Dark work with each palette. Turning off phone colors restores the previous manual selection.
 
 ## Next steps
 

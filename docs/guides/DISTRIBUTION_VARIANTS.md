@@ -1,5 +1,11 @@
 # Play and GitHub editions
 
+## Development prerelease v3.0.0-dev.6
+
+[Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.6) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.6) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.6-plus)
+
+Both editions include the same Display controls and use version code 232. The signed build outputs are `BCM-v3.0.0-dev.6.apk` and `BCM-Plus-v3.0.0-dev.6.apk`.
+
 ## Development prerelease v3.0.0-dev.5
 
 [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.5) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5-plus)
@@ -20,6 +26,7 @@ Each release tag identifies the standard BCM source. The companion commits build
 
 | GitHub prerelease | BCM Plus source |
 | --- | --- |
+| [v3.0.0-dev.6](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.6) | [dev.6 Plus](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.6-plus) |
 | [v3.0.0-dev.5](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.5) | [dev.5 Plus](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5-plus) |
 | [v3.0.0-dev.1](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.1) | [c939cff](https://github.com/PoloTheFirst/BookCoverMatcher/commit/c939cff5314f4dca60e3a21c9d8d9c742ecbdbce) |
 | [v3.0.0-dev.2](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.2) | [f266b70](https://github.com/PoloTheFirst/BookCoverMatcher/commit/f266b70b917bfa245d00184b7d511dfbb5c7a5cc) |
