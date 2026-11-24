@@ -4,7 +4,7 @@ An Android app for matching book covers against images in an Excel workbook, kee
 
 ## Development prereleases
 
-**3.0.0-dev.4 (230)** is a version-only update to the standard Play edition. The same GitHub release also offers an explicit APK with bundled plugins. Choose the filename starting with `BCM Plus-` for that edition. Both carry forward the dev.3 open-book logo. The light mark pairs rose-outlined blush and ivory pages with a cream tile. The dark mark pairs blush and ivory pages with a rose tile. On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0.
+**3.0.0-dev.4 (230)** is a version-only update to the standard Play edition. The same GitHub release also offers an explicit APK with bundled plugins. Choose the filename starting with `BCM-Plus-` for that edition. Both carry forward the dev.3 open-book logo. The light mark pairs rose-outlined blush and ivory pages with a cream tile. The dark mark pairs blush and ivory pages with a rose tile. On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0.
 
 Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. Both modes use the same Sophie color scheme as the scanner.
 
