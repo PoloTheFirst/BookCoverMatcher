@@ -1,16 +1,24 @@
-# BookCoverMatcher branding assets
+# BCM branding assets
 
-These PNGs derive from the existing GPL-3.0-or-later Android launcher vector and background (#001F3F), whose original resources are unchanged. The editable SVG preserves the path geometry; the 1024px PNG master is retained separately. No generated third-party mark or AI artwork is used.
+BCM’s mark is an open book with a four-point glint on the right page. The full-color launcher uses Polo’s Atelier’s Sophie palette, with a rose tile in daytime and a plum tile at night. The Home header follows **More → Display**. On Android launchers that offer themed icons, Android supplies the colors for a separate silhouette with a transparent page crease and glint.
 
-- `bookcovermatcher-logo-120.png`: OAuth Branding upload, 120 x 120, below 1,000,000 bytes.
-- `bookcovermatcher-play-icon-512.png`: 512 x 512 RGBA Play store icon; separate from launcher resources.
-- `bookcovermatcher-feature-1024x500.png`: 1024 x 500 RGB feature graphic; not an app screenshot.
-- `source/bookcovermatcher-logo-master.png`: 1024 x 1024 PNG master.
-- `source/bookcovermatcher-logo.svg`: editable vector source derived from `app/src/main/res/drawable/ic_launcher_foreground.xml` and `values/colors.xml`.
-- `source/feature-graphic.svg`: feature-graphic background/text source, composited with the logo by the export script.
+## Artwork and exports
 
-See `manifest.json` for byte sizes and SHA-256 digests. Visually checked at native OAuth size and feature-graphic size. Real app screenshots remain separate release work.
+Edit the path geometry and day/night fills in [the source SVG](source/bookcovermatcher-logo.svg). The SVG crops the center 72 units from Android’s 108-unit adaptive canvas. Android applies its own launcher mask. The feature graphic uses its own [editable layout](source/feature-graphic.svg).
 
-Reproduce with Node and sharp: `node tools/export-branding.cjs <absolute-path-to-installed-sharp-module>` (or omit the argument when sharp is resolvable). The exporter preserves Android originals and does not edit the website. Font rasterization of the feature graphic depends on local sans-serif font resolution; retain reviewed exports and re-review regenerated text.
+| Asset | Purpose |
+| --- | --- |
+| [120 × 120 PNG](bookcovermatcher-logo-120.png) | OAuth branding artwork, under 1 MB |
+| [512 × 512 RGBA PNG](bookcovermatcher-play-icon-512.png) | Google Play listing icon |
+| [1024 × 1024 PNG](source/bookcovermatcher-logo-master.png) | Full-size logo |
+| [1024 × 500 RGB PNG](bookcovermatcher-feature-1024x500.png) | Feature graphic |
 
-Project-owned artwork and export code: GPL-3.0-or-later; see root LICENSE. Console approval and deployment are not implied by these assets.
+From the repository root, use Node, Python 3 and sharp to regenerate the Android vectors, PNGs and [digest manifest](manifest.json).
+
+```sh
+node tools/export-branding.cjs
+```
+
+Pass the absolute path to an installed sharp module if it is outside the repository. The feature graphic uses local serif and sans-serif fonts. Review the text when rendering on another system.
+
+The dev.3 vector was drawn with Codex for this project. Project-owned artwork and export code are licensed under [GPL-3.0-or-later](../LICENSE).
