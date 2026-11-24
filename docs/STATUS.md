@@ -144,6 +144,10 @@ Local 3.0.0-dev.2 / 228 displays BCM and uses Sophie-themed Material 3 Expressiv
 
 Version 3.0.0-dev.3 / 229 introduces the Material 3 Expressive book mark with a cream daytime tile, deep rose nighttime tile and opt-in launcher monochrome. The Android name and package remain BCM and com.bookcovermatcher. See the dev.3 development report for verification.
 
+## DLsite search selection on main
+
+In 3.0.0-dev.4 (230), Online remembers catalogue selections separately from plugin activation. The DLsite row remains available while DLsite Fetch is active.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

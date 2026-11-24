@@ -175,7 +175,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val online = OnlineSearchController(app, viewModelScope,
         activeGroups = ::activeGroups,
-        disableGroup = { plugins.toggle(it, false) },
         onMessage = ::showToast,
     )
 

@@ -134,7 +134,8 @@ class DlsitePluginDeviceTest {
                 controller.setSecondarySources(false)
                 controller.search("General books off")
             }
-            assertEquals(setOf("ol", "gb", "dl"), prefs.explicitProviderIds)
+            assertEquals(setOf("gb", "dl"), prefs.explicitProviderIds)
+            assertTrue(prefs.isProviderSelected("ol", false))
             assertEquals(1, book.calls.get() + google.calls.get())
             withContext(Dispatchers.Main) { controller.setSecondarySources(true) }
             search("Both libraries", 2)
@@ -142,6 +143,46 @@ class DlsitePluginDeviceTest {
             assertEquals(2, google.calls.get())
         } finally {
             owner.cancel()
+            base.deleteSharedPreferences(prefix + "bookcover_online")
+        }
+    }
+
+    @Test fun onlineSelectionKeepsDlsiteAvailableAcrossRestart() = runBlocking {
+        val dlsite = com.bookcovermatcher.plugins.editionGroups.firstOrNull { it.id == "bcm.dlsite" }
+        org.junit.Assume.assumeNotNull(dlsite)
+        val root = File(base.cacheDir, prefix)
+        val prefs = OnlineSearchPrefs(context)
+        val plugin = PluginSettings(root) { id ->
+            com.bookcovermatcher.plugins.initialPluginSelection(id, prefs.explicitProviderIds)
+        }
+        val source = FixtureSource("DLsite", "dl")
+        val group = com.bookcovermatcher.plugins.ActivePlatforms(dlsite!!, listOf(source))
+        val owner = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        fun controller() = OnlineSearchController(context, owner, OnlineSearchPrefs(context),
+            activeGroups = { if (plugin.enabled(dlsite.id)) listOf(group) else emptyList() })
+        try {
+            withContext(Dispatchers.Main) {
+                prefs.enabled = true
+                val first = controller()
+                first.toggleProvider("dl")
+                assertFalse(first.ui.value.providers.single { it.id == "dl" }.selected)
+                assertTrue(plugin.enabled(dlsite.id))
+                val restored = controller()
+                assertFalse(restored.ui.value.providers.single { it.id == "dl" }.selected)
+                restored.search("Disabled source")
+                assertEquals(0, source.calls.get())
+                restored.toggleProvider("dl")
+                assertTrue(restored.ui.value.providers.single { it.id == "dl" }.selected)
+                restored.search("Enabled source")
+                withTimeout(5000) { restored.ui.first { it.catalogue is CatalogueUi.Found } }
+                assertEquals(1, source.calls.get())
+                plugin.save(dlsite.id, false)
+                restored.refreshCataloguePlugins()
+                assertFalse(restored.ui.value.providers.any { it.id == "dl" })
+            }
+        } finally {
+            owner.cancel()
+            root.deleteRecursively()
             base.deleteSharedPreferences(prefix + "bookcover_online")
         }
     }

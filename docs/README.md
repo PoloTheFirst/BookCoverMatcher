@@ -14,6 +14,7 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 ## bugfix
 
 - [docs/history/android/v2.7.0-dev.2/bugfix/reports/2026-11-17__android-2.7.0-dev.2-code225__bugfix__reader-controls__report__r01.md](history/android/v2.7.0-dev.2/bugfix/reports/2026-11-17__android-2.7.0-dev.2-code225__bugfix__reader-controls__report__r01.md)
+- [docs/history/android/v3.0.0-dev.4/bugfix/reports/2026-11-24__android-3.0.0-dev.4-code230__bugfix__dlsite-search-selection__report__r01.md](history/android/v3.0.0-dev.4/bugfix/reports/2026-11-24__android-3.0.0-dev.4-code230__bugfix__dlsite-search-selection__report__r01.md)
 
 ## development
 

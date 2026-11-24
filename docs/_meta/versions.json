@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "current": "3.0.0-dev.3",
+  "current": "3.0.0-dev.4",
   "versions": [
     {
       "id": "2.4.0",
@@ -633,6 +633,26 @@
         "documentation": "documentation"
       },
       "evidence": "Owner requested a Material 3 Expressive app logo in the website palette for dev.3 after dev.2 / 228.",
+      "authorable": true
+    },
+    {
+      "id": "3.0.0-dev.4",
+      "versionName": "3.0.0-dev.4",
+      "versionCode": 230,
+      "root": "docs/history/android/v3.0.0-dev.4",
+      "documentKey": "android-3.0.0-dev.4-code230",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Owner requested that Online DLsite selection be independent of plugin activation on main.",
       "authorable": true
     }
   ]

@@ -75,14 +75,15 @@ class OnlineSearchController internal constructor(
     private val bridge: OcrTextSource = OcrEngines.create(context),
     private val covers: CoverImageLoader = CoverImageLoader(),
     private val activeGroups: () -> List<ActivePlatforms> = { emptyList() },
-    private val disableGroup: (String) -> Unit = {},
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
     private fun effectiveSelection(groups: List<ActivePlatforms> = activeGroups()): Set<String> {
-        val selected = prefs.selectedProviders
+        val legacySelection = prefs.selectedProviders
         return groups.flatMap { activation ->
             val entries = activation.group.entries
-            entries.filter { it.selectable && (entries.size == 1 || it.id in selected) }
+            entries.filter { entry ->
+                entry.selectable && prefs.isProviderSelected(entry.id, entries.size == 1 || entry.id in legacySelection)
+            }
         }.mapTo(mutableSetOf()) { it.id }
     }
 
@@ -316,14 +317,10 @@ class OnlineSearchController internal constructor(
             )
             return
         }
-        if (group.group.entries.size == 1) {
-            disableGroup(group.group.id)
-            return
-        }
         val current = effectiveSelection()
         val next = SearchRouting.toggle(current, id)
         if (next == current) return
-        prefs.setProviderSelected(id, id in next, group.group.entries.map { it.id }.toSet())
+        prefs.setProviderSelected(id, id in next)
 
         val wasRunning = _ui.value.catalogue is CatalogueUi.Running
         if (wasRunning) {

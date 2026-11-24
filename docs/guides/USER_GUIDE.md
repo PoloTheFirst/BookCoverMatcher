@@ -56,6 +56,8 @@ or all, then use the system **Copy** command and paste it into the query box.
 
 **Choose your platforms.** Import a supported descriptor in **Plugins** and enable its switch. The GitHub panel lists Ordinary Library Fetch (Open Library, Google Books), DLsite Fetch, Doujin Shop Shortcuts (Melonbooks, Suruga-ya, Toranoana), then Explicit Database Shortcuts (nhentai, E-Hentai, Doujin no Mori, MyAnimeList, Doujinshi.info). To use SauceNAO and IQDB in the GitHub edition, enable Reverse Image Discovery. Shortcut cards open the external browser on tap.
 
+In **Online**, switch DLsite off to skip it during catalogue searches. Its row stays visible so you can switch it back on. BCM remembers this choice after restart. To hide the row, switch off **Plugins → DLsite Fetch**. If an earlier build already hid the row when you deselected DLsite, enable the plugin once to restore it.
+
 Tap a selectable card body to include or exclude it: a selected card turns blue with a soft glow, an
 accent border and a check mark; an unselected one is greyed down but still usable. **Open** on every
 card is a separate target: it opens that platform's own search page with your query and never changes

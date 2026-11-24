@@ -4,7 +4,7 @@ An Android app for matching book covers against images in an Excel workbook, kee
 
 ## Local development build
 
-**3.0.0-dev.3 (229)** introduces the open-book BCM logo. The light mark pairs rose-outlined blush and ivory pages with a cream tile. The dark mark pairs blush and ivory pages with a rose tile. The explicit GitHub edition includes **Plugin Marketplace**, **Ordinary Library Fetch**, **DLsite Fetch**, **Doujin Shop Shortcuts**, **Explicit Database Shortcuts**, and **Reverse Image Discovery**. On a fresh installation the six switches are on, including offline. Open **Plugins** to change them. Switching the marketplace off pauses its groups and preserves their choices. Search, upload, cloud sign-in and OCR use their existing controls.
+**3.0.0-dev.4 (230)** lets you deselect DLsite in **Online** and select it again from the same row. **Plugins → DLsite Fetch** controls whether that row is available. The light mark pairs rose-outlined blush and ivory pages with a cream tile. The dark mark pairs blush and ivory pages with a rose tile. The **BCM Plus** GitHub edition includes **Plugin Marketplace**, **Ordinary Library Fetch**, **DLsite Fetch**, **Doujin Shop Shortcuts**, **Explicit Database Shortcuts**, and **Reverse Image Discovery**. On a fresh installation the six switches are on, including offline. Open **Plugins** to change them. Switching the marketplace off pauses its groups and preserves their choices. Search, upload, cloud sign-in and OCR use their existing controls.
 
 Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. Both modes use the same Sophie color scheme as the scanner.
 

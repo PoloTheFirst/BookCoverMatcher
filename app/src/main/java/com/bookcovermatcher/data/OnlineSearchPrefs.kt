@@ -63,9 +63,13 @@ class OnlineSearchPrefs(context: Context) {
      */
     val explicitProviderIds: Set<String>? get() = sp.getStringSet(KEY_PROVIDERS, null)?.toSet()
 
-    fun setProviderSelected(id: String, on: Boolean, groupDefaults: Set<String>) {
-        val prior = explicitProviderIds ?: groupDefaults
-        sp.edit().putStringSet(KEY_PROVIDERS, if (on) prior + id else prior - id).apply()
+    // Older installations also use online_providers to initialize plugin activation. Keep it
+    // intact so changing a search selection cannot change plugin availability on restart.
+    fun isProviderSelected(id: String, legacyDefault: Boolean): Boolean =
+        sp.getBoolean("catalogue_search_selected_$id", legacyDefault)
+
+    fun setProviderSelected(id: String, on: Boolean) {
+        sp.edit().putBoolean("catalogue_search_selected_$id", on).apply()
     }
 
     var selectedProviders: Set<String>
