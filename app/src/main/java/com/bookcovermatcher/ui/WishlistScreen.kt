@@ -1028,14 +1028,14 @@ private fun SquareIconButton(
 ) {
     Box(
         Modifier
-            .size(32.dp)
+            .size(48.dp)
             .clip(RoundedCornerShape(9.dp))
             .border(1.dp, borderColor, RoundedCornerShape(9.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(17.dp))
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
     }
 }
 
