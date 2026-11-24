@@ -96,6 +96,10 @@ Published v3.0.0-dev.1 (227, f777cd2), v3.0.0-dev.2 (228, 98c0e11) and v3.0.0-de
 
 Version 3.0.0-dev.3 / 229 introduces the Material 3 Expressive book mark with a cream daytime tile, deep rose nighttime tile and opt-in launcher monochrome. The Android name and package remain BCM and com.bookcovermatcher. See the dev.3 development report for verification.
 
+## Two-edition GitHub development releases
+
+Dev.1 through dev.4 offer the standard BCM and explicit BCM Plus signed APKs. Standard dev.1 through dev.3 downloads retain their original bytes. See the dev.4 GitHub editions publication report for verified hashes and sources.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

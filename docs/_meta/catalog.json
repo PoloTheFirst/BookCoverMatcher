@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "2d4445660374c65e2df57e52fcf44ced8a70b64273263904800ae28948e89e06",
+  "fingerprint": "2c144c5871806238625642af9ab858b61a0897f317d017d384ae2a2b40afd813",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 12844,
-      "sha256": "1df69b2ae10e1c0af93692f8e91a28ae6c1d0846a78a6c0ecae0248c38e81ff5",
+      "bytes": 13162,
+      "sha256": "17c56fd13ac5666db15b8bc1bc68ee307efda71ab84d56aa39f63ecb07a63c87",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2137,6 +2137,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Tag, sign and publish the standard Play-edition build of v3.0.0-dev.3 on GitHub."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.4/publication/reports/2026-11-24__android-3.0.0-dev.4-code230__publication__github-editions__report__r01.md",
+      "bytes": 5257,
+      "sha256": "df7d16855194452a8cdd35ce0d2b3df46f6419ec49baa92c64a0616930dc3487",
+      "version": "3.0.0-dev.4",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.4/publication//github-editions/report/2026-11-24",
+        "title": "BCM and BCM Plus GitHub downloads",
+        "kind": "report",
+        "version_id": "3.0.0-dev.4",
+        "version_name": "3.0.0-dev.4",
+        "version_code": 230,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-editions",
+        "created_at": "2026-11-24T23:03:58+08:00",
+        "updated_at": "2026-11-24T23:12:34+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Publish both editions for dev.1 through dev.4, preserve the original standard APKs and link each Plus source commit."
       }
     },
     {
