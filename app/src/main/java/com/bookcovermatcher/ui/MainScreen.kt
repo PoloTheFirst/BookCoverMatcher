@@ -2,25 +2,21 @@
 
 package com.bookcovermatcher.ui
 
-import com.bookcovermatcher.ui.components.ScreenHeading
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.semantics.heading
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -39,9 +35,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,26 +51,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.colorResource
-import com.bookcovermatcher.R
+import androidx.compose.ui.graphics.shadow.Shadow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -76,7 +77,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.LifecycleOwner
@@ -85,6 +85,7 @@ import com.bookcovermatcher.BusyUi
 import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.ProductResultUi
+import com.bookcovermatcher.R
 import com.bookcovermatcher.ResultUi
 import com.bookcovermatcher.ResultsUi
 import com.bookcovermatcher.SearchResultsTab
@@ -99,6 +100,7 @@ import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.JpegImage
 import com.bookcovermatcher.ui.components.Panel
+import com.bookcovermatcher.ui.components.ScreenHeading
 import com.bookcovermatcher.ui.components.SegmentedTab
 import com.bookcovermatcher.ui.components.SegmentedTabRow
 import com.bookcovermatcher.ui.components.TargetGlyph
@@ -389,18 +391,14 @@ private fun AppHeader() {
                     MaterialTheme.shapes.medium),
             )
             Text(
-                buildAnnotatedString {
-                    append("Book")
-                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append("Cover") }
-                    append(" Matcher")
-                },
+                stringResource(R.string.app_name),
                 modifier = Modifier.weight(1f).semantics { heading() },
                 style = MaterialTheme.typography.headlineLarge, fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
             )
         }
         Text(
-            "Scan a cover · embed it · find it inside your spreadsheet",
+            "Scan a book cover to find it in your workbook.",
             modifier = Modifier.padding(top = 4.dp),
             color = Palette.Muted,
             style = MaterialTheme.typography.bodyMedium,
@@ -414,61 +412,46 @@ private fun AppHeader() {
 
 @Composable
 private fun ActionRow(ui: UiState, actions: ScreenActions) {
-    Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        GradientButton(
-            onClick = actions.onScan,
-            colors = Palette.PrimaryGradient,
-            contentColor = Palette.OnAccent,
-            modifier = Modifier.weight(1f),
-            enabled = !ui.isBusy,
-            glow = MaterialTheme.colorScheme.primary.copy(alpha = 0.42f),
-            contentPadding = 12.dp,
+    val scheme = MaterialTheme.colorScheme
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        val stackCapture = maxWidth < 328.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            CameraGlyph(Palette.OnAccent)
-            ButtonLabel("Scan Book Cover", Palette.OnAccent, 15f)
-        }
-
-        val active = ui.autoScan
-        val description = if (active) "Auto-scan: ON (tap to switch to Manual)" else "Auto-scan: OFF (tap to switch to Auto)"
-        Box(contentAlignment = Alignment.Center) {
-            GradientButton(
-                onClick = actions.onToggleAuto,
-                colors = if (active) Palette.AccentGradient else Palette.GhostGradient,
-                contentColor = if (active) Palette.OnAccent2 else Palette.Muted,
-                modifier = Modifier.width(58.dp).semantics { contentDescription = description },
+            val captureWidth = if (stackCapture) Modifier.fillMaxWidth() else Modifier.weight(1f)
+            val halo = if (ui.isBusy) Modifier else Modifier.dropShadow(
+                ButtonDefaults.shape, Shadow(radius = 9.dp, color = scheme.primary.copy(alpha = 0.38f)),
+            )
+            Button(
+                onClick = actions.onScan,
+                shapes = ButtonDefaults.shapes(),
                 enabled = !ui.isBusy,
-                border = if (active) null else BorderStroke(1.dp, Palette.Line),
-                glow = if (active) Palette.Accent2.copy(alpha = 0.6f) else null,
-                contentPadding = 0.dp,
+                modifier = captureWidth.heightIn(min = 56.dp).then(halo),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
             ) {
-                TargetGlyph(if (active) Palette.OnAccent2 else Palette.Muted)
+                CameraGlyph(LocalContentColor.current)
+                Spacer(Modifier.width(8.dp))
+                Text("Scan Book Cover", style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
             }
-            if (active) PulseDot(Modifier.align(Alignment.TopEnd).padding(top = 9.dp, end = 9.dp))
-        }
-
-        GradientButton(
-            onClick = actions.onRestart,
-            colors = Palette.GhostGradient,
-            contentColor = Palette.Muted,
-            modifier = Modifier.width(58.dp).semantics { contentDescription = "Restart camera" },
-            border = BorderStroke(1.dp, Palette.Line),
-            contentPadding = 0.dp,
-        ) {
-            Icon(Icons.Filled.Refresh, contentDescription = null, tint = Palette.Muted, modifier = Modifier.size(24.dp))
+            FilledTonalToggleButton(
+                checked = ui.autoScan,
+                onCheckedChange = { actions.onToggleAuto() },
+                enabled = !ui.isBusy,
+                modifier = (if (stackCapture) Modifier.weight(1f) else Modifier).heightIn(min = 48.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                TargetGlyph(LocalContentColor.current, size = 18.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("Auto-scan", style = MaterialTheme.typography.labelLarge)
+            }
+            OutlinedIconButton(onClick = actions.onRestart, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.Filled.Refresh, contentDescription = "Restart camera")
+            }
         }
     }
-}
-
-@Composable
-private fun PulseDot(modifier: Modifier) {
-    val transition = rememberInfiniteTransition(label = "pulse")
-    val a by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-        label = "pulseAlpha",
-    )
-    Box(modifier.size(8.dp).alpha(a).clip(CircleShape).background(Palette.OnAccent2))
 }
 
 // ---------------------------------------------------------------------------------------------

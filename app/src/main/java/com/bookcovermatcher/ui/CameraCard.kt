@@ -2,7 +2,6 @@
 
 package com.bookcovermatcher.ui
 
-import androidx.compose.material3.MaterialTheme
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -12,23 +11,35 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -62,39 +73,25 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.LifecycleOwner
 import com.bookcovermatcher.UiState
 import com.bookcovermatcher.camera.CameraController
 import com.bookcovermatcher.core.Config
 import com.bookcovermatcher.core.autoscan.ScanPhase
+import com.bookcovermatcher.core.autoscan.ScanTick
+import com.bookcovermatcher.ui.components.CameraGlyph
+import com.bookcovermatcher.ui.theme.Palette
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
-// The viewfinder always sits over the camera preview; its cues follow the launcher artwork in both modes.
-private object ViewfinderColors {
-    val Accent = Color(0xFF00D4FF)
-    val Accent2 = Color(0xFF22E0C8)
-    val Muted = Color(0xFFB6C8D8)
-    val Warn = Color(0xFFFFB020)
-    val Ok = Color(0xFF3DDC84)
-    val Line = Color(0xFF496075)
-}
-
-/**
- * The viewfinder: live preview, the capture guide and the Auto Scan feedback.
- *
- * Layout is v1's: a 3:4 card (at most 56 % of the screen height) with the dashed guide in the middle
- * (70 % x 78 %), the status badge top-left. New in v2: the guide and badge change colour with what Auto Scan
- * sees, a scan line sweeps the guide while it is armed, three pips show the stability streak, three chips show
- * sharp / light / steady, and a flash plus a haptic tick confirm every capture.
- */
+/** The preview and guide use the same crop proportions as the captured image. */
 @Composable
 fun CameraCard(
     state: UiState,
@@ -141,168 +138,150 @@ fun CameraCard(
     val tick = state.scanTick
     val phase = if (auto) tick?.phase else null
 
-    val guideTarget = when (phase) {
-        null -> ViewfinderColors.Accent.copy(alpha = 0.40f)
-        ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> ViewfinderColors.Warn.copy(alpha = 0.85f)
-        ScanPhase.STABILIZING -> ViewfinderColors.Accent2.copy(alpha = 0.90f)
-        ScanPhase.SAME_COVER -> ViewfinderColors.Muted.copy(alpha = 0.80f)
-        ScanPhase.CAPTURED -> ViewfinderColors.Ok
+    val scheme = MaterialTheme.colorScheme
+    val targetColor = when (phase) {
+        ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> scheme.tertiary
+        ScanPhase.STABILIZING -> scheme.secondary
+        ScanPhase.SAME_COVER -> scheme.onSurfaceVariant
+        ScanPhase.CAPTURED -> Palette.Ok
+        null -> scheme.primary
     }
-    val guideColor by animateColorAsState(guideTarget, tween(220), label = "guideColor")
-    val bracketTarget = when (phase) {
-        null -> ViewfinderColors.Accent
-        ScanPhase.STABILIZING -> ViewfinderColors.Accent2
-        ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> ViewfinderColors.Warn
-        ScanPhase.SAME_COVER -> ViewfinderColors.Muted
-        ScanPhase.CAPTURED -> ViewfinderColors.Ok
-    }
-    val bracketColor by animateColorAsState(bracketTarget, tween(220), label = "bracketColor")
+    val guideColor by animateColorAsState(targetColor, label = "guideColor")
+    // A contrasting keyline keeps the website color visible on black and white covers.
+    val keyline = scheme.surfaceBright
+    val cameraShape = MaterialTheme.shapes.extraLarge
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = cameraShape,
+        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainer),
+        border = BorderStroke(1.dp, scheme.outlineVariant),
+    ) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val cardHeight = (maxWidth * (4f / 3f)).coerceAtMost((screenHeightDp * 0.56f).dp)
+            SideEffect { camera.viewAspect = maxWidth.value / cardHeight.value }
 
-    BoxWithConstraints(modifier.fillMaxWidth()) {
-        val maxHeight: Dp = (screenHeightDp * 0.56f).dp
-        val cardHeight: Dp = (maxWidth * (4f / 3f)).coerceAtMost(maxHeight)
-        val shape = MaterialTheme.shapes.extraLarge
+            Box(
+                Modifier.fillMaxWidth().height(cardHeight).clip(cameraShape)
+                    .background(Color.Black),
+            ) {
+                AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
-        SideEffect { camera.viewAspect = maxWidth.value / cardHeight.value }
-
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(cardHeight)
-                .clip(shape)
-                .background(Color.Black)
-                .border(1.dp, ViewfinderColors.Line, shape),
-        ) {
-            AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-
-            if (!state.cameraLive) {
-                Text(
-                    "Camera is off\nTap “Scan Book Cover” to start",
-                    modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
-                    color = ViewfinderColors.Muted.copy(alpha = 0.8f),
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center,
-                )
-            }
-
-            // dim outside the guide + dashed guide + corner brackets
-            Canvas(Modifier.fillMaxSize()) { drawGuide(guideColor, bracketColor) }
-
-            // scan line sweeping the guide while Auto Scan is armed
-            if (auto && phase != ScanPhase.CAPTURED) {
-                Box(
-                    Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth(Config.GUIDE_W)
-                        .fillMaxHeight(Config.GUIDE_H)
-                        .clip(RoundedCornerShape(14.dp)),
-                ) { ScanLine(bracketColor) }
-            }
-
-            // status badge (top-left)
-            val badgeColor = when (phase) {
-                ScanPhase.HOLD_STILL, ScanPhase.TOO_DARK, ScanPhase.TOO_BRIGHT -> ViewfinderColors.Warn
-                ScanPhase.CAPTURED -> ViewfinderColors.Ok
-                else -> ViewfinderColors.Accent
-            }
-            Text(
-                state.cameraBadge.uppercase(),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(10.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xB8001428))
-                    .border(1.dp, badgeColor.copy(alpha = 0.35f), CircleShape)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                color = badgeColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.9.sp,
-            )
-
-            // stability pips + quality chips (Auto Scan only)
-            if (auto) {
-                Column(
-                    Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(7.dp),
-                ) {
-                    val target = tick?.stableTarget ?: 3
-                    val filled = tick?.stableCount ?: 0
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        repeat(target) { i ->
-                            Box(
-                                Modifier
-                                    .size(9.dp)
-                                    .clip(CircleShape)
-                                    .background(if (i < filled) ViewfinderColors.Accent2 else Color.White.copy(alpha = 0.25f)),
+                if (!state.cameraLive) {
+                    Column(
+                        Modifier.fillMaxSize().background(scheme.surfaceContainerLow)
+                            .padding(horizontal = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Surface(shape = MaterialTheme.shapes.large, color = scheme.primaryContainer) {
+                            Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+                                CameraGlyph(scheme.onPrimaryContainer, size = 28.dp)
+                            }
+                        }
+                        Text(
+                            if (state.cameraWanted) "Starting camera…" else "Camera is off",
+                            modifier = Modifier.padding(top = 8.dp),
+                            color = scheme.onSurface,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                        if (!state.cameraWanted) {
+                            Text(
+                                "Tap Scan Book Cover to start",
+                                color = scheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
                             )
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        QualityChip("Sharp", tick?.sharp)
-                        QualityChip("Light", tick?.lit)
-                        QualityChip("Steady", tick?.steady)
+                }
+
+                Canvas(Modifier.fillMaxSize()) { drawGuide(guideColor, keyline) }
+
+                if (auto && phase != ScanPhase.CAPTURED) {
+                    Box(
+                        Modifier.align(Alignment.Center)
+                            .fillMaxWidth(Config.GUIDE_W).fillMaxHeight(Config.GUIDE_H)
+                            .clip(RoundedCornerShape(16.dp)),
+                    ) { ScanLine(guideColor) }
+                }
+
+                // capture flash
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = flash.value }
+                        .background(Color.White),
+                )
+
+                // focus ring
+                Canvas(Modifier.fillMaxSize()) {
+                    val p = focusPoint
+                    if (p != null && focusAlpha.value > 0f) {
+                        drawCircle(
+                            color = keyline.copy(alpha = focusAlpha.value),
+                            radius = 30.dp.toPx(),
+                            center = p,
+                            style = Stroke(width = 5.dp.toPx()),
+                        )
+                        drawCircle(
+                            color = guideColor.copy(alpha = focusAlpha.value),
+                            radius = 30.dp.toPx(),
+                            center = p,
+                            style = Stroke(width = 2.dp.toPx()),
+                        )
                     }
                 }
-            }
 
-            // capture flash
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = flash.value }
-                    .background(Color.White),
-            )
-
-            // focus ring
-            Canvas(Modifier.fillMaxSize()) {
-                val p = focusPoint
-                if (p != null && focusAlpha.value > 0f) {
-                    drawCircle(
-                        color = ViewfinderColors.Accent.copy(alpha = focusAlpha.value),
-                        radius = 30.dp.toPx(),
-                        center = p,
-                        style = Stroke(width = 2.dp.toPx()),
-                    )
-                }
-            }
-
-            // topmost layer: taps focus the camera (does not block scrolling the page)
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures { offset ->
-                            camera.focusAt(offset.x, offset.y)
-                            focusPoint = offset
-                            scope.launch {
-                                focusAlpha.snapTo(1f)
-                                focusAlpha.animateTo(0f, tween(700))
+                // topmost layer: taps focus the camera (does not block scrolling the page)
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures { offset ->
+                                camera.focusAt(offset.x, offset.y)
+                                focusPoint = offset
+                                scope.launch {
+                                    focusAlpha.snapTo(1f)
+                                    focusAlpha.animateTo(0f, tween(700))
+                                }
                             }
-                        }
-                    },
-            )
+                        },
+                )
+            }
+        }
+        if (state.cameraLive) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(guideColor))
+                    Spacer(Modifier.width(8.dp))
+                    Text(state.cameraBadge, color = scheme.onSurface, style = MaterialTheme.typography.labelLarge)
+                }
+                if (auto) ScanFeedback(tick)
+            }
         }
     }
 }
 
 /** Dims everything outside the guide and draws the dashed outline plus the four corner brackets. */
-private fun DrawScope.drawGuide(guideColor: Color, bracketColor: Color) {
+private fun DrawScope.drawGuide(guideColor: Color, keyline: Color) {
     val gw = size.width * Config.GUIDE_W
     val gh = size.height * Config.GUIDE_H
     val left = (size.width - gw) / 2f
     val top = (size.height - gh) / 2f
-    val radius = 14.dp.toPx()
+    val radius = 16.dp.toPx()
 
     val outer = Path().apply { addRect(Rect(Offset.Zero, size)) }
     val inner = Path().apply { addRoundRect(RoundRect(left, top, left + gw, top + gh, CornerRadius(radius, radius))) }
     val dim = Path.combine(PathOperation.Difference, outer, inner)
-    drawPath(dim, Color(0x4D001020))
+    drawPath(dim, Color.Black.copy(alpha = 0.27f))
 
     val dash = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 7.dp.toPx()))
     drawRoundRect(
-        color = guideColor,
+        color = guideColor.copy(alpha = 0.70f),
         topLeft = Offset(left, top),
         size = Size(gw, gh),
         cornerRadius = CornerRadius(radius, radius),
@@ -310,7 +289,7 @@ private fun DrawScope.drawGuide(guideColor: Color, bracketColor: Color) {
     )
 
     // one bracket (top-left), mirrored around the guide centre for the other corners
-    val len = 28.dp.toPx()
+    val len = 32.dp.toPx()
     val bracket = Path().apply {
         moveTo(left, top + len)
         lineTo(left, top + radius)
@@ -319,11 +298,13 @@ private fun DrawScope.drawGuide(guideColor: Color, bracketColor: Color) {
     }
     val pivot = Offset(size.width / 2f, size.height / 2f)
     val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-    val bloom = Stroke(width = 7.dp.toPx(), cap = StrokeCap.Round)
+    val backing = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+    val bloom = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round)
     for ((sx, sy) in listOf(1f to 1f, -1f to 1f, 1f to -1f, -1f to -1f)) {
         scale(sx, sy, pivot) {
-            drawPath(bracket, bracketColor.copy(alpha = 0.18f), style = bloom)
-            drawPath(bracket, bracketColor, style = stroke)
+            drawPath(bracket, guideColor.copy(alpha = 0.24f), style = bloom)
+            drawPath(bracket, keyline, style = backing)
+            drawPath(bracket, guideColor, style = stroke)
         }
     }
 }
@@ -353,24 +334,61 @@ private fun ScanLine(color: Color) {
     }
 }
 
-/** "Sharp" / "Light" / "Steady" indicator; [ok] is null before the first analysed frame. */
+/** Put capture diagnostics outside the crop so large labels never cover the book. */
+@Composable
+private fun ScanFeedback(tick: ScanTick?) {
+    val scheme = MaterialTheme.colorScheme
+    val target = tick?.stableTarget ?: 3
+    LinearProgressIndicator(
+        progress = { (tick?.stableCount ?: 0).toFloat() / target },
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Capture stability" },
+        color = scheme.primary,
+        trackColor = scheme.surfaceContainerHighest,
+    )
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        QualityChip("Sharp", tick?.sharp)
+        QualityChip("Light", tick?.lit)
+        QualityChip("Steady", tick?.steady)
+    }
+}
+
 @Composable
 private fun QualityChip(label: String, ok: Boolean?) {
-    val color = when (ok) {
-        true -> ViewfinderColors.Ok
-        false -> ViewfinderColors.Warn
-        null -> ViewfinderColors.Muted
+    val scheme = MaterialTheme.colorScheme
+    val container = when (ok) {
+        true -> scheme.primaryContainer
+        false -> scheme.tertiaryContainer
+        null -> scheme.surfaceContainerHighest
     }
-    Row(
-        Modifier
-            .clip(CircleShape)
-            .background(Color(0xB8001428))
-            .border(1.dp, color.copy(alpha = 0.45f), CircleShape)
-            .padding(horizontal = 9.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val content = when (ok) {
+        true -> scheme.onPrimaryContainer
+        false -> scheme.onTertiaryContainer
+        null -> scheme.onSurfaceVariant
+    }
+    val description = when (ok) {
+        true -> "Ready"
+        false -> "Adjust"
+        null -> "Waiting"
+    }
+    Surface(
+        modifier = Modifier.semantics(mergeDescendants = true) { stateDescription = description },
+        shape = MaterialTheme.shapes.small,
+        color = container,
+        contentColor = content,
     ) {
-        Box(Modifier.size(6.dp).clip(CircleShape).background(color))
-        Text(label.uppercase(), color = color, fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp)
+        Row(
+            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (ok != null) {
+                Icon(if (ok) Icons.Filled.Check else Icons.Filled.Close,
+                    contentDescription = null, modifier = Modifier.size(14.dp))
+            }
+            Text(label, style = MaterialTheme.typography.labelMedium)
+        }
     }
 }
