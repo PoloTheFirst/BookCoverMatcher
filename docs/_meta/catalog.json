@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "78f8c97330c96d80e2b688d284f6348e21cc91c720c24be46496a713147c9521",
+  "fingerprint": "281dcade3aafe9c91e919d0100e3485f232f57b74a1dd5b524867e9e5b47d9d6",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 14020,
-      "sha256": "902f2e9f2edd3570e74fa9c26a0323a20780e8bbf479bba79f705c44ffb25b85",
+      "bytes": 14252,
+      "sha256": "16f34331455c15329525932ba4a5f3fa4cff9eb88aefcc8ebb02506e1506a494",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2201,6 +2201,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Commit and push dev.5 and publish both signed APKs on GitHub."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.6/publication/reports/2026-11-25__android-3.0.0-dev.6-code232__publication__github-editions__report__r01.md",
+      "bytes": 3005,
+      "sha256": "704c3989fd54cd122b1093e5442a94a344a058bf864ac8c05e9b4c98b3e657f5",
+      "version": "3.0.0-dev.6",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.6/publication//github-editions/report/2026-11-25",
+        "title": "BCM and BCM Plus dev.6 publication",
+        "kind": "report",
+        "version_id": "3.0.0-dev.6",
+        "version_name": "3.0.0-dev.6",
+        "version_code": 232,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-editions",
+        "created_at": "2026-11-25T01:24:13+08:00",
+        "updated_at": "2026-11-25T01:24:13+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Commit and push dev.6 and publish both signed APKs on GitHub."
       }
     },
     {

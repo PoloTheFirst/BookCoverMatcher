@@ -109,6 +109,10 @@
     {
       "subject": "Display colors in v3.0.0-dev.6 (232)",
       "value": "BCM and BCM Plus default to the Sophie website palette. More → Display supports Android 12+ system colors and a custom accent hue. Follow system, Light and Dark work with each palette. Turning off phone colors restores the previous manual selection."
+    },
+    {
+      "subject": "GitHub dev.6 publication",
+      "value": "The v3.0.0-dev.6 (232) GitHub prerelease offers signed BCM and BCM Plus APKs. See the dev.6 publication report for sources, asset sizes and verified hashes."
     }
   ],
   "nextSteps": [
