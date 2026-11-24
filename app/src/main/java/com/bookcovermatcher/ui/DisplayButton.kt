@@ -14,6 +14,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -41,6 +44,9 @@ internal fun DisplayButton() {
     ListItem(
         headlineContent = { Text("Display") },
         supportingContent = { Text(settings.mode.label) },
+        trailingContent = {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+        },
         modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large)
             .clickable(role = Role.Button) { open = true },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
