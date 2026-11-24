@@ -97,6 +97,10 @@
     {
       "subject": "Two-edition GitHub development releases",
       "value": "Dev.1 through dev.4 offer the standard BCM and explicit BCM Plus signed APKs. Standard dev.1 through dev.3 downloads retain their original bytes. See the dev.4 GitHub editions publication report for verified hashes and sources."
+    },
+    {
+      "subject": "Dev.5 result actions and APK names",
+      "value": "Dev.5 (231) removes the matching button glow and lets Online result actions wrap while showing wishlist membership. Current standard and Plus APK filenames begin with BCM-v and BCM-Plus-v respectively."
     }
   ],
   "nextSteps": [

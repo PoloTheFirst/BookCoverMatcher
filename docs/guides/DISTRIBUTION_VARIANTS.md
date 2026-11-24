@@ -1,10 +1,16 @@
 # Play and GitHub editions
 
-## Development prerelease v3.0.0-dev.4
+## Development prerelease v3.0.0-dev.5
 
-The APK with the original filename on GitHub is the standard Play edition from `google_play`, version code 230. [Release and changelog](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.4) · [Download the signed APK](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.4/bookcovermatcher-v3.0.0-dev.4.apk)
+[Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.5) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5-plus)
 
-On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0. Both flavors display **BCM**, use version code 230 and share the existing application ID and signing configuration. Install the same signing lineage to keep Android app data.
+Signed release outputs are `BCM-v3.0.0-dev.5.apk` and `BCM-Plus-v3.0.0-dev.5.apk`. Gradle adds `-unsigned` when release signing is unconfigured.
+
+## Previous development prerelease v3.0.0-dev.4
+
+The BCM APK on GitHub is the standard Play edition from `google_play`, version code 230. [Release and changelog](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.4) · [Download the signed APK](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.4/BCM-v3.0.0-dev.4.apk)
+
+On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0. BCM and BCM Plus use version code 230 in dev.4 and share the existing application ID and signing configuration. Install the same signing lineage to keep Android app data.
 
 The additional **BCM Plus** download, `BCM-Plus-v3.0.0-dev.4.apk`, contains the explicit edition with bundled providers. Both editions use the same package and signing key.
 
@@ -14,6 +20,7 @@ Each release tag identifies the standard BCM source. The companion commits build
 
 | GitHub prerelease | BCM Plus source |
 | --- | --- |
+| [v3.0.0-dev.5](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.5) | [dev.5 Plus](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5-plus) |
 | [v3.0.0-dev.1](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.1) | [c939cff](https://github.com/PoloTheFirst/BookCoverMatcher/commit/c939cff5314f4dca60e3a21c9d8d9c742ecbdbce) |
 | [v3.0.0-dev.2](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.2) | [f266b70](https://github.com/PoloTheFirst/BookCoverMatcher/commit/f266b70b917bfa245d00184b7d511dfbb5c7a5cc) |
 | [v3.0.0-dev.3](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.3) | [cd39ce5](https://github.com/PoloTheFirst/BookCoverMatcher/commit/cd39ce5a4a06c1a73a2eed8271f9cbd4a2115133) |

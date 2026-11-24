@@ -100,6 +100,10 @@ Version 3.0.0-dev.3 / 229 introduces the Material 3 Expressive book mark with a 
 
 Dev.1 through dev.4 offer the standard BCM and explicit BCM Plus signed APKs. Standard dev.1 through dev.3 downloads retain their original bytes. See the dev.4 GitHub editions publication report for verified hashes and sources.
 
+## Dev.5 result actions and APK names
+
+Dev.5 (231) removes the matching button glow and lets Online result actions wrap while showing wishlist membership. Current standard and Plus APK filenames begin with BCM-v and BCM-Plus-v respectively.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

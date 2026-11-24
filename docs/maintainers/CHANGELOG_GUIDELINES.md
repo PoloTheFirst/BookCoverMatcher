@@ -519,7 +519,7 @@ A changelog is complete only when:
 - `CHANGELOG.md` contains only the current release entry.
 - Historical release records remain preserved elsewhere.
 - The GitHub release body exactly equals the matching CHANGELOG.md text, verified through the API.
-- The published APK uses bookcovermatcher-v<complete-versionName>.apk and its digest matches the intended artifact.
+- The published APK uses BCM-v<complete-versionName>.apk and its digest matches the intended artifact.
 
 
 ## 11. GitHub release log and APK filename
@@ -538,12 +538,12 @@ If the current release's changelog is intentionally corrected, synchronize that 
 
 Use this exact distribution filename:
 
-`bookcovermatcher-v<complete-versionName>.apk`
+`BCM-v<complete-versionName>.apk`
 
 Examples:
 
-- Stable: `bookcovermatcher-v2.7.0.apk`.
-- Development: `bookcovermatcher-v2.7.0-dev.1.apk`.
+- Historical stable: `bookcovermatcher-v2.7.0.apk`.
+- Development: `BCM-v3.0.0-dev.5.apk`.
 
 Do not append `-debug`, `-release`, a version code, date, architecture or any other suffix to the public APK name unless the owner explicitly requests a different multi-artifact convention. Identify the actual build/signing variant honestly in the changelog/report instead of changing the filename. Gradle's internal app-debug.apk/app-release.apk paths may remain unchanged; copy or name the uploaded distribution asset correctly.
 
@@ -556,4 +556,4 @@ The GitHub release title/name must be exactly the release tag: `v` followed by t
 
 ### Two-edition downloads
 
-Starting with v3.0.0-dev.1, use the GitHub asset labels **BCM** (standard Play edition) and **BCM Plus** (explicit GitHub edition). Preserve the standard filename and its existing URL. Name the explicit APK `BCM-Plus-v<complete-versionName>.apk`. Record its corresponding source commit and verify each APK’s package, edition, version, signing certificate and SHA-256.
+The standard edition uses the GitHub label **BCM** and filename `BCM-v<complete-versionName>.apk`. BCM Plus uses **BCM Plus** and `BCM-Plus-v<complete-versionName>.apk`. The published 3.0.0 development assets use these names starting with dev.1. Older release filenames remain historical. Record each edition’s source commit and verify package, version, signature and digest.

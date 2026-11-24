@@ -950,21 +950,21 @@ private fun SavedItemRow(
                 circle = item.circle,
             )
             if (!selecting) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (item.url != null) {
-                        ResultActionChip("Open website \u2197", Palette.Accent, Modifier.weight(1f), onOpen)
+                        ResultActionChip("Open website", Palette.Accent, trailingLabel = "↗", onClick = onOpen)
                     }
                     if (onBookmark != null) {
                         // Same label and state colour as the live online-result card: one convention.
                         ResultActionChip(
                             if (item.bookmarked) "\u2605 Bookmarked" else "\u2605 Bookmark",
                             if (item.bookmarked) Palette.Ok else Palette.Text,
-                            Modifier.weight(1f),
-                            onBookmark,
+                            onClick = onBookmark,
                         )
                     }
                     if (allowWishlist) {
-                        ResultActionChip("+ Add to wishlist", Palette.Accent2, Modifier.weight(1f), onWishlist)
+                        ResultActionChip("+ Add to wishlist", Palette.Accent2, onClick = onWishlist)
                     }
                 }
                 Text(
