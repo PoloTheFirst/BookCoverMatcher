@@ -2,34 +2,38 @@
 
 # Material 3 Expressive for BookCoverMatcher
 
-On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0.
+The standard Play edition refreshes workbook, camera, search, wishlist, More and Plugins screens. It opens with an empty plugin host.
 
 ### Added
 
-- The design uses the Material 3 Expressive theme and shared settings rows.
+- Shared Material 3 Expressive settings rows show each available action or switch with its label and state.
 
 ### Changed
 
-- Workbook, search, camera, wishlist, More and Plugins screens share updated typography, shapes and action styles.
+- **More → Display** offers Follow system, Light and Dark. The app follows the phone by default and remembers a manual choice. The interface uses the Atelier website’s Sophie colors with a serif Home title and the book artwork’s cyan and teal glow on the scanner.
+- Workbook rows group the source path and link state beneath the title. Search, wishlist and reader controls use shared typography, shapes and action styles.
+- Bottom navigation adapts to narrow windows and enlarged text, keeping **More** beside **Plugins**.
 
 ### Fixed
 
-- No separate bug fix is included in this UI development build.
+- Long action labels can wrap. Short document windows let the header scroll with the text. Section headings inherit a readable foreground on dark surfaces.
 
 ### Removed
 
-- No user workflow was removed in this revision.
+- Replaced the fixed single-row navigation layout on compact screens with adaptive rows.
 
 ### Tests
 
-- The documentation index checks the recorded version against Gradle.
+- The Play JVM suite passed 1,271 tests and skipped 12. Play lint reported zero errors, 61 warnings and one hint. Three API 36 instrumentation checks passed for the Play boundary, workbook navigation and source-grant handling.
 
 ### Verified
 
-- The Android configuration uses the full development version name and version code 227.
+- A Play 226 → 227 update on API 36 retained the installation date and identical saved workbook, source metadata, wishlist and bookmark files. Plugins showed **Import plugin**, **No imported plugins** and zero switches.
+- Play debug and release APKs contain zero plugin descriptors. Their DEX excludes the five provider group implementations, SauceNAO and IQDB clients, and SauceNAO key storage.
+- On emulators running Android 8 and 16, Follow system tracked day/night and a manual selection survived a restart.
 
 ### Known limitations
 
-- This local development build has not been published. Live provider and cloud-account testing is outside the visual refresh.
+- Local release-variant APKs are unsigned. Emulator upgrade checks used matching debug certificates. Physical-device release-key upgrades and live cloud sign-in were outside this development run.
 
 **Version code/name: 227 / 3.0.0-dev.1.**

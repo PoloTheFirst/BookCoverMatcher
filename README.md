@@ -6,6 +6,8 @@ An Android app for matching book covers against images in an Excel workbook, kee
 
 **3.0.0-dev.1 (227)** introduces the Material 3 Expressive interface for BookCoverMatcher. On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0.
 
+Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. Both use the website’s Sophie palette.
+
 The current public standard APK is **v2.7.0 (226)** from `google_play`. [Published release](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0) · [Distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md)
 
 ## Find the right documentation

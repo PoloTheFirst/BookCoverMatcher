@@ -1,6 +1,8 @@
 # Installing BookCoverMatcher on a device
 
-## Current editions: 2.7.0 / code 226
+## Development and published builds
+
+The local development build is **3.0.0-dev.1 (227)**. The published standard APK is **v2.7.0 (226)**. Build Android with compile SDK 37, target SDK 36 and minimum SDK 26.
 
 Use the [distribution build and signing guide](DISTRIBUTION_VARIANTS.md) for the new `play` and `github` APK paths. Both editions use the same package ID and require a matching release certificate to update an existing installation. Release builds no longer fall back to a debug signing key. Preserve app data: stop on signing incompatibility; do not uninstall or clear data.
 
