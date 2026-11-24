@@ -257,15 +257,21 @@ private fun BottomBar(selected: AppTab, onSelect: (AppTab) -> Unit) {
     val labelWidth = remember(measurer, labelStyle) {
         navigationLabels.values.maxOf { measurer.measure(it, labelStyle).size.width }
     }
-    val itemWidth = with(LocalDensity.current) { labelWidth.toDp() } + 24.dp
+    val itemWidth = with(LocalDensity.current) { labelWidth.toDp() } + 8.dp
     val container = MaterialTheme.colorScheme.surfaceContainer
     BoxWithConstraints(Modifier.fillMaxWidth().background(container).windowInsetsPadding(NavigationBarDefaults.windowInsets)) {
         val count = navigationLabels.size
         val capacity = (maxWidth / itemWidth).toInt().coerceIn(1, count)
         val rowCount = (count + capacity - 1) / capacity
         val columns = (count + rowCount - 1) / rowCount
+        // Keep More and Plugins adjacent even when only two labels fit per row.
+        val destinations = navigationLabels.entries.toList()
+        val rows = when (columns) {
+            2 -> listOf(destinations.take(1)) + destinations.drop(1).chunked(2)
+            else -> destinations.chunked(columns)
+        }
         Column {
-            for (row in navigationLabels.entries.chunked(columns)) {
+            for (row in rows) {
                 NavigationBar(containerColor = container, windowInsets = WindowInsets(0)) {
                     for ((tab, label) in row) {
                         val icon = when (tab) {
