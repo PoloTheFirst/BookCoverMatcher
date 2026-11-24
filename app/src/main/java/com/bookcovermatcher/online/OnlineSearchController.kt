@@ -4,7 +4,6 @@ package com.bookcovermatcher.online
 
 import android.content.Context
 import com.bookcovermatcher.BridgeUi
-import com.bookcovermatcher.CandidateLists
 import com.bookcovermatcher.CatalogueUi
 import com.bookcovermatcher.OcrUi
 import com.bookcovermatcher.OnlineSearchUi
@@ -31,29 +30,10 @@ import com.bookcovermatcher.core.online.SessionCache
 import com.bookcovermatcher.core.wishlist.ItemIdentity
 import com.bookcovermatcher.core.wishlist.MatchType
 import com.bookcovermatcher.patchCoverById
-import com.bookcovermatcher.core.online.CandidateDecision
-import com.bookcovermatcher.core.online.CandidateDecisionRecord
-import com.bookcovermatcher.core.online.CandidateReviews
 import com.bookcovermatcher.core.online.ProviderCapabilities
-import com.bookcovermatcher.core.online.reverse.DiscoveryImageState
-import com.bookcovermatcher.core.online.reverse.IqdbProtocol
-import com.bookcovermatcher.core.online.reverse.IqdbResultParser
-import com.bookcovermatcher.core.online.reverse.ReverseImageAggregator
-import com.bookcovermatcher.core.online.reverse.ReverseImageProviders
-import com.bookcovermatcher.core.online.reverse.ReverseImageRequest
-import com.bookcovermatcher.core.online.reverse.ReverseImageRun
-import com.bookcovermatcher.core.online.reverse.ReverseImageSearchRunner
-import com.bookcovermatcher.core.online.reverse.ReverseImageSource
-import com.bookcovermatcher.core.online.reverse.ReverseImageState
-import com.bookcovermatcher.core.online.reverse.SauceNaoKeyRules
-import com.bookcovermatcher.core.online.reverse.SauceNaoKeySaveResult
-import com.bookcovermatcher.ReverseCandidateUi
-import com.bookcovermatcher.ReverseImageProviderUi
 import com.bookcovermatcher.ReverseImageUi
 import com.bookcovermatcher.toUi
-import com.bookcovermatcher.data.CandidateDecisionStore
 import com.bookcovermatcher.data.OnlineSearchPrefs
-import com.bookcovermatcher.data.SauceNaoKeyStore
 import com.bookcovermatcher.ocr.OcrEngineChoice
 import com.bookcovermatcher.ocr.OcrEngines
 import kotlinx.coroutines.CancellationException
@@ -94,32 +74,10 @@ class OnlineSearchController internal constructor(
     private val prefs: OnlineSearchPrefs = OnlineSearchPrefs(context),
     private val bridge: OcrTextSource = OcrEngines.create(context),
     private val covers: CoverImageLoader = CoverImageLoader(),
-    /**
-     * The user's SauceNAO API key, encrypted with a Keystore-held key. Read at request time, never cached in a
-     * field that could end up in a dump.
-     */
-    private val sauceNaoKey: SauceNaoKeyStore = SauceNaoKeyStore(context),
-    /** Durable confirmations/rejections, one file per wishlist profile. */
-    private val decisionStore: CandidateDecisionStore = CandidateDecisionStore(context),
-    /**
-     * Fetches each discovery candidate's picture (provider thumbnail first, then the page's own declared image).
-     * Deliberately separate from the search: a missing picture never changes a provider's result state.
-     */
-    private val discoveryCovers: DiscoveryCoverLoader = DiscoveryCoverLoader(),
     private val activeGroups: () -> List<ActivePlatforms> = { emptyList() },
     private val disableGroup: (String) -> Unit = {},
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
-    // ---- reverse-image discovery ---------------------------------------------------------------
-    //
-    // Declared **before** `_ui` on purpose: the UI state below is built in a property initializer, and Kotlin
-    // runs initializers in declaration order. In v2.5.0-dev.2 these fields came after `_ui`, so the initializer
-    // read `reverseRuns` while it was still null and the constructor threw — a crash on every launch. Anything a
-    // property initializer touches must already be initialised above it.
-    //
-    // SauceNAO is tried first, IQDB second, and every provider's state is published on its own. The generation
-    // counter is the stale-response guard: a result whose token is no longer current is dropped instead of
-    // overwriting the answer to a newer request.
     private fun effectiveSelection(groups: List<ActivePlatforms> = activeGroups()): Set<String> {
         val selected = prefs.selectedProviders
         return groups.flatMap { activation ->
@@ -138,11 +96,10 @@ class OnlineSearchController internal constructor(
     /** Revoke the previous activation even if another instance of the same group is already active. */
     fun refreshCataloguePlugins() {
         val activation = activeReverseGroup()
-        if (activation !== reverseActivation) {
-            reverseActivation = activation
-            reverseSources = discoverySources()
-            pastedCandidates = emptyList()
-            resetReverse()
+        if (activation !== discoveryActivation) {
+            discovery?.close()
+            discoveryActivation = activation
+            discovery = newDiscovery(activation)
         }
         val active = activeSources()
         val removed = searchSources.filterNot { it in active }.map { it.name }.toSet()
@@ -177,34 +134,6 @@ class OnlineSearchController internal constructor(
         }
     }
 
-    private fun activeReverseGroup() = activeGroups().firstOrNull { it.group.reverseSources != null }
-    private var reverseActivation = activeReverseGroup()
-    private fun discoverySources(): List<ReverseImageSource> =
-        if (DistributionEdition.catalogueEnabled) reverseActivation?.group?.reverseSources?.invoke(sauceNaoKey::key).orEmpty()
-        else listOf(SauceNaoReverseImageSource(apiKey = sauceNaoKey::key), IqdbReverseImageSource())
-
-    private var reverseSources = discoverySources()
-    fun reverseAvailable() = reverseSources.isNotEmpty() && reverseActivation === activeReverseGroup()
-
-    private val reverseRuns = LinkedHashMap<String, ReverseImageRun>()
-    private var reverseJob: Job? = null
-
-    /** The picture batch of the current search; cancelled when a newer search replaces it. */
-    private var coverJob: Job? = null
-
-    @Volatile
-    private var reverseCancelled = false
-    private var reverseGeneration = 0L
-
-    /** Candidates the last automated reverse-image run produced. */
-    private var searchCandidates: List<ReverseCandidateUi> = emptyList()
-
-    /**
-     * Candidates the **user** supplied through the IQDB handoff (the paste box). Kept apart from the automated
-     * run's candidates so a new SauceNAO/IQDB run never discards what the user brought back.
-     */
-    private var pastedCandidates: List<ReverseCandidateUi> = emptyList()
-
     private val _ui = MutableStateFlow(
         OnlineSearchUi(
             enabled = prefs.enabled,
@@ -215,19 +144,20 @@ class OnlineSearchController internal constructor(
             selectedProviders = effectiveSelection(),
             resultLimit = prefs.resultLimit,
             providers = providerStatuses(query = "", selected = effectiveSelection()),
-            reverse = ReverseImageUi(
-                // Explicitly "no runs yet": the resting rows come from the providers' own readiness, so this
-                // initializer depends on nothing mutable.
-                providers = reverseProviderRows(runs = emptyMap()),
-                sauceNaoKeyHint = sauceNaoKey.hint(),
-                secondarySources = prefs.secondarySources,
-            ),
+            reverse = ReverseImageUi(secondarySources = prefs.secondarySources),
         ),
     )
     val ui: StateFlow<OnlineSearchUi> = _ui.asStateFlow()
 
     /** The captured cover, JPEG-encoded and ready to hand to the OCR bridge. */
     private var capture: ByteArray? = null
+    private fun activeReverseGroup() = activeGroups().firstOrNull { it.group.reverseSources != null }
+    private val newDiscovery = { group: ActivePlatforms? ->
+        createDiscovery(context, scope, prefs, _ui, { capture }, onMessage, group) { activeReverseGroup() === group }
+    }
+    private var discoveryActivation = activeReverseGroup()
+    internal var discovery = newDiscovery(discoveryActivation)
+        private set
     private var job: Job? = null
     private var bridgeChecked = false
 
@@ -237,10 +167,6 @@ class OnlineSearchController internal constructor(
      * cover the user is no longer looking at. Nothing here can touch the wishlist store.
      */
     private val session = SessionCache<CachedSearch>()
-
-    /** Confirmations and rejections, loaded once from the profile's decision log. */
-    private var decisions: Map<String, CandidateDecisionRecord> =
-        runCatching { decisionStore.load() }.getOrDefault(emptyMap())
 
     private class CachedSearch(
         val query: String,
@@ -326,14 +252,14 @@ class OnlineSearchController internal constructor(
             job?.cancel()
             // switching the feature off hides the results immediately and drops the session cache
             session.invalidate()
-            resetReverse("Online search is off.")
+            discovery?.reset("Online search is off.")
         }
     }
 
     /** "Clear session cache": temporary results only, never a bookmark, item or membership. */
     fun clearSession() {
         session.invalidate()
-        resetReverse()
+        discovery?.reset()
         _ui.update {
             it.copy(
                 catalogue = CatalogueUi.Idle,
@@ -346,53 +272,6 @@ class OnlineSearchController internal constructor(
     // =========================================================================================
     // Reverse-image discovery — SauceNAO first, IQDB second
     // =========================================================================================
-
-    /**
-     * The two provider rows, built from the sources themselves plus whatever the last run reported.
-     *
-     * The rows themselves are built by [ReverseProviderRows], which takes everything it needs as parameters —
-     * so this call is safe from a property initializer, where reading a field declared further down the class
-     * would see `null` (the v2.5.0-dev.2 startup crash).
-     */
-    private fun reverseProviderRows(
-        runs: Map<String, ReverseImageRun> = reverseRuns,
-    ): List<ReverseImageProviderUi> = ReverseProviderRows.of(reverseSources, runs)
-
-    /**
-     * Stores a SauceNAO key in the Keystore-backed store. The key itself is never echoed anywhere.
-     *
-     * On success the previous SauceNAO run is discarded: a run recorded *before* the key existed says
-     * `NOT_CONFIGURED`, and keeping it would leave the row claiming "needs key" after a successful configuration
-     * (a stale-state defect of its own). The row is then rebuilt from the provider's live readiness.
-     */
-    fun saveSauceNaoKey(raw: String) {
-        when (val result = sauceNaoKey.save(raw)) {
-            is SauceNaoKeySaveResult.Rejected -> {
-                onMessage(SauceNaoKeyRules.describe(result.reason), ToastKind.ERR)
-                // Nothing was stored, so the row must keep telling the truth about that.
-                _ui.update { it.copy(reverse = it.reverse.copy(sauceNaoKeyHint = sauceNaoKey.hint())) }
-                return
-            }
-            SauceNaoKeySaveResult.Saved -> Unit
-        }
-        reverseRuns.remove(ReverseImageProviders.SAUCE_NAO_ID)
-        _ui.update {
-            it.copy(
-                reverse = it.reverse.copy(
-                    sauceNaoKeyHint = sauceNaoKey.hint(),
-                    providers = reverseProviderRows(),
-                ),
-            )
-        }
-        onMessage("SauceNAO key saved in encrypted storage; SauceNAO is ready to be asked.", ToastKind.OK)
-    }
-
-    fun clearSauceNaoKey() {
-        sauceNaoKey.clear()
-        reverseRuns.remove(ReverseImageProviders.SAUCE_NAO_ID)
-        _ui.update { it.copy(reverse = it.reverse.copy(sauceNaoKeyHint = null, providers = reverseProviderRows())) }
-        onMessage("SauceNAO key removed; SauceNAO will not be queried.", ToastKind.INFO)
-    }
 
     /**
      * Switches the supplementary general-book sources on or off.
@@ -418,314 +297,6 @@ class OnlineSearchController internal constructor(
             ToastKind.INFO,
         )
     }
-
-    /**
-     * Starts reverse-image discovery on the captured cover.
-     *
-     * Sequence, fixed by the release: SauceNAO first (if a key is stored), IQDB second (manual-only, so it
-     * reports `MANUAL_ONLY` and offers its own page). Each provider publishes its row as it runs, so SauceNAO's
-     * results are visible while IQDB is still being handled — nothing waits for the slower provider.
-     */
-    fun runReverseSearch() {
-        if (!reverseAvailable()) return
-        val bytes = capture
-        if (bytes == null) {
-            onMessage("Scan a cover first — reverse-image search needs the image itself.", ToastKind.ERR)
-            return
-        }
-        if (!_ui.value.enabled) {
-            onMessage("Turn online search on first.", ToastKind.INFO)
-            return
-        }
-        if (_ui.value.reverse.running || _ui.value.isBusy) {
-            onMessage("Still working — tap Cancel to stop.", ToastKind.INFO)
-            return
-        }
-
-        val generation = ++reverseGeneration
-        reverseCancelled = false
-        reverseRuns.clear()
-        searchCandidates = emptyList()
-        val request = ReverseImageRequest(
-            bytes = bytes,
-            fileName = "cover.jpg",
-            mimeType = "image/jpeg",
-            maxResults = SearchLimits.sanitize(prefs.resultLimit).coerceAtMost(ReverseImageRequest.MAX_RESULTS),
-        )
-        val runner = ReverseImageSearchRunner(reverseSources)
-
-        reverseJob?.cancel()
-        reverseJob = scope.launch {
-            _ui.update {
-                it.copy(
-                    reverse = it.reverse.copy(
-                        running = true,
-                        candidates = withDecisions(pastedCandidates),
-                        note = "SauceNAO first, then IQDB\u2026",
-                    ),
-                )
-            }
-            val result = withContext(Dispatchers.IO) {
-                runner.run(
-                    request = request,
-                    token = generation,
-                    // Cancellation is cooperative: the runner asks before every provider.
-                    shouldContinue = { token -> !reverseCancelled && token == reverseGeneration && reverseAvailable() },
-                    onRun = { run -> publishReverseRun(run, generation) },
-                )
-            }
-            // A newer run (or a cancel) took over: this answer belongs to a request nobody is waiting for.
-            if (generation != reverseGeneration || !reverseAvailable()) return@launch
-            applyReverseResult(result)
-        }
-    }
-
-    /** Publishes one provider's row: `SEARCHING` first, then the provider's real answer. */
-    private fun publishReverseRun(run: ReverseImageRun, generation: Long) {
-        if (generation != reverseGeneration || !reverseAvailable()) return
-        reverseRuns[run.providerId] = run
-        _ui.update { state -> state.copy(reverse = state.reverse.copy(providers = reverseProviderRows())) }
-    }
-
-    private fun applyReverseResult(result: ReverseImageSearchRunner.Result) {
-        searchCandidates = result.candidates.map { it.toUi(CandidateReviews.stateOf(decisions, it.key)) }
-        val note = result.describeStates()
-        _ui.update {
-            it.copy(
-                reverse = it.reverse.copy(
-                    running = false,
-                    candidates = withDecisions(pastedCandidates + searchCandidates),
-                    note = note,
-                    providers = reverseProviderRows(),
-                ),
-            )
-        }
-        val found = result.candidates.size
-        // Pictures are decoration: they are fetched after the results are already on screen, and a failure changes
-        // nothing about the provider's status, the candidate list or the user's ability to bookmark the result.
-        loadDiscoveryImages(generation = reverseGeneration)
-        when {
-            found > 0 -> onMessage("$found reverse-image candidate(s). $note", ToastKind.OK)
-            result.anyAnswered -> onMessage("The providers answered and found nothing. $note", ToastKind.INFO)
-            else -> onMessage("No provider results. $note", ToastKind.INFO)
-        }
-    }
-
-    /**
-     * Stops the run. A provider already inside a blocking HTTP call cannot be preempted, so its answer is
-     * discarded by the generation check instead of being applied to a request the user abandoned.
-     */
-    fun cancelReverseSearch() {
-        reverseCancelled = true
-        reverseGeneration++
-        reverseJob?.cancel()
-        reverseJob = null
-        _ui.update {
-            it.copy(
-                reverse = it.reverse.copy(
-                    running = false,
-                    note = "Reverse-image search cancelled.",
-                    providers = reverseProviderRows(),
-                ),
-            )
-        }
-        onMessage("Reverse-image search cancelled.", ToastKind.INFO)
-    }
-
-
-    // =========================================================================================
-    // Pasted IQDB results and user decisions
-    // =========================================================================================
-
-    /**
-     * Accepts an IQDB result the user pasted (a result line, or a saved page's markup).
-     *
-     * This is the manual half of IQDB: the app did not query the service, the user did, and
-     * [IqdbResultParser] only normalises what they brought back. Rows without a URL are dropped.
-     */
-    fun importIqdbResult(text: String) {
-        if (!reverseAvailable()) return
-        val now = System.currentTimeMillis()
-        val pasted = IqdbResultParser.parsePasted(text, now)
-        val hits = pasted.ifEmpty { IqdbResultParser.parsePage(text, now) }
-        if (hits.isEmpty()) {
-            onMessage("No IQDB result URL found in that text.", ToastKind.ERR)
-            return
-        }
-        val run = ReverseImageRun(
-            providerId = ReverseImageProviders.IQDB_ID,
-            displayName = IqdbProtocol.DISPLAY_NAME,
-            priority = ReverseImageProviders.IQDB_PRIORITY,
-            state = ReverseImageState.SUCCESS,
-            hits = hits,
-        )
-        // The aggregator does the dedupe, so a pasted row that matches an existing candidate merges with it
-        // instead of standing beside it.
-        val candidates = ReverseImageAggregator.merge(listOf(run), limit = PASTED_LIMIT)
-            .map { it.toUi(CandidateReviews.stateOf(decisions, it.key)).copy(manual = true) }
-        pastedCandidates = (candidates + pastedCandidates).distinctBy { it.key }
-        publishCandidates()
-        // Pasted rows are candidates like any other: the same conservative picture loader runs for them, and it can
-        // only ever decorate the card.
-        loadDiscoveryImages(generation = reverseGeneration)
-        onMessage("${candidates.size} IQDB result(s) from your browser added.", ToastKind.OK)
-    }
-
-    /** Confirms a candidate: this is the only thing that turns a suggestion into a stated identity. */
-    fun confirmCandidate(key: String) = decide(key, CandidateDecision.CONFIRMED)
-
-    /** Rejects a candidate. The record is kept, so the same key is not re-suggested as if new. */
-    fun rejectCandidate(key: String) = decide(key, CandidateDecision.REJECTED)
-
-    /**
-     * Dismisses one result card from the current list — the rubbish-bin action on a candidate card.
-     *
-     * Deliberately *not* a deletion: it removes the card from this session's list only. The decision log, the
-     * workbook, the wishlist, the cover cache and the provider's own records are untouched, and a later search may
-     * legitimately show the same result again. Because a dismissal only edits the two in-memory lists, an
-     * already-published stale run cannot resurrect the card: the generation guard drops such a run before it
-     * reaches [applyReverseResult], and a fresh run replaces the list wholesale. The same rule protects the card from
-     * a picture that is still being fetched — [patchCandidate] refuses a key that is no longer present.
-     */
-    fun dismissCandidate(key: String) {
-        val next = currentLists().dismiss(key) ?: return
-        adopt(next)
-        publishCandidates()
-    }
-
-    private fun decide(key: String, decision: CandidateDecision) {
-        val candidate = _ui.value.reverse.candidates.firstOrNull { it.key == key } ?: return
-        decisions = CandidateReviews.applyKey(
-            records = decisions,
-            key = key,
-            decision = decision,
-            now = System.currentTimeMillis(),
-            title = candidate.title,
-            provider = candidate.evidence,
-            url = candidate.sourceUrl,
-        )
-        persistDecisions()
-        publishCandidates()
-        val verb = if (decision == CandidateDecision.CONFIRMED) "Confirmed" else "Rejected"
-        onMessage(
-            "$verb: ${candidate.title}",
-            if (decision == CandidateDecision.CONFIRMED) ToastKind.OK else ToastKind.INFO,
-        )
-    }
-
-    private fun persistDecisions() {
-        val snapshot = decisions
-        scope.launch(Dispatchers.IO) { runCatching { decisionStore.save(snapshot) } }
-    }
-
-    /** Re-draws the candidate list with the decisions that are current now. */
-    private fun publishCandidates() = _ui.update {
-        it.copy(reverse = it.reverse.copy(candidates = withDecisions(currentLists().visible)))
-    }
-
-    private fun withDecisions(candidates: List<ReverseCandidateUi>): List<ReverseCandidateUi> = candidates.map {
-        it.copy(decision = CandidateReviews.stateOf(decisions, it.key))
-    }
-
-    /**
-     * Starts (or restarts) the picture batch for the candidates now on screen.
-     *
-     * Every candidate that has not been tried yet is marked [DiscoveryImageState.LOADING] immediately, so the card
-     * can draw its placeholder without a layout jump, and the fetch itself runs sequentially on the IO dispatcher —
-     * one page at a time, so a slow host cannot open ten sockets at once.
-     *
-     * The batch belongs to a search [generation]. A result that arrives after a newer search started, or after the
-     * card was dismissed, is dropped by [patchCandidate] instead of being written into the list: a picture can never
-     * reinsert a card the user removed, and it can never appear on a candidate from a previous cover.
-     */
-    private fun loadDiscoveryImages(generation: Long) {
-        val targets = _ui.value.reverse.candidates.filter { it.imageState == DiscoveryImageState.NOT_REQUESTED }
-        if (targets.isEmpty()) return
-        markImageState(targets.map { it.key }, DiscoveryImageState.LOADING)
-        coverJob?.cancel()
-        coverJob = scope.launch {
-            for (target in targets) {
-                if (generation != reverseGeneration || !reverseAvailable()) return@launch
-                val loaded = withContext(Dispatchers.IO) {
-                    discoveryCovers.load(target.imageUrl, target.sourceUrl)
-                }
-                if (generation != reverseGeneration || !reverseAvailable()) return@launch
-                patchCandidate(target.key) { candidate ->
-                    if (loaded == null) {
-                        candidate.copy(imageState = DiscoveryImageState.UNAVAILABLE)
-                    } else {
-                        candidate.copy(
-                            imageBytes = loaded.bytes,
-                            imageSource = loaded.source,
-                            imageState = DiscoveryImageState.AVAILABLE,
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private fun markImageState(keys: Collection<String>, state: DiscoveryImageState) {
-        var lists = currentLists()
-        var touched = false
-        for (key in keys) {
-            val next = lists.patch(key) { it.copy(imageState = state) } ?: continue
-            lists = next
-            touched = true
-        }
-        if (!touched) return
-        adopt(lists)
-        publishCandidates()
-    }
-
-    /**
-     * Rewrites one candidate in place.
-     *
-     * Returns false — and writes nothing — when the key is in neither list any more, which is exactly the
-     * "the user dismissed this card while the image was loading" case. That is why an asynchronous answer can never
-     * bring a dismissed card back.
-     */
-    private fun patchCandidate(key: String, transform: (ReverseCandidateUi) -> ReverseCandidateUi): Boolean {
-        val next = currentLists().patch(key, transform) ?: return false
-        adopt(next)
-        publishCandidates()
-        return true
-    }
-
-    /** The two lists as one value, so the editing rules live in [CandidateLists] and are unit-tested there. */
-    private fun currentLists() = CandidateLists(pasted = pastedCandidates, searched = searchCandidates)
-
-    private fun adopt(lists: CandidateLists) {
-        pastedCandidates = lists.pasted
-        searchCandidates = lists.searched
-    }
-
-    /**
-     * Drops everything a previous cover produced. Called when the capture changes, the feature is switched
-     * off, or the session cache is cleared: a candidate on screen must never belong to a cover the user is no
-     * longer looking at. Manual candidates are the user's own material and survive.
-     */
-    private fun resetReverse(note: String? = null) {
-        reverseGeneration++
-        reverseCancelled = true
-        reverseJob?.cancel()
-        reverseJob = null
-        coverJob?.cancel()
-        coverJob = null
-        reverseRuns.clear()
-        searchCandidates = emptyList()
-        _ui.update {
-            it.copy(
-                reverse = it.reverse.copy(
-                    running = false,
-                    candidates = withDecisions(pastedCandidates),
-                    providers = reverseProviderRows(),
-                    note = note,
-                ),
-            )
-        }
-    }
-
 
     /**
      * Selects or deselects one platform for the **next** search. Never starts a search itself.
@@ -896,7 +467,7 @@ class OnlineSearchController internal constructor(
         if (cached == null) {
             _ui.update { it.copy(catalogue = CatalogueUi.Idle) }
             // Reverse-image candidates belong to the cover they were found from, not to the next one.
-            resetReverse()
+            discovery?.reset()
         }
         if (!_ui.value.enabled) return
         readCover()
@@ -908,7 +479,7 @@ class OnlineSearchController internal constructor(
      */
     fun onCoverChanged() {
         session.invalidate()
-        resetReverse()
+        discovery?.reset()
         _ui.update { it.copy(catalogue = CatalogueUi.Idle) }
     }
 
@@ -1390,16 +961,12 @@ class OnlineSearchController internal constructor(
     fun shutdown() {
         job?.cancel()
         job = null
-        reverseJob?.cancel()
-        reverseJob = null
+        discovery?.close()
     }
 
     private companion object {
         /** Generous: the first Lens call of a session also pays for TLS setup. */
         const val OCR_TIMEOUT_SECONDS = 60
-
-        /** How many pasted IQDB rows one submission may add: a browsing session's worth, not a dump. */
-        const val PASTED_LIMIT = 20
 
         /**
          * One provider's budget for one search. Providers run concurrently, so this is also the

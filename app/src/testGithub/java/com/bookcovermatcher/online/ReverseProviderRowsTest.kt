@@ -5,6 +5,8 @@ package com.bookcovermatcher.online
 import com.bookcovermatcher.core.online.reverse.ReverseImageAutomation
 import com.bookcovermatcher.core.online.reverse.ReverseImageHit
 import com.bookcovermatcher.core.online.reverse.ReverseImageOutcome
+import com.bookcovermatcher.core.online.reverse.IqdbProtocol
+import com.bookcovermatcher.core.online.reverse.SauceNaoProtocol
 import com.bookcovermatcher.core.online.reverse.ReverseImageProviders
 import com.bookcovermatcher.core.online.reverse.ReverseImageQuota
 import com.bookcovermatcher.core.online.reverse.ReverseImageRequest
@@ -47,7 +49,7 @@ class ReverseProviderRowsTest {
         id = ReverseImageProviders.SAUCE_NAO_ID,
         displayName = "SauceNAO",
         priority = ReverseImageProviders.SAUCE_NAO_PRIORITY,
-        searchPageUrl = ReverseImageProviders.SAUCE_NAO_SEARCH_PAGE,
+        searchPageUrl = SauceNaoProtocol.SEARCH_PAGE,
         ready = ready,
     )
 
@@ -57,7 +59,7 @@ class ReverseProviderRowsTest {
         priority = ReverseImageProviders.IQDB_PRIORITY,
         automation = ReverseImageAutomation.MANUAL_ONLY,
         timeoutMs = 90_000L,
-        searchPageUrl = ReverseImageProviders.IQDB_SEARCH_PAGE,
+        searchPageUrl = IqdbProtocol.SEARCH_PAGE,
         ready = ReverseImageState.MANUAL_ONLY,
     )
 

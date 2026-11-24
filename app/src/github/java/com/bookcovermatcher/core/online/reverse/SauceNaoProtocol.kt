@@ -28,6 +28,7 @@ import com.bookcovermatcher.core.wishlist.MiniJson
  * Plain Kotlin/JVM (no `android.*`), unit-tested against sanitised fixtures.
  */
 object SauceNaoProtocol {
+    const val SEARCH_PAGE = "https://saucenao.com/"
 
     const val ENDPOINT = "https://saucenao.com/search.php"
     const val DISPLAY_NAME = "SauceNAO"

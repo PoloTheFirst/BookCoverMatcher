@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-18 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-24 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
@@ -92,9 +92,13 @@ Revision 2 of the DLsite working prompt awaits owner review. Proposed Platforms 
 
 Approved for local development on four independent plugin branches. Fixed order is ordinary libraries (0), DLsite (1), doujin shop shortcuts (2), explicit database shortcuts (3), then the ungrouped Doujinshi.info shortcut. MyAnimeList uses myanimelist.net. The marketplace is deferred.
 
+## OCR and reverse-image distribution (24 November 2026)
+
+Chrome Lens OCR is built into Play as an explicit engine selection alongside on-device PaddleOCR. Play excludes the SauceNAO and IQDB clients, key controls, browser handoff and paste UI. The standalone GitHub Reverse Image Discovery plugin activates these workflows together. Existing workbook and bookmark storage is preserved. API 36 instrumentation verified the Play Lens bridge loads and the standalone plugin exposes both providers only while enabled. Play APK bytecode was checked for the provider clients, key store and provider URLs.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
 2. Review the private Play preparation package; confirm account type, app/upload state, countries, pricing and signing setup.
 3. Resolve provider-content/distribution review, reviewer access, Data safety, public URL access and remaining authentication/runtime gates before uploading a final signed AAB. Preserve existing-install compatibility and do not bypass verifyAuthPublicationEligibility.
-4. Review the local distribution split; sign with the existing release key and verify cross-edition updates/data retention on an isolated test installation. Resolve retained reverse-image content and edition-specific declarations/policies before any publication. See docs/guides/DISTRIBUTION_VARIANTS.md.
+4. Review the local distribution split; sign with the existing release key and verify cross-edition updates/data retention on an isolated test installation. Review Chrome Lens data disclosures, saved external links and edition-specific declarations/policies before any publication. See docs/guides/DISTRIBUTION_VARIANTS.md.

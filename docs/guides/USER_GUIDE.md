@@ -724,3 +724,5 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 4. BCM remembers the switch. On the first import after an upgrade, BCM uses your last explicitly saved provider selection. With no explicit selection it starts off.
 
 Both debug editions also accept [demo.bcmplugin](../../plugins/manifests/demo.bcmplugin). Turn on **Demo card** to see “Hello from BCM”. See the [developer guide](BUNDLED_PLUGINS.md) to create descriptors.
+
+In the Play edition, enable **Use online services**, then choose **Chrome Lens** under **OCR engine** to read cover text through Google. Choose **PaddleOCR** for on-device recognition. Both choices are built in. Reverse Image Discovery is available in the GitHub plugin build.

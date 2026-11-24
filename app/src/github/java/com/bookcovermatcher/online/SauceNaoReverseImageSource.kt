@@ -50,7 +50,7 @@ class SauceNaoReverseImageSource(
     /** SauceNAO answers in seconds; 30 s still leaves room for a slow mobile connection. */
     override val timeoutMs: Long = 30_000L
 
-    override val searchPageUrl: String? get() = ReverseImageProviders.SAUCE_NAO_SEARCH_PAGE
+    override val searchPageUrl: String? get() = SauceNaoProtocol.SEARCH_PAGE
 
     override fun readiness(): ReverseImageState =
         if (apiKey()?.isNotBlank() == true) ReverseImageState.READY else ReverseImageState.NOT_CONFIGURED

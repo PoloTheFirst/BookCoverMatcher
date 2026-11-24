@@ -40,6 +40,7 @@ class PlatformGroupsDeviceTest {
         val expected = editionGroups.sortedBy { it.index }.flatMap { it.entries }.map { it.id }
         try {
             assertEquals(emptyList<String>(), rows())
+            assertNull(c.discovery)
             for (g in editionGroups.reversed()) {
                 manager.importDescriptor(readPluginId(("BCM-PLUGIN/1\n" + g.id).byteInputStream()))
                 assertFalse(settings.enabled(g.id))
@@ -47,6 +48,8 @@ class PlatformGroupsDeviceTest {
             }
             refresh()
             assertEquals(expected, rows())
+            val session = requireNotNull(c.discovery)
+            assertEquals(listOf("SauceNAO", "IQDB"), c.ui.value.reverse.providers.map { it.displayName })
             c.setQuery("Blue Archive")
             val shortcuts = c.ui.value.providers.filter { it.manual }
             for (row in shortcuts) {
@@ -69,10 +72,14 @@ class PlatformGroupsDeviceTest {
                 }
             }
             assertEquals(emptyList<String>(), rows())
+            assertNull(c.discovery)
+            assertTrue(c.ui.value.reverse.providers.isEmpty())
+            assertFalse(session.reverseAvailable())
             for (g in editionGroups) manager.toggle(g.id, true)!!.join()
             manager = restore()
             refresh()
             assertEquals(expected, rows())
+            assertTrue(requireNotNull(c.discovery).reverseAvailable())
             for (g in editionGroups) assertTrue(settings.enabled(g.id))
         } finally {
             owner.cancel()

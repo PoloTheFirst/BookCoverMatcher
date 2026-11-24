@@ -52,6 +52,7 @@ import com.bookcovermatcher.ReverseCandidateUi
 import com.bookcovermatcher.ReverseImageProviderUi
 import com.bookcovermatcher.core.online.reverse.DiscoveryImageState
 import com.bookcovermatcher.core.online.reverse.ReverseImageState
+import com.bookcovermatcher.online.ReverseDiscovery
 import com.bookcovermatcher.online.OnlineSearchController
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.FieldLabel
@@ -80,15 +81,17 @@ fun ReverseImageSection(
     onAddToWishlist: (ReverseCandidateUi) -> Unit = {},
     onBookmarkAllDiscovery: () -> Unit = {},
 ) {
+    val discovery = controller.discovery ?: return
+    if (!discovery.reverseAvailable()) return
     val reverse = ui.reverse
     FieldLabel("C \u00B7 Reverse-image discovery (SauceNAO first, IQDB second)")
 
     reverse.providers.forEach { provider ->
-        ReverseProviderRow(provider, onOpenUrl)
+        ReverseProviderRow(provider) { url -> if (discovery.reverseAvailable()) onOpenUrl(url) }
         Spacer(Modifier.height(6.dp))
     }
 
-    SauceNaoKeyBlock(reverse.sauceNaoKeyHint, controller)
+    SauceNaoKeyBlock(reverse.sauceNaoKeyHint, discovery)
     Spacer(Modifier.height(10.dp))
 
     Row(
@@ -97,10 +100,10 @@ fun ReverseImageSection(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (reverse.running) {
-            SmallAction("Cancel", Palette.Danger, controller::cancelReverseSearch)
+            SmallAction("Cancel", Palette.Danger, discovery::cancelReverseSearch)
         } else {
             GradientButton(
-                onClick = controller::runReverseSearch,
+                onClick = discovery::runReverseSearch,
                 colors = Palette.AccentGradient,
                 contentColor = Palette.OnAccent2,
                 modifier = Modifier.weight(1f),
@@ -136,14 +139,14 @@ fun ReverseImageSection(
         reverse.candidates.forEach { candidate ->
             CandidateCard(
                 candidate = candidate,
-                onOpenUrl = onOpenUrl,
-                onConfirm = controller::confirmCandidate,
-                onReject = controller::rejectCandidate,
-                onDismiss = controller::dismissCandidate,
+                onOpenUrl = { url -> if (discovery.reverseAvailable()) onOpenUrl(url) },
+                onConfirm = discovery::confirmCandidate,
+                onReject = discovery::rejectCandidate,
+                onDismiss = discovery::dismissCandidate,
                 bookmarked = candidate.key.lowercase() in bookmarkedKeys,
                 wishlisted = candidate.key.lowercase() in wishlistedKeys,
-                onToggleBookmark = { onToggleBookmark(candidate) },
-                onAddToWishlist = { onAddToWishlist(candidate) },
+                onToggleBookmark = { if (discovery.reverseAvailable()) onToggleBookmark(candidate) },
+                onAddToWishlist = { if (discovery.reverseAvailable()) onAddToWishlist(candidate) },
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -152,7 +155,7 @@ fun ReverseImageSection(
         val eligible = reverse.candidates.count { it.decision != CandidateDecision.REJECTED }
         Spacer(Modifier.height(2.dp))
         GradientButton(
-            onClick = onBookmarkAllDiscovery,
+            onClick = { if (discovery.reverseAvailable()) onBookmarkAllDiscovery() },
             colors = Palette.NavyGradient,
             contentColor = Palette.Accent2,
             modifier = Modifier.fillMaxWidth(),
@@ -169,7 +172,7 @@ fun ReverseImageSection(
     }
 
     Spacer(Modifier.height(10.dp))
-    IqdbPasteBlock(controller)
+    IqdbPasteBlock(discovery)
 }
 
 @Composable
@@ -248,7 +251,7 @@ private fun stateLabel(state: ReverseImageState): Pair<String, Color> = when (st
  * a crash report.
  */
 @Composable
-private fun SauceNaoKeyBlock(hint: String?, controller: OnlineSearchController) {
+private fun SauceNaoKeyBlock(hint: String?, discovery: ReverseDiscovery) {
     var text by remember { mutableStateOf("") }
     var replacing by remember { mutableStateOf(false) }
     if (hint != null && !replacing) {
@@ -258,7 +261,7 @@ private fun SauceNaoKeyBlock(hint: String?, controller: OnlineSearchController) 
         ) {
             Text("SauceNAO key stored: $hint", color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.weight(1f))
             SmallAction("Replace", Palette.Accent) { replacing = true }
-            SmallAction("Remove", Palette.Danger, controller::clearSauceNaoKey)
+            SmallAction("Remove", Palette.Danger, discovery::clearSauceNaoKey)
         }
         return
     }
@@ -292,7 +295,7 @@ private fun SauceNaoKeyBlock(hint: String?, controller: OnlineSearchController) 
             )
         }
         SmallAction("Save key", Palette.Accent) {
-            controller.saveSauceNaoKey(text)
+            discovery.saveSauceNaoKey(text)
             text = ""
             replacing = false
         }
@@ -537,7 +540,7 @@ private fun SmallAction(label: String, colour: Color, onClick: () -> Unit) {
  * and its action are rendered directly, and the only local state is the text being typed.
  */
 @Composable
-private fun IqdbPasteBlock(controller: OnlineSearchController) {
+private fun IqdbPasteBlock(discovery: ReverseDiscovery) {
     var text by remember { mutableStateOf("") }
     Column(
         Modifier
@@ -580,7 +583,7 @@ private fun IqdbPasteBlock(controller: OnlineSearchController) {
         ) {
             Text("", modifier = Modifier.weight(1f))
             SmallAction("Add results", Palette.Ok) {
-                controller.importIqdbResult(text)
+                discovery.importIqdbResult(text)
                 text = ""
             }
         }
