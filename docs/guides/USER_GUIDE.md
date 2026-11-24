@@ -7,6 +7,11 @@ and `docs/reference/ARCHITECTURE.md`.
 > The app version in this tree is still 2.5.0 while 2.6.0 is being prepared; the OneDrive section below
 > describes what this tree implements today.
 
+
+## Display
+
+Open **More → Display** and choose **Follow system**, **Light**, or **Dark**. Follow system is the initial setting and follows Android’s day/night schedule. Choosing Light or Dark overrides the phone and takes effect immediately. BCM remembers the selection on this device. Both appearances use Polo’s Atelier colors and keep the cyan and teal book and scanner artwork.
+
 ## Home
 
 1. **Choose file** (`.xlsx` or `.xlsm`) and enter the cell range that contains the cover pictures.

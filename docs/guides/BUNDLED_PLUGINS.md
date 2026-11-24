@@ -25,9 +25,9 @@ Each provider branch supplies one group and its descriptor in `plugins/manifests
 1. On standalone provider branches, copy the matching descriptor to the device’s `Documents/BookCoverMatcher/Plugins/` folder. Open **Plugins → Import plugin** and select the file.
 2. Turn on its switch. In **Search → Online → Platforms**, enabled groups appear by ascending index. Doujinshi.info appears only with Explicit Database Shortcuts enabled. Import order and restart do not affect sorting.
 3. A catalogue search sends text to selected fetch providers when online services are enabled. General-book sources and per-library selections still control Open Library and Google Books. Shortcut groups open a site only when you tap its browser action. Some sites contain mature material.
-4. Fresh installs start off. An explicit legacy selection can enable a fetch group on its first import. Saved plugin choices take precedence on subsequent imports. The `plugin/dlsite-fetch` branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.
+4. On standalone provider branches, a newly imported group starts off unless a previous selection enables it. The explicit main edition starts with all groups enabled on a fresh install. Saved plugin choices take precedence on subsequent imports. The `plugin/dlsite-fetch` branch retains the original descriptor and provider ID. Disabling removes transient results and links for that group and preserves saved workbooks and bookmarks.
 
-Both debug editions accept the [demo card descriptor](../../plugins/manifests/demo.bcmplugin).
+The [demo module](../../plugins/demo) illustrates the plugin contract on the framework branch. Main packages only the marketplace and five provider groups in its explicit flavor.
 
 ## Define a platform group
 
