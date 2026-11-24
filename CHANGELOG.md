@@ -1,37 +1,37 @@
-## v3.0.0-dev.2 (2026-11-24)
+## v3.0.0-dev.3 (2026-11-24)
 
-# BCM name and scanner refresh
+# BCM’s open-book logo
 
-The launcher and Home screen now show **BCM**. The scanner uses the same Material 3 Expressive styling and Sophie colors as the rest of the app.
+BCM has a new Material 3 Expressive mark on the Android launcher and Home screen. A glint on the open book’s right page represents a matched cover.
 
 ### Added
 
-- A labeled **Auto-scan** toggle and stability progress below the viewfinder. **Sharp**, **Light** and **Steady** indicate current image quality.
+- A dedicated monochrome book with a transparent page crease and glint for Android’s themed icons.
 
 ### Changed
 
-- The capture frame, focus ring and controls use the website’s rose and blush accents. **Follow system** selects the light or dark scheme, and **More → Display** lets you choose either one.
-- The capture and restart actions adapt to narrow widths and larger text. The current app name comes from the same Android string on the launcher, Home and setup screens.
+- Light uses a cream tile with blush and ivory pages outlined in rose. Dark uses a deep rose tile with blush and ivory pages. Both draw from Polo’s Atelier.
+- Home follows **More → Display**. The full-color launcher follows Android’s appearance where the launcher supports it.
+- Refreshed the OAuth logo, Play listing icon, full-size master and feature graphic in the repository.
 
 ### Fixed
 
-- Capture and Auto-scan wait for the preview to stream after camera startup or restart.
+- The Home mark uses the app’s selected appearance even when the phone is set to the other mode. Its framing matches the visible center of the adaptive icon.
 
 ### Removed
 
-- The fixed cyan scanner frame and the quality badges over the camera image have been replaced by the themed frame and feedback beneath the viewfinder.
+- Replaced the cyan book and navy tile in the current app and branding artwork.
 
 ### Tests
 
-- Explicit debug and release APKs assembled. For the JVM tests, 1,444 passed, 16 skipped. Android lint reported zero errors, 63 warnings and one hint.
+- The Explicit debug and release APKs assembled successfully. 1,444 JVM tests passed and 16 were skipped. Lint reported zero errors and 63 warnings.
 
 ### Verified
 
-- The application label was **BCM** in the packages for both editions. The Android application ID remained `com.bookcovermatcher`. At 320 dp and 200% text on Android 8, the three scanner actions were reachable and each touch target was at least 48 dp high.
-- Android 16 emulator checks covered the dev.1 → dev.2 Play update, both default scanner palettes, manual capture, Auto-scan and restart. The synthetic workbook, source records and wishlist matched their pre-update hashes.
+- Checked the launcher and Home artwork on Android 8 and Android 16 emulators and validated the monochrome cutouts. All four exported PNGs match their recorded sizes and digests. The artwork stays within Android’s adaptive icon safe zone.
 
 ### Known limitations
 
-- Camera behavior was checked with a simulated feed. Physical-device focus and exposure remain unverified. Local release APKs are unsigned.
+- Launcher shape and themed tint depend on the device. On the Android 16 emulator, Pixel Launcher kept its previous full-color shortcut after a system appearance change until the app package refreshed. BCM Home switched immediately.
 
-**Version code/name: 228 / 3.0.0-dev.2.**
+**Version code/name: 229 / 3.0.0-dev.3.**
