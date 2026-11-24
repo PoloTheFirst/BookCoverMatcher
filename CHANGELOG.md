@@ -23,13 +23,15 @@ In this standalone GitHub build, import **marketplace.bcmplugin** from **Documen
 ### Tests
 
 - The GitHub debug JVM suite passed 1,441 tests and skipped 16.
+- Four API 36 instrumentation tests passed, covering group activation and ordering, an Open Library search, OAuth browser request configuration and proprietary dependency isolation.
 
 ### Verified
 
 - Android package inspection confirmed `com.bookcovermatcher`, version `3.0.0-dev.1` (227), minimum API 26 and target API 36.
+- An in-place update from 2.7.0 retained the imported, enabled marketplace. Turning off the marketplace paused the enabled child and kept its switch checked. Re-enabling the marketplace resumed the group.
 
 ### Known limitations
 
-- This local development build has not been published. Live provider and cloud-account testing is outside the visual refresh.
+- This local development build has not been published. Verification used a public Open Library query. Live Google and Microsoft sign-in and image uploads were outside the visual refresh.
 
 **Version code/name: 227 / 3.0.0-dev.1.**
