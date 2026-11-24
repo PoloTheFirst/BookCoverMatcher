@@ -2,7 +2,7 @@
 
 # Standard and explicit BCM editions
 
-Choose **BCM** for the standard app or **BCM-plus** for the edition with bundled catalogue plugins.
+Choose **BCM** for the standard app or **BCM Plus** for the edition with bundled catalogue plugins.
 
 ### Added
 

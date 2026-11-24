@@ -556,4 +556,4 @@ The GitHub release title/name must be exactly the release tag: `v` followed by t
 
 ### Two-edition downloads
 
-Starting with v3.0.0-dev.1, use the GitHub asset labels **BCM** (standard Play edition) and **BCM-plus** (explicit GitHub edition). Preserve the standard filename and its existing URL. Name the explicit APK `BCM-plus-v<complete-versionName>.apk`. Record its corresponding source commit and verify each APK’s package, edition, version, signing certificate and SHA-256.
+Starting with v3.0.0-dev.1, use the GitHub asset labels **BCM** (standard Play edition) and **BCM Plus** (explicit GitHub edition). Preserve the standard filename and its existing URL. Name the explicit APK `BCM Plus-v<complete-versionName>.apk`. Record its corresponding source commit and verify each APK’s package, edition, version, signing certificate and SHA-256.

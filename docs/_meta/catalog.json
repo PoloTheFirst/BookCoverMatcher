@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "15ef2d233180992c9245f7abf31587025bf3164fe6f83b8dc698cecc83066271",
+  "fingerprint": "b8a6ae53d8b22299ff326fe327c8a68819e7d91f2d3a9696ef2e3e117a857f68",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -476,7 +476,7 @@
     {
       "path": "CHANGELOG.md",
       "bytes": 1306,
-      "sha256": "5ba7675703fddb9b060349a70f4f02bead6d53fcf16b9667b2a083132bf47387",
+      "sha256": "6bf5c311b2c93cb09f21606ca9a54de33484276896bc5172b095264c8757a8ec",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -517,7 +517,7 @@
     {
       "path": "docs/_meta/versions.json",
       "bytes": 22751,
-      "sha256": "b5ee0c1bf010852853193bdde7c5569677e8764b5bfd5b70291f37a2ff454942",
+      "sha256": "157c0632c287a835443158bb5f91d656bfe126fcedffb9a4566f913fb8af2a5e",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -538,7 +538,7 @@
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
       "bytes": 9634,
-      "sha256": "231d4f1fcab7d8364d6ff5391b86b4eedc4d44e6de59c1bd350e91a53ee1d731",
+      "sha256": "000b7bd3de0d69ab807f79299a0f2ef7a0055affcdbc8abaf1b2cc197b44c0e1",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5671,
-      "sha256": "fad88497b4dce898362163237eb5d2f52ab5235b9e987448fc04db6064e1dda9",
+      "bytes": 5673,
+      "sha256": "1db67fc6d677254024997eb4ac63ca51f37c81cee9ab3e26892e1ac460311086",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2318,7 +2318,7 @@
     {
       "path": "docs/maintainers/CHANGELOG_GUIDELINES.md",
       "bytes": 22762,
-      "sha256": "1eb381cd99741e97e22789d528ddd58997f8c867294d14db9695023a591e1f30",
+      "sha256": "e38825a479c371526b88f7d803884c3b91cd12da709273ec3f3b984d44b0f675",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2468,7 +2468,7 @@
     {
       "path": "README.md",
       "bytes": 4471,
-      "sha256": "2fb54d59a2922ea3e76cfcf1a6befb554e11110f8b76fc76e58e213e343eeaa2",
+      "sha256": "762693fa3585ac4f62b6a77faf49b8f9b50e9998b9baad4a8c4b5a59ff1dcf0f",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
