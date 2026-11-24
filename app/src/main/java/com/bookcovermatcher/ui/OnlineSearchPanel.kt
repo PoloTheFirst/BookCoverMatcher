@@ -2,6 +2,11 @@
 
 package com.bookcovermatcher.ui
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -31,9 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -171,7 +173,7 @@ private fun OcrEngineSection(ui: OnlineSearchUi, controller: OnlineSearchControl
         fontSize = 10.5.sp,
     )
     Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (choice in OcrEngineChoice.ALL) {
             EngineChip(
                 choice = choice,
@@ -192,27 +194,25 @@ private fun EngineChip(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val scheme = MaterialTheme.colorScheme
     Column(
         modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) Palette.Accent.copy(alpha = 0.16f) else Color.Transparent)
-            .border(1.dp, if (selected) Palette.Accent else Palette.Line, RoundedCornerShape(10.dp))
-            .clickable(role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .heightIn(min = 48.dp)
+            .clip(MaterialTheme.shapes.large)
+            .background(if (selected) scheme.primaryContainer else scheme.surfaceContainerHigh)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(12.dp),
     ) {
-        Text(
-            choice.label,
-            color = if (selected) Palette.Text else Palette.Muted,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        RadioButton(selected = selected, onClick = null)
+        Spacer(Modifier.height(4.dp))
+        Text(choice.label, color = scheme.onSurface, style = MaterialTheme.typography.titleSmall)
         Text(
             when (choice) {
                 OcrEngineChoice.CHROME_LENS -> "Online · sends cover to Google"
                 OcrEngineChoice.PADDLE_OCR -> "PP-OCRv6 Medium · on device"
             },
-            color = Palette.Muted,
-            fontSize = 9.5.sp,
+            color = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }
@@ -396,33 +396,15 @@ private fun CatalogueSection(
 ) {
     FieldLabel("B · Search the catalogues (Open Library + Google Books)")
 
-    BasicTextField(
+    OutlinedTextField(
         value = ui.query,
         onValueChange = controller::setQuery,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.22f))
-            .border(1.dp, Palette.Line, RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 10.dp),
-        textStyle = TextStyle(color = Palette.Text, fontSize = 13.sp),
-        cursorBrush = SolidColor(Palette.Accent),
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Title and author") },
+        supportingText = { Text("Edit the text read from the cover, or enter your own.") },
         maxLines = 2,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { controller.search() }),
-        decorationBox = { inner ->
-            Box {
-                if (ui.query.isEmpty()) {
-                    Text(
-                        "Title (and author). Filled from the cover text, editable.",
-                        color = Palette.Muted,
-                        fontSize = 13.sp,
-                    )
-                }
-                inner()
-            }
-        },
     )
 
     Spacer(Modifier.height(10.dp))

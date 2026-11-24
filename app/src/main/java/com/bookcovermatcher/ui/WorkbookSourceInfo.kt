@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.bookcovermatcher.ui
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.style.TextAlign
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -15,7 +17,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookcovermatcher.MainViewModel
@@ -52,11 +53,11 @@ fun WorkbookSourceInfo(entry: SavedWorkbook, ui: UiState, vm: MainViewModel) {
 
     Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Show source details") {
         expanded = true
-    }.padding(vertical = 6.dp), horizontalAlignment = Alignment.End) {
-        Text(label, color = Palette.Text, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(status, color = Palette.Muted, fontSize = 10.sp)
-        Text(location, color = Palette.Muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("Source details", color = Palette.Accent, fontSize = 10.sp)
+    }.heightIn(min = 48.dp).padding(vertical = 8.dp), horizontalAlignment = Alignment.End) {
+        Text(label, color = Palette.Text, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
+        Text(status, color = Palette.Accent2, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text(location, color = Palette.Muted, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End)
+        Text("Source details", color = Palette.Accent, style = MaterialTheme.typography.labelLarge)
     }
     if (expanded) AlertDialog(
         onDismissRequest = { expanded = false },
@@ -98,12 +99,12 @@ fun WorkbookSourceInfo(entry: SavedWorkbook, ui: UiState, vm: MainViewModel) {
 @Composable
 fun CloudImportLabel(provider: String, label: String?, signedIn: Boolean, expired: Boolean, signingIn: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("From $provider", color = Palette.Text, fontSize = 11.sp)
+        Text("From $provider", color = Palette.Text, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
         Text(when {
             signingIn -> "Signing in…"
             expired -> "Session expired"
             !signedIn -> "Not signed in"
             else -> label ?: "Account unavailable"
-        }, color = Palette.Muted, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }, color = Palette.Muted, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
     }
 }

@@ -2,6 +2,10 @@
 
 package com.bookcovermatcher.ui
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -158,7 +162,7 @@ internal fun PackagedDocumentReader(
                         MarkdownDocument(
                             blocks = document.blocks,
                             onOpenUrl = onOpenUrl,
-                            baseSize = if (fullScreen) 13.sp else 10.5.sp,
+                            baseSize = if (fullScreen) 16.sp else 14.sp,
                             onLinkRefused = onLinkRefused,
                         )
                     }
@@ -193,8 +197,8 @@ private fun Header(
     onToggleFullScreen: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
-        Text(document.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-        Text(document.subtitle, color = Palette.Muted, fontSize = 10.sp)
+        Text(document.title, modifier = Modifier.semantics { heading() }, color = Palette.Text, style = MaterialTheme.typography.titleLarge)
+        Text(document.subtitle, color = Palette.Muted, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         GradientButton(
             onClick = onToggleFullScreen, colors = Palette.NavyGradient,
@@ -214,7 +218,7 @@ private fun DocumentTabs(documents: List<ReaderDocument>, current: ReaderDocumen
                 onClick = { onSelect(document) },
                 colors = if (document == current) Palette.AccentGradient else Palette.NavyGradient,
                 contentColor = Palette.Text,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).semantics { selected = document == current },
                 minHeight = 48.dp,
                 contentPadding = 8.dp,
             ) { Text(document.shortLabel, color = Palette.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }

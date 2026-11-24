@@ -2,17 +2,22 @@
 
 package com.bookcovermatcher.ui.components
 
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.draw.alpha
 import android.graphics.BitmapFactory
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,7 +30,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,11 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
@@ -47,7 +49,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +62,7 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Gradient push-button: the `.btn` family of v1's CSS (primary, accent, ghost, yellow, red, grey). */
+/** Shared Material action. Existing callers supply the palette and minimum size for their workflow. */
 @Composable
 fun GradientButton(
     onClick: () -> Unit,
@@ -70,89 +71,78 @@ fun GradientButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     minHeight: Dp = 54.dp,
-    shape: Shape = RoundedCornerShape(14.dp),
+    shape: Shape = ButtonDefaults.shape,
     border: BorderStroke? = null,
     glow: Color? = null,
     contentPadding: Dp = 18.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.985f else 1f, tween(80), label = "press")
-    val base = if (glow != null) {
-        modifier.shadow(10.dp, shape, ambientColor = glow, spotColor = glow)
-    } else {
-        modifier
+    val scheme = MaterialTheme.colorScheme
+    val surface = when (colors) {
+        Palette.PrimaryGradient -> scheme.primary
+        Palette.AccentGradient -> if (contentColor == Palette.OnAccent2) scheme.secondary else scheme.secondaryContainer
+        Palette.NavyGradient -> scheme.surfaceContainerHighest
+        Palette.GreenGradient -> Color(0xFF14663E)
+        Palette.GreyGradient -> scheme.surfaceContainerHigh
+        else -> colors.last()
     }
-    Row(
-        modifier = base
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                alpha = if (enabled) 1f else 0.5f
-            }
-            .clip(shape)
-            .background(Brush.verticalGradient(colors), shape)
-            .then(if (border != null) Modifier.border(border, shape) else Modifier)
-            .heightIn(min = minHeight)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                enabled = enabled,
-                role = Role.Button,
-                onClick = onClick,
-            )
-            .padding(horizontal = contentPadding, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content,
-    )
+    Button(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = minHeight.coerceAtLeast(48.dp)).alpha(if (enabled) 1f else 0.6f),
+        enabled = enabled,
+        shape = shape,
+        border = border,
+        elevation = if (glow != null) ButtonDefaults.elevatedButtonElevation() else null,
+        colors = ButtonDefaults.buttonColors(containerColor = surface, contentColor = contentColor),
+        contentPadding = PaddingValues(horizontal = contentPadding, vertical = 8.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
 }
 
 /** Label used inside [GradientButton]. */
 @Composable
 fun ButtonLabel(text: String, color: Color, fontSize: Float = 16f) {
-    Text(text, color = color, fontSize = fontSize.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+    Text(text, color = color, style = MaterialTheme.typography.labelLarge, fontSize = fontSize.sp,
+        textAlign = TextAlign.Center)
 }
 
-/** A bordered card with the small cyan upper-case heading (`.panel`). */
+/** Heading used at the start of a destination. */
 @Composable
-fun Panel(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(16.dp)
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.055f), Color.White.copy(alpha = 0.018f))),
-                shape,
-            )
-            .border(1.dp, Palette.Line, shape)
-            .padding(14.dp),
+fun ScreenHeading(title: String) {
+    Text(title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+}
+
+@Composable
+fun Panel(title: String?, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
-        Text(
-            title.uppercase(),
-            color = Palette.Accent,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 1.4.sp,
-        )
-        Spacer(Modifier.height(12.dp))
-        content()
+        Column(Modifier.padding(if (title == null) 8.dp else 16.dp)) {
+            if (title != null) {
+                Text(
+                    title, modifier = Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+            content()
+        }
     }
 }
 
-/** Small upper-case caption above an input. */
 @Composable
 fun FieldLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text.uppercase(),
-        modifier = modifier.padding(bottom = 6.dp),
-        color = Palette.Muted,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.ExtraBold,
-        letterSpacing = 1.0.sp,
-    )
+    Text(text, modifier = modifier.padding(bottom = 6.dp), color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelLarge)
 }
 
 /** Rounded dashed outline (`border: 1px dashed var(--line)`). */
@@ -232,10 +222,10 @@ fun SegmentedTabRow(modifier: Modifier = Modifier, content: @Composable RowScope
     Row(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(11.dp))
-            .background(Color.Black.copy(alpha = 0.28f))
-            .border(1.dp, Palette.Line, RoundedCornerShape(11.dp))
-            .padding(3.dp),
+            .selectableGroup()
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         content = content,
     )
@@ -264,27 +254,28 @@ fun SegmentedTab(
 ) {
     Box(
         modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (active) Palette.Accent.copy(alpha = 0.18f) else Color.Transparent)
-            .clickable(role = Role.Tab, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(if (active) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            .selectable(selected = active, role = Role.Tab, onClick = onClick)
             .padding(horizontal = 2.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 label,
-                color = if (active) Palette.Accent else Palette.Muted,
+                color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else Palette.Muted,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                maxLines = maxLines,
+                maxLines = maxLines.coerceAtLeast(2),
                 overflow = TextOverflow.Ellipsis,
             )
             if (count != null) {
                 Text(
                     count,
-                    color = if (active) Palette.Accent else Palette.Muted,
-                    fontSize = 9.5.sp,
+                    color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else Palette.Muted,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
