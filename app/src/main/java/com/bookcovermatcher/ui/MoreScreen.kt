@@ -344,10 +344,10 @@ private fun PanelsAuthor(ui: UiState, onOpenUrl: (String) -> Unit) {
         GradientButton(
             onClick = { onOpenUrl(AuthorProfile.GITHUB_URL) },
             colors = Palette.AccentGradient,
-            contentColor = Palette.OnAccent,
+            contentColor = Palette.OnAccent2,
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             minHeight = 42.dp,
-        ) { ButtonLabel("Visit GitHub Profile", Palette.OnAccent, 12.5f) }
+        ) { ButtonLabel("Visit GitHub Profile", Palette.OnAccent2, 12.5f) }
 
         Text(
             "Opens https://github.com/${AuthorProfile.USERNAME} in your browser. No GitHub account is needed.",
