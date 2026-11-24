@@ -1,5 +1,12 @@
 # Play and GitHub editions
 
+## Development build 3.0.0-dev.1
+
+In this standalone GitHub build, import **marketplace.bcmplugin** from **Documents → BookCoverMatcher → Plugins** and enable **Plugin Marketplace**. It fetches the five available groups. Each group has its own switch and Remove action. Turning off the marketplace pauses its groups and preserves each switch selection. Both distribution flavors use version code 227, the existing application ID and the existing signing configuration. Install the same signing lineage to keep Android app data.
+
+## v2.7.0 distribution checkpoints
+
+
 Validated locally on CachyOS on 18 November 2026 against Android 2.7.0 / code 226, branch `google_play`. These are build variants in one checkout; neither has been published by this task.
 
 ## What each edition contains

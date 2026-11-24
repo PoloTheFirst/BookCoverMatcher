@@ -34,3 +34,4 @@ Codes below are attributed configuration/historical evidence; null remains unkno
 | current-source | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
 | unresolved-qa | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
 | 2.7.0 | 226 | True | Approved stable prompt; owner confirmed code226 not uploaded. Source configured as 2.7.0/226 for local validation on 17 November 2026; not a released or Play-approved artifact. |
+| 3.0.0-dev.1 | 227 | True | Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226). |

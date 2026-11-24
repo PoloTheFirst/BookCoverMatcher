@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "current": "2.7.0",
+  "current": "3.0.0-dev.1",
   "versions": [
     {
       "id": "2.4.0",
@@ -560,6 +560,26 @@
         "documentation": "documentation"
       },
       "evidence": "Approved stable prompt; owner confirmed code226 not uploaded. Source configured as 2.7.0/226 for local validation on 17 November 2026; not a released or Play-approved artifact.",
+      "authorable": true
+    },
+    {
+      "id": "3.0.0-dev.1",
+      "versionName": "3.0.0-dev.1",
+      "versionCode": 227,
+      "root": "docs/history/android/v3.0.0-dev.1",
+      "documentKey": "android-3.0.0-dev.1-code227",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226).",
       "authorable": true
     }
   ]

@@ -2,15 +2,11 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
-## Current local build
+## Local development build
 
-The source is configured as **2.7.0 / versionCode 226**. The owner-signed APK was installed as a compatible update on Vivo; App Website appears below the author-profile button. JVM/build/lint, emulator regression and native-packaging checks passed. See the [execution report](docs/history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md) for evidence and limits.
+**3.0.0-dev.1 (227)** introduces the Material 3 Expressive interface for BookCoverMatcher. In this standalone GitHub build, import **marketplace.bcmplugin** from **Documents → BookCoverMatcher → Plugins** and enable **Plugin Marketplace**. It fetches the five available groups. Each group has its own switch and Remove action. Turning off the marketplace pauses its groups and preserves each switch selection.
 
-Website policies are published and the plain URLs were rechecked on 17 November 2026 (privacy 2026-11-17.2; terms 2026-11-17.1). The regenerated owner-signed APK now contains privacy .2 and passed API36 emulator smoke checks; this latest artifact has not been installed on Vivo. Stable publication readiness is not yet complete: excluded live cloud/lifecycle checks and distribution review remain. The explicit `verifyAuthPublicationEligibility` guard remains. On 18 November 2026, the owner reported Google OAuth verification submitted and under review, and authorized private Google Play submission preparation while waiting. This is not OAuth approval or a Play submission. Stable publication gates remain; no stable tag or hosted release is claimed. Read [current status](docs/STATUS.md) and the [AppAuth guide](docs/integrations/APP_AUTH_PROTOTYPE.md) before publishing.
-
-Local `github` and `play` editions now share the same app ID and storage. GitHub retains every provider; Play includes Chrome Lens and PaddleOCR and excludes public catalogue and reverse-image discovery. Reverse-image content review and signed update testing remain required. See [distribution variants and build commands](docs/guides/DISTRIBUTION_VARIANTS.md). Nothing has been published from this split.
-
-On `plugin/plugin-marketplace`, open **Plugins → Import plugin**, select `marketplace.bcmplugin` and turn on **Plugin Marketplace**. BCM downloads the available groups from GitHub. Toggle **Ordinary Library Fetch**, **DLsite Fetch**, **Reverse Image Discovery** and the shortcut groups inside the marketplace. Turning the marketplace off pauses its groups and remembers their selections. On standalone plugin branches, import the group descriptor directly. See the [bundled plugin guide](docs/guides/BUNDLED_PLUGINS.md).
+The current public standard APK is **v2.7.0 (226)** from `google_play`. [Published release](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0) · [Distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md)
 
 ## Find the right documentation
 

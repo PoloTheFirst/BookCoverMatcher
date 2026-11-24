@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-18 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-24 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
@@ -119,6 +119,10 @@ On the GitHub marketplace branch, an empty catalogue offers Open Plugins. The Pl
 ## OCR and reverse-image distribution (24 November 2026)
 
 Chrome Lens OCR is built into Play as an explicit engine selection alongside on-device PaddleOCR. Play excludes the SauceNAO and IQDB clients, key controls, browser handoff and paste UI. The standalone GitHub Reverse Image Discovery plugin activates these workflows together. Existing workbook and bookmark storage is preserved. API 36 instrumentation verified the Play Lens bridge loads and the standalone plugin exposes both providers only while enabled. Play APK bytecode was checked for the provider clients, key store and provider URLs.
+
+## Material 3 Expressive development build
+
+The owner approved the UI refresh and allocated 3.0.0-dev.1 / 227 for local development. The published standard baseline is v2.7.0 / 226.
 
 ## Next steps
 
