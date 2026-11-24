@@ -1,39 +1,37 @@
-## v3.0.0-dev.1 (2026-11-24)
+## v3.0.0-dev.2 (2026-11-24)
 
-# Material 3 Expressive for BookCoverMatcher
+# BCM name and scanner refresh
 
-The standard Play edition refreshes workbook, camera, search, wishlist, More and Plugins screens. It opens with an empty plugin host.
+The launcher and Home screen now show **BCM**. The scanner uses the same Material 3 Expressive styling and Sophie colors as the rest of the app.
 
 ### Added
 
-- Shared Material 3 Expressive settings rows show each available action or switch with its label and state.
+- A labeled **Auto-scan** toggle and stability progress below the viewfinder. **Sharp**, **Light** and **Steady** indicate current image quality.
 
 ### Changed
 
-- **More → Display** offers Follow system, Light and Dark. The app follows the phone by default and remembers a manual choice. The interface uses the Atelier website’s Sophie colors with a serif Home title and the book artwork’s cyan and teal glow on the scanner.
-- Workbook rows group the source path and link state beneath the title. Search, wishlist and reader controls use shared typography, shapes and action styles.
-- Bottom navigation adapts to narrow windows and enlarged text, keeping **More** beside **Plugins**.
+- The capture frame, focus ring and controls use the website’s rose and blush accents. **Follow system** selects the light or dark scheme, and **More → Display** lets you choose either one.
+- The capture and restart actions adapt to narrow widths and larger text. The current app name comes from the same Android string on the launcher, Home and setup screens.
 
 ### Fixed
 
-- Long action labels can wrap. Short document windows let the header scroll with the text. Section headings inherit a readable foreground on dark surfaces.
+- Capture and Auto-scan wait for the preview to stream after camera startup or restart.
 
 ### Removed
 
-- Replaced the fixed single-row navigation layout on compact screens with adaptive rows.
+- The fixed cyan scanner frame and the quality badges over the camera image have been replaced by the themed frame and feedback beneath the viewfinder.
 
 ### Tests
 
-- The Play JVM suite passed 1,271 tests and skipped 12. Play lint reported zero errors, 61 warnings and one hint. Three API 36 instrumentation checks passed for the Play boundary, workbook navigation and source-grant handling.
+- Play debug and release APKs assembled. For the JVM tests, 1,271 passed, 12 skipped. Android lint reported zero errors, 61 warnings and one hint.
 
 ### Verified
 
-- A Play 226 → 227 update on API 36 retained the installation date and identical saved workbook, source metadata, wishlist and bookmark files. Plugins showed **Import plugin**, **No imported plugins** and zero switches.
-- Play debug and release APKs contain zero plugin descriptors. Their DEX excludes the five provider group implementations, SauceNAO and IQDB clients, and SauceNAO key storage.
-- On emulators running Android 8 and 16, Follow system tracked day/night and a manual selection survived a restart.
+- The application label was **BCM** in the packages for both editions. The Android application ID remained `com.bookcovermatcher`. At 320 dp and 200% text on Android 8, the three scanner actions were reachable and each touch target was at least 48 dp high.
+- Android 16 emulator checks covered the dev.1 → dev.2 Play update, both default scanner palettes, manual capture, Auto-scan and restart. The synthetic workbook, source records and wishlist matched their pre-update hashes.
 
 ### Known limitations
 
-- Local release-variant APKs are unsigned. Emulator upgrade checks used matching debug certificates. Physical-device release-key upgrades and live cloud sign-in were outside this development run.
+- Camera behavior was checked with a simulated feed. Physical-device focus and exposure remain unverified. Local release APKs are unsigned.
 
-**Version code/name: 227 / 3.0.0-dev.1.**
+**Version code/name: 228 / 3.0.0-dev.2.**

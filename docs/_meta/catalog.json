@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "25054aca5d9b0326199df5f8a8d72c04fb8194c578b927c0c10058b7a80886b2",
+  "fingerprint": "1601d27e7f89b0bd9bc023f7897d0fe4902dfe7eb895ecdc67c4b709b532c2ca",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2175,
-      "sha256": "25d5c87baef91f4654a1b3a5eaa0523fd49817aa247eecc30009a5356deb66c4",
+      "bytes": 1873,
+      "sha256": "d6dadb55d122aa4560f97470263537e783ff6db8d961a440ec602c13e3cb78d2",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 11738,
-      "sha256": "66df3ad8a6c6ef73755c0f2af2851eee975d2360189e1519a6a012ea1eedecd9",
+      "bytes": 12127,
+      "sha256": "3cdb12bccdb3c04ba097336b9d21f7f1072780557b121c0b4969237d1e539577",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 20266,
-      "sha256": "77bf9a450c177ccf6c6456f0e36398d469d40d1bbc82a11c60de0cd56ba24868",
+      "bytes": 20983,
+      "sha256": "c85462bd9398d57c1dfcb43768309a5841d53fc1dbaedd581d4473d472277bf1",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -538,7 +538,7 @@
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
       "bytes": 9097,
-      "sha256": "ef1d18fd82f4e8a524cf4d4527728a7d4e9310aa200de1aa2deca827411d8ab2",
+      "sha256": "a54e037ae9293847c8d6ee9cfa0a7684c63aab3e78f98867ebe78af71f9c1a39",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5301,
-      "sha256": "b24308cbc7289bad3402f0f95c0614d149195e444d0acd8f4b8488cd28feb363",
+      "bytes": 5375,
+      "sha256": "c46edf93383671588198494529013c804a662c7ac1ee4643c383217085a1f402",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -558,8 +558,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 53277,
-      "sha256": "2effc3dd21d9582f641d1e535e98f1a538c7332bd86369af918ab46a31459fc9",
+      "bytes": 53431,
+      "sha256": "d5ca6fb22761441d32c821759da57a3fa5088db3a472f330cf07482dc87bb6d6",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -1976,6 +1976,40 @@
       }
     },
     {
+      "path": "docs/history/android/v3.0.0-dev.2/development/reports/2026-11-24__android-3.0.0-dev.2-code228__development__bcm-scanner__report__r01.md",
+      "bytes": 6499,
+      "sha256": "37b731c78dcd15e57b03d479bfcc0e3b9e5cd5b141b4ed057a67399628bd87c5",
+      "version": "3.0.0-dev.2",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.2/development//bcm-scanner/report/2026-11-24",
+        "title": "BCM display name and Material 3 Expressive scanner",
+        "kind": "report",
+        "version_id": "3.0.0-dev.2",
+        "version_name": "3.0.0-dev.2",
+        "version_code": 228,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "bcm-scanner",
+        "created_at": "2026-11-24T16:36:15+08:00",
+        "updated_at": "2026-11-24T16:46:51+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [
+          "3.0.0-dev.1"
+        ],
+        "source_request": "Rename the visible app to BCM and apply the website color palette and Material 3 Expressive design to the scanner in v3.0.0-dev.2."
+      }
+    },
+    {
       "path": "docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md",
       "bytes": 11961,
       "sha256": "3c58f06adcec00a45e27824cbb6bf489d32011be31ec22511b2fba0bab47de9a",
@@ -2303,8 +2337,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 3728,
-      "sha256": "cb11db003a1b6f9f09691e55c84e7bbfb60ba23a5f786149a6278669889160e8",
+      "bytes": 3829,
+      "sha256": "6a61363cd9edb0784cdc8ae73c2b4aa4562257d421477cbea97e290cb230d8f3",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

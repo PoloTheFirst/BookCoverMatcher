@@ -84,6 +84,10 @@ Published as Latest from google_play at 261d9da, code 226. Verified the public r
 
 Local 3.0.0-dev.1 / 227 implements the approved Material 3 Expressive refresh. More → Display offers Follow system, Light and Dark across editions. API 36 checked the Play upgrade and empty plugin host. API 26 checked offline explicit defaults, pause, removals and cross-edition data retention. The development report records exact build results and limitations. The published standard release remains v2.7.0 / 226.
 
+## BCM scanner development build
+
+Local 3.0.0-dev.2 / 228 displays BCM and uses Sophie-themed Material 3 Expressive scanner controls. The Play debug update preserved the synthetic workbook, saved source and wishlist on the API 36 emulator. Both editions retain com.bookcovermatcher. See the dev.2 scanner report for build and device evidence.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

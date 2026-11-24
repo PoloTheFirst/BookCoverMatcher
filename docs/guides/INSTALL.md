@@ -1,8 +1,8 @@
-# Installing BookCoverMatcher on a device
+# Installing BCM on a device
 
 ## Development and published builds
 
-The local development build is **3.0.0-dev.1 (227)**. The published standard APK is **v2.7.0 (226)**. Build Android with compile SDK 37, target SDK 36 and minimum SDK 26.
+The local development build is **3.0.0-dev.2 (228)**. Look for **BCM** in your launcher. The Android app ID is still `com.bookcovermatcher`. The published standard APK is **v2.7.0 (226)**. Build Android with compile SDK 37, target SDK 36 and minimum SDK 26.
 
 Use the [distribution build and signing guide](DISTRIBUTION_VARIANTS.md) for the new `play` and `github` APK paths. Both editions use the same package ID and require a matching release certificate to update an existing installation. Release builds no longer fall back to a debug signing key. Preserve app data: stop on signing incompatibility; do not uninstall or clear data.
 
