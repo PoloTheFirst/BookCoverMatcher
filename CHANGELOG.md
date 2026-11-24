@@ -6,7 +6,7 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 
 ### Added
 
-- Plugins tab with a puzzle icon after More in both editions; plugin downloads and installation are deferred.
+- The Plugins tab supports manual descriptor import. Play starts with an empty plugin list.
 
 - Separate GitHub and Play build variants: GitHub retains all providers; Play retains SauceNAO/IQDB while excluding public catalogue discovery and shortcuts.
 

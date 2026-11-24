@@ -722,4 +722,4 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-The **Plugins** tab appears immediately after **More**, with a puzzle-piece icon, in both editions. It currently shows a placeholder: no plugins are available, and downloads/installation are not implemented. Existing providers remain in their current edition and settings; this tab does not migrate or disable them.
+Open **Plugins** to the right of **More**. The Play edition shows **No imported plugins**. **Import plugin** opens the file picker in `Documents/BookCoverMatcher/Plugins` when that folder exists. This version has no registered Play plugins. Selecting an unsupported descriptor displays a message and leaves the list empty.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "30d8d5078583fd1bf0b4b4c6795dcd1c9c3673e926ea1546925b15e394cce6df",
+  "fingerprint": "ccf783c648f67906de18601236672bec552c0126f4b7ae10261fd6ff1503ebbf",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 4827,
-      "sha256": "d05653c567514985e647b5392ca91daa26a96f4e176334645e4392c6f740a8e5",
+      "bytes": 4809,
+      "sha256": "08becf4c0bcf8ebfdf638291da2b4cac4f48d010f122a7cade1e8595915d583f",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 8940,
-      "sha256": "04b6bb9af78c93303634803ef8c3087c3900992c82bda51be68fb479ac8f9bc7",
+      "bytes": 9587,
+      "sha256": "2f51ca3a88623c46d411620fe567ab0b51da1463658a629afdb2274e3b81f7f4",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 8677,
-      "sha256": "bf6fb6dc7081c5ff8d537d482ded08bc9575619db6298632018da64375becfc9",
+      "bytes": 8695,
+      "sha256": "16f0a91cfd346f29b10e3a7d293ff087cb3487d68b90516d8f057cbc5383a264",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -558,8 +558,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 52602,
-      "sha256": "ec4c08e055785182ddfc1390bd84653def9ed17893851861a8018729b8c0d53c",
+      "bytes": 52609,
+      "sha256": "48f4e81a40bda6c23ee9ca9606c95bc8b4c03cd05ba100ca87ff23ccedd72670",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2202,8 +2202,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4700,
-      "sha256": "8c0607952820d365df4f2abe8f1b8181566b0a706adb71715ac1d6e24b420ea4",
+      "bytes": 5062,
+      "sha256": "2d7eadb10702eec27fec26a6fb54ffaca74a972d208399c64714c1f7b4fc36ca",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

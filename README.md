@@ -10,6 +10,8 @@ Website policies are published and the plain URLs were rechecked on 17 November 
 
 Local `github` and `play` editions now share the same app ID and storage. GitHub retains every provider; Play excludes catalogue discovery and shortcuts while retaining SauceNAO/IQDB. Reverse-image content review and signed update testing remain required. See [distribution variants and build commands](docs/guides/DISTRIBUTION_VARIANTS.md). Nothing has been published from this split.
 
+On the `google_play` branch, **Plugins → Import plugin** opens the Android file picker for a local `.bcmplugin` descriptor. The v2.7.0 Play debug and release builds register zero plugins. Neither DLsite nor Plugin Marketplace can be imported or restored from an earlier edition. SauceNAO and IQDB remain available through the existing reverse-image controls.
+
 ## Find the right documentation
 
 - Start using the app: [installation](docs/guides/INSTALL.md) and [user guide](docs/guides/USER_GUIDE.md).

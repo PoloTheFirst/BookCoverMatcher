@@ -16,7 +16,7 @@ Existing catalogue bookmarks are retained in storage but displayed as unavailabl
 
 ## Plugins navigation
 
-Both editions include **Plugins** immediately after **More**, with a puzzle icon. In 2.7.0 this is an informational placeholder; downloads, installation and runtime plugin loading are deferred. Existing providers are unchanged. The shared tab passed debug build/lint and API36 emulator navigation checks for both editions on 18 November 2026.
+On the `google_play` branch, **Plugins → Import plugin** opens the Android file picker for a local `.bcmplugin` descriptor. The v2.7.0 Play debug and release builds register zero plugins. Neither DLsite nor Plugin Marketplace can be imported or restored from an earlier edition. SauceNAO and IQDB remain available through the existing reverse-image controls.
 
 ## Build and verify locally
 

@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-18 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-24 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
@@ -63,6 +63,10 @@ Added Plugins immediately after More in both 2.7.0/code226 editions, using a pro
 ## Source checkpoint and next development branch (18 November 2026)
 
 Owner authorized committing and pushing the reviewed v2.7.0 source checkpoint to google_play, then continuing on feature/plugin-framework. This checkpoint includes the pending stable baseline, separate distribution variants and shared Plugins placeholder. Main must remain unchanged; no tags, hosted releases, binary uploads or Google submissions are authorized. Downloadable plugins remain deferred. Local IDE settings, generated APK metadata, build artifacts and untracked QA logs are excluded from the source commit.
+
+## Play plugin host (24 November 2026)
+
+On the google_play branch, Plugins → Import plugin opens the Android file picker for a local .bcmplugin descriptor. The v2.7.0 Play debug and release builds register zero plugins. Neither DLsite nor Plugin Marketplace can be imported or restored from an earlier edition. SauceNAO and IQDB remain available through the existing reverse-image controls. On BCM_API36_CachyOS, playDebug 2.7.0/226 launched after an in-place update. The Plugins tab displayed “Import plugin” and “No imported plugins”, with zero switches and no DLsite or marketplace card.
 
 ## Next steps
 
