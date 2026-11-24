@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -64,7 +67,7 @@ internal fun ExpandChevronButton(
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "chevron")
     Box(
         modifier
-            .size(34.dp)
+            .size(48.dp)
             .clip(RoundedCornerShape(9.dp))
             .border(1.dp, Palette.Line, RoundedCornerShape(9.dp))
             .clickable(role = Role.Button, onClick = onToggle),
@@ -159,6 +162,7 @@ internal fun ResultActionChip(
 ) {
     Box(
         modifier
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(9.dp))
             .background(color.copy(alpha = 0.14f))
             .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(9.dp))
@@ -166,6 +170,6 @@ internal fun ResultActionChip(
             .padding(horizontal = 8.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, color = color, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
     }
 }

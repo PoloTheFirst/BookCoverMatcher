@@ -12,6 +12,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.alpha
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
@@ -268,7 +269,7 @@ fun SegmentedTab(
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                maxLines = maxLines.coerceAtLeast(2),
+                maxLines = if (LocalDensity.current.fontScale > 1f) Int.MAX_VALUE else maxLines.coerceAtLeast(2),
                 overflow = TextOverflow.Ellipsis,
             )
             if (count != null) {

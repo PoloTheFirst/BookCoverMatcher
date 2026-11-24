@@ -10,7 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,12 +28,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -130,41 +131,39 @@ internal fun PackagedDocumentReader(
                 .border(1.dp, Palette.Line, RoundedCornerShape(14.dp))
         }
         Column(surface.padding(14.dp)) {
-            Header(
-                document = current,
-                fullScreen = fullScreen,
-                onToggleFullScreen = { fullScreen = !fullScreen },
-            )
-            Spacer(Modifier.height(8.dp))
-            DocumentTabs(documents, current) { currentIndex = documents.indexOf(it) }
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                when (val document = loaded) {
-                    LoadedDocument.Loading -> Text(
-                        "Reading ${current.title}\u2026",
-                        color = Palette.Muted,
-                        fontSize = 11.sp,
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                // On short windows, scroll the header with the document so it cannot consume the reading area.
+                val scrollHeader = maxHeight < 360.dp * LocalDensity.current.fontScale
+                Column(
+                    Modifier.fillMaxSize().then(if (scrollHeader) Modifier.verticalScroll(scroll) else Modifier),
+                ) {
+                    Header(
+                        document = current,
+                        fullScreen = fullScreen,
+                        onToggleFullScreen = { fullScreen = !fullScreen },
                     )
-
-                    LoadedDocument.Failed -> Text(
-                        "This document could not be read from the APK, so nothing is shown rather than a " +
-                            "partial document.",
-                        color = Palette.Warn,
-                        fontSize = 11.sp,
-                    )
-
-                    is LoadedDocument.Ready -> Column(
-                        Modifier
-                            .fillMaxSize()
-                            .verticalScroll(scroll)
-                            .padding(end = 4.dp),
-                    ) {
-                        MarkdownDocument(
-                            blocks = document.blocks,
-                            onOpenUrl = onOpenUrl,
-                            baseSize = if (fullScreen) 16.sp else 14.sp,
-                            onLinkRefused = onLinkRefused,
+                    Spacer(Modifier.height(8.dp))
+                    DocumentTabs(documents, current) { currentIndex = documents.indexOf(it) }
+                    Spacer(Modifier.height(8.dp))
+                    when (val document = loaded) {
+                        LoadedDocument.Loading -> Text("Reading ${current.title}…", color = Palette.Muted)
+                        LoadedDocument.Failed -> Text(
+                            "This document could not be read from the APK, so nothing is shown rather than a " +
+                                "partial document.",
+                            color = Palette.Warn,
                         )
+                        is LoadedDocument.Ready -> Column(
+                            Modifier.fillMaxWidth()
+                                .then(if (scrollHeader) Modifier else Modifier.weight(1f).verticalScroll(scroll))
+                                .padding(end = 4.dp),
+                        ) {
+                            MarkdownDocument(
+                                blocks = document.blocks,
+                                onOpenUrl = onOpenUrl,
+                                baseSize = if (fullScreen) 16.sp else 14.sp,
+                                onLinkRefused = onLinkRefused,
+                            )
+                        }
                     }
                 }
             }
@@ -221,7 +220,10 @@ private fun DocumentTabs(documents: List<ReaderDocument>, current: ReaderDocumen
                 modifier = Modifier.weight(1f).semantics { selected = document == current },
                 minHeight = 48.dp,
                 contentPadding = 8.dp,
-            ) { Text(document.shortLabel, color = Palette.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
+            ) {
+                Text(document.shortLabel, color = Palette.Text, fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.text.style.TextAlign
 import android.Manifest
@@ -156,7 +157,7 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
                 containerColor = Color.Transparent,
                 bottomBar = { BottomBar(ui.tab, vm::selectTab) },
             ) { padding ->
-                Box(Modifier.fillMaxSize().padding(padding)) {
+                Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                     val ready = ui.model is ModelUi.Ready
                     tabStates.SaveableStateProvider(ui.tab) {
                         when (ui.tab) {
