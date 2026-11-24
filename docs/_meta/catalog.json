@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "0a93a84b3b34a0980427b300a2b3d536aca1a51ec2a2f9cfadc151a7e7834391",
+  "fingerprint": "320a8322abe8880050fbbfdcd662e1c2ee3cbc01bc1b469b7cbc0891bb60f4a6",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 13449,
-      "sha256": "b9ed90a1a292725e2d496d7181b790f8718964beb86dc1e0326b9a77988dc8a7",
+      "bytes": 13681,
+      "sha256": "6023f5e8ac03421caedea382a548ea4c76d8084f9bc8c405f4588f5ea7135381",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2169,6 +2169,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Publish both editions for dev.1 through dev.4, preserve the original standard APKs and link each Plus source commit."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.5/publication/reports/2026-11-25__android-3.0.0-dev.5-code231__publication__github-editions__report__r01.md",
+      "bytes": 2773,
+      "sha256": "2023c564b68e188438bad77a0a08c80c817edd61255127219be10c4015b7d429",
+      "version": "3.0.0-dev.5",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.5/publication//github-editions/report/2026-11-25",
+        "title": "BCM and BCM Plus dev.5 publication",
+        "kind": "report",
+        "version_id": "3.0.0-dev.5",
+        "version_name": "3.0.0-dev.5",
+        "version_code": 231,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-editions",
+        "created_at": "2026-11-25T00:57:44+08:00",
+        "updated_at": "2026-11-25T00:57:44+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Commit and push dev.5 and publish both signed APKs on GitHub."
       }
     },
     {

@@ -104,6 +104,10 @@ Dev.1 through dev.4 offer the standard BCM and explicit BCM Plus signed APKs. St
 
 Dev.5 (231) removes the matching button glow and lets Online result actions wrap while showing wishlist membership. Current standard and Plus APK filenames begin with BCM-v and BCM-Plus-v respectively.
 
+## GitHub dev.5 publication
+
+The v3.0.0-dev.5 (231) GitHub prerelease offers signed BCM and BCM Plus APKs. See the dev.5 publication report for sources, asset sizes and verified hashes.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
