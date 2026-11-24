@@ -2,9 +2,11 @@
 
 package com.bookcovermatcher.ui.theme
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
@@ -75,5 +77,7 @@ fun BookCoverTheme(content: @Composable () -> Unit) {
         outlineVariant = Palette.Line,
         error = Palette.Danger,
     )
-    MaterialExpressiveTheme(colorScheme = scheme, content = content)
+    MaterialExpressiveTheme(colorScheme = scheme) {
+        CompositionLocalProvider(LocalContentColor provides scheme.onSurface, content = content)
+    }
 }

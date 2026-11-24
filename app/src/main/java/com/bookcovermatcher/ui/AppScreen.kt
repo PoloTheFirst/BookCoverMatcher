@@ -5,7 +5,13 @@ package com.bookcovermatcher.ui
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.text.style.TextAlign
@@ -236,14 +242,44 @@ private fun ScreenScroll(content: @Composable () -> Unit) {
     }
 }
 
+private val navigationLabels = mapOf(
+    AppTab.HOME to "Home",
+    AppTab.SEARCH to "Search",
+    AppTab.WISHLIST to "Wishlist",
+    AppTab.MORE to "More",
+    AppTab.PLUGINS to "Plugins",
+)
+
 @Composable
 private fun BottomBar(selected: AppTab, onSelect: (AppTab) -> Unit) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-        BottomItem(AppTab.HOME, "Home", Icons.Filled.Home, selected, onSelect)
-        BottomItem(AppTab.SEARCH, "Search", Icons.Filled.Search, selected, onSelect)
-        BottomItem(AppTab.WISHLIST, "Wishlist", Icons.Filled.Star, selected, onSelect)
-        BottomItem(AppTab.MORE, "More", Icons.Filled.MoreVert, selected, onSelect)
-        BottomItem(AppTab.PLUGINS, "Plugins", ImageVector.vectorResource(R.drawable.ic_puzzle), selected, onSelect)
+    val measurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelMedium
+    val labelWidth = remember(measurer, labelStyle) {
+        navigationLabels.values.maxOf { measurer.measure(it, labelStyle).size.width }
+    }
+    val itemWidth = with(LocalDensity.current) { labelWidth.toDp() } + 24.dp
+    val container = MaterialTheme.colorScheme.surfaceContainer
+    BoxWithConstraints(Modifier.fillMaxWidth().background(container).windowInsetsPadding(NavigationBarDefaults.windowInsets)) {
+        val count = navigationLabels.size
+        val capacity = (maxWidth / itemWidth).toInt().coerceIn(1, count)
+        val rowCount = (count + capacity - 1) / capacity
+        val columns = (count + rowCount - 1) / rowCount
+        Column {
+            for (row in navigationLabels.entries.chunked(columns)) {
+                NavigationBar(containerColor = container, windowInsets = WindowInsets(0)) {
+                    for ((tab, label) in row) {
+                        val icon = when (tab) {
+                            AppTab.HOME -> Icons.Filled.Home
+                            AppTab.SEARCH -> Icons.Filled.Search
+                            AppTab.WISHLIST -> Icons.Filled.Star
+                            AppTab.MORE -> Icons.Filled.MoreVert
+                            AppTab.PLUGINS -> ImageVector.vectorResource(R.drawable.ic_puzzle)
+                        }
+                        BottomItem(tab, label, icon, selected, onSelect)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -259,7 +295,7 @@ private fun RowScope.BottomItem(
         selected = selected == tab,
         onClick = { onSelect(tab) },
         icon = { Icon(icon, contentDescription = null) },
-        label = { Text(label, textAlign = TextAlign.Center) },
+        label = { Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
         colors = NavigationBarItemDefaults.colors(
             indicatorColor = MaterialTheme.colorScheme.primaryContainer,
             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
