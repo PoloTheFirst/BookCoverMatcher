@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import com.bookcovermatcher.ocr.OcrEngineChoice
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,7 +86,7 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
         Panel("Online search settings") {
             SettingSwitch(
                 title = "Use online services",
-                subtitle = if (DistributionEdition.catalogueEnabled) "Off by default. Uses the selected OCR engine and catalogue providers." else "Off by default. Enables SauceNAO and the IQDB browser handoff. OCR runs on device.",
+                subtitle = if (DistributionEdition.catalogueEnabled) "Off by default. Uses the selected OCR engine and catalogue providers." else "PaddleOCR runs on device. Choosing Chrome Lens sends covers to Google for text recognition.",
                 checked = ui.online.enabled,
                 onChange = vm.online::setEnabled,
             )
@@ -104,8 +105,8 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
                 onChange = vm.online::setOcrLanguage,
             )
             Spacer(Modifier.height(8.dp))
-            if (DistributionEdition.catalogueEnabled) LanguageField(
-                label = "Translate to before searching (optional)",
+            if (DistributionEdition.catalogueEnabled || ui.online.ocrEngine == OcrEngineChoice.CHROME_LENS.id) LanguageField(
+                label = "Translate cover text to (optional)",
                 value = ui.online.targetLanguage,
                 onChange = vm.online::setTargetLanguage,
             )

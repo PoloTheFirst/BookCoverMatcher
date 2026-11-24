@@ -640,6 +640,6 @@ tasks.register("verifyPlayPublicationEligibility") {
     description = "Checks the unresolved Play review gates; local builds do not imply publication approval."
     dependsOn(verifyAuthPublicationEligibility)
     doLast {
-        throw GradleException("Play publication blocked: retained SauceNAO/IQDB results and external links require content-policy review; declarations and signing continuity also require verification.")
+        throw GradleException("Play publication blocked: review OCR data disclosures, saved external links, declarations and signing continuity.")
     }
 }

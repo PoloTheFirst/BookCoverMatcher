@@ -87,9 +87,9 @@ class OnlineSearchPrefs(context: Context) {
      * Writing normalises the value, which is the only place a legacy alias is rewritten.
      */
     var ocrEngine: String
-        get() = if (DistributionEdition.catalogueEnabled) OcrEngineChoice.fromId(sp.getString(KEY_OCR_ENGINE, ENGINE_PYTHON)).id else ENGINE_RUST
+        get() = OcrEngineChoice.fromId(sp.getString(DistributionEdition.ocrPreferenceKey, DistributionEdition.defaultOcrEngine)).id
         set(value) {
-            if (DistributionEdition.catalogueEnabled) sp.edit().putString(KEY_OCR_ENGINE, OcrEngineChoice.fromId(value).id).apply()
+            sp.edit().putString(DistributionEdition.ocrPreferenceKey, OcrEngineChoice.fromId(value).id).apply()
         }
 
     /**
@@ -124,6 +124,5 @@ class OnlineSearchPrefs(context: Context) {
         private const val KEY_PROVIDERS = "online_providers"
         private const val KEY_AUTO_SEARCH = "online_auto_search"
         private const val KEY_SECONDARY_SOURCES = "online_secondary_sources"
-        private const val KEY_OCR_ENGINE = "online_ocr_engine"
     }
 }

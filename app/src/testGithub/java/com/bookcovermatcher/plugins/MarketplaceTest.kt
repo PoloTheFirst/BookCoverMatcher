@@ -11,7 +11,7 @@ class MarketplaceTest {
             "dlsite" to "e4794a5005a489f944bb1cb70eea645301671015",
             "doujin-shop" to "835dfcbe44ad8a59f7db95be022d751a432622f4",
             "explicit-database" to "36f47ba18d483d767a893b5decac6531c8b51058",
-            "reverse-image-discovery" to "8e78300d488d3801807cf01978f838ee06ffa5e0",
+            "reverse-image-discovery" to "50a8dce34aaddf1f7dbb31a6f65a38baa8e90654",
         )
         assertEquals(pins.map { it.first }, marketplaceEntries.map { it.slug })
         for ((entry, pin) in marketplaceEntries.zip(pins)) {

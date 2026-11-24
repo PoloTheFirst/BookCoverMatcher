@@ -747,3 +747,5 @@ If your browser saved the file to **Downloads**, select it in the Files app, cho
 3. Return to **Search → Online**. You can use compatible custom and marketplace groups together. BCM orders their platforms automatically. You do not need to assign a number or import them in a particular order.
 
 Both debug editions also accept [demo.bcmplugin](../../plugins/manifests/demo.bcmplugin). Turn on **Demo card** to see “Hello from BCM”. See the [developer guide](BUNDLED_PLUGINS.md) to create descriptors.
+
+In the Play edition, enable **Use online services**, then choose **Chrome Lens** under **OCR engine** to read cover text through Google. Choose **PaddleOCR** for on-device recognition. Both choices are built in. Reverse Image Discovery is available in the GitHub plugin build.

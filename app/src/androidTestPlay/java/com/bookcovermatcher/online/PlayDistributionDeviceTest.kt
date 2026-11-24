@@ -18,13 +18,13 @@ import org.junit.runner.RunWith
 /** Run only on an isolated test installation; never clears workbook storage. */
 @RunWith(AndroidJUnit4::class)
 class PlayDistributionDeviceTest {
-    @Test fun restoredGithubPreferencesCannotActivateCatalogueOrOnlineOcr() {
+    @Test fun playOffersLensIndependentlyOfCatalogueAndDiscovery() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val store = context.getSharedPreferences("bookcover_online", Context.MODE_PRIVATE)
         val saved = store.all
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         try {
-            store.edit().putBoolean("online_enabled", true)
+            store.edit().remove("play_ocr_engine").putBoolean("online_enabled", true)
                 .putBoolean("online_auto_search", true).putBoolean("online_secondary_sources", true)
                 .putStringSet("online_providers", setOf("ol", "gb", "dl"))
                 .putString("online_ocr_engine", "python").commit()
@@ -33,6 +33,11 @@ class PlayDistributionDeviceTest {
             assertFalse(prefs.autoSearch)
             assertFalse(prefs.secondarySources)
             assertEquals("rust", prefs.ocrEngine)
+            prefs.ocrEngine = "python"
+            assertEquals("python", OnlineSearchPrefs(context).ocrEngine)
+            val engine = com.bookcovermatcher.ocr.OcrEngines.create(context)
+            val available = engine.availability()
+            assertTrue(available.toString(), available is OcrAvailability.Ready && available.libraryName == "chrome-lens-py")
             val choices = object : com.bookcovermatcher.plugins.PluginChoices {
                 override fun removed(id: String) = false
                 override fun remove(id: String) = error("Unexpected removal")
@@ -50,8 +55,13 @@ class PlayDistributionDeviceTest {
             assertTrue(manager.imported.value.isEmpty())
             val controller = OnlineSearchController(context, scope, prefs = prefs)
             try {
-                assertTrue(controller.reverseAvailable())
-                assertEquals(2, controller.ui.value.reverse.providers.size)
+                assertNull(controller.discovery)
+                for (name in listOf("online.SauceNaoReverseImageSource", "online.IqdbReverseImageSource", "data.SauceNaoKeyStore")) {
+                    assertThrows(ClassNotFoundException::class.java) {
+                        context.classLoader.loadClass("com.bookcovermatcher.$name")
+                    }
+                }
+                assertTrue(controller.ui.value.reverse.providers.isEmpty())
                 controller.search("restored query")
                 controller.setAutoSearch(true)
                 controller.setSecondarySources(true)

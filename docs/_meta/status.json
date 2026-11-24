@@ -113,6 +113,10 @@
     {
       "subject": "Catalogue setup and plugin ordering",
       "value": "On the GitHub marketplace branch, an empty catalogue offers Open Plugins. The Plugins tab has instructions for the marketplace and compatible custom descriptors. Group display order uses the numeric index, then stable plugin ID for ties. A shortcut-only selection keeps the query and browser actions. The API 36 emulator opened the Plugins tab from the empty catalogue notice and displayed both tutorials. Both debug editions built, their debug unit suites passed, and the platform-groups device test passed. The import tutorial identifies marketplace.bcmplugin as the marketplace setup file and gives the path from the bottom Plugins tab to Documents/BookCoverMatcher/Plugins in shared storage. The plugin picker requests this initial folder and allows selecting files elsewhere."
+    },
+    {
+      "subject": "OCR and reverse-image distribution (24 November 2026)",
+      "value": "Chrome Lens OCR is built into Play as an explicit engine selection alongside on-device PaddleOCR. Play excludes the SauceNAO and IQDB clients, key controls, browser handoff and paste UI. The standalone GitHub Reverse Image Discovery plugin activates these workflows together. Existing workbook and bookmark storage is preserved. API 36 instrumentation verified the Play Lens bridge loads and the standalone plugin exposes both providers only while enabled. Play APK bytecode was checked for the provider clients, key store and provider URLs."
     }
   ],
   "nextSteps": [

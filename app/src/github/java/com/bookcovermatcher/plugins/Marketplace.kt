@@ -54,7 +54,7 @@ internal val marketplaceEntries = listOf(
         "Open Melonbooks, Suruga-ya and Toranoana in your browser. Some listings are for adults."),
     MarketplaceEntry("Explicit Database Shortcuts", "explicit-database", "36f47ba18d483d767a893b5decac6531c8b51058",
         "Includes links to explicit adult sites. Opens nhentai, E-Hentai, Doujin no Mori, MyAnimeList or Doujinshi.info in your browser."),
-    MarketplaceEntry("Reverse Image Discovery", "reverse-image-discovery", "8e78300d488d3801807cf01978f838ee06ffa5e0",
+    MarketplaceEntry("Reverse Image Discovery", "reverse-image-discovery", "50a8dce34aaddf1f7dbb31a6f65a38baa8e90654",
         "Search a cover with SauceNAO or open IQDB in your browser."),
 )
 

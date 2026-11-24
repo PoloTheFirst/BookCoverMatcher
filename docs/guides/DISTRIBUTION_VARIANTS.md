@@ -4,11 +4,11 @@ Validated locally on CachyOS on 18 November 2026 against Android 2.7.0 / code 22
 
 ## What each edition contains
 
-- **GitHub:** manually imported catalogue and shortcut groups, the Doujinshi.info shortcut, OCR choices, SauceNAO and IQDB.
-- **Play:** no public catalogue searches or provider shortcuts. SauceNAO and IQDB remain at the owner's request. Cover text uses on-device PaddleOCR. Offline matching, local/cloud workbook import, source information, Rescan and personal library features remain.
+- **GitHub on this branch:** import and enable Reverse Image Discovery for SauceNAO and IQDB. Chrome Lens and PaddleOCR are built-in OCR choices.
+- **Play:** no public catalogue searches or provider shortcuts. Cover text uses on-device PaddleOCR by default. Select Chrome Lens to send covers to Google for OCR. Play excludes SauceNAO and IQDB. Offline matching, local/cloud workbook import, source information, Rescan and personal library features remain.
 - The edition is visible in More's version information. Play is an intended distribution destination, not a claim of Google approval.
 
-Catalogue registries, capability metadata, network adapters and edition help are selected through `app/src/github` and `app/src/play`. Play has empty catalogue registries and no catalogue adapter implementations. Shared controller guards also reject catalogue requests when old GitHub settings are restored. Google Lens cannot be selected in Play; shared Python dependencies remain packaged, so this is not a dependency-size reduction.
+Catalogue registries, capability metadata, network adapters and edition help are selected through `app/src/github` and `app/src/play`. Play has empty catalogue registries and no catalogue adapter implementations. Shared controller guards also reject catalogue requests when old GitHub settings are restored. Chrome Lens runs through the built-in chrome-lens-py bridge. Play stores its engine choice separately so a GitHub preference cannot enable network OCR during an update.
 
 Play also uses neutral bookmark-form examples; GitHub retains its existing examples. These are placeholders only and do not rewrite saved values.
 
@@ -73,6 +73,6 @@ The previous owner-signed `app/build/outputs/apk/release/app-release.apk` is unc
 
 This explicit check intentionally fails while review is unresolved. It depends on the existing authentication publication check, which currently fails first. It is not automatically attached to local assemble/bundle tasks and cannot prevent a manual Console upload; do not treat a successful build as permission to publish.
 
-SauceNAO and IQDB can return explicit imagery or links despite being general reverse-image tools. Keeping them does not establish Play eligibility. Review their displayed results, destinations and handling before release, together with ratings, Data safety, reviewer access, store assets and edition-specific privacy/website wording. No age declaration alone resolves prohibited-content concerns. Existing authentication, licensing, signing and public-policy-access checks also remain. Do not publish either variant as part of this local implementation.
+Before submitting Play, review Chrome Lens image transfers, saved links, ratings, Data safety, reviewer access, store assets and edition-specific privacy wording. No age declaration alone resolves prohibited-content concerns. Existing authentication, licensing, signing and public-policy-access checks also remain. Do not publish either variant as part of this local implementation.
 
 See the [implementation report](../history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__distribution-variants__report__r01.md), [current status](../STATUS.md) and [AppAuth publication gates](../integrations/APP_AUTH_PROTOTYPE.md).
