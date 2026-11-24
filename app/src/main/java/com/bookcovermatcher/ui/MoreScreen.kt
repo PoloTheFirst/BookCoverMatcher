@@ -2,6 +2,10 @@
 
 package com.bookcovermatcher.ui
 
+import com.bookcovermatcher.ui.components.ScreenHeading
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,7 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import com.bookcovermatcher.ocr.OcrEngineChoice
 import androidx.compose.runtime.Composable
@@ -79,8 +82,8 @@ import java.util.Date
 @Composable
 fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text("More", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-        Text("Settings, storage and an honest description of what each feature does.", color = Palette.Muted, fontSize = 10.5.sp)
+        ScreenHeading("More")
+        Text("Settings, storage and app information", color = Palette.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
 
         Panel("Online search settings") {
@@ -411,21 +414,19 @@ private fun AuthorAvatar(avatar: ImageBitmap?) {
 
 @Composable
 private fun SettingSwitch(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = Palette.Muted, fontSize = 10.5.sp)
+            Text(title, color = Palette.Text, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, color = Palette.Muted, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Palette.OnAccent,
-                checkedTrackColor = Palette.Accent,
-                uncheckedThumbColor = Palette.Muted,
-                uncheckedTrackColor = Palette.Navy650,
-            ),
-        )
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

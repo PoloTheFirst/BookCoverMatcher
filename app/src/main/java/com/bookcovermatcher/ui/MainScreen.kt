@@ -2,6 +2,9 @@
 
 package com.bookcovermatcher.ui
 
+import com.bookcovermatcher.ui.components.ScreenHeading
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.heading
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
@@ -176,13 +179,13 @@ fun SearchScreen(ui: UiState, vm: MainViewModel, actions: ScreenActions) {
     val bookmarkedHere = found.filter { it.key in ui.bookmarkedKeys }
 
     Column(Modifier.fillMaxWidth()) {
-        Text("Search Results", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        ScreenHeading("Search Results")
         Text(
             "Workbook matches come from the spreadsheet comparison; online results come from catalogues searched with the cover text.",
             color = Palette.Muted,
-            fontSize = 10.5.sp,
+            style = MaterialTheme.typography.bodyMedium,
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
         SegmentedTabRow {
             SegmentedTab(
@@ -374,31 +377,24 @@ private fun BookmarksResultsTab(
 
 @Composable
 private fun AppHeader() {
-    Box(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                buildAnnotatedString {
-                    append("Book")
-                    withStyle(SpanStyle(color = Palette.Accent)) { append("Cover") }
-                    append(" Matcher")
-                },
-                color = Palette.Text,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.3.sp,
-            )
-            Text(
-                "Scan a cover \u00B7 embed it \u00B7 find it inside your spreadsheet",
-                modifier = Modifier.padding(top = 4.dp),
-                color = Palette.Muted,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                letterSpacing = 0.2.sp,
-            )
-        }
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            buildAnnotatedString {
+                append("Book")
+                withStyle(SpanStyle(color = Palette.Accent)) { append("Cover") }
+                append(" Matcher")
+            },
+            modifier = Modifier.semantics { heading() },
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = Palette.Text,
+        )
+        Text(
+            "Scan a cover · embed it · find it inside your spreadsheet",
+            modifier = Modifier.padding(top = 4.dp),
+            color = Palette.Muted,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -415,10 +411,10 @@ private fun ActionRow(ui: UiState, actions: ScreenActions) {
             contentColor = Palette.OnAccent,
             modifier = Modifier.weight(1f),
             enabled = !ui.isBusy,
-            glow = Palette.Accent.copy(alpha = 0.6f),
+            contentPadding = 12.dp,
         ) {
             CameraGlyph(Palette.OnAccent)
-            ButtonLabel("Scan Book Cover", Palette.OnAccent)
+            ButtonLabel("Scan Book Cover", Palette.OnAccent, 15f)
         }
 
         val active = ui.autoScan
@@ -756,7 +752,7 @@ private fun levelGradient(level: MatchLevel): List<Color> = when (level) {
 
 @Composable
 private fun ResultRow(item: ResultUi, delayMs: Int) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = MaterialTheme.shapes.large
     val entrance = remember { Animatable(0f) }
     LaunchedEffect(item) {
         entrance.snapTo(0f)
@@ -777,9 +773,8 @@ private fun ResultRow(item: ResultUi, delayMs: Int) {
                 translationY = (1f - entrance.value) * 6.dp.toPx()
             }
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.02f))), shape)
-            .border(1.dp, Palette.Line, shape)
-            .padding(10.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+            .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -807,9 +802,7 @@ private fun ResultRow(item: ResultUi, delayMs: Int) {
                 "cos ${Formatting.cosine(item.cosine)} \u00B7 ${item.source}",
                 modifier = Modifier.padding(top = 2.dp),
                 color = Palette.Muted,
-                fontSize = 10.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
             )
             Box(
                 Modifier

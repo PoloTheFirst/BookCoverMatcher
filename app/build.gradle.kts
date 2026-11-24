@@ -141,7 +141,7 @@ fun configString(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"
 
 android {
     namespace = "com.bookcovermatcher"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = appPackageName

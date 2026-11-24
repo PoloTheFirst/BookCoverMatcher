@@ -2,6 +2,7 @@
 
 package com.bookcovermatcher.ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -41,7 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -152,7 +152,7 @@ fun CameraCard(
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val maxHeight: Dp = (screenHeightDp * 0.56f).dp
         val cardHeight: Dp = (maxWidth * (4f / 3f)).coerceAtMost(maxHeight)
-        val shape = RoundedCornerShape(18.dp)
+        val shape = MaterialTheme.shapes.extraLarge
 
         SideEffect { camera.viewAspect = maxWidth.value / cardHeight.value }
 
@@ -160,7 +160,6 @@ fun CameraCard(
             Modifier
                 .fillMaxWidth()
                 .height(cardHeight)
-                .shadow(14.dp, shape, clip = false)
                 .clip(shape)
                 .background(Color.Black)
                 .border(1.dp, Palette.Line, shape),

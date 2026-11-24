@@ -2,6 +2,12 @@
 
 package com.bookcovermatcher.ui
 
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.text.style.TextAlign
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -30,15 +36,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,9 +51,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import com.bookcovermatcher.R
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -242,52 +237,34 @@ private fun ScreenScroll(content: @Composable () -> Unit) {
 
 @Composable
 private fun BottomBar(selected: AppTab, onSelect: (AppTab) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF0B121C))
-            .navigationBarsPadding()
-            .height(62.dp)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        BottomItem(AppTab.HOME, "Home", Icons.Filled.Home, selected, onSelect, Modifier.weight(1f))
-        BottomItem(AppTab.SEARCH, "Search", Icons.Filled.Search, selected, onSelect, Modifier.weight(1f))
-        BottomItem(AppTab.WISHLIST, "Wishlist", Icons.Filled.Star, selected, onSelect, Modifier.weight(1f))
-        BottomItem(AppTab.MORE, "More", Icons.Filled.MoreVert, selected, onSelect, Modifier.weight(1f))
-        BottomItem(AppTab.PLUGINS, "Plugins", ImageVector.vectorResource(R.drawable.ic_puzzle), selected, onSelect, Modifier.weight(1f))
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        BottomItem(AppTab.HOME, "Home", Icons.Filled.Home, selected, onSelect)
+        BottomItem(AppTab.SEARCH, "Search", Icons.Filled.Search, selected, onSelect)
+        BottomItem(AppTab.WISHLIST, "Wishlist", Icons.Filled.Star, selected, onSelect)
+        BottomItem(AppTab.MORE, "More", Icons.Filled.MoreVert, selected, onSelect)
+        BottomItem(AppTab.PLUGINS, "Plugins", ImageVector.vectorResource(R.drawable.ic_puzzle), selected, onSelect)
     }
 }
 
 @Composable
-private fun BottomItem(
+private fun RowScope.BottomItem(
     tab: AppTab,
     label: String,
     icon: ImageVector,
     selected: AppTab,
     onSelect: (AppTab) -> Unit,
-    modifier: Modifier,
 ) {
-    val active = selected == tab
-    Column(
-        modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (active) Palette.Accent.copy(alpha = 0.12f) else Color.Transparent)
-            .clickable(role = Role.Tab) { onSelect(tab) }
-            .padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(
-            icon,
-            contentDescription = label,
-            tint = if (active) Palette.Accent else Palette.Muted,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(label, color = if (active) Palette.Accent else Palette.Muted, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-    }
+    NavigationBarItem(
+        selected = selected == tab,
+        onClick = { onSelect(tab) },
+        icon = { Icon(icon, contentDescription = null) },
+        label = { Text(label, textAlign = TextAlign.Center) },
+        colors = NavigationBarItemDefaults.colors(
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+    )
 }
-
 
 /** One sentence per kind of removal, so the confirmation never promises the wrong thing. */
 private fun deleteMessage(target: PendingDeleteUi?): String = when (target?.kind) {
