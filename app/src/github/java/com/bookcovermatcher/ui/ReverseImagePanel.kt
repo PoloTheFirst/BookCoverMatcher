@@ -226,6 +226,7 @@ private fun ReverseProviderRow(provider: ReverseImageProviderUi, onOpenUrl: (Str
 }
 
 /** Label + colour for every provider state, so no state is ever drawn as a plain success. */
+@Composable
 private fun stateLabel(state: ReverseImageState): Pair<String, Color> = when (state) {
     ReverseImageState.READY -> "READY" to Palette.Ok
     ReverseImageState.SEARCHING -> "SEARCHING\u2026" to Palette.Accent
@@ -496,18 +497,15 @@ private fun decisionLabel(decision: CandidateDecision): String = when (decision)
     CandidateDecision.REJECTED -> "Rejected by you"
 }
 
-/**
- * The colour of the decision line.
- *
- * `SUGGESTED` is **white** (`Palette.Text`, the app's white body text) because it is the one state the user must
- * be able to read at a glance on the navy card; it previously reused the card border colour and was invisible.
- */
+/** Suggestions use the normal foreground so they stay readable in either appearance. */
+@Composable
 private fun decisionTextColour(decision: CandidateDecision): Color = when (decision) {
-    CandidateDecision.SUGGESTED -> Color.White
+    CandidateDecision.SUGGESTED -> Palette.Text
     CandidateDecision.CONFIRMED -> Palette.Ok
     CandidateDecision.REJECTED -> Palette.Danger
 }
 
+@Composable
 private fun decisionColour(decision: CandidateDecision): Color = when (decision) {
     CandidateDecision.SUGGESTED -> Palette.Navy700
     CandidateDecision.CONFIRMED -> Palette.Ok
