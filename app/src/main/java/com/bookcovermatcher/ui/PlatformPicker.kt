@@ -341,8 +341,7 @@ fun ResultLimitPicker(limit: Int, onSelect: (Int) -> Unit) {
             }
         }
         Text(
-            "A maximum, not a promise: each platform caps it (DLsite and Melonbooks list one page, " +
-                "Google Books stops at 40). The offline top-5 is unaffected.",
+            "Each catalogue limits how many results it can return. This setting applies to online searches.",
             color = Palette.Muted,
             fontSize = 9.sp,
             modifier = Modifier.padding(top = 4.dp),

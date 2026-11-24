@@ -275,6 +275,7 @@ private fun OnlineResultsTab(ui: UiState, vm: MainViewModel, actions: ScreenActi
     OnlineSearchPanel(
         ui = ui.online,
         controller = vm.online,
+        onOpenPlugins = { vm.selectTab(AppTab.PLUGINS) },
         onOpenUrl = actions.onOpenUrl,
         bookmarkedKeys = ui.bookmarkedKeys,
         wishlistedKeys = ui.wishlistedKeys,

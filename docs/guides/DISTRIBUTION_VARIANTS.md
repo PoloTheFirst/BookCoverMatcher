@@ -4,7 +4,7 @@ Validated locally on CachyOS on 18 November 2026 against Android 2.7.0 / code 22
 
 ## What each edition contains
 
-- **GitHub:** all existing catalogue providers, browser shortcuts, OCR choices, SauceNAO and IQDB.
+- **GitHub on this branch:** import and enable Reverse Image Discovery for SauceNAO and IQDB. Chrome Lens and PaddleOCR are built-in OCR choices.
 - **Play:** no public catalogue searches or provider shortcuts. Cover text uses on-device PaddleOCR by default. Select Chrome Lens to send covers to Google for OCR. Play excludes SauceNAO and IQDB. Offline matching, local/cloud workbook import, source information, Rescan and personal library features remain.
 - The edition is visible in More's version information. Play is an intended distribution destination, not a claim of Google approval.
 
@@ -14,9 +14,11 @@ Play also uses neutral bookmark-form examples; GitHub retains its existing examp
 
 Existing catalogue bookmarks are retained in storage but displayed as unavailable in Play, with their thumbnail, metadata and link hidden. Workbook matches, custom bookmarks and results whose provider provenance consists only of SauceNAO/IQDB remain usable. Switching back to GitHub restores access to retained catalogue records. This boundary does not filter arbitrary personal workbook content, custom URLs or reverse-image results.
 
+The `plugin/plugin-marketplace` branch builds four platform groups, Reverse Image Discovery and the optional descriptor marketplace into its GitHub APK. Enabling it retrieves missing descriptors and restores selected groups. Disabling it suspends their contributions. The Play source set excludes the registration, catalogue and downloader.
+
 ## Plugins navigation
 
-On the `google_play` branch, **Plugins → Import plugin** opens the Android file picker for a local `.bcmplugin` descriptor. The v2.7.0 Play debug and release builds register zero plugins. Neither DLsite nor Plugin Marketplace can be imported or restored from an earlier edition. Reverse-image discovery is excluded from the Play APK.
+Both editions include **Plugins** immediately after **More**, with a puzzle icon. In GitHub debug and release, users can import the descriptors for groups compiled into their build and toggle them. Play excludes these groups and rejects their descriptors, including after a GitHub update. Both debug editions also accept the demo descriptor. Play release has no registered plugins. See the [bundled plugin guide](BUNDLED_PLUGINS.md) for the developer contract and activation behavior.
 
 ## Build and verify locally
 

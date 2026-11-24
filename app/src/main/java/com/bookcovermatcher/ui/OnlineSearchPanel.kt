@@ -70,6 +70,7 @@ fun OnlineSearchPanel(
     ui: OnlineSearchUi,
     controller: OnlineSearchController,
     onOpenUrl: (String) -> Unit,
+    onOpenPlugins: () -> Unit,
     bookmarkedKeys: Set<String>,
     wishlistedKeys: Set<String>,
     onToggleBookmark: (com.bookcovermatcher.ProductResultUi) -> Unit,
@@ -123,11 +124,12 @@ fun OnlineSearchPanel(
         OcrSection(ui, controller)
         Spacer(Modifier.height(12.dp))
         if (DistributionEdition.catalogueEnabled) {
-            SecondarySourcesRow(ui, controller)
+            if (ui.providers.any { com.bookcovermatcher.core.online.ProviderCapabilities.isSecondary(it.id) }) SecondarySourcesRow(ui, controller)
             Spacer(Modifier.height(12.dp))
             CatalogueSection(
                 ui = ui,
                 controller = controller,
+                onOpenPlugins = onOpenPlugins,
                 onOpenUrl = onOpenUrl,
                 bookmarkedKeys = bookmarkedKeys,
                 wishlistedKeys = wishlistedKeys,
@@ -136,6 +138,9 @@ fun OnlineSearchPanel(
                 onBulkAdd = onBulkAdd,
                 onBookmarkAll = onBookmarkAll,
             )
+        }
+        if ((!DistributionEdition.catalogueEnabled || ui.providers.none { !it.manual }) && ui.reverse.providers.isNotEmpty()) {
+            ResultLimitPicker(ui.resultLimit, controller::setResultLimit)
         }
         if (ui.reverse.providers.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
@@ -232,7 +237,7 @@ private fun SecondarySourcesRow(ui: OnlineSearchUi, controller: OnlineSearchCont
         Column(Modifier.weight(1f)) {
             Text("General-book sources", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Open Library and Google Books. Off = not queried at all; DLsite is never affected.",
+                "Open Library and Google Books. Off = not queried at all; catalogue plugins use their own switches.",
                 color = Palette.Muted,
                 fontSize = 10.sp,
             )
@@ -313,7 +318,7 @@ private fun OcrSection(ui: OnlineSearchUi, controller: OnlineSearchController) {
             )
             Spacer(Modifier.height(6.dp))
             OcrTextField(ocr.text)
-            if (DistributionEdition.catalogueEnabled && ocr.suggestion.isNotEmpty()) {
+            if (ui.providers.any { !it.manual } && ocr.suggestion.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier
@@ -387,6 +392,7 @@ private fun CatalogueSection(
     ui: OnlineSearchUi,
     controller: OnlineSearchController,
     onOpenUrl: (String) -> Unit,
+    onOpenPlugins: () -> Unit,
     bookmarkedKeys: Set<String>,
     wishlistedKeys: Set<String>,
     onToggleBookmark: (com.bookcovermatcher.ProductResultUi) -> Unit,
@@ -394,7 +400,14 @@ private fun CatalogueSection(
     onBulkAdd: () -> Unit,
     onBookmarkAll: () -> Unit,
 ) {
-    FieldLabel("B · Search the catalogues (Open Library + Google Books)")
+    FieldLabel("B · Search the catalogues")
+    if (ui.providers.isEmpty()) {
+        Text("No catalogue plugins are active. Enable an installed provider, import a compatible custom plugin, or use Plugin Marketplace.",
+            color = Palette.Muted, fontSize = 13.sp)
+        androidx.compose.material3.TextButton(onClick = onOpenPlugins) { Text("Open Plugins") }
+        return
+    }
+    val searchable = ui.providers.any { !it.manual }
 
     BasicTextField(
         value = ui.query,
@@ -409,8 +422,8 @@ private fun CatalogueSection(
         textStyle = TextStyle(color = Palette.Text, fontSize = 13.sp),
         cursorBrush = SolidColor(Palette.Accent),
         maxLines = 2,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { controller.search() }),
+        keyboardOptions = KeyboardOptions(imeAction = if (searchable) ImeAction.Search else ImeAction.Done),
+        keyboardActions = if (searchable) KeyboardActions(onSearch = { controller.search() }) else KeyboardActions.Default,
         decorationBox = { inner ->
             Box {
                 if (ui.query.isEmpty()) {
@@ -432,9 +445,10 @@ private fun CatalogueSection(
     PlatformPicker(
         providers = ui.providers,
         onToggle = controller::toggleProvider,
-        onOpenLink = onOpenUrl,
+        onOpenLink = { url -> if (controller.canOpenPlatform(url)) onOpenUrl(url) },
     )
     Spacer(Modifier.height(10.dp))
+    if (!searchable) return
     ResultLimitPicker(ui.resultLimit, controller::setResultLimit)
     Spacer(Modifier.height(10.dp))
 

@@ -11,7 +11,7 @@ package com.bookcovermatcher.core.online
 object ProviderCapabilities {
 
     val OPEN_LIBRARY = ProviderCapability(
-        providerId = ProviderCatalog.OPEN_LIBRARY.id,
+        providerId = "ol",
         fields = setOf(SearchField.TITLE, SearchField.AUTHOR, SearchField.CODE),
         pageSize = 20,
         summary = "Searches Open Library by title, author or ISBN. It has no circle field and no image search.",
@@ -19,7 +19,7 @@ object ProviderCapabilities {
     )
 
     val GOOGLE_BOOKS = ProviderCapability(
-        providerId = ProviderCatalog.GOOGLE_BOOKS.id,
+        providerId = "gb",
         fields = setOf(SearchField.TITLE, SearchField.AUTHOR, SearchField.CODE),
         pageSize = 20,
         summary = "Searches Google Books by title, author or ISBN. It has no circle field and no image search.",
@@ -27,7 +27,7 @@ object ProviderCapabilities {
     )
 
     val DLSITE = ProviderCapability(
-        providerId = ProviderCatalog.DLSITE.id,
+        providerId = "dl",
         fields = setOf(SearchField.TITLE, SearchField.CIRCLE, SearchField.CODE),
         pageSize = 30,
         summary = "Searches DLsite by keyword: a title, a circle name or an RJ code. It has no author field " +
@@ -37,6 +37,7 @@ object ProviderCapabilities {
 
     /** Every capability of this build, in catalogue order. */
     val ALL: List<ProviderCapability> = listOf(OPEN_LIBRARY, GOOGLE_BOOKS, DLSITE)
+        .filter { ProviderCatalog.byId(it.providerId) != null }
 
     /** The capability of [providerId], or null when this build does not query that provider. */
     fun of(providerId: String): ProviderCapability? =

@@ -20,6 +20,8 @@ import com.bookcovermatcher.core.online.ProductSearchDataSource
 import com.bookcovermatcher.core.online.ProductSearchOutcome
 import com.bookcovermatcher.core.online.ProductSearchResult
 import com.bookcovermatcher.core.online.DistributionEdition
+import com.bookcovermatcher.plugins.ActivePlatforms
+import com.bookcovermatcher.plugins.platforms
 import com.bookcovermatcher.core.online.ProviderCatalog
 import com.bookcovermatcher.core.online.ProviderSpec
 import com.bookcovermatcher.core.online.SearchLimits
@@ -66,28 +68,72 @@ import kotlinx.coroutines.withTimeout
  *
  * Nothing runs when [OnlineSearchPrefs.enabled] is off, and no step touches the offline matcher.
  */
-class OnlineSearchController(
+class OnlineSearchController internal constructor(
     context: Context,
     private val scope: CoroutineScope,
     private val prefs: OnlineSearchPrefs = OnlineSearchPrefs(context),
     private val bridge: OcrTextSource = OcrEngines.create(context),
-    /**
-     * Every provider the app can query itself, each through its own adapter:
-     *  * **Open Library** — library catalogue, JSON API;
-     *  * **Google Books** — book catalogue, JSON API;
-     *  * **DLsite** — doujinshi / digital works shop, public search page (HTML).
-     *
-     * Melonbooks and Suruga-ya are deliberately **not** here: the first is browser-only by product
-     * decision (v2.2.2 patch), the second because its `robots.txt` disallows `/search/`. Doujin no Mori
-     * disallows its own search route in `robots.txt`, Doujinshi.info and nhentai answer HTTP 403 to
-     * automated clients, and MyAnimeList has no unauthenticated API — all five are listed by
-     * [ProviderCatalog] for the browser-handoff card only (E-Hentai too, as an adult catalogue).
-     * Which of these actually run is decided by the user's platform selection ([SearchRouting]).
-     */
-    private val catalogues: List<ProductSearchDataSource> = CatalogueSources.create(),
     private val covers: CoverImageLoader = CoverImageLoader(),
+    private val activeGroups: () -> List<ActivePlatforms> = { emptyList() },
+    private val disableGroup: (String) -> Unit = {},
     private val onMessage: (String, ToastKind) -> Unit = { _, _ -> },
 ) {
+    private fun effectiveSelection(groups: List<ActivePlatforms> = activeGroups()): Set<String> {
+        val selected = prefs.selectedProviders
+        return groups.flatMap { activation ->
+            val entries = activation.group.entries
+            entries.filter { it.selectable && (entries.size == 1 || it.id in selected) }
+        }.mapTo(mutableSetOf()) { it.id }
+    }
+
+    private fun activeSources() = activeGroups().flatMap { it.sources }
+    private var searchSources = emptyList<ProductSearchDataSource>()
+
+    fun canOpenPlatform(url: String): Boolean = activeGroups().platforms().any {
+        it.hasLink && runCatching { it.searchUrl(_ui.value.query) }.getOrNull() == url
+    }
+
+    /** Revoke the previous activation even if another instance of the same group is already active. */
+    fun refreshCataloguePlugins() {
+        val activation = activeReverseGroup()
+        if (activation !== discoveryActivation) {
+            discovery?.close()
+            discoveryActivation = activation
+            discovery = newDiscovery(activation)
+        }
+        val active = activeSources()
+        val removed = searchSources.filterNot { it in active }.map { it.name }.toSet()
+        val invalid = removed.isNotEmpty()
+        if (invalid) {
+            if (_ui.value.catalogue is CatalogueUi.Running) job?.cancel()
+            searchSources = searchSources.filter { it in active }
+        }
+        session.clearEntries()
+        val selection = effectiveSelection()
+        _ui.update { state ->
+            val current = state.catalogue
+            val catalogue = when {
+                !invalid -> current
+                current is CatalogueUi.Found -> {
+                    val remaining = current.items.filterNot { it.provider in removed }
+                    if (remaining.isEmpty()) CatalogueUi.Idle else current.copy(
+                        items = remaining,
+                        source = remaining.map { it.source }.distinct().joinToString(" + "),
+                        totalAvailable = null,
+                        note = null,
+                    )
+                }
+                else -> CatalogueUi.Idle
+            }
+            val previousRows = state.providers.associateBy { it.id }
+            val providers = providerStatuses(state.query, selection).map { row ->
+                val old = previousRows[row.id]
+                if (old != null && row.name !in removed && row.selected == old.selected && (!invalid || old.state != ProviderState.SEARCHING)) old else row
+            }
+            state.copy(selectedProviders = selection, providers = providers, catalogue = catalogue)
+        }
+    }
+
     private val _ui = MutableStateFlow(
         OnlineSearchUi(
             enabled = prefs.enabled,
@@ -95,9 +141,9 @@ class OnlineSearchController(
             ocrLanguage = prefs.ocrLanguage,
             targetLanguage = prefs.targetLanguage,
             ocrEngine = prefs.ocrEngine,
-            selectedProviders = prefs.selectedProviders,
+            selectedProviders = effectiveSelection(),
             resultLimit = prefs.resultLimit,
-            providers = providerStatuses(query = "", selected = prefs.selectedProviders),
+            providers = providerStatuses(query = "", selected = effectiveSelection()),
             reverse = ReverseImageUi(secondarySources = prefs.secondarySources),
         ),
     )
@@ -105,7 +151,13 @@ class OnlineSearchController(
 
     /** The captured cover, JPEG-encoded and ready to hand to the OCR bridge. */
     private var capture: ByteArray? = null
-    internal val discovery = createDiscovery(context, scope, prefs, _ui, { capture }, onMessage)
+    private fun activeReverseGroup() = activeGroups().firstOrNull { it.group.reverseSources != null }
+    private val newDiscovery = { group: ActivePlatforms? ->
+        createDiscovery(context, scope, prefs, _ui, { capture }, onMessage, group) { activeReverseGroup() === group }
+    }
+    private var discoveryActivation = activeReverseGroup()
+    internal var discovery = newDiscovery(discoveryActivation)
+        private set
     private var job: Job? = null
     private var bridgeChecked = false
 
@@ -122,6 +174,7 @@ class OnlineSearchController(
         val limit: Int,
         /** Which platforms were selected when this answer was produced. */
         val selectionKey: String,
+        val sources: List<ProductSearchDataSource>,
         val results: List<ProductSearchResult>,
         val totalAvailable: Int?,
         val source: String,
@@ -148,7 +201,7 @@ class OnlineSearchController(
         automated: Map<String, Pair<ProviderState, String>> = emptyMap(),
         searching: Boolean = false,
         secondaryOn: Boolean = prefs.secondarySources,
-    ): List<ProviderStatusUi> = ProviderCatalog.ALL.map { spec ->
+    ): List<ProviderStatusUi> = activeGroups().platforms().map { spec ->
         val manual = !spec.selectable
         val isSelected = spec.selectable && spec.id in selected
         val switchedOff = isSelected && !secondaryOn && ProviderCapabilities.isSecondary(spec.id)
@@ -190,7 +243,7 @@ class OnlineSearchController(
                 catalogue = CatalogueUi.Idle,
                 query = "",
                 // A disabled feature has searched nothing: every row goes back to its resting state.
-                providers = providerStatuses(query = "", selected = prefs.selectedProviders),
+                providers = providerStatuses(query = "", selected = effectiveSelection()),
             )
         }
         if (on) {
@@ -232,7 +285,7 @@ class OnlineSearchController(
         _ui.update {
             it.copy(
                 reverse = it.reverse.copy(secondarySources = on),
-                providers = providerStatuses(it.query, prefs.selectedProviders, secondaryOn = on),
+                providers = providerStatuses(it.query, effectiveSelection(), secondaryOn = on),
             )
         }
         onMessage(
@@ -253,7 +306,8 @@ class OnlineSearchController(
      */
     fun toggleProvider(id: String) {
         if (!DistributionEdition.catalogueEnabled) return
-        val spec = ProviderCatalog.byId(id) ?: return
+        val group = activeGroups().firstOrNull { active -> active.group.entries.any { it.id == id } } ?: return
+        val spec = group.group.entries.first { it.id == id }
         // Browser-only cards are deliberately not selectable: they have no in-app search to enable.
         if (!spec.selectable) {
             onMessage(
@@ -262,10 +316,14 @@ class OnlineSearchController(
             )
             return
         }
-        val current = prefs.selectedProviders
+        if (group.group.entries.size == 1) {
+            disableGroup(group.group.id)
+            return
+        }
+        val current = effectiveSelection()
         val next = SearchRouting.toggle(current, id)
         if (next == current) return
-        prefs.selectedProviders = next
+        prefs.setProviderSelected(id, id in next, group.group.entries.map { it.id }.toSet())
 
         val wasRunning = _ui.value.catalogue is CatalogueUi.Running
         if (wasRunning) {
@@ -528,7 +586,7 @@ class OnlineSearchController(
         }
         when {
             suggestion == null -> onMessage("Text found, but no title could be picked out.", ToastKind.INFO)
-            prefs.autoSearch -> search(suggestion.query)
+            prefs.autoSearch && _ui.value.providers.any { !it.manual } -> search(suggestion.query)
             else -> onMessage("Cover text read.", ToastKind.OK)
         }
     }
@@ -559,7 +617,8 @@ class OnlineSearchController(
         }
         if (_ui.value.isBusy) return
 
-        val selection = prefs.selectedProviders
+        val groups = activeGroups()
+        val selection = effectiveSelection(groups)
         val limit = SearchLimits.sanitize(prefs.resultLimit)
         val selectionKey = SearchRouting.key(selection)
         val secondaryOn = prefs.secondarySources
@@ -571,14 +630,14 @@ class OnlineSearchController(
         if (automatedSpecs.isEmpty()) {
             session.invalidate()
             val switchedOffOnly = SearchRouting.automated(selection).isNotEmpty()
-            val shortcuts = SearchRouting.shortcuts().filter { it.hasLink }.joinToString { it.name }
+            val shortcuts = groups.platforms().filter { !it.selectable && it.hasLink }.joinToString { it.name }
             val message = when {
                 // Selected, but every selected provider is a general-book source the user switched off.
                 switchedOffOnly ->
                     "Open Library and Google Books are switched off, so nothing was queried. Turn the " +
-                        "general-book sources back on, or select DLsite."
+                        "general-book sources back on or enable an imported catalogue plugin."
                 shortcuts.isEmpty() ->
-                    "Select at least one platform to search (Open Library, Google Books or DLsite)."
+                    "Select a platform to search."
                 else ->
                     "No in-app platform is selected. Browser-only shortcuts ($shortcuts) open their own " +
                         "search pages with the Open \u2197 buttons above."
@@ -600,7 +659,8 @@ class OnlineSearchController(
         }
 
         val selectedIds = automatedSpecs.map { it.id }.toSet()
-        val sources = catalogues.filter { specFor(it)?.id in selectedIds }
+        val sources = groups.flatMap { it.sources }.filter { specFor(it)?.id in selectedIds }
+        searchSources = sources
 
         val fingerprint = capture?.let { ImageFingerprint.of(it) }
         if (fingerprint != null) {
@@ -609,7 +669,7 @@ class OnlineSearchController(
             if (cached != null &&
                 cached.query == trimmed &&
                 cached.limit == limit &&
-                cached.selectionKey == selectionKey
+                cached.selectionKey == selectionKey && cached.sources == sources
             ) {
                 applyResults(
                     results = cached.results,
@@ -647,6 +707,7 @@ class OnlineSearchController(
                 coroutineScope {
                     sources.map { source ->
                         async {
+                            if (source !in activeSources()) throw kotlinx.coroutines.CancellationException()
                             val ask = SearchLimits.forProvider(limit, source.maxResults)
                             source to runCatching {
                                 withTimeout(PROVIDER_TIMEOUT_MS) { source.search(trimmed, ask) }
@@ -655,14 +716,13 @@ class OnlineSearchController(
                     }.awaitAll()
                 }
             }
-            if (!session.isCurrent(token)) return@launch
+            if (!session.isCurrent(token) || !activeSources().containsAll(sources)) return@launch
             applyOutcomes(
                 query = trimmed,
                 outcomes = outcomes,
                 fingerprint = fingerprint,
                 token = token,
                 limit = limit,
-                selection = selection,
                 selectionKey = selectionKey,
             )
         }
@@ -686,7 +746,6 @@ class OnlineSearchController(
         fingerprint: String?,
         token: Long,
         limit: Int,
-        selection: Set<String>,
         selectionKey: String,
     ) {
         val found = ArrayList<ProductSearchResult>()
@@ -741,9 +800,9 @@ class OnlineSearchController(
         // The rows report this search's outcome, but their Open links follow the text field: the user
         // may have typed something else while this search was running, and a late answer must never
         // drag the browser links back to the query that produced it.
-        val providers = providerStatuses(query, selection, perProvider).withQuery(_ui.value.query)
+        val providers = providerStatuses(query, effectiveSelection(), perProvider).withQuery(_ui.value.query)
         val sourceLabel = answered.distinct().joinToString(" + ")
-            .ifEmpty { catalogues.joinToString(" + ") { it.name } }
+            .ifEmpty { outcomes.joinToString(" + ") { it.first.name } }
         if (answered.isEmpty() && found.isEmpty()) {
             val reason = failures.joinToString("; ").ifEmpty { "No provider answered." }
             _ui.update { it.copy(catalogue = CatalogueUi.Failed(reason), providers = providers) }
@@ -794,7 +853,7 @@ class OnlineSearchController(
         if (fingerprint != null && !fromCache) {
             session.store(
                 fingerprint,
-                CachedSearch(query, limit, selectionKey, results, totalAvailable, source, note, providers),
+                CachedSearch(query, limit, selectionKey, searchSources, results, totalAvailable, source, note, providers),
             )
         }
         _ui.update {
@@ -817,11 +876,19 @@ class OnlineSearchController(
 
     /** Covers arrive after the text, one at a time, so the list is readable immediately. */
     private fun loadCovers(results: List<ProductSearchResult>, token: Long) {
+        val sources = searchSources.associateBy { it.name }
+        fun revoked(item: ProductSearchResult) = sources[item.source] !in activeSources()
         scope.launch {
             for (item in results) {
-                val bytes = withContext(Dispatchers.IO) { runCatching { covers.load(item.coverUrl) }.getOrNull() }
+                if (!session.isCurrent(token)) return@launch
+                if (revoked(item)) continue
+                val bytes = withContext(Dispatchers.IO) {
+                    if (revoked(item)) null
+                    else runCatching { covers.load(item.coverUrl) }.getOrNull()
+                }
                     ?: continue
                 if (!session.isCurrent(token)) return@launch
+                if (revoked(item)) continue
                 _ui.update { state ->
                     val current = state.catalogue as? CatalogueUi.Found ?: return@update state
                     // by id, never by index: the list can be deduplicated or reordered underneath us

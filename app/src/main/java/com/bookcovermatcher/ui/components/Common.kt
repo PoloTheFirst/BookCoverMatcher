@@ -117,7 +117,7 @@ fun ButtonLabel(text: String, color: Color, fontSize: Float = 16f) {
 
 /** A bordered card with the small cyan upper-case heading (`.panel`). */
 @Composable
-fun Panel(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun Panel(title: String?, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = modifier
@@ -128,16 +128,18 @@ fun Panel(title: String, modifier: Modifier = Modifier, content: @Composable Col
                 shape,
             )
             .border(1.dp, Palette.Line, shape)
-            .padding(14.dp),
+            .padding(if (title == null) 8.dp else 14.dp),
     ) {
-        Text(
-            title.uppercase(),
-            color = Palette.Accent,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 1.4.sp,
-        )
-        Spacer(Modifier.height(12.dp))
+        if (title != null) {
+            Text(
+                title.uppercase(),
+                color = Palette.Accent,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.4.sp,
+            )
+            Spacer(Modifier.height(12.dp))
+        }
         content()
     }
 }

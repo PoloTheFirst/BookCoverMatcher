@@ -19,7 +19,19 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 
 - [docs/history/android/v2.7.0-dev.2/development/prompts/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__prompt__r01.md](history/android/v2.7.0-dev.2/development/prompts/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__prompt__r01.md)
 - [docs/history/android/v2.7.0-dev.2/development/reports/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__report__r01.md](history/android/v2.7.0-dev.2/development/reports/2026-11-14__android-2.7.0-dev.2-code225__development__workbook-source-ui__report__r01.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r01.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r01.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r02.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r02.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r03.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r03.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r04.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r04.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r05.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r05.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r06.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r06.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r07.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__prompt__r07.md)
+- [docs/history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md](history/android/v2.7.0/development/prompts/2026-11-18__android-2.7.0-code226__development__plugin-framework__prompt__r01.md)
 - [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__distribution-variants__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__distribution-variants__report__r01.md)
+- [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__dlsite-plugin__report__r01.md)
+- [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__platform-plugin-groups__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__platform-plugin-groups__report__r01.md)
+- [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-framework__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-framework__report__r01.md)
+- [docs/history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-marketplace__report__r01.md](history/android/v2.7.0/development/reports/2026-11-18__android-2.7.0-code226__development__plugin-marketplace__report__r01.md)
 - [docs/history/android/v3.0.0-dev.1/development/reports/2026-11-24__android-3.0.0-dev.1-code227__development__material3-expressive__report__r01.md](history/android/v3.0.0-dev.1/development/reports/2026-11-24__android-3.0.0-dev.1-code227__development__material3-expressive__report__r01.md)
 - [docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md](history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md)
 
@@ -94,4 +106,5 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 
 ## usage
 
+- [docs/guides/BUNDLED_PLUGINS.md](guides/BUNDLED_PLUGINS.md)
 - [docs/guides/DISTRIBUTION_VARIANTS.md](guides/DISTRIBUTION_VARIANTS.md)

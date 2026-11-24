@@ -26,12 +26,18 @@ import androidx.compose.material3.Switch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bookcovermatcher.plugins.PluginRow
 import com.bookcovermatcher.plugins.PluginManager
 import com.bookcovermatcher.plugins.card
 import com.bookcovermatcher.plugins.PluginStatus
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,9 +60,10 @@ private object OpenPluginDocument : ActivityResultContracts.OpenDocument() {
 }
 
 @Composable
-internal fun PluginsScreen(manager: PluginManager) {
+internal fun PluginsScreen(manager: PluginManager, onOpenUrl: (String) -> Unit) {
     val imported = manager.imported.collectAsStateWithLifecycle().value
-    val rows = manager.rows.collectAsStateWithLifecycle().value.filter { it.descriptor.id in imported }
+    val registry = manager.rows.collectAsStateWithLifecycle().value
+    val rows = registry.filter { it.descriptor.id in imported && manager.catalogue?.fetch?.containsKey(it.descriptor.id) != true }
     val resolver = LocalContext.current.contentResolver
     val scope = rememberCoroutineScope()
     var message by rememberSaveable { mutableStateOf<String?>(null) }
@@ -76,35 +83,13 @@ internal fun PluginsScreen(manager: PluginManager) {
         Text("Plugins", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(12.dp))
         Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Import plugin") }
+        EditionImportHelp(onOpenUrl)
         message?.let { Text(it, color = Palette.Text) }
         Spacer(Modifier.height(12.dp))
         for (row in rows) {
             val descriptor = row.descriptor
-            val active = row.status == PluginStatus.ENABLED
-            val interactive = row.status in setOf(PluginStatus.ENABLED, PluginStatus.DISABLED, PluginStatus.FAILED)
-            Panel("Bundled plugin") {
-                Row(
-                    Modifier.fillMaxWidth().toggleable(
-                        value = active, enabled = interactive, role = Role.Switch,
-                        onValueChange = { manager.toggle(descriptor.id, it) },
-                    ).padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(painterResource(R.drawable.ic_puzzle), null, tint = Palette.Accent)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(descriptor.name, color = Palette.Text, fontWeight = FontWeight.Bold)
-                        Text(descriptor.description, color = Palette.Muted)
-                        val status = when (row.status) {
-                            PluginStatus.ENABLING -> "Enabling…"
-                            PluginStatus.DISABLING -> "Disabling…"
-                            else -> row.message
-                        }
-                        if (status != null) Text(status, color = Palette.Text)
-                    }
-                    Switch(checked = active, onCheckedChange = null, enabled = interactive)
-                }
-            }
+            PluginSwitchCard(row, manager)
+            key(descriptor.id) { EditionPluginPanel(row, registry, imported, manager) }
             row.card?.let { card ->
                 Spacer(Modifier.height(12.dp))
                 Panel(card.title) { Text(card.body, color = Palette.Text) }
@@ -122,10 +107,41 @@ internal fun PluginsScreen(manager: PluginManager) {
             Text("No imported plugins", color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(
-                "This build includes no plugins. Import accepts only descriptors supported by this edition.",
+                "Choose a .bcmplugin file to add a plugin supported by this edition.",
                 color = Palette.Muted,
                 fontSize = 13.sp,
             )
         }
+    }
+}
+
+@Composable
+internal fun PluginSwitchCard(row: PluginRow, manager: PluginManager) {
+    val id = row.descriptor.id
+    val paused = row.status == PluginStatus.PAUSED
+    val checked = row.status == PluginStatus.ENABLED || (paused && row.rememberedOn)
+    val interactive = row.status in setOf(PluginStatus.DISABLED, PluginStatus.ENABLED, PluginStatus.FAILED)
+    Panel(null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).heightIn(min = 48.dp).alpha(if (paused) 0.5f else 1f)
+                    .toggleable(value = checked, enabled = interactive, role = Role.Switch,
+                        onValueChange = { manager.toggle(id, it) }),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(row.descriptor.name, Modifier.weight(1f), color = Palette.Text, fontWeight = FontWeight.Bold)
+                Switch(checked = checked, onCheckedChange = null, enabled = interactive)
+            }
+            IconButton(onClick = { manager.remove(id) }) {
+                Icon(Icons.Filled.Delete, contentDescription = "Remove ${row.descriptor.name}", tint = Palette.Muted)
+            }
+        }
+        Text(row.descriptor.description, color = Palette.Muted, fontSize = 12.sp, lineHeight = 16.sp)
+        val status = when (row.status) {
+            PluginStatus.ENABLING -> "Enabling…"
+            PluginStatus.DISABLING -> "Disabling…"
+            else -> row.message
+        }
+        if (status != null) Text(status, color = Palette.Muted, fontSize = 12.sp)
     }
 }

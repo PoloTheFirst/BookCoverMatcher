@@ -17,23 +17,23 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 
+internal fun syntheticWorkbook(): ByteArray = ByteArrayOutputStream().also { out ->
+    ZipOutputStream(out).use { zip ->
+        val ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+        mapOf(
+            "[Content_Types].xml" to "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"/>",
+            "xl/workbook.xml" to "<workbook xmlns=\"$ns\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Navigation fixture\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>",
+            "xl/_rels/workbook.xml.rels" to "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>",
+            "xl/worksheets/sheet1.xml" to "<worksheet xmlns=\"$ns\"><sheetData/></worksheet>",
+        ).forEach { (path, text) -> zip.putNextEntry(ZipEntry(path).apply { time = 0L }); zip.write(text.toByteArray()); zip.closeEntry() }
+    }
+}.toByteArray()
+
 /** Exercises the actual Compose button and viewer routing without requiring a live cloud account. */
 @RunWith(AndroidJUnit4::class)
 class WorkbookImportNavigationDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
-
-    private fun workbook(): ByteArray = ByteArrayOutputStream().also { out ->
-        ZipOutputStream(out).use { zip ->
-            val ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-            mapOf(
-                "[Content_Types].xml" to "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"/>",
-                "xl/workbook.xml" to "<workbook xmlns=\"$ns\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Navigation fixture\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>",
-                "xl/_rels/workbook.xml.rels" to "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>",
-                "xl/worksheets/sheet1.xml" to "<worksheet xmlns=\"$ns\"><sheetData/></worksheet>",
-            ).forEach { (path, text) -> zip.putNextEntry(ZipEntry(path).apply { time = 0L }); zip.write(text.toByteArray()); zip.closeEntry() }
-        }
-    }.toByteArray()
 
     @Suppress("UNCHECKED_CAST")
     private fun state(vm: MainViewModel): MutableStateFlow<UiState> = MainViewModel::class.java.getDeclaredField("_ui")
@@ -69,7 +69,7 @@ class WorkbookImportNavigationDeviceTest {
 
     @Test fun bothCloudButtonsOpenTheExactSavedWorkbookIncludingDuplicates() {
         val library = WorkbookLibrary(File(context.filesDir, "workbooks"))
-        val imported = library.import(workbook().inputStream(), "navigation-fixture.xlsx")
+        val imported = library.import(syntheticWorkbook().inputStream(), "navigation-fixture.xlsx")
         val entry = when (imported) {
             is ImportResult.Added -> imported.workbook
             is ImportResult.AlreadySaved -> imported.workbook

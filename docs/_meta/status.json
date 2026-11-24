@@ -81,6 +81,58 @@
     {
       "subject": "Material 3 Expressive development build",
       "value": "The owner approved the UI refresh and allocated 3.0.0-dev.1 / 227 for local development. The published standard baseline is v2.7.0 / 226."
+    },
+    {
+      "subject": "Plugin framework plan (18 November 2026)",
+      "value": "Prepared a draft plan on feature/plugin-framework based on pushed google_play commit c2141f4. Proposed scope: bundled Kotlin module contract/registry, independent persisted toggles, StateFlow-driven immediate activation/deactivation and a debug-only local demo. Existing providers/storage/signing remain unchanged; production has no real plugins yet. .kt is implementation source and .aar a build-time Android library; .bcmplugin is only a possible later data-package extension, not a chosen executable import format. Implementation awaits approval. No app code change, build, device operation, commit, push or publication in this planning task."
+    },
+    {
+      "subject": "Bundled plugin framework implementation",
+      "value": "Approved and implemented locally on feature/plugin-framework for 2.7.0/226. Both debug editions offer a live Demo card switch and persist choices in an independent store. Release APKs exclude the demo and have empty registries. Both debug/release builds, debug unit suites, lint and API36 live-toggle/restart checks passed. The app retains its signing configuration, workbook data model and provider inventories. See the plugin-framework implementation report and bundled plugin developer guide."
+    },
+    {
+      "subject": "DLsite plugin planning",
+      "value": "Prepared a local GitHub-only DLsite catalogue plugin plan for review on feature/plugin-framework at 1b3dbee. It covers immediate switching, legacy selection migration, cancellation, cache invalidation, saved records and Play separation. Current runtime behavior remains at the bundled framework checkpoint."
+    },
+    {
+      "subject": "Manual plugin imports and GitHub DLsite",
+      "value": "Local 2.7.0/226 on plugin/dlsite accepts data-only .bcmplugin files for bundled implementations. Fresh installs start off. On first import explicit legacy choices carry over. DLsite is available in GitHub debug/release. Emulator manual import, live toggling, restart persistence and isolated routing/upgrade instrumentation passed."
+    },
+    {
+      "subject": "Live DLsite catalogue verification",
+      "value": "On 18 November 2026 the GitHub 2.7.0 (226) debug build on the API 36 emulator returned five live DLsite results for COMIC. The imported DLsite plugin was enabled in Plugins. Online services were on and general-book sources were switched off during the search. Search selected platforms displayed “5 result(s) shown · max 5 · DLsite”. The installed APK matched the local GitHub debug APK (SHA-256 4fcd93855c3100148ce3738b62e413e02b6d6260571f088e1046a8fd6349053c). After testing, general-book sources were restored to on and the imported DLsite plugin to off."
+    },
+    {
+      "subject": "Four platform plugin groups proposed for review",
+      "value": "Revision 2 of the DLsite working prompt awaits owner review. Proposed Platforms order is ordinary library fetch (0), DLsite fetch (1), doujin shop shortcuts (2) and explicit database shortcuts (3). Provider implementations stay on plugin branches. A separate GitHub-only descriptor marketplace is a recommendation. The working prompt flags the existing MyAnimeList .net destination and the proposed handling of Doujinshi.info."
+    },
+    {
+      "subject": "Indexed GitHub platform group branches",
+      "value": "Approved for local development on four independent plugin branches. Fixed order is ordinary libraries (0), DLsite (1), doujin shop shortcuts (2), explicit database shortcuts (3), then the ungrouped Doujinshi.info shortcut. MyAnimeList uses myanimelist.net. The marketplace is deferred."
+    },
+    {
+      "subject": "Indexed platform migration verified locally",
+      "value": "Four independent branches supply the GitHub groups at indices 0–3. A combined API 36 emulator build displayed the approved eleven-platform sequence after manual imports and reverse-order activation. GitHub and Play debug/release builds and unit suites passed; Play rejected the four descriptors. The versioned platform-plugin-groups report records branch and artifact evidence."
+    },
+    {
+      "subject": "Plugin branches on GitHub and marketplace prompt review",
+      "value": "Verified four GitHub branch tips with their plugin documentation: ordinary-library-fetch 2871b4a, dlsite-fetch 3b38b2f, doujin-shop-shortcut 33c1e8f and explicit-database-shortcut b0bc3c3. The remote main, google_play and feature/plugin-framework refs retained their pre-push revisions. Owner approved the GitHub-only marketplace direction and requested working prompt revision 3 for review before implementation."
+    },
+    {
+      "subject": "Optional GitHub plugin marketplace",
+      "value": "Android 2.7.0 (226) on plugin/plugin-marketplace includes a manually imported marketplace and all four platform groups. Saving a pinned descriptor and importing it are separate user actions. Isolated API 36 testing covered real saving, cancellation, offline failure, independent switches, restart and a build missing a group. Both editions built and Play rejected the marketplace descriptor. See the versioned plugin-marketplace report."
+    },
+    {
+      "subject": "Marketplace provider lifecycle",
+      "value": "Revision 4 on plugin/plugin-marketplace replaces the earlier save-and-import flow. Enabling the marketplace fetches its missing GitHub descriptors. The four group switches, including DLsite-fetch, live under the parent. Switching off pauses groups without losing their selections. A removed group requires explicit download to return. On BCM_API36_CachyOS the updated GitHub APK fetched the missing groups, displayed DLsite-fetch as checked and inactive while its parent was off, and preserved all four switch positions after re-enabling. Two isolated Android lifecycle tests passed, including removal/re-download, offline retry, process restoration and late fetch cancellation. GitHub and Play debug/release builds, debug unit tests and lint completed."
+    },
+    {
+      "subject": "Marketplace layout and discovery plugins",
+      "value": "Marketplace revision 5 uses compact, spaced cards and title-case names. Ordinary Library Fetch, DLsite Fetch, Doujin Shop Shortcuts and Explicit Database Shortcuts own the platform lists; Doujinshi.info belongs to the explicit group. The fifth GitHub plugin, Reverse Image Discovery, activates SauceNAO and IQDB. Play retains its existing reverse-image features. Verified all five installed cards on the API 36 emulator. Seven GitHub instrumentation tests passed, including checks for revoking the Doujinshi.info link and clearing temporary IQDB results. One isolated Play test confirmed its two built-in reverse-image providers."
+    },
+    {
+      "subject": "Catalogue setup and plugin ordering",
+      "value": "On the GitHub marketplace branch, an empty catalogue offers Open Plugins. The Plugins tab has instructions for the marketplace and compatible custom descriptors. Group display order uses the numeric index, then stable plugin ID for ties. A shortcut-only selection keeps the query and browser actions. The API 36 emulator opened the Plugins tab from the empty catalogue notice and displayed both tutorials. Both debug editions built, their debug unit suites passed, and the platform-groups device test passed. The import tutorial identifies marketplace.bcmplugin as the marketplace setup file and gives the path from the bottom Plugins tab to Documents/BookCoverMatcher/Plugins in shared storage. The plugin picker requests this initial folder and allows selecting files elsewhere."
     }
   ],
   "nextSteps": [

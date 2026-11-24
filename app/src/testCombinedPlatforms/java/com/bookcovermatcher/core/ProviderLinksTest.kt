@@ -38,7 +38,7 @@ class ProviderLinksTest {
     }
 
     @Test fun japaneseQueriesArePercentEncodedNotRaw() {
-        val url = ProviderCatalog.MELONBOOKS.searchUrl("\u6771\u65B9 \u7D05\u9B54\u90F7")
+        val url = requireNotNull(ProviderCatalog.byId("mb")).searchUrl("\u6771\u65B9 \u7D05\u9B54\u90F7")
 
         assertTrue(url, url.contains("%E6%9D%B1%E6%96%B9"))
         assertTrue("spaces must be %20", url.contains("%20"))
@@ -46,7 +46,7 @@ class ProviderLinksTest {
     }
 
     @Test fun doujinNoMoriSearchUrlKeepsTheKeywordParameter() {
-        val url = ProviderCatalog.DOUJIN_NO_MORI.searchUrl("\u6771\u65B9")
+        val url = requireNotNull(ProviderCatalog.byId("dm")).searchUrl("\u6771\u65B9")
 
         assertEquals(
             "https://doujinnomori.com/comics/free-search?keyword=%E6%9D%B1%E6%96%B9",
@@ -60,12 +60,12 @@ class ProviderLinksTest {
         // The card's Open button must not 403 either: same route, same encoding as the adapter.
         assertEquals(
             "https://www.dlsite.com/books/fsr/=/keyword/Blue+Archive",
-            ProviderCatalog.DLSITE.searchUrl("Blue Archive"),
+            requireNotNull(ProviderCatalog.byId("dl")).searchUrl("Blue Archive"),
         )
-        assertEquals(QueryForm.PLUS, ProviderCatalog.DLSITE.queryForm)
+        assertEquals(QueryForm.PLUS, requireNotNull(ProviderCatalog.byId("dl")).queryForm)
         // Every other platform keeps %20 in its query string.
         assertEquals("Blue%20Archive", ProviderLinks.encode("Blue Archive"))
-        assertTrue(ProviderCatalog.MELONBOOKS.searchUrl("Blue Archive").contains("Blue%20Archive"))
+        assertTrue(requireNotNull(ProviderCatalog.byId("mb")).searchUrl("Blue Archive").contains("Blue%20Archive"))
         assertEquals("Blue%20Archive", ProviderLinks.encode("Blue Archive", QueryForm.PERCENT_20))
         assertEquals("Blue+Archive", ProviderLinks.encode("Blue Archive", QueryForm.PLUS))
     }
@@ -78,28 +78,28 @@ class ProviderLinksTest {
     }
 
     @Test fun aBlankQueryOpensThePlatformLandingPage() {
-        assertEquals("https://openlibrary.org/search", ProviderCatalog.OPEN_LIBRARY.searchUrl("   "))
-        assertEquals("https://books.google.com/", ProviderCatalog.GOOGLE_BOOKS.searchUrl(""))
-        assertEquals("https://www.melonbooks.co.jp/", ProviderCatalog.MELONBOOKS.searchUrl(""))
-        assertEquals("https://www.suruga-ya.jp/", ProviderCatalog.SURUGAYA.searchUrl(""))
-        assertEquals("https://www.dlsite.com/books/", ProviderCatalog.DLSITE.searchUrl(""))
-        assertEquals("https://e-hentai.org/", ProviderCatalog.EHENTAI.searchUrl(""))
-        assertEquals("https://doujinnomori.com/", ProviderCatalog.DOUJIN_NO_MORI.searchUrl(""))
-        assertEquals("https://www.doujinshi.info/", ProviderCatalog.DOUJINSHI_INFO.searchUrl(""))
-        assertEquals("https://myanimelist.net/manga.php", ProviderCatalog.MYANIMELIST.searchUrl(""))
-        assertEquals("https://nhentai.net/", ProviderCatalog.NHENTAI.searchUrl(""))
-        assertEquals("https://ec.toranoana.jp/tora_r/ec/", ProviderCatalog.TORANOANA.searchUrl("   "))
+        assertEquals("https://openlibrary.org/search", requireNotNull(ProviderCatalog.byId("ol")).searchUrl("   "))
+        assertEquals("https://books.google.com/", requireNotNull(ProviderCatalog.byId("gb")).searchUrl(""))
+        assertEquals("https://www.melonbooks.co.jp/", requireNotNull(ProviderCatalog.byId("mb")).searchUrl(""))
+        assertEquals("https://www.suruga-ya.jp/", requireNotNull(ProviderCatalog.byId("sy")).searchUrl(""))
+        assertEquals("https://www.dlsite.com/books/", requireNotNull(ProviderCatalog.byId("dl")).searchUrl(""))
+        assertEquals("https://e-hentai.org/", requireNotNull(ProviderCatalog.byId("eh")).searchUrl(""))
+        assertEquals("https://doujinnomori.com/", requireNotNull(ProviderCatalog.byId("dm")).searchUrl(""))
+        assertEquals("https://www.doujinshi.info/", requireNotNull(ProviderCatalog.byId("di")).searchUrl(""))
+        assertEquals("https://myanimelist.net/manga.php", requireNotNull(ProviderCatalog.byId("mal")).searchUrl(""))
+        assertEquals("https://nhentai.net/", requireNotNull(ProviderCatalog.byId("nh")).searchUrl(""))
+        assertEquals("https://ec.toranoana.jp/tora_r/ec/", requireNotNull(ProviderCatalog.byId("tr")).searchUrl("   "))
     }
 
     @Test fun toranoanaSearchUrlKeepsTheSearchWordParameterAndEncodesTheQueryOnce() {
         // Browser-only card: the app builds the link, the user's browser performs the search.
         assertEquals(
             "https://ec.toranoana.jp/tora_r/ec/app/catalog/list?searchWord=Blue%20Archive",
-            ProviderCatalog.TORANOANA.searchUrl("Blue Archive"),
+            requireNotNull(ProviderCatalog.byId("tr")).searchUrl("Blue Archive"),
         )
-        assertEquals(QueryForm.PERCENT_20, ProviderCatalog.TORANOANA.queryForm)
+        assertEquals(QueryForm.PERCENT_20, requireNotNull(ProviderCatalog.byId("tr")).queryForm)
 
-        val japanese = ProviderCatalog.TORANOANA.searchUrl("\u6771\u65B9 \u7D05\u9B54\u90F7")
+        val japanese = requireNotNull(ProviderCatalog.byId("tr")).searchUrl("\u6771\u65B9 \u7D05\u9B54\u90F7")
         assertEquals(
             "https://ec.toranoana.jp/tora_r/ec/app/catalog/list?searchWord=%E6%9D%B1%E6%96%B9%20%E7%B4%85%E9%AD%94%E9%83%B7",
             japanese,
@@ -109,14 +109,14 @@ class ProviderLinksTest {
         // Reserved characters are escaped exactly once: the parameter is the encoder's own output
         // (not a second encoding of it) and decodes back to exactly what the user typed.
         listOf("A&B", "C++", "100%", "hash#tag", "a=b?c", "Blue  Archive").forEach { query ->
-            val parameter = parameterOf(ProviderCatalog.TORANOANA.searchUrl(query))
+            val parameter = parameterOf(requireNotNull(ProviderCatalog.byId("tr")).searchUrl(query))
             assertEquals(query, ProviderLinks.encode(query), parameter)
-            assertEquals(query, searchWord(ProviderCatalog.TORANOANA.searchUrl(query)))
+            assertEquals(query, searchWord(requireNotNull(ProviderCatalog.byId("tr")).searchUrl(query)))
         }
-        assertEquals("A%26B", parameterOf(ProviderCatalog.TORANOANA.searchUrl("A&B")))
-        assertEquals("C%2B%2B", parameterOf(ProviderCatalog.TORANOANA.searchUrl("C++")))
-        assertEquals("100%25", parameterOf(ProviderCatalog.TORANOANA.searchUrl("100%")))
-        assertEquals("hash%23tag", parameterOf(ProviderCatalog.TORANOANA.searchUrl("hash#tag")))
+        assertEquals("A%26B", parameterOf(requireNotNull(ProviderCatalog.byId("tr")).searchUrl("A&B")))
+        assertEquals("C%2B%2B", parameterOf(requireNotNull(ProviderCatalog.byId("tr")).searchUrl("C++")))
+        assertEquals("100%25", parameterOf(requireNotNull(ProviderCatalog.byId("tr")).searchUrl("100%")))
+        assertEquals("hash%23tag", parameterOf(requireNotNull(ProviderCatalog.byId("tr")).searchUrl("hash#tag")))
     }
 
     /** The still-encoded `searchWord` value of a Toranoana link. */
@@ -128,7 +128,7 @@ class ProviderLinksTest {
         java.net.URLDecoder.decode(parameterOf(url), "UTF-8")
 
     @Test fun aLinkOnTheWrongHostSchemeOrPortIsRefused() {
-        val spec = ProviderCatalog.MELONBOOKS
+        val spec = requireNotNull(ProviderCatalog.byId("mb"))
 
         unsafe { ProviderLinks.validate("http://www.melonbooks.co.jp/", spec) }
         unsafe { ProviderLinks.validate("https://evil.example.com/search", spec) }
@@ -140,7 +140,7 @@ class ProviderLinksTest {
     @Test fun aSubdomainOfTheDeclaredHostIsAllowed() {
         assertEquals(
             "https://img.melonbooks.co.jp/x",
-            ProviderLinks.validate("https://img.melonbooks.co.jp/x", ProviderCatalog.MELONBOOKS),
+            ProviderLinks.validate("https://img.melonbooks.co.jp/x", requireNotNull(ProviderCatalog.byId("mb"))),
         )
     }
 }

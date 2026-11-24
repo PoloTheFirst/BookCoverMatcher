@@ -12,6 +12,10 @@ The policy audit distinguishes automated SauceNAO uploads from the manual IQDB b
 Behaviour is documented for v2.6.0 (the OneDrive feature); earlier sections describe the layers as they
 stand in this tree and were not rewritten.
 
+## Bundled plugins in 2.7.0
+
+The app owns the registry, lifecycle and Compose settings. The pure Kotlin `:plugin-api` module defines descriptors, information cards and catalogue contributions. A manual descriptor import selects a registered implementation. GitHub builds generate a registry from the included platform group classes and create fetch adapters on activation, while `:plugins:demo` demonstrates the contract in debug builds. See the [developer guide](../guides/BUNDLED_PLUGINS.md).
+
 ## Layers
 
 ```
@@ -285,7 +289,7 @@ dialogs                      │            CatalogIndex              └─ Wis
 ## Online providers
 
 ```
-ProviderCatalog (core/online)      eleven ProviderSpec rows: id, host, access, note, search + landing URL
+ProviderCatalog (core/online)      ordered ProviderSpec rows from active groups plus Doujinshi.info: id, host, access, note, search + landing URL
         |
         +-- AUTOMATED + SELECTABLE -- selected by the user (SearchRouting) -- OnlineSearchController.catalogues
         |       +-- OpenLibraryBooksSource -- OpenLibraryResponseParser      (JSON)

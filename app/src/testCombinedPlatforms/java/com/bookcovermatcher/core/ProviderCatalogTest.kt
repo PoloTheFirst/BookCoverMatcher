@@ -27,13 +27,13 @@ class ProviderCatalogTest {
 
     @Test fun allElevenProvidersAreDeclaredInDisplayOrder() {
         assertEquals(
-            listOf("ol", "gb", "dl", "mb", "sy", "dm", "eh", "di", "mal", "nh", "tr"),
+            listOf("ol", "gb", "dl", "mb", "sy", "tr", "nh", "eh", "dm", "mal", "di"),
             ProviderCatalog.ALL.map { it.id },
         )
         assertEquals(
             listOf(
                 "Open Library", "Google Books", "DLsite", "Melonbooks", "Suruga-ya",
-                "Doujin no Mori", "E-Hentai", "Doujinshi.info", "MyAnimeList", "nhentai", "Toranoana",
+                "Toranoana", "nhentai", "E-Hentai", "Doujin no Mori", "MyAnimeList", "Doujinshi.info",
             ),
             ProviderCatalog.ALL.map { it.name },
         )
@@ -44,23 +44,23 @@ class ProviderCatalogTest {
         assertEquals(listOf("ol", "gb", "dl"), ProviderCatalog.AUTOMATED.map { it.id })
         assertEquals(listOf("ol", "gb", "dl"), ProviderCatalog.SELECTABLE.map { it.id })
         assertEquals(
-            listOf("mb", "sy", "dm", "eh", "di", "mal", "nh", "tr"),
+            listOf("mb", "sy", "tr", "nh", "eh", "dm", "mal", "di"),
             ProviderCatalog.BROWSER_ONLY.map { it.id },
         )
 
         ProviderCatalog.SELECTABLE.forEach { assertTrue("${it.name} must be automated", it.selectable) }
         ProviderCatalog.BROWSER_ONLY.forEach { assertFalse("${it.name} must never be selectable", it.selectable) }
-        assertEquals(ProviderAccess.AUTOMATED, ProviderCatalog.OPEN_LIBRARY.access)
-        assertEquals(ProviderAccess.AUTOMATED, ProviderCatalog.GOOGLE_BOOKS.access)
-        assertEquals(ProviderAccess.AUTOMATED, ProviderCatalog.DLSITE.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.MELONBOOKS.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.SURUGAYA.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.DOUJIN_NO_MORI.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.EHENTAI.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.DOUJINSHI_INFO.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.MYANIMELIST.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.NHENTAI.access)
-        assertEquals(ProviderAccess.BROWSER_ONLY, ProviderCatalog.TORANOANA.access)
+        assertEquals(ProviderAccess.AUTOMATED, requireNotNull(ProviderCatalog.byId("ol")).access)
+        assertEquals(ProviderAccess.AUTOMATED, requireNotNull(ProviderCatalog.byId("gb")).access)
+        assertEquals(ProviderAccess.AUTOMATED, requireNotNull(ProviderCatalog.byId("dl")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("mb")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("sy")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("dm")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("eh")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("di")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("mal")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("nh")).access)
+        assertEquals(ProviderAccess.BROWSER_ONLY, requireNotNull(ProviderCatalog.byId("tr")).access)
     }
 
     @Test fun everyPlatformHasItsOwnSearchAndLandingLink() {
@@ -79,7 +79,7 @@ class ProviderCatalogTest {
     }
 
     @Test fun doujinNoMoriUsesTheCorrectedDomainAndKeywordUrl() {
-        val spec = ProviderCatalog.DOUJIN_NO_MORI
+        val spec = requireNotNull(ProviderCatalog.byId("dm"))
 
         assertEquals("Doujin no Mori", spec.name)
         assertEquals("doujinnomori.com", spec.host)
@@ -95,19 +95,19 @@ class ProviderCatalogTest {
     @Test fun theThreeNewProvidersAreBrowserShortcutsWithEncodedQueries() {
         assertEquals(
             "https://www.doujinshi.info/works?query=the%20hobbit",
-            ProviderCatalog.DOUJINSHI_INFO.searchUrl("the hobbit"),
+            requireNotNull(ProviderCatalog.byId("di")).searchUrl("the hobbit"),
         )
         assertEquals(
             "https://myanimelist.net/manga.php?q=the%20hobbit&cat=manga",
-            ProviderCatalog.MYANIMELIST.searchUrl("the hobbit"),
+            requireNotNull(ProviderCatalog.byId("mal")).searchUrl("the hobbit"),
         )
         assertEquals(
             "https://nhentai.net/search/?q=the%20hobbit",
-            ProviderCatalog.NHENTAI.searchUrl("the hobbit"),
+            requireNotNull(ProviderCatalog.byId("nh")).searchUrl("the hobbit"),
         )
-        assertEquals("https://www.doujinshi.info/", ProviderCatalog.DOUJINSHI_INFO.searchUrl(""))
-        assertEquals("https://myanimelist.net/manga.php", ProviderCatalog.MYANIMELIST.searchUrl(""))
-        assertEquals("https://nhentai.net/", ProviderCatalog.NHENTAI.searchUrl(""))
+        assertEquals("https://www.doujinshi.info/", requireNotNull(ProviderCatalog.byId("di")).searchUrl(""))
+        assertEquals("https://myanimelist.net/manga.php", requireNotNull(ProviderCatalog.byId("mal")).searchUrl(""))
+        assertEquals("https://nhentai.net/", requireNotNull(ProviderCatalog.byId("nh")).searchUrl(""))
     }
 
     @Test fun aProviderWithNoConfiguredPageIsRefusedInsteadOfBuildingABlankLink() {

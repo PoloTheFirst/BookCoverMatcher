@@ -27,4 +27,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "BookCoverMatcher"
-include(":app", ":plugin-api")
+include(":app", ":plugin-api", ":plugins:demo")

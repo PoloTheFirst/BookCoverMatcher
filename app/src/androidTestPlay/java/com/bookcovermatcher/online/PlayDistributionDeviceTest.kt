@@ -6,8 +6,6 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bookcovermatcher.CatalogueUi
-import com.bookcovermatcher.core.online.ProductSearchDataSource
-import com.bookcovermatcher.core.online.ProductSearchOutcome
 import com.bookcovermatcher.data.OnlineSearchPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,13 +38,22 @@ class PlayDistributionDeviceTest {
             val engine = com.bookcovermatcher.ocr.OcrEngines.create(context)
             val available = engine.availability()
             assertTrue(available.toString(), available is OcrAvailability.Ready && available.libraryName == "chrome-lens-py")
-            val fake = object : ProductSearchDataSource {
-                override val name = "Open Library"
-                override val maxResults = 5
-                override fun search(query: String, limit: Int): ProductSearchOutcome =
-                    throw AssertionError("Play must not invoke a catalogue adapter")
+            val choices = object : com.bookcovermatcher.plugins.PluginChoices {
+                override fun removed(id: String) = false
+                override fun remove(id: String) = error("Unexpected removal")
+                override fun imported(id: String) = true
+                override fun enabled(id: String) = true
+                override fun save(id: String, enabled: Boolean) = error("Unexpected plugin setting write")
             }
-            val controller = OnlineSearchController(context, scope, prefs = prefs, catalogues = listOf(fake))
+            val manager = com.bookcovermatcher.plugins.PluginManager(
+                com.bookcovermatcher.plugins.editionPlugins, choices, scope, Dispatchers.Unconfined)
+            kotlinx.coroutines.runBlocking {
+                for (id in listOf("bcm.ordinary-library", "bcm.dlsite", "bcm.doujin-shop", "bcm.explicit-database", "bcm.marketplace", "bcm.reverse-image-discovery")) {
+                    assertEquals("This plugin is unavailable in this edition.", manager.importDescriptor(id))
+                }
+            }
+            assertTrue(manager.imported.value.isEmpty())
+            val controller = OnlineSearchController(context, scope, prefs = prefs)
             try {
                 assertNull(controller.discovery)
                 for (name in listOf("online.SauceNaoReverseImageSource", "online.IqdbReverseImageSource", "data.SauceNaoKeyStore")) {

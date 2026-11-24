@@ -188,7 +188,7 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
                                 MoreScreen(ui, vm, onOpenUrl = { url -> openExternal(context, url, vm) })
                             }
                             AppTab.PLUGINS -> ScreenScroll {
-                                PluginsScreen(vm.plugins)
+                                PluginsScreen(vm.plugins, actions.onOpenUrl)
                             }
                         }
                     }
@@ -302,6 +302,10 @@ private fun deleteMessage(target: PendingDeleteUi?): String = when (target?.kind
     null -> ""
 }
 
+internal fun launchBrowser(context: Context, url: String) {
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
 /**
  * Opens a catalogue page in the user's browser.
  *
@@ -314,7 +318,7 @@ private fun openExternal(context: Context, url: String, vm: MainViewModel) {
         return
     }
     try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        launchBrowser(context, url)
     } catch (e: ActivityNotFoundException) {
         vm.showToast("No browser on this device.", ToastKind.ERR)
     } catch (e: Exception) {

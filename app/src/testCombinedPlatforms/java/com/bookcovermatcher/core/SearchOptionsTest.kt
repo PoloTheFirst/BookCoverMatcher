@@ -105,14 +105,14 @@ class SearchRoutingTest {
         assertTrue(SearchRouting.automated(setOf("dm", "eh", "di", "mal", "nh", "tr")).isEmpty())
         assertFalse(SearchRouting.hasAutomated(setOf("di", "mal", "nh", "tr")))
         assertEquals(
-            listOf("mb", "sy", "dm", "eh", "di", "mal", "nh", "tr"),
+            listOf("mb", "sy", "tr", "nh", "eh", "dm", "mal", "di"),
             SearchRouting.shortcuts().map { it.id },
         )
     }
 
     @Test fun toranoanaIsAShortcutOnlyAndNeverEnablesAnInAppSearch() {
         // v2.2.4: Toranoana is browser-only - no documented public API, and an 18+ catalogue.
-        val toranoana = ProviderCatalog.TORANOANA
+        val toranoana = requireNotNull(ProviderCatalog.byId("tr"))
 
         assertFalse("Toranoana must never be selectable", toranoana.selectable)
         assertEquals(emptySet<String>(), SearchRouting.sanitize(listOf("tr")))

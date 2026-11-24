@@ -5,6 +5,7 @@ import android.content.Context
 import com.bookcovermatcher.CandidateLists
 import com.bookcovermatcher.OnlineSearchUi
 import com.bookcovermatcher.ToastKind
+import com.bookcovermatcher.plugins.ActivePlatforms
 import com.bookcovermatcher.core.online.SearchLimits
 import com.bookcovermatcher.core.online.CandidateDecision
 import com.bookcovermatcher.core.online.CandidateDecisionRecord
@@ -43,11 +44,14 @@ internal fun createDiscovery(
     state: MutableStateFlow<OnlineSearchUi>,
     capture: () -> ByteArray?,
     onMessage: (String, ToastKind) -> Unit,
+    group: ActivePlatforms?,
+    isActive: () -> Boolean,
 ): ReverseDiscovery? {
+    val sources = group?.group?.reverseSources ?: return null
     val key = SauceNaoKeyStore(context)
     return ReverseDiscovery(context, scope, prefs, state, capture, onMessage, key,
-        listOf(SauceNaoReverseImageSource(apiKey = key::key), IqdbReverseImageSource()),
-        { true },
+        sources(key::key),
+        isActive,
     )
 }
 

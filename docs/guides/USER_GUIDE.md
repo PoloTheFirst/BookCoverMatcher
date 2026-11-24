@@ -28,7 +28,7 @@ placeholder.
 
 * **Workbook (n)** - the offline comparison: spreadsheet controls, the five match rows and
   **Save this scan as a session**. The count is the number of workbook matches for the current scan.
-* **Online (n)** - the OCR text (read-only but selectable), the editable query, the eleven platform cards,
+* **Online (n)** - the OCR text (read-only but selectable), the editable query, the active platform cards,
   the 5-50 result maximum, and the results from the selected platforms. The count is the number of
   unique, displayable results; failures and placeholders are not counted.
 * **Bookmarks (n)** - the results of the current search that are already in the `Bookmarks`
@@ -53,11 +53,7 @@ runtime and asks whether `chrome-lens-py` is available.
 **Read the cover.** The OCR text is read-only, but you can copy it: long-press it, drag to select part
 or all, then use the system **Copy** command and paste it into the query box.
 
-**Choose your platforms.** The panel shows eleven cards in `ProviderCatalog` order:
-
-* Searched in the app (selectable): **Open Library**, **Google Books**, **DLsite**.
-* Browser-only (never selectable): **Melonbooks**, **Suruga-ya**, **Doujin no Mori**, **E-Hentai**,
-  **Doujinshi.info**, **MyAnimeList**, **nhentai**, **Toranoana**.
+**Choose your platforms.** Import a supported descriptor in **Plugins** and enable its switch. The GitHub panel lists Ordinary Library Fetch (Open Library, Google Books), DLsite Fetch, Doujin Shop Shortcuts (Melonbooks, Suruga-ya, Toranoana), then Explicit Database Shortcuts (nhentai, E-Hentai, Doujin no Mori, MyAnimeList, Doujinshi.info). To use SauceNAO and IQDB in the GitHub edition, enable Reverse Image Discovery. Shortcut cards open the external browser on tap.
 
 Tap a selectable card body to include or exclude it: a selected card turns blue with a soft glow, an
 accent border and a check mark; an unselected one is greyed down but still usable. **Open** on every
@@ -684,8 +680,8 @@ and you can import it again later.
 ## Data and privacy
 
 Everything is stored locally in the app's private storage. Offline matching sends nothing. With
-online search on, the cover JPEG goes to Google Lens and the recognised text goes to the three
-providers the app queries: Open Library, Google Books and DLsite. The eight browser-only cards
+GitHub online search enabled, selecting Google Lens sends it the cover JPEG. Catalogue searches
+send the query to the selected providers. DLsite participates only after you import and enable it. The eight browser-only cards
 (Melonbooks, Suruga-ya, Doujin no Mori, E-Hentai, Doujinshi.info, MyAnimeList, nhentai, Toranoana) are
 never contacted by the app - their search pages open in your browser. No account, analytics or ads. The
 app refuses non-HTTPS links.
@@ -722,6 +718,34 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 
 ## Plugins (v2.7.0)
 
-Open **Plugins** to the right of **More**. The Play edition shows **No imported plugins**. **Import plugin** opens the file picker in `Documents/BookCoverMatcher/Plugins` when that folder exists. This version has no registered Play plugins. Selecting an unsupported descriptor displays a message and leaves the list empty.
+In **Search → Online**, turn on **Use online services**. If no catalogue or shortcut group is active, **Search the catalogues → Open Plugins** takes you to setup. **How to import plugins** is available on the Plugins tab whenever you need it.
+
+### Set up your plugin folder
+
+1. On your phone, open the **Files** app. Tap **Internal storage**, then **Documents**.
+2. In **Documents**, create a folder named **BookCoverMatcher**. Open the **BookCoverMatcher** folder.
+3. In **BookCoverMatcher**, create a folder named **Plugins**. Open the **Plugins** folder.
+
+If either folder already exists, open the existing folder. Save the marketplace setup file and custom plugin files in this **Plugins** folder. For example, the full path to the marketplace file is `Internal storage/Documents/BookCoverMatcher/Plugins/marketplace.bcmplugin`.
+
+If your browser saved the file to **Downloads**, select it in the Files app, choose **Move to**, then open **Internal storage → Documents → BookCoverMatcher → Plugins**. If you downloaded it on a computer, copy it into that folder on your phone.
+
+### Import from Plugin Marketplace
+
+`marketplace.bcmplugin` is the small setup file that adds the **Plugin Marketplace** switch to the GitHub edition of BCM. If that switch is already on your Plugins tab, skip the download and use it directly.
+
+1. On the Android device running BCM, tap **Plugins** (the puzzle piece next to **More** in the bottom bar). Open **How to import plugins → Get marketplace.bcmplugin**. On the GitHub file page, choose **Download raw file** and save or move it to `Documents/BookCoverMatcher/Plugins/marketplace.bcmplugin` on your phone.
+
+2. Return to **BCM → Plugins**. Tap **Import plugin** at the top of the screen. Select **marketplace.bcmplugin**. BCM asks Android to open your Plugins folder. If the picker opens elsewhere, browse to **Internal storage → Documents → BookCoverMatcher → Plugins**. You can also select a file from another location. The picker closes and the **Plugin Marketplace** switch appears. Turn it on to fetch the available plugins.
+3. When the descriptors finish downloading, turn on **Ordinary Library Fetch** or **DLsite Fetch**. Return to **Search → Online** and enter a title. Groups with browser shortcuts show an **Open** action for each site. Reverse Image Discovery has its own section.
+4. You can keep the file in your Plugins folder for future imports. Moving it after import preserves your existing switches. Turning off the marketplace pauses its providers and preserves their switch positions. A removed group can be downloaded again from its marketplace card.
+
+### Import a custom catalogue plugin
+
+1. Save the author’s `.bcmplugin` file to **Documents → BookCoverMatcher → Plugins** on your phone and confirm that your installed GitHub build includes that plugin’s Kotlin implementation.
+2. Open **Plugins → Import plugin**, select the author’s file from the Plugins folder, and enable its switch. An already-imported plugin has an existing switch. If BCM reports that the plugin is unavailable in this edition, check which build the author supports. If BCM directs you to the marketplace, enable the group there.
+3. Return to **Search → Online**. You can use compatible custom and marketplace groups together. BCM orders their platforms automatically. You do not need to assign a number or import them in a particular order.
+
+Both debug editions also accept [demo.bcmplugin](../../plugins/manifests/demo.bcmplugin). Turn on **Demo card** to see “Hello from BCM”. See the [developer guide](BUNDLED_PLUGINS.md) to create descriptors.
 
 In the Play edition, enable **Use online services**, then choose **Chrome Lens** under **OCR engine** to read cover text through Google. Choose **PaddleOCR** for on-device recognition. Both choices are built in. Reverse Image Discovery is available in the GitHub plugin build.
