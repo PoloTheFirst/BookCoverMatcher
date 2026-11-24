@@ -110,7 +110,7 @@ private fun Header(state: OneDriveUi, vm: MainViewModel) {
 @Composable
 private fun SignInPanel(state: OneDriveUi, vm: MainViewModel, activity: Activity?) {
     Text(
-        "BookCoverMatcher copies the workbook from your OneDrive into its own storage. The OneDrive " +
+        "BCM copies the workbook from your OneDrive into its own storage. The OneDrive " +
             "file is never modified, and the app asks only for read access.",
         color = Palette.Muted,
         fontSize = 10.sp,

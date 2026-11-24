@@ -1116,7 +1116,7 @@ class WorkbookCommentsController(
             onMessage("This device has no clipboard service.", ToastKind.ERR)
             return
         }
-        clipboard.setPrimaryClip(ClipData.newPlainText("BookCoverMatcher cell ${peek.locationLabel}", peek.value))
+        clipboard.setPrimaryClip(ClipData.newPlainText("BCM cell ${peek.locationLabel}", peek.value))
         onMessage(
             if (peek.isBlank) "${peek.locationLabel} is empty; copied an empty value." else "Copied ${peek.locationLabel}.",
             ToastKind.OK,

@@ -21,15 +21,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookcovermatcher.ModelUi
+import com.bookcovermatcher.R
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.Panel
@@ -44,11 +43,7 @@ fun SetupScreen(model: ModelUi, onImport: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                buildAnnotatedString {
-                    append("Book")
-                    withStyle(SpanStyle(color = Palette.Accent)) { append("Cover") }
-                    append(" Matcher")
-                },
+                stringResource(R.string.app_name),
                 color = Palette.Text,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -105,7 +100,7 @@ private fun Instructions(error: String?, onImport: () -> Unit) {
             )
         }
         Text(
-            "BookCover Matcher compares covers with OpenCLIP, an image-embedding model that runs entirely on this phone " +
+            "BCM compares covers with OpenCLIP, an image-embedding model that runs entirely on this phone " +
                 "(nothing is uploaded). The model file is about 100 MB, so it is not part of the source code. " +
                 "Create it once on a computer:",
             color = Palette.Text,

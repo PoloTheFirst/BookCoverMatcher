@@ -110,7 +110,7 @@ private fun Header(state: GoogleDriveUi, vm: MainViewModel) {
 @Composable
 private fun SignInPanel(state: GoogleDriveUi, vm: MainViewModel, activity: Activity?) {
     Text(
-        "BookCoverMatcher copies the workbook from your Google Drive into its own storage. The Google Drive " +
+        "BCM copies the workbook from your Google Drive into its own storage. The Google Drive " +
             "file is never modified, and the app asks only for read access. " +
             "After importing, Rescan checks for updates and asks before replacing your saved copy.",
         color = Palette.Muted,

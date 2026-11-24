@@ -18,7 +18,7 @@ import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.theme.Palette
 
 private val policyDocuments = listOf(
-    ReaderDocument("licenses/PRIVACY_POLICY.md", "Privacy Policy", "How BookCoverMatcher handles data", "Privacy Policy"),
+    ReaderDocument("licenses/PRIVACY_POLICY.md", "Privacy Policy", "How BCM handles data", "Privacy Policy"),
     ReaderDocument("licenses/TERMS_AND_CONDITIONS.md", "Terms and Conditions", "Use, responsibilities and software rights", "Terms and Conditions"),
 )
 
