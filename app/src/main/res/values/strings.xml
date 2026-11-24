@@ -2,5 +2,5 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 <resources>
-    <string name="app_name">BookCover Matcher</string>
+    <string name="app_name" translatable="false">BCM</string>
 </resources>
