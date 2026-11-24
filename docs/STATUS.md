@@ -76,6 +76,10 @@ Chrome Lens OCR is built into Play as an explicit engine selection alongside on-
 
 The owner selected the Play edition on google_play as the standard GitHub APK for v2.7.0/code 226. The release build passed native and ZIP alignment checks; the Play JVM suite passed 1,271 tests with 12 skipped. Google Play submission is a separate action. The AppAuth publication check and the outstanding licensing and lifecycle review items remain recorded.
 
+## GitHub publication of v2.7.0 (24 November 2026)
+
+Published as Latest from google_play at 261d9da, code 226. Verified the public release body, tag and signed APK digest (6b509f5ce337a7d654464da16eebcc38496e9b18c22617384fc7cbe5471f2b4e). Google Play submission is separate.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

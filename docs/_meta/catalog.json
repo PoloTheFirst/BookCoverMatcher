@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "1b12d3e782343cd536cf6b27ff5e3faf7e8b0dea212573f266d3c7c98c57979f",
+  "fingerprint": "ffb23bba4543d24c1d85c80e68e02ed4050389a2512faa554560edae03b1788b",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 10909,
-      "sha256": "515c64849f9136778b19c974563429c0b96391a79ace0cfade9e8b0bb004b32b",
+      "bytes": 11230,
+      "sha256": "e38d1037e0d86f2e73dd91edc11d1f38a1dd52625ba0abe70acfe13141d16e32",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 19179,
-      "sha256": "86ef90132702e354b8c03a7cc51d1b20b5263f415e9e0c8fbd394597b8a3f8c8",
+      "bytes": 19137,
+      "sha256": "5080385632fb8e9babd99fb7e2c6340dca9b2e9a778c03292dbeb0c7207c8440",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -1813,6 +1813,38 @@
       }
     },
     {
+      "path": "docs/history/android/v2.7.0/publication/reports/2026-11-24__android-2.7.0-code226__publication__github-release__report__r01.md",
+      "bytes": 2758,
+      "sha256": "cd2df7de0f4336b83d62f9203c96620b718b651b2cca0f7aa8d36f096867e466",
+      "version": "2.7.0",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "2.7.0/publication//github-release/report/2026-11-24",
+        "title": "Standard GitHub release of v2.7.0",
+        "kind": "report",
+        "version_id": "2.7.0",
+        "version_name": "2.7.0",
+        "version_code": 226,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-release",
+        "created_at": "2026-11-24T15:24:55+08:00",
+        "updated_at": "2026-11-24T15:25:34+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Publish the standard v2.7.0 GitHub release from the google_play branch."
+      }
+    },
+    {
       "path": "docs/history/android/v2.7.0/qa/reports/2026-11-17__android-2.7.0-code226__qa__signed-apk-verification__report__r01.md",
       "bytes": 4743,
       "sha256": "43a44a554bdcc9cb3f522ade66a4cfc4a8172bdd26dd9cff558479eba89c29b5",
@@ -2202,8 +2234,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4008,
-      "sha256": "6ecb88e49237eb85d93a4edc5ef70739206078ebc7c5eaa55761035f75d8f29f",
+      "bytes": 4130,
+      "sha256": "fc09bde03f49902d4a13d6fec15902095ee9371063c4459323cae65ea9e0d03f",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

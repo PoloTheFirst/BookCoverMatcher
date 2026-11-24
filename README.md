@@ -4,7 +4,7 @@ An Android app for matching book covers against images in an Excel workbook, kee
 
 ## Standard Android build
 
-Version **2.7.0 (226)** uses the **Play edition** from the `google_play` branch as the standard GitHub APK. It defaults to on-device PaddleOCR and offers Chrome Lens as an explicit OCR choice. It excludes public catalogue discovery, provider shortcuts, SauceNAO and IQDB. The other edition and plugin branches have separate feature sets. See the [v2.7.0 changelog](CHANGELOG.md) and [distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md).
+Version **2.7.0 (226)** uses the **Play edition** from the `google_play` branch as the standard GitHub APK. [Download v2.7.0](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0/bookcovermatcher-v2.7.0.apk). It defaults to on-device PaddleOCR and offers Chrome Lens as an explicit OCR choice. It excludes public catalogue discovery, provider shortcuts, SauceNAO and IQDB. The other edition and plugin branches have separate feature sets. See the [v2.7.0 changelog](CHANGELOG.md) and [distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md).
 
 The GitHub release decision applies to distribution on GitHub. Google OAuth review, Google Play submission and the open items in the [AppAuth guide](docs/integrations/APP_AUTH_PROTOTYPE.md) are tracked separately.
 

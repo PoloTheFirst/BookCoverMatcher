@@ -65,6 +65,7 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 
 ## publication
 
+- [docs/history/android/v2.7.0/publication/reports/2026-11-24__android-2.7.0-code226__publication__github-release__report__r01.md](history/android/v2.7.0/publication/reports/2026-11-24__android-2.7.0-code226__publication__github-release__report__r01.md)
 
 ## qa
 

@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-186 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
+187 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
 
 | File | Version/group | Category | Kind |
 |---|---|---|---|
@@ -154,6 +154,7 @@ Generated navigation; edit the relevant sources, then run tools/docs/manage.py r
 | [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__policy-apk-refresh__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__policy-apk-refresh__report__r01.md) | 2.7.0 | policies | record |
 | [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-approval__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-approval__report__r01.md) | 2.7.0 | policies | record |
 | [docs/history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-sync__report__r01.md](history/android/v2.7.0/policies/reports/2026-11-17__android-2.7.0-code226__policies__website-sync__report__r01.md) | 2.7.0 | policies | record |
+| [docs/history/android/v2.7.0/publication/reports/2026-11-24__android-2.7.0-code226__publication__github-release__report__r01.md](history/android/v2.7.0/publication/reports/2026-11-24__android-2.7.0-code226__publication__github-release__report__r01.md) | 2.7.0 | publication | record |
 | [docs/history/android/v2.7.0/qa/reports/2026-11-17__android-2.7.0-code226__qa__signed-apk-verification__report__r01.md](history/android/v2.7.0/qa/reports/2026-11-17__android-2.7.0-code226__qa__signed-apk-verification__report__r01.md) | 2.7.0 | qa | record |
 | [docs/history/android/v2.7.0/release/prompts/2026-11-17__android-2.7.0-code226__release__stable-finalization__prompt__r01.md](history/android/v2.7.0/release/prompts/2026-11-17__android-2.7.0-code226__release__stable-finalization__prompt__r01.md) | 2.7.0 | release | record |
 | [docs/history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md](history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md) | 2.7.0 | release | record |
