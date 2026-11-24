@@ -2,13 +2,15 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
-## Local development build
+## Development prereleases
 
 **3.0.0-dev.2 (228)** shows **BCM** on the launcher and Home screen. The scanner uses the website’s Sophie colors for the capture guide, glowing primary action and Auto-scan feedback. On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0.
 
 Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. Both modes use the same Sophie color scheme as the scanner.
 
-The current public standard APK is **v2.7.0 (226)** from `google_play`. [Published release](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0) · [Distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md)
+Both development builds are available on GitHub. [v3.0.0-dev.2 (228)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.2) · [v3.0.0-dev.1 (227)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.1)
+
+The current stable APK is **v2.7.0 (226)** from `google_play`. [Stable release](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0) · [Distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md)
 
 ## Find the right documentation
 

@@ -35,5 +35,5 @@ Codes below are attributed configuration/historical evidence; null remains unkno
 | unresolved-qa | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
 | 2.7.0 | 226 | True | Published 24 November 2026 as GitHub release v2.7.0, code 226, from google_play at 261d9da. See the github-release publication report. |
 | 3.0.0 | unknown / n/a | True | Design proposal for the v3.0.0 series. The owner allocated the first implementation to 3.0.0-dev.1 / 227. |
-| 3.0.0-dev.1 | 227 | True | Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226). |
-| 3.0.0-dev.2 | 228 | True | Owner requested the BCM display name and the Sophie-themed Material 3 Expressive scanner for dev.2 following dev.1 / 227. |
+| 3.0.0-dev.1 | 227 | True | Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226). Published as a standard Play-edition GitHub prerelease at f777cd2. See the github-prerelease publication report. |
+| 3.0.0-dev.2 | 228 | True | Owner requested the BCM display name and the Sophie-themed Material 3 Expressive scanner for dev.2 following dev.1 / 227. Published as a standard Play-edition GitHub prerelease at 98c0e11. See the github-prerelease publication report. |

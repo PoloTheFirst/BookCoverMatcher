@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "1601d27e7f89b0bd9bc023f7897d0fe4902dfe7eb895ecdc67c4b709b532c2ca",
+  "fingerprint": "46d761d00d6c4fba5528d31761e4d3fd3047be8799977ec46dafc703041a04d8",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 12127,
-      "sha256": "3cdb12bccdb3c04ba097336b9d21f7f1072780557b121c0b4969237d1e539577",
+      "bytes": 12534,
+      "sha256": "51b4c19fa7da74e2f322f0dfa9962ba245e159d639d289465861102a61f56533",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 20983,
-      "sha256": "c85462bd9398d57c1dfcb43768309a5841d53fc1dbaedd581d4473d472277bf1",
+      "bytes": 21209,
+      "sha256": "cd2572693ef8895f888c6d27a78ef8f80b71d29a0fe1feea774b4fe4b8887fbe",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5375,
-      "sha256": "c46edf93383671588198494529013c804a662c7ac1ee4643c383217085a1f402",
+      "bytes": 5512,
+      "sha256": "2f1cd0f7ee016b0966f474f4f5c831918fa00a687d771092ad519baff4502fd4",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -1976,6 +1976,38 @@
       }
     },
     {
+      "path": "docs/history/android/v3.0.0-dev.1/publication/reports/2026-11-24__android-3.0.0-dev.1-code227__publication__github-prerelease__report__r01.md",
+      "bytes": 3333,
+      "sha256": "7f1dfbfbeaccb29a6905e690d10e32d76753b5401ea47ebed1af2c0fa7828fb9",
+      "version": "3.0.0-dev.1",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.1/publication//github-prerelease/report/2026-11-24",
+        "title": "GitHub prerelease of v3.0.0-dev.1",
+        "kind": "report",
+        "version_id": "3.0.0-dev.1",
+        "version_name": "3.0.0-dev.1",
+        "version_code": 227,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-prerelease",
+        "created_at": "2026-11-24T16:55:28+08:00",
+        "updated_at": "2026-11-24T17:04:00+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Publish the missing v3.0.0-dev.1 standard Play-edition GitHub prerelease."
+      }
+    },
+    {
       "path": "docs/history/android/v3.0.0-dev.2/development/reports/2026-11-24__android-3.0.0-dev.2-code228__development__bcm-scanner__report__r01.md",
       "bytes": 6499,
       "sha256": "37b731c78dcd15e57b03d479bfcc0e3b9e5cd5b141b4ed057a67399628bd87c5",
@@ -2007,6 +2039,38 @@
           "3.0.0-dev.1"
         ],
         "source_request": "Rename the visible app to BCM and apply the website color palette and Material 3 Expressive design to the scanner in v3.0.0-dev.2."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.2/publication/reports/2026-11-24__android-3.0.0-dev.2-code228__publication__github-prerelease__report__r01.md",
+      "bytes": 3327,
+      "sha256": "1c6f256590416d237a1790bdee49ecb2b540139c9038f313fb2b06c0f642a79d",
+      "version": "3.0.0-dev.2",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.2/publication//github-prerelease/report/2026-11-24",
+        "title": "GitHub prerelease of v3.0.0-dev.2",
+        "kind": "report",
+        "version_id": "3.0.0-dev.2",
+        "version_name": "3.0.0-dev.2",
+        "version_code": 228,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-prerelease",
+        "created_at": "2026-11-24T16:55:28+08:00",
+        "updated_at": "2026-11-24T17:04:00+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Publish the missing v3.0.0-dev.2 standard Play-edition GitHub prerelease."
       }
     },
     {
@@ -2337,8 +2401,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 3829,
-      "sha256": "6a61363cd9edb0784cdc8ae73c2b4aa4562257d421477cbea97e290cb230d8f3",
+      "bytes": 4064,
+      "sha256": "e0cbbff2beb2a5043c063b31c29f1422b600eec5ed52568dbdf8f91bb592b790",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

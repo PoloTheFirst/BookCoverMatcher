@@ -592,7 +592,7 @@
         "publication": "publication",
         "documentation": "documentation"
       },
-      "evidence": "Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226).",
+      "evidence": "Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226). Published as a standard Play-edition GitHub prerelease at f777cd2. See the github-prerelease publication report.",
       "authorable": true
     },
     {
@@ -612,7 +612,7 @@
         "publication": "publication",
         "documentation": "documentation"
       },
-      "evidence": "Owner requested the BCM display name and the Sophie-themed Material 3 Expressive scanner for dev.2 following dev.1 / 227.",
+      "evidence": "Owner requested the BCM display name and the Sophie-themed Material 3 Expressive scanner for dev.2 following dev.1 / 227. Published as a standard Play-edition GitHub prerelease at 98c0e11. See the github-prerelease publication report.",
       "authorable": true
     }
   ]

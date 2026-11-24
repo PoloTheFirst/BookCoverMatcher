@@ -88,6 +88,10 @@ Local 3.0.0-dev.1 / 227 implements the approved Material 3 Expressive refresh. M
 
 Local 3.0.0-dev.2 / 228 displays BCM and uses Sophie-themed Material 3 Expressive scanner controls. The Play debug update preserved the synthetic workbook, saved source and wishlist on the API 36 emulator. Both editions retain com.bookcovermatcher. See the dev.2 scanner report for build and device evidence.
 
+## GitHub development prereleases
+
+Published v3.0.0-dev.1 (227, f777cd2) and v3.0.0-dev.2 (228, 98c0e11) from google_play with the existing release certificate. Both public titles, tagged changelogs, filenames, sizes and SHA-256 digests were verified. The publication reports record each release and its direct download URL. GitHub Latest remains v2.7.0 (226).
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
