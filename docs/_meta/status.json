@@ -69,6 +69,10 @@
     {
       "subject": "OCR and reverse-image distribution (24 November 2026)",
       "value": "Chrome Lens OCR is built into Play as an explicit engine selection alongside on-device PaddleOCR. Play excludes the SauceNAO and IQDB clients, key controls, browser handoff and paste UI. The standalone GitHub Reverse Image Discovery plugin activates these workflows together. Existing workbook and bookmark storage is preserved. API 36 instrumentation verified the Play Lens bridge loads and the standalone plugin exposes both providers only while enabled. Play APK bytecode was checked for the provider clients, key store and provider URLs. The Play debug APK was installed as an update on BCM_API36_CachyOS. Its Plugins tab displayed “Import plugin” and “No imported plugins”, with zero switches. The first-install date was preserved."
+    },
+    {
+      "subject": "Standard GitHub edition (24 November 2026)",
+      "value": "The owner selected the Play edition on google_play as the standard GitHub APK for v2.7.0/code 226. The release build passed native and ZIP alignment checks; the Play JVM suite passed 1,271 tests with 12 skipped. Google Play submission is a separate action. The AppAuth publication check and the outstanding licensing and lifecycle review items remain recorded."
     }
   ],
   "nextSteps": [

@@ -2,13 +2,11 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
-## Current local build
+## Standard Android build
 
-The source is configured as **2.7.0 / versionCode 226**. The owner-signed APK was installed as a compatible update on Vivo; App Website appears below the author-profile button. JVM/build/lint, emulator regression and native-packaging checks passed. See the [execution report](docs/history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md) for evidence and limits.
+Version **2.7.0 (226)** uses the **Play edition** from the `google_play` branch as the standard GitHub APK. It defaults to on-device PaddleOCR and offers Chrome Lens as an explicit OCR choice. It excludes public catalogue discovery, provider shortcuts, SauceNAO and IQDB. The other edition and plugin branches have separate feature sets. See the [v2.7.0 changelog](CHANGELOG.md) and [distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md).
 
-Website policies are published and the plain URLs were rechecked on 17 November 2026 (privacy 2026-11-17.2; terms 2026-11-17.1). The regenerated owner-signed APK now contains privacy .2 and passed API36 emulator smoke checks; this latest artifact has not been installed on Vivo. Stable publication readiness is not yet complete: excluded live cloud/lifecycle checks and distribution review remain. The explicit `verifyAuthPublicationEligibility` guard remains. On 18 November 2026, the owner reported Google OAuth verification submitted and under review, and authorized private Google Play submission preparation while waiting. This is not OAuth approval or a Play submission. Stable publication gates remain; no stable tag or hosted release is claimed. Read [current status](docs/STATUS.md) and the [AppAuth guide](docs/integrations/APP_AUTH_PROTOTYPE.md) before publishing.
-
-Local `github` and `play` editions now share the same app ID and storage. GitHub retains every provider; Play includes Chrome Lens and PaddleOCR and excludes public catalogue and reverse-image discovery. Reverse-image content review and signed update testing remain required. See [distribution variants and build commands](docs/guides/DISTRIBUTION_VARIANTS.md). Nothing has been published from this split.
+The GitHub release decision applies to distribution on GitHub. Google OAuth review, Google Play submission and the open items in the [AppAuth guide](docs/integrations/APP_AUTH_PROTOTYPE.md) are tracked separately.
 
 On the `google_play` branch, **Plugins → Import plugin** opens the Android file picker for a local `.bcmplugin` descriptor. The v2.7.0 Play debug and release builds register zero plugins. Neither DLsite nor Plugin Marketplace can be imported or restored from an earlier edition. Reverse-image discovery is excluded from the Play APK.
 

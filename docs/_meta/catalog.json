@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "fabfbe40470a5eed16ad2c5bf0bd13f5ea10aa84e033b6a1958ed3964a190868",
+  "fingerprint": "1b12d3e782343cd536cf6b27ff5e3faf7e8b0dea212573f266d3c7c98c57979f",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 4780,
-      "sha256": "bb2744fe561636462a88015f3b8b16ce32cf8cf56a7a7bc5ed488c4b59bd6f3b",
+      "bytes": 3138,
+      "sha256": "dc542e53fe751c0757d3d63dd58d70a776c551728766a5e4e5c6ad743db53615",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 10455,
-      "sha256": "7305e2daa9574f17cb3da3a6e386d2b50c290534dbe00bb279197587e590f43e",
+      "bytes": 10909,
+      "sha256": "515c64849f9136778b19c974563429c0b96391a79ace0cfade9e8b0bb004b32b",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2202,8 +2202,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5057,
-      "sha256": "bd3f32e7d4e83291324d167697037de1b72c16fae476ad393915e1b6073ce464",
+      "bytes": 4008,
+      "sha256": "6ecb88e49237eb85d93a4edc5ef70739206078ebc7c5eaa55761035f75d8f29f",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
