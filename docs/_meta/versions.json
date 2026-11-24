@@ -632,7 +632,7 @@
         "publication": "publication",
         "documentation": "documentation"
       },
-      "evidence": "Owner requested a Material 3 Expressive app logo in the website palette for dev.3 after dev.2 / 228.",
+      "evidence": "Owner requested a Material 3 Expressive app logo in the website palette for dev.3 after dev.2 / 228. Published as a standard Play-edition GitHub prerelease at d8b5882. See the github-prerelease publication report.",
       "authorable": true
     }
   ]

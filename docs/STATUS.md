@@ -90,7 +90,7 @@ Local 3.0.0-dev.2 / 228 displays BCM and uses Sophie-themed Material 3 Expressiv
 
 ## GitHub development prereleases
 
-Published v3.0.0-dev.1 (227, f777cd2) and v3.0.0-dev.2 (228, 98c0e11) from google_play with the existing release certificate. Both public titles, tagged changelogs, filenames, sizes and SHA-256 digests were verified. The publication reports record each release and its direct download URL. GitHub Latest remains v2.7.0 (226).
+Published v3.0.0-dev.1 (227, f777cd2), v3.0.0-dev.2 (228, 98c0e11) and v3.0.0-dev.3 (229, d8b5882) from google_play with the existing release certificate. The publication reports record the verified tags, exact changelogs, filenames and signed APK digests. GitHub Latest remains v2.7.0 (226).
 
 ## BCM open-book logo
 

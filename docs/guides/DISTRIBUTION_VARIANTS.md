@@ -1,6 +1,8 @@
 # Play and GitHub editions
 
-## Development build 3.0.0-dev.3
+## Development prerelease v3.0.0-dev.3
+
+The signed APK on GitHub is the standard Play edition from `google_play`, version code 229. [Release and changelog](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.3) · [Download the signed APK](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.3/bookcovermatcher-v3.0.0-dev.3.apk)
 
 On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0. Both flavors display **BCM**, use version code 229 and share the existing application ID and signing configuration. Install the same signing lineage to keep Android app data.
 

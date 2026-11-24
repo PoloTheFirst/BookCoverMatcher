@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "d934a8aca104b0bd786903eeffddb214c09a84c1a8d06e25b3edf02465f41a6b",
+  "fingerprint": "abda3c0df8011972a978a32554b979ad38f0a507ec1662ee53ee05d1940b2f40",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 12877,
-      "sha256": "bb996b640331e09f51d0d8cf799e4b002c874b7827595e6fada4fee35a71d8bd",
+      "bytes": 12844,
+      "sha256": "1df69b2ae10e1c0af93692f8e91a28ae6c1d0846a78a6c0ecae0248c38e81ff5",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 21905,
-      "sha256": "87e60ac9ee09d852a467119db0657f947b3c582376371af27b08be69939c3afa",
+      "bytes": 22018,
+      "sha256": "581082b8ba52b5b2aa172092c3168992d5dcefde6cd8bd1299686f088b612b44",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 9097,
-      "sha256": "a59796adeb762902cd64af1b6781f0b2eb3a4b1455a83c29771e7b9755fe4820",
+      "bytes": 9440,
+      "sha256": "ddb986c76799b1c3a76849fabd4afefe45264a4be6a0a945138a45fccda258bd",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5567,
-      "sha256": "e7b6e77e71e22c0262f086e03c3f3236d11ad8bb062ea4bc82f3ca690d62ae70",
+      "bytes": 5512,
+      "sha256": "fc3f9a6e8d701711fb370bc7e51654edcd5c1b9d988a4830430ce57455e58778",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2108,6 +2108,38 @@
       }
     },
     {
+      "path": "docs/history/android/v3.0.0-dev.3/publication/reports/2026-11-24__android-3.0.0-dev.3-code229__publication__github-prerelease__report__r01.md",
+      "bytes": 3396,
+      "sha256": "5456710a5415c3b4434fc8d37e3de17f6220bd26221fae397efe5e0a0cc5000b",
+      "version": "3.0.0-dev.3",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.3/publication//github-prerelease/report/2026-11-24",
+        "title": "GitHub prerelease of v3.0.0-dev.3",
+        "kind": "report",
+        "version_id": "3.0.0-dev.3",
+        "version_name": "3.0.0-dev.3",
+        "version_code": 229,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-prerelease",
+        "created_at": "2026-11-24T17:34:41+08:00",
+        "updated_at": "2026-11-24T17:34:42+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Tag, sign and publish the standard Play-edition build of v3.0.0-dev.3 on GitHub."
+      }
+    },
+    {
       "path": "docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md",
       "bytes": 11961,
       "sha256": "3c58f06adcec00a45e27824cbb6bf489d32011be31ec22511b2fba0bab47de9a",
@@ -2435,8 +2467,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4069,
-      "sha256": "60d01f815718ba870f802c996dfecdb5b884d5010ec8d8084427d9d9abdf2d8d",
+      "bytes": 4168,
+      "sha256": "386ab751e77c714fb7a3ed6404e9b5cb9343b57c89b2402d9f50d58b8d84016b",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
