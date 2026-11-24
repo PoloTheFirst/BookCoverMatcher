@@ -1,22 +1,16 @@
-# BookCover Matcher - User Guide (v2.6.0)
+# BCM user guide
 
-This guide covers the five tabs, the saved-data rules, the batch (multi-select) actions and, since
-v2.6.0, the OneDrive import and update workflow. For build instructions and architecture, see `README.md`
-and `docs/reference/ARCHITECTURE.md`.
-
-> The app version in this tree is still 2.5.0 while 2.6.0 is being prepared; the OneDrive section below
-> describes what this tree implements today.
-
+BCM matches captured or selected covers against the pictures in an Excel workbook. For installation, see the [installation guide](INSTALL.md).
 
 ## Display
 
-Open **More → Display** and choose **Follow system**, **Light**, or **Dark**. Follow system is the initial setting and follows Android’s day/night schedule. Choosing Light or Dark overrides the phone and takes effect immediately. BCM remembers the selection on this device. Both appearances use Polo’s Atelier colors and keep the cyan and teal book and scanner artwork.
+Open **More → Display** and choose **Follow system**, **Light**, or **Dark**. Follow system is the initial setting and follows Android’s day/night schedule. Choosing Light or Dark overrides the phone and takes effect immediately. BCM remembers the selection on this device. Both appearances use Polo’s Atelier palette, including the scanner controls and the glowing frame around the cover. The camera preview shows the original colors of the cover.
 
 ## Home
 
 1. **Choose file** (`.xlsx` or `.xlsm`) and enter the cell range that contains the cover pictures.
    You can also choose an image from the device instead of using the camera.
-2. **Scan Book Cover** or turn on the crosshair button for **Auto Scan**.
+2. Frame the book inside the glowing corners. Tap the cover to focus. When the camera is live, tap **Scan Book Cover** to capture it. If the camera is off, tap the same button to start it and wait for **Live**. For hands-free capture, turn on **Auto-scan**. The progress bar and the **Sharp**, **Light**, and **Steady** indicators below the preview show when the cover is ready. Use **Restart camera** to reopen the preview.
 3. **Link & Find Top 5** compares the captured cover with every picture in the selected range.
 4. The comparison is shown on **Search**. Nothing is saved yet.
 

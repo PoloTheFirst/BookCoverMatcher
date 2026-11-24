@@ -136,6 +136,10 @@ Marketplace revision 5 uses compact, spaced cards and title-case names. Ordinary
 
 On the GitHub marketplace branch, an empty catalogue offers Open Plugins. The Plugins tab has instructions for the marketplace and compatible custom descriptors. Group display order uses the numeric index, then stable plugin ID for ties. A shortcut-only selection keeps the query and browser actions. The API 36 emulator opened the Plugins tab from the empty catalogue notice and displayed both tutorials. Both debug editions built, their debug unit suites passed, and the platform-groups device test passed. The import tutorial identifies marketplace.bcmplugin as the marketplace setup file and gives the path from the bottom Plugins tab to Documents/BookCoverMatcher/Plugins in shared storage. The plugin picker requests this initial folder and allows selecting files elsewhere.
 
+## BCM scanner development build
+
+Local 3.0.0-dev.2 / 228 displays BCM and uses Sophie-themed Material 3 Expressive scanner controls. The Play debug update preserved the synthetic workbook, saved source and wishlist on the API 36 emulator. Both editions retain com.bookcovermatcher. See the dev.2 scanner report for build and device evidence.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

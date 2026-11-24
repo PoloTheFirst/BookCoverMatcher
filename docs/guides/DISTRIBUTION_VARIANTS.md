@@ -1,8 +1,8 @@
 # Play and GitHub editions
 
-## Development build 3.0.0-dev.1
+## Development build 3.0.0-dev.2
 
-The explicit GitHub build on main includes Plugin Marketplace and all five groups. On a clean installation all six are enabled, including offline. A user can pause each group, remove it, or restore it locally. The standard Play variant has an empty registry. Both distribution flavors use version code 227, the existing application ID and the existing signing configuration. Install the same signing lineage to keep Android app data.
+The explicit GitHub build on main includes Plugin Marketplace and all five groups. On a clean installation all six are enabled, including offline. A user can pause each group, remove it, or restore it locally. The standard Play variant has an empty registry. Both flavors display **BCM**, use version code 228 and share the existing application ID and signing configuration. Install the same signing lineage to keep Android app data.
 
 ## v2.7.0 distribution checkpoints
 
