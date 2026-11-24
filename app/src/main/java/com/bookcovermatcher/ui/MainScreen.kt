@@ -120,6 +120,8 @@ class ScreenActions(
 /** Home: the existing capture + workbook workflow. Results are presented on the Search tab. */
 @Composable
 fun HomeScreen(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, actions: ScreenActions) {
+    var previewStreaming by remember(ui.cameraRestart) { mutableStateOf(false) }
+    val cameraReady = ui.cameraWanted && ui.cameraLive && previewStreaming
     Column(Modifier.fillMaxWidth()) {
         AppHeader()
         Spacer(Modifier.height(14.dp))
@@ -131,9 +133,11 @@ fun HomeScreen(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, a
             captureEvents = vm.captureEvents,
             onLive = vm::onCameraLive,
             onError = vm::onCameraError,
+            cameraReady = cameraReady,
+            onPreviewStreamChanged = { previewStreaming = it },
         )
 
-        ActionRow(ui, actions)
+        ActionRow(ui, actions, cameraReady)
 
         Spacer(Modifier.height(14.dp))
         SpreadsheetPanel(ui, vm, actions)
@@ -412,7 +416,9 @@ private fun AppHeader() {
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun ActionRow(ui: UiState, actions: ScreenActions) {
+private fun ActionRow(ui: UiState, actions: ScreenActions, cameraReady: Boolean) {
+    // When off, either action can request permission and start the camera.
+    val actionsEnabled = !ui.isBusy && (!ui.cameraWanted || cameraReady)
     val scheme = MaterialTheme.colorScheme
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         val stackCapture = maxWidth < 328.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
@@ -423,13 +429,13 @@ private fun ActionRow(ui: UiState, actions: ScreenActions) {
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             val captureWidth = if (stackCapture) Modifier.fillMaxWidth() else Modifier.weight(1f)
-            val halo = if (ui.isBusy) Modifier else Modifier.dropShadow(
+            val halo = if (!actionsEnabled) Modifier else Modifier.dropShadow(
                 ButtonDefaults.shape, Shadow(radius = 9.dp, color = scheme.primary.copy(alpha = 0.38f)),
             )
             Button(
                 onClick = actions.onScan,
                 shapes = ButtonDefaults.shapes(),
-                enabled = !ui.isBusy,
+                enabled = actionsEnabled,
                 modifier = captureWidth.heightIn(min = 56.dp).then(halo),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
             ) {
@@ -440,7 +446,7 @@ private fun ActionRow(ui: UiState, actions: ScreenActions) {
             FilledTonalToggleButton(
                 checked = ui.autoScan,
                 onCheckedChange = { actions.onToggleAuto() },
-                enabled = !ui.isBusy,
+                enabled = actionsEnabled,
                 modifier = (if (stackCapture) Modifier.weight(1f) else Modifier).heightIn(min = 48.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             ) {
