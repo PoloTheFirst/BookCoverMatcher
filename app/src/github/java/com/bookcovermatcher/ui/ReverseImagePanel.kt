@@ -7,7 +7,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +20,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
@@ -37,11 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -115,12 +117,12 @@ fun ReverseImageSection(
     Text(
         "SauceNAO searches the image itself. IQDB is manual-only, so its row opens its own page instead.",
         color = Palette.Muted,
-        fontSize = 10.sp,
+        style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.padding(top = 6.dp),
     )
 
     reverse.note?.let {
-        Text(it, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp))
+        Text(it, color = Palette.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
     }
 
     if (reverse.candidates.isNotEmpty()) {
@@ -133,7 +135,7 @@ fun ReverseImageSection(
                 if (reverse.rejectedCount > 0) append(" \u00B7 ").append(reverse.rejectedCount).append(" rejected")
             },
             color = Palette.Muted,
-            fontSize = 10.5.sp,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(bottom = 6.dp),
         )
         reverse.candidates.forEach { candidate ->
@@ -166,7 +168,7 @@ fun ReverseImageSection(
             "Bookmarks the $eligible discovery result(s) above (SauceNAO and IQDB). Platform search results are " +
                 "not touched by this action.",
             color = Palette.Muted,
-            fontSize = 9.5.sp,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 5.dp),
         )
     }
@@ -181,36 +183,22 @@ private fun ReverseProviderRow(provider: ReverseImageProviderUi, onOpenUrl: (Str
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Palette.Navy650)
-            .border(1.dp, Palette.Navy700, RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, Palette.Navy700, MaterialTheme.shapes.large)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(7.dp).clip(CircleShape).background(colour))
-            Spacer(Modifier.width(7.dp))
-            Text(
-                "${provider.priority} \u00B7 ${provider.displayName}",
-                color = Palette.Text,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(label, color = colour, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            if (provider.searchPageUrl != null) {
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(role = Role.Button) { onOpenUrl(provider.searchPageUrl) }
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Text("Open \u2197", color = Palette.Accent, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                }
+            Column(Modifier.weight(1f)) {
+                Text("${provider.priority} · ${provider.displayName}", style = MaterialTheme.typography.titleSmall)
+                Text(label, color = colour, style = MaterialTheme.typography.labelMedium)
+            }
+            provider.searchPageUrl?.let { url ->
+                TextButton(onClick = { onOpenUrl(url) }) { Text("Open ↗") }
             }
         }
         provider.detail?.let {
-            Text(it, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
+            Text(it, color = Palette.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 3.dp))
         }
         val meta = buildString {
             if (provider.resultCount > 0) append(provider.resultCount).append(" result(s)")
@@ -220,7 +208,7 @@ private fun ReverseProviderRow(provider: ReverseImageProviderUi, onOpenUrl: (Str
             }
         }
         if (meta.isNotEmpty()) {
-            Text(meta, color = Palette.Muted, fontSize = 9.5.sp, modifier = Modifier.padding(top = 2.dp))
+            Text(meta, color = Palette.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }
@@ -255,66 +243,44 @@ private fun SauceNaoKeyBlock(hint: String?, discovery: ReverseDiscovery) {
     var text by remember { mutableStateOf("") }
     var replacing by remember { mutableStateOf(false) }
     if (hint != null && !replacing) {
-        Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("SauceNAO key stored: $hint", color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.weight(1f))
-            SmallAction("Replace", Palette.Accent) { replacing = true }
-            SmallAction("Remove", Palette.Danger, discovery::clearSauceNaoKey)
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            Text("SauceNAO key stored: $hint", style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallAction("Replace", Palette.Accent) { replacing = true }
+                SmallAction("Remove", Palette.Danger, discovery::clearSauceNaoKey)
+            }
         }
         return
     }
-    Row(
-        Modifier.fillMaxWidth().padding(top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Box(
-            Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Palette.Navy650)
-                .border(1.dp, Palette.Navy700, RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-        ) {
-            if (text.isEmpty()) {
-                Text(
-                    if (replacing) "New SauceNAO API key" else "SauceNAO API key",
-                    color = Palette.Muted,
-                    fontSize = 11.5.sp,
-                )
-            }
-            BasicTextField(
-                value = text,
-                onValueChange = { text = it },
-                textStyle = TextStyle(color = Palette.Text, fontSize = 11.5.sp),
-                singleLine = true,
-                cursorBrush = SolidColor(Palette.Accent),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(if (replacing) "New SauceNAO API key" else "SauceNAO API key") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SmallAction("Save key", Palette.Accent) {
             discovery.saveSauceNaoKey(text)
             text = ""
             replacing = false
         }
-        if (replacing) {
-            SmallAction("Cancel", Palette.Muted) {
-                text = ""
-                replacing = false
-            }
+        if (replacing) SmallAction("Cancel", Palette.Muted) {
+            text = ""
+            replacing = false
         }
     }
     Text(
         "Stored encrypted with an Android Keystore key; never shown again. Without it SauceNAO is not queried.",
         color = Palette.Muted,
-        fontSize = 9.5.sp,
+        style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.padding(top = 4.dp),
     )
 }
 
 /** One candidate: what it is, who found it, its picture, and what the user decided. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CandidateCard(
     candidate: ReverseCandidateUi,
@@ -330,9 +296,9 @@ private fun CandidateCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Palette.Navy650)
-            .border(1.dp, decisionColour(candidate.decision), RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, decisionColour(candidate.decision), MaterialTheme.shapes.large)
             .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
@@ -341,7 +307,7 @@ private fun CandidateCard(
                 Text(
                     candidate.title.ifBlank { "(no title sent by the provider)" },
                     color = Palette.Text,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 2.dp),
                 )
@@ -357,20 +323,20 @@ private fun CandidateCard(
                     }
                 }
                 if (details.isNotEmpty()) {
-                    Text(details, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+                    Text(details, color = Palette.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
                 }
-                Text(candidate.evidence, color = Palette.Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+                Text(candidate.evidence, color = Palette.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
                 if (candidate.providerCount > 1) {
                     Text(
                         "Reported by ${candidate.providerCount} providers \u2014 stronger provenance, not a probability.",
                         color = Palette.Muted,
-                        fontSize = 9.5.sp,
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 if (candidate.manual) {
-                    Text("You supplied this candidate.", color = Palette.Warn, fontSize = 9.5.sp)
+                    Text("You supplied this candidate.", color = Palette.Warn, style = MaterialTheme.typography.bodySmall)
                 }
-                candidate.note?.let { Text(it, color = Palette.Muted, fontSize = 9.5.sp) }
+                candidate.note?.let { Text(it, color = Palette.Muted, style = MaterialTheme.typography.bodySmall) }
             }
             // Every result a reverse-image provider reported can be thrown away from this list: SauceNAO cards get
             // the same control IQDB cards already had. A card both providers reported is one card holding both
@@ -378,7 +344,7 @@ private fun CandidateCard(
             if (candidate.isDismissible) {
                 IconButton(
                     onClick = { onDismiss(candidate.key) },
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(48.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
@@ -401,7 +367,7 @@ private fun CandidateCard(
                 // effectively invisible (v2.5.0-dev.2 defect). Colour is fixed per state, so it cannot fall back
                 // to a dark token on recomposition.
                 color = decisionTextColour(candidate.decision),
-                fontSize = 10.sp,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
@@ -411,10 +377,9 @@ private fun CandidateCard(
         // Per-card collection actions, mirroring the platform result cards. A bookmark writes to `Bookmarks` only;
         // the wishlist action opens the same folder picker every other card uses. Both are safe to repeat: the chip
         // states what is already true, and the store deduplicates by the candidate's own identity.
-        Row(
+        FlowRow(
             Modifier.fillMaxWidth().padding(top = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             SmallAction(
                 if (bookmarked) "Bookmarked \u2713" else "Bookmark",
@@ -465,7 +430,7 @@ private fun CandidateThumbnail(candidate: ReverseCandidateUi) {
                     else -> "no image"
                 },
                 color = Palette.Muted,
-                fontSize = 8.5.sp,
+                style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 2.dp),
             )
@@ -516,16 +481,9 @@ private fun decisionColour(decision: CandidateDecision): Color = when (decision)
 /** A small text button, matching the panel's other inline actions. */
 @Composable
 private fun SmallAction(label: String, colour: Color, onClick: () -> Unit) {
-    Text(
-        label,
-        color = colour,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
-    )
+    TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) {
+        Text(label, color = colour, style = MaterialTheme.typography.labelLarge)
+    }
 }
 
 /**
@@ -545,43 +503,35 @@ private fun IqdbPasteBlock(discovery: ReverseDiscovery) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Palette.Navy650)
-            .border(1.dp, Palette.Navy700, RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, Palette.Navy700, MaterialTheme.shapes.large)
             .padding(10.dp),
     ) {
-        Text("Paste an IQDB result you found", color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("Paste an IQDB result you found", color = Palette.Text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Text(
             "Open IQDB in your browser, search the cover there, then paste the result here \u2014 one per line, " +
                 "e.g. \"92% https://danbooru.donmai.us/posts/123\". The app did not search IQDB; it only " +
                 "normalises what you pasted.",
             color = Palette.Muted,
-            fontSize = 9.5.sp,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(bottom = 6.dp),
         )
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(74.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Palette.Navy700)
-                .padding(8.dp),
-        ) {
-            if (text.isEmpty()) Text("92% https://\u2026", color = Palette.Muted, fontSize = 11.sp)
-            BasicTextField(
-                value = text,
-                onValueChange = { text = it },
-                textStyle = TextStyle(color = Palette.Text, fontSize = 11.sp),
-                cursorBrush = SolidColor(Palette.Accent),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("IQDB results") },
+            placeholder = { Text("92% https://…") },
+            minLines = 2,
+            maxLines = 6,
+        )
         Row(
             Modifier.fillMaxWidth().padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("", modifier = Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
             SmallAction("Add results", Palette.Ok) {
                 discovery.importIqdbResult(text)
                 text = ""

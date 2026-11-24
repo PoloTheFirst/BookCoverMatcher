@@ -409,33 +409,15 @@ private fun CatalogueSection(
     }
     val searchable = ui.providers.any { !it.manual }
 
-    BasicTextField(
+    androidx.compose.material3.OutlinedTextField(
         value = ui.query,
         onValueChange = controller::setQuery,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.22f))
-            .border(1.dp, Palette.Line, RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 10.dp),
-        textStyle = TextStyle(color = Palette.Text, fontSize = 13.sp),
-        cursorBrush = SolidColor(Palette.Accent),
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Title and author") },
+        supportingText = { Text("Edit the text read from the cover, or enter your own.") },
         maxLines = 2,
         keyboardOptions = KeyboardOptions(imeAction = if (searchable) ImeAction.Search else ImeAction.Done),
         keyboardActions = if (searchable) KeyboardActions(onSearch = { controller.search() }) else KeyboardActions.Default,
-        decorationBox = { inner ->
-            Box {
-                if (ui.query.isEmpty()) {
-                    Text(
-                        "Title (and author). Filled from the cover text, editable.",
-                        color = Palette.Muted,
-                        fontSize = 13.sp,
-                    )
-                }
-                inner()
-            }
-        },
     )
 
     Spacer(Modifier.height(10.dp))
