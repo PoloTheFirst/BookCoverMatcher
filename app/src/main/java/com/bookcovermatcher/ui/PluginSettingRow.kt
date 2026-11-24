@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.bookcovermatcher.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
@@ -9,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -29,14 +31,16 @@ internal fun PluginSettingRow(
     onRemove: (() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
+    val active = enabled && checked
     val selection = if (checked) "On" else "Off"
     val state = status ?: selection
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = if (enabled && checked) colors.secondaryContainer else colors.surfaceContainer,
+        color = if (active) colors.secondaryContainer else colors.surfaceContainer,
+        border = if (active) BorderStroke(1.dp, lerp(colors.outlineVariant, colors.primary, 0.38f)) else null,
     ) {
-        val foreground = if (enabled && checked) colors.onSecondaryContainer else colors.onSurface
+        val foreground = if (active) colors.onSecondaryContainer else colors.onSurface
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
                 modifier = Modifier.weight(1f)
