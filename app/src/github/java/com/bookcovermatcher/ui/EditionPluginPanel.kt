@@ -45,11 +45,11 @@ internal fun EditionPluginPanel(row: PluginRow, registry: List<PluginRow>, impor
                         Text(entry.summary, style = MaterialTheme.typography.bodySmall)
                         when (child?.status) {
                             null, PluginStatus.UNAVAILABLE -> Text("Requires a GitHub build containing this plugin")
-                            PluginStatus.FETCHING -> Text("Downloading…")
+                            PluginStatus.FETCHING -> Text("Restoring…")
                             else -> {
                                 child.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                                 FilledTonalButton(onClick = { manager.download(entry.id) }) {
-                                    Text(if (child.status == PluginStatus.FAILED) "Retry download" else "Download")
+                                    Text(if (child.status == PluginStatus.FAILED) "Retry restore" else "Restore")
                                 }
                             }
                         }
@@ -66,22 +66,25 @@ internal fun EditionImportHelp(onOpenUrl: (String) -> Unit) {
     TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide import guide" else "How to import plugins") }
     AnimatedVisibility(expanded) {
         Panel("Import guide") {
-            Text("Set up the folders on your phone", color = Palette.Text)
+            Text("Manage the included plugins", color = Palette.Text)
+            Text("The explicit edition includes Plugin Marketplace and five discovery groups. Each switch takes effect immediately. Turning off the marketplace pauses its groups and remembers their switches.", color = Palette.Muted)
+            Text("To bring back a removed group, turn on Plugin Marketplace and tap Restore beside that group. Its setup file is included in BCM and works offline. Turn on the group to use it.", color = Palette.Muted)
+            Text("Store setup files for manual import", Modifier.padding(top = 12.dp), color = Palette.Text)
             Text("1. Open the Files app. Tap Internal storage, then Documents.", color = Palette.Muted)
             Text("2. In Documents, create a folder named BookCoverMatcher. Open the BookCoverMatcher folder.", color = Palette.Muted)
             Text("3. In BookCoverMatcher, create a folder named Plugins. Open the Plugins folder. If either folder already exists, open the existing folder.", color = Palette.Muted)
             Text("Save your .bcmplugin files in Internal storage/$PLUGIN_DOCUMENTS_FOLDER", color = Palette.Text)
-            Text("Import Plugin Marketplace in BCM", Modifier.padding(top = 12.dp), color = Palette.Text)
-            Text("marketplace.bcmplugin is the setup file that adds the Plugin Marketplace switch. If you already see that switch in BCM, turn it on.", color = Palette.Muted)
+            Text("Restore a removed marketplace", Modifier.padding(top = 12.dp), color = Palette.Text)
+            Text("marketplace.bcmplugin is the setup file for the Plugin Marketplace switch. Follow these steps if you removed the marketplace itself.", color = Palette.Muted)
             Text("1. Tap Get marketplace.bcmplugin below. On GitHub, choose Download raw file. If the file lands in Downloads, use the Files app to move it to the Plugins folder you opened above.", color = Palette.Muted)
             TextButton(onClick = { onOpenUrl("https://github.com/PoloTheFirst/BookCoverMatcher/blob/plugin/plugin-marketplace/plugins/manifests/marketplace.bcmplugin") }) {
                 Text("Get marketplace.bcmplugin")
             }
             Text("2. Return to BCM. Tap the Plugins tab (the puzzle piece next to More), then tap Import plugin. In the file picker, open Documents → BookCoverMatcher → Plugins and select marketplace.bcmplugin. If you already see the file, tap it.", color = Palette.Muted)
-            Text("3. Back in BCM, turn on Plugin Marketplace. When the downloads finish, turn on a plugin such as Ordinary Library Fetch.", color = Palette.Muted)
+            Text("3. Turn on Plugin Marketplace. BCM resumes the groups you had enabled. You can restore any removed group individually.", color = Palette.Muted)
             Text("From a custom plugin author", Modifier.padding(top = 12.dp), color = Palette.Text)
             Text("1. Check that the plugin works with your version of BCM. Save the author’s .bcmplugin file in the same $PLUGIN_DOCUMENTS_FOLDER folder.", color = Palette.Muted)
-            Text("2. Tap Import plugin, choose the file and turn on its switch. If BCM says to manage it in Plugin Marketplace, use that group’s marketplace switch.", color = Palette.Muted)
+            Text("2. Tap Import plugin, choose the file, then turn on its switch.", color = Palette.Muted)
             Text("Return to Search → Online. Enabled platforms appear in order automatically.", Modifier.padding(top = 8.dp), color = Palette.Text)
         }
     }
