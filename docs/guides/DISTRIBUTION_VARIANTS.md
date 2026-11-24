@@ -8,6 +8,17 @@ On the standard Play build, **Plugins** opens an empty host showing **Import plu
 
 The additional **BCM Plus** download, `BCM-Plus-v3.0.0-dev.4.apk`, contains the explicit edition with bundled providers. Both editions use the same package and signing key.
 
+## Published edition sources
+
+Each release tag identifies the standard BCM source. The companion commits build the BCM Plus APKs.
+
+| GitHub prerelease | BCM Plus source |
+| --- | --- |
+| [v3.0.0-dev.1](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.1) | [c939cff](https://github.com/PoloTheFirst/BookCoverMatcher/commit/c939cff5314f4dca60e3a21c9d8d9c742ecbdbce) |
+| [v3.0.0-dev.2](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.2) | [f266b70](https://github.com/PoloTheFirst/BookCoverMatcher/commit/f266b70b917bfa245d00184b7d511dfbb5c7a5cc) |
+| [v3.0.0-dev.3](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.3) | [cd39ce5](https://github.com/PoloTheFirst/BookCoverMatcher/commit/cd39ce5a4a06c1a73a2eed8271f9cbd4a2115133) |
+| [v3.0.0-dev.4](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.4) | [ed0af7f](https://github.com/PoloTheFirst/BookCoverMatcher/commit/ed0af7f0bf241f7b8a8fd5182b7779d8b0d35f61) |
+
 ## v2.7.0 distribution checkpoints
 
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "5559be0f1f104a60e9628d6302f899c88f6edda0b71cc50fe2e91e458244b91a",
+  "fingerprint": "2d4445660374c65e2df57e52fcf44ced8a70b64273263904800ae28948e89e06",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 9634,
-      "sha256": "45c81907a5a517a6e88ace4bb080b4f8fbd6bff122d7f2071b82c04309b8c41d",
+      "bytes": 10640,
+      "sha256": "01b3ca4f4f3d9a4a8d88210028c102ad4771104e4bd700d9fe13ffd5afaf09ec",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
