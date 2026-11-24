@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -58,6 +59,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.colorResource
+import com.bookcovermatcher.R
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -377,17 +381,24 @@ private fun BookmarksResultsTab(
 @Composable
 private fun AppHeader() {
     Column(Modifier.fillMaxWidth()) {
-        Text(
-            buildAnnotatedString {
-                append("Book")
-                withStyle(SpanStyle(color = Palette.Accent)) { append("Cover") }
-                append(" Matcher")
-            },
-            modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = Palette.Text,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Mirror the website's app mark while keeping its original launcher colors.
+            Image(
+                painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
+                modifier = Modifier.size(48.dp).background(colorResource(R.color.ic_launcher_background),
+                    MaterialTheme.shapes.medium),
+            )
+            Text(
+                buildAnnotatedString {
+                    append("Book")
+                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append("Cover") }
+                    append(" Matcher")
+                },
+                modifier = Modifier.weight(1f).semantics { heading() },
+                style = MaterialTheme.typography.headlineLarge, fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         Text(
             "Scan a cover · embed it · find it inside your spreadsheet",
             modifier = Modifier.padding(top = 4.dp),
@@ -410,6 +421,7 @@ private fun ActionRow(ui: UiState, actions: ScreenActions) {
             contentColor = Palette.OnAccent,
             modifier = Modifier.weight(1f),
             enabled = !ui.isBusy,
+            glow = MaterialTheme.colorScheme.primary.copy(alpha = 0.42f),
             contentPadding = 12.dp,
         ) {
             CameraGlyph(Palette.OnAccent)
@@ -536,7 +548,7 @@ private fun PickerField(
                 .fillMaxWidth()
                 .heightIn(min = 54.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color.Black.copy(alpha = 0.22f))
+                .background(Palette.Navy900)
                 .dashedBorder(Palette.Line, 12.dp)
                 .clickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -596,7 +608,7 @@ private fun RangeField(value: String, onChange: (String) -> Unit) {
                     .fillMaxWidth()
                     .heightIn(min = 54.dp)
                     .clip(shape)
-                    .background(Color.Black.copy(alpha = 0.30f))
+                    .background(Palette.Navy950)
                     .border(1.dp, border, shape)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 contentAlignment = Alignment.CenterStart,
@@ -613,7 +625,7 @@ private fun TargetPreview(target: TargetUi) {
             .fillMaxWidth()
             .padding(bottom = 12.dp)
             .clip(shape)
-            .background(Color.Black.copy(alpha = 0.22f))
+            .background(Palette.Navy900)
             .border(1.dp, Palette.Line, shape)
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -653,7 +665,7 @@ private fun BusyCard(busy: BusyUi, onCancel: () -> Unit) {
             .fillMaxWidth()
             .padding(top = 4.dp)
             .clip(shape)
-            .background(Color.Black.copy(alpha = 0.22f))
+            .background(Palette.Navy900)
             .border(1.dp, Palette.Accent2.copy(alpha = 0.5f), shape)
             .padding(14.dp),
     ) {
@@ -685,13 +697,13 @@ private fun BusyCard(busy: BusyUi, onCancel: () -> Unit) {
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
                 color = Palette.Accent2,
-                trackColor = Color.White.copy(alpha = 0.09f),
+                trackColor = Palette.Line,
             )
         } else {
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
                 color = Palette.Accent2,
-                trackColor = Color.White.copy(alpha = 0.09f),
+                trackColor = Palette.Line,
             )
         }
     }
@@ -737,6 +749,7 @@ private fun EmptyNote(text: String) {
     )
 }
 
+@Composable
 private fun levelColor(level: MatchLevel): Color = when (level) {
     MatchLevel.HIGH -> Palette.Ok
     MatchLevel.MID -> Palette.Accent
@@ -809,7 +822,7 @@ private fun ResultRow(item: ResultUi, delayMs: Int) {
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.09f)),
+                    .background(Palette.Line),
             ) {
                 Box(
                     Modifier

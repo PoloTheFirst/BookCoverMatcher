@@ -361,7 +361,7 @@ private fun OcrTextField(value: String) {
             .fillMaxWidth()
             .heightIn(min = 54.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.22f))
+            .background(Palette.Navy900)
             .border(1.dp, Palette.Line, RoundedCornerShape(12.dp))
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {

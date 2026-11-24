@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -47,6 +48,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -87,14 +91,29 @@ fun GradientButton(
         Palette.GreyGradient -> scheme.surfaceContainerHigh
         else -> colors.last()
     }
+    val accentFill = colors == Palette.PrimaryGradient || colors == Palette.AccentGradient
+    val face = when {
+        !accentFill -> Modifier
+        colors == Palette.AccentGradient && contentColor != Palette.OnAccent2 ->
+            Modifier.background(Brush.linearGradient(listOf(surface, lerp(surface, scheme.secondary, 0.12f))), shape)
+        else -> Modifier.background(Brush.linearGradient(listOf(
+            lerp(surface, Color.White, 0.09f), surface, lerp(surface, scheme.secondary, 0.45f),
+        )), shape)
+    }
+    val halo = if (enabled && glow != null) {
+        Modifier.dropShadow(shape, Shadow(radius = 9.dp, color = glow, spread = 1.dp))
+    } else Modifier
     Button(
         onClick = onClick,
-        modifier = modifier.heightIn(min = minHeight.coerceAtLeast(48.dp)).alpha(if (enabled) 1f else 0.6f),
+        modifier = modifier.heightIn(min = minHeight.coerceAtLeast(48.dp))
+            .alpha(if (enabled) 1f else 0.6f).then(halo).then(if (enabled) face else Modifier),
         enabled = enabled,
         shape = shape,
         border = border,
-        elevation = if (glow != null) ButtonDefaults.elevatedButtonElevation() else null,
-        colors = ButtonDefaults.buttonColors(containerColor = surface, contentColor = contentColor),
+        elevation = null,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (accentFill) Color.Transparent else surface, contentColor = contentColor,
+        ),
         contentPadding = PaddingValues(horizontal = contentPadding, vertical = 8.dp),
     ) {
         Row(
@@ -124,6 +143,8 @@ fun Panel(title: String?, modifier: Modifier = Modifier, content: @Composable Co
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(1.dp, lerp(MaterialTheme.colorScheme.outlineVariant,
+            MaterialTheme.colorScheme.primary, 0.24f).copy(alpha = 0.68f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Column(Modifier.padding(if (title == null) 8.dp else 16.dp)) {
