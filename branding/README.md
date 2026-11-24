@@ -1,10 +1,10 @@
 # BCM branding assets
 
-BCM’s mark is an open book with a four-point glint on the right page. The full-color launcher uses Polo’s Atelier’s Sophie palette, with a cream tile and rose book in daytime. At night it uses a deep rose tile with blush and ivory pages. The Home header follows **More → Display**. On Android launchers that offer themed icons, Android supplies the colors for a separate silhouette with a transparent page crease and glint.
+BCM’s mark is an open book with a four-point glint on the right page. The full-color launcher uses Polo’s Atelier’s Sophie palette, with pale blush and ivory pages outlined in rose on a cream tile in daytime. At night it uses a deep rose tile with blush and ivory pages. The Home header follows **More → Display**. On Android launchers that offer themed icons, Android supplies the colors for a separate silhouette with a transparent page crease and glint.
 
 ## Artwork and exports
 
-Edit the path geometry and day/night fills in [the source SVG](source/bookcovermatcher-logo.svg). The SVG crops the center 72 units from Android’s 108-unit adaptive canvas. Android applies its own launcher mask. The feature graphic uses its own [editable layout](source/feature-graphic.svg).
+Edit the path geometry, day/night fills and light-mode page outlines in [the source SVG](source/bookcovermatcher-logo.svg). The SVG crops the center 72 units from Android’s 108-unit adaptive canvas. Android applies its own launcher mask. The feature graphic uses its own [editable layout](source/feature-graphic.svg).
 
 | Asset | Purpose |
 | --- | --- |

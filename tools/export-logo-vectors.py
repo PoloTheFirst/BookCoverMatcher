@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Convert the four filled paths of BCM's editable SVG into its native icon layers."""
+"""Convert the day, night and monochrome paths of BCM's editable SVG into its native icon layers."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -25,9 +25,8 @@ def vector(name, layers):
     # The store SVG crops the center 72 units; Android animates these larger 108dp layers.
     root = ET.Element("vector", {ANDROID + "width": "108dp", ANDROID + "height": "108dp",
         ANDROID + "viewportWidth": "108", ANDROID + "viewportHeight": "108"})
-    for color, geometry in layers:
-        ET.SubElement(root, "path", {ANDROID + "fillColor": color, ANDROID + "fillType": "evenOdd",
-                                     ANDROID + "pathData": geometry})
+    for layer in layers:
+        ET.SubElement(root, "path", {ANDROID + key: value for key, value in layer.items()})
     write_xml(root, RES / "drawable" / (name + ".xml"))
 
 
@@ -36,11 +35,19 @@ def main():
     paths = {p.attrib["id"]: p for p in svg.findall(SVG + "path")}
     tile = svg.find(SVG + "rect")
     for color_key, name in (("fill", "ic_launcher_foreground"), ("data-night", "bcm_logo_foreground_dark")):
-        vector(name, [(p.attrib[color_key], p.attrib["d"]) for p in paths.values()])
+        layers = []
+        for path in paths.values():
+            layer = {"fillColor": path.attrib[color_key], "fillType": "evenOdd", "pathData": path.attrib["d"]}
+            if color_key == "fill" and "stroke" in path.attrib:
+                layer.update(strokeColor=path.attrib["stroke"], strokeWidth=path.attrib["stroke-width"],
+                             strokeLineJoin=path.attrib["stroke-linejoin"])
+            layers.append(layer)
+        vector(name, layers)
     # The transparent page crease and cut-out glint survive the launcher's single-color tint.
     vector("ic_launcher_monochrome", [
-        ("#FFFFFF", paths["left-page"].attrib["d"]),
-        ("#FFFFFF", paths["right-page"].attrib["d"] + " " + paths["match"].attrib["d"]),
+        {"fillColor": "#FFFFFF", "fillType": "evenOdd", "pathData": paths["left-page"].attrib["d"]},
+        {"fillColor": "#FFFFFF", "fillType": "evenOdd",
+         "pathData": paths["right-page"].attrib["d"] + " " + paths["match"].attrib["d"]},
     ])
     colors = ET.Element("resources")
     ET.SubElement(colors, "color", name="bcm_logo_tile_light").text = tile.attrib["fill"]
