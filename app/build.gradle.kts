@@ -196,6 +196,9 @@ android {
     // Both editions intentionally share applicationId, version identity and signing configuration.
     // A Play upload still requires the existing publication gate and matching app-signing certificate.
     sourceSets {
+        // Package the same data-only files which standalone hosts import. The Play flavor does
+        // not have this Java resources source directory, including on cross-edition upgrades.
+        getByName("github").resources.srcDir(rootProject.file("plugins/manifests"))
         if (platformClasses.containsAll(listOf("OrdinaryLibraryGroup", "DlsiteGroup", "DoujinShopGroup", "ExplicitDatabaseGroup"))) {
             getByName("testGithub").java.srcDir("src/testCombinedPlatforms/java")
         }
@@ -224,7 +227,7 @@ android {
     // The model is a big, already-compact binary: store it uncompressed so it can be read straight from the APK.
     androidResources { noCompress += "onnx" }
 
-    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    packaging { resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/demo.bcmplugin") }
 
     lint { abortOnError = false }
 }
@@ -598,7 +601,6 @@ tasks.withType<Test>().configureEach {
 
 dependencies {
     implementation(project(":plugin-api"))
-    debugImplementation(project(":plugins:demo"))
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     implementation(libs.androidx.compose.ui)

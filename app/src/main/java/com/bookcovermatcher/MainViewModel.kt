@@ -8,7 +8,7 @@ import com.bookcovermatcher.data.googledrive.*
 import com.bookcovermatcher.data.OnlineSearchPrefs
 import com.bookcovermatcher.plugins.ActivePlatforms
 import com.bookcovermatcher.plugins.editionCatalogue
-import com.bookcovermatcher.plugins.editionGroups
+import com.bookcovermatcher.plugins.initialPluginSelection
 import com.bookcovermatcher.plugins.editionPlugins
 import com.bookcovermatcher.plugins.PluginManager
 import com.bookcovermatcher.plugins.bundledPlugins
@@ -145,8 +145,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     internal val plugins = PluginManager(
         bundledPlugins + editionPlugins,
         PluginSettings(File(app.filesDir, "plugin-settings")) { id ->
-            val selected = OnlineSearchPrefs(app).explicitProviderIds.orEmpty()
-            editionGroups.firstOrNull { it.id == id }?.entries?.any { it.selectable && it.id in selected } == true
+            initialPluginSelection(id, OnlineSearchPrefs(app).explicitProviderIds)
         },
         viewModelScope,
         catalogue = editionCatalogue,

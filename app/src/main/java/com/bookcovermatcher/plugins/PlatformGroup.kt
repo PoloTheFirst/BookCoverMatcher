@@ -36,3 +36,11 @@ internal fun List<ActivePlatforms>.platforms(): List<ProviderSpec> =
     map { it.group }.sortedWith(platformOrder).flatMap { it.entries }
 
 internal val editionPlugins get() = editionGroups.map { it.registration } + editionPanels
+
+/** Only automated catalogue sources had individual choices before groups were introduced. */
+internal fun initialPluginSelection(id: String, legacySelection: Set<String>?): Boolean {
+    val selectable = editionGroups.firstOrNull { it.id == id }?.entries.orEmpty().filter { it.selectable }
+    val preinstalled = editionCatalogue?.bundled?.containsKey(id) == true
+    if (legacySelection == null || selectable.isEmpty()) return preinstalled
+    return selectable.any { it.id in legacySelection }
+}

@@ -32,6 +32,8 @@ internal interface PluginChoices {
 internal class PluginCatalogue(
     val parent: String,
     val fetch: Map<String, suspend () -> Unit>,
+    /** Checked locally before first installation. Only the explicit distribution supplies these. */
+    val bundled: Map<String, () -> Unit> = emptyMap(),
 )
 
 /** Settings changes are serialized. Network requests run independently outside the lock. */
@@ -69,7 +71,10 @@ internal class PluginManager(
     suspend fun importDescriptor(id: String): String = withContext(worker) {
         val entry = entries[id] ?: return@withContext "This plugin is unavailable in this edition."
         lock.withLock {
-            if (isChild(id)) return@withLock "Manage this plugin in Plugin Marketplace."
+            if (catalogue != null && id in catalogue.fetch) {
+                if (id !in catalogue.bundled) return@withLock "Manage this plugin in Plugin Marketplace."
+                if (catalogue.parent !in importedIds.value) return@withLock "Import Plugin Marketplace first."
+            }
             if (row(entry).status == PluginStatus.UNAVAILABLE) return@withLock "Incompatible plugin."
             if (id in importedIds.value) return@withLock "Already imported."
             install(entry)
@@ -86,7 +91,9 @@ internal class PluginManager(
         choices.save(id(entry), initial)
         importedIds.update { it + id(entry) }
         set(entry, PluginStatus.DISABLED)
-        if (initial) enable(entry)
+        if (isChild(id(entry)) && !parentActive()) {
+            set(entry, PluginStatus.PAUSED, message = "Inactive · Marketplace is off", rememberedOn = initial)
+        } else if (initial) enable(entry)
     }
 
     init {
@@ -97,10 +104,16 @@ internal class PluginManager(
                         if (row(entry).status == PluginStatus.UNAVAILABLE) continue
                         val id = id(entry)
                         try {
-                            if (choices.imported(id)) {
-                                importedIds.update { it + id }
-                                if (!isChild(id) && choices.enabled(id)) enable(entry)
+                            // A per-ID atomic save is the initialization marker. A stopped process
+                            // resumes at the next missing entry without undoing a removal or an opt-out.
+                            val descriptor = catalogue?.bundled?.get(id)
+                            if (!choices.imported(id)) {
+                                if (descriptor == null || choices.removed(id)) continue
+                                descriptor()
+                                choices.save(id, choices.enabled(id))
                             }
+                            importedIds.update { it + id }
+                            if (!isChild(id) && choices.enabled(id)) enable(entry)
                         } catch (e: Exception) {
                             currentCoroutineContext().ensureActive()
                             set(entry, PluginStatus.FAILED, message = "Could not restore setting")
@@ -109,7 +122,7 @@ internal class PluginManager(
                     // Give upgraded standalone providers a visible, initially off parent.
                     catalogue?.let { catalog ->
                         if (importedIds.value.any(::isChild) && catalog.parent !in importedIds.value &&
-                            !choices.removed(catalog.parent)) {
+                            catalog.parent !in catalog.bundled && !choices.removed(catalog.parent)) {
                             install(entries.getValue(catalog.parent))
                         }
                     }
@@ -149,7 +162,7 @@ internal class PluginManager(
             } else if (id in importedIds.value) {
                 if (choices.enabled(id)) enable(entry)
                 else if (row(entry).status == PluginStatus.PAUSED) set(entry, PluginStatus.DISABLED)
-            } else if (!choices.removed(id)) {
+            } else if (id !in catalog.bundled && !choices.removed(id)) {
                 startDownload(entry, fetch)
             }
         }
@@ -158,9 +171,12 @@ internal class PluginManager(
     fun download(id: String) = owner.launch(worker) {
         lock.withLock {
             val entry = entries[id] ?: return@withLock
-            val fetch = catalogue?.fetch?.get(id) ?: return@withLock
-            if (parentActive() && id !in importedIds.value && row(entry).status != PluginStatus.UNAVAILABLE)
-                startDownload(entry, fetch)
+            val catalog = catalogue ?: return@withLock
+            val fetch = catalog.fetch[id] ?: return@withLock
+            if (parentActive() && id !in importedIds.value && row(entry).status != PluginStatus.UNAVAILABLE) {
+                val local = catalog.bundled[id]
+                startDownload(entry, if (local == null) fetch else suspend { local() })
+            }
         }
     }
 

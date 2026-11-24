@@ -9,7 +9,7 @@ import javax.net.ssl.HttpsURLConnection
 internal object ActiveMarketplace : SettingsPanelContribution()
 
 private val marketplace = PluginDescriptor("bcm.marketplace", "Plugin Marketplace",
-    "Downloads plugins from GitHub when enabled.", "1.0", 2..2, setOf(Capability.SETTINGS_PANEL))
+    "Manage the five discovery plugins included in this edition.", "1.0", 2..2, setOf(Capability.SETTINGS_PANEL))
 
 internal val editionPanels = listOf(Registration(marketplace) {
     object : BundledPlugin {
@@ -60,4 +60,12 @@ internal val marketplaceEntries = listOf(
 
 internal val editionCatalogue = PluginCatalogue(marketplace.id, marketplaceEntries.associate { entry ->
     entry.id to suspend { entry.download(); Unit }
-})
+}, bundled = (marketplaceEntries.associate { it.id to it.filename } + (marketplace.id to "marketplace.bcmplugin"))
+    .mapValues { (expected, filename) ->
+        {
+            val stream = checkNotNull(ActiveMarketplace::class.java.getResourceAsStream("/$filename")) {
+                "Missing bundled plugin descriptor: $filename"
+            }
+            stream.use { require(readPluginId(it) == expected) { "Unexpected bundled plugin ID" } }
+        }
+    })
