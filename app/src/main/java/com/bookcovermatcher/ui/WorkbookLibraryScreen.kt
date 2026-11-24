@@ -2,12 +2,19 @@
 
 package com.bookcovermatcher.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import com.bookcovermatcher.ui.components.ScreenHeading
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,7 +46,6 @@ import com.bookcovermatcher.MainViewModel
 import com.bookcovermatcher.UiState
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.data.SavedWorkbook
-import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.theme.Palette
 import java.text.SimpleDateFormat
@@ -64,107 +68,86 @@ fun WorkbookLibraryScreen(ui: UiState, vm: MainViewModel) {
     var renameText by remember { mutableStateOf("") }
     var removeId by remember { mutableStateOf<String?>(null) }
 
-    Box(Modifier.fillMaxSize().background(Palette.Navy800)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Saved workbooks", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        if (ui.libraryBusy) "Copying the workbook\u2026" else "${ui.savedWorkbooks.size} saved",
-                        color = Palette.Muted, fontSize = 10.5.sp,
-                    )
-                }
-                GradientButton(
-                    onClick = vm::closeLibrary,
-                    colors = Palette.GreyGradient,
-                    contentColor = Palette.Text,
-                    modifier = Modifier.width(64.dp),
-                    minHeight = 36.dp,
-                ) { ButtonLabel("Back", Palette.Text, 11f) }
-            }
-
-            // All import sources create app-managed local copies in the same library.
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
-                GradientButton(
-                    onClick = { pickWorkbook.launch(arrayOf("*/*")) },
-                    colors = Palette.NavyGradient,
-                    contentColor = Palette.Text,
-                    modifier = Modifier.fillMaxWidth(),
-                    minHeight = 36.dp,
-                    enabled = !ui.libraryBusy,
-                ) { ButtonLabel("Import", Palette.Text, 11f) }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth()) {
-                GradientButton(
-                    onClick = vm::openOneDriveBrowser,
-                    colors = Palette.NavyGradient,
-                    contentColor = Palette.Text,
-                    modifier = Modifier.weight(1f),
-                    minHeight = 48.dp,
-                    enabled = !ui.libraryBusy && ui.oneDrive.entryEnabled,
-                ) { CloudImportLabel("OneDrive", ui.oneDrive.accountLabel, ui.oneDrive.signedIn, ui.oneDrive.expired, ui.oneDrive.signingIn) }
-                Spacer(Modifier.width(8.dp))
-                GradientButton(
-                    onClick = vm::openGoogleDriveBrowser,
-                    colors = Palette.NavyGradient,
-                    contentColor = Palette.Text,
-                    modifier = Modifier.weight(1f),
-                    minHeight = 48.dp,
-                    enabled = !ui.libraryBusy,
-                ) { CloudImportLabel("Google Drive", ui.googleDrive.accountLabel, ui.googleDrive.signedIn, ui.googleDrive.expired, ui.googleDrive.signingIn) }
-                }
-
-            }
-            Spacer(Modifier.height(4.dp))
-
-            if (ui.savedWorkbooks.isEmpty()) {
-                Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        "No workbooks saved yet. Import an .xlsx or .xlsm file and the app keeps its own copy, " +
-                            "so it keeps working when the original file moves.",
-                        color = Palette.Muted, fontSize = 12.sp,
-                    )
-                }
-            } else {
-                if (ui.comparison.selection.isNotEmpty()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Palette.Accent.copy(alpha = 0.12f)).padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().systemBarsPadding(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        ScreenHeading("Saved workbooks")
                         Text(
-                            "${ui.comparison.selection.size}/2 selected for comparison",
-                            color = Palette.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f),
+                            if (ui.libraryBusy) "Copying the workbook…" else "${ui.savedWorkbooks.size} saved",
+                            color = Palette.Muted, style = MaterialTheme.typography.bodyMedium,
                         )
-                        LibraryAction("Compare") { vm.runComparison() }
-                        Spacer(Modifier.width(12.dp))
-                        LibraryAction("Clear", Palette.Muted) { vm.clearComparisonSelection() }
                     }
+                    LibraryAction("Back") { vm.closeLibrary() }
                 }
-                LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    items(ui.savedWorkbooks, key = { it.id }) { entry ->
-                        LibraryRow(
-                            entry = entry,
-                            ui = ui,
-                            vm = vm,
-                            selectedForComparison = ui.comparison.isSelected(entry.id),
-                            onOpen = { vm.openSavedWorkbook(entry.id) },
-                            onCompare = { vm.toggleComparisonSelection(entry.id) },
-                            onRename = { renameId = entry.id; renameText = entry.displayName },
-                            onPin = { vm.setSavedWorkbookPinned(entry.id, !entry.pinned) },
-                            onRemove = { removeId = entry.id },
-                        )
-                        Spacer(Modifier.height(6.dp))
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { pickWorkbook.launch(arrayOf("*/*")) },
+                        modifier = Modifier.fillMaxWidth(), enabled = !ui.libraryBusy,
+                    ) { Text("Import") }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GradientButton(
+                            onClick = vm::openOneDriveBrowser,
+                            colors = Palette.NavyGradient, contentColor = Palette.Text,
+                            modifier = Modifier.weight(1f), contentPadding = 8.dp,
+                            enabled = !ui.libraryBusy && ui.oneDrive.entryEnabled,
+                        ) {
+                            CloudImportLabel("OneDrive", ui.oneDrive.accountLabel, ui.oneDrive.signedIn,
+                                ui.oneDrive.expired, ui.oneDrive.signingIn)
+                        }
+                        GradientButton(
+                            onClick = vm::openGoogleDriveBrowser,
+                            colors = Palette.NavyGradient, contentColor = Palette.Text,
+                            modifier = Modifier.weight(1f), contentPadding = 8.dp,
+                            enabled = !ui.libraryBusy,
+                        ) {
+                            CloudImportLabel("Google Drive", ui.googleDrive.accountLabel, ui.googleDrive.signedIn,
+                                ui.googleDrive.expired, ui.googleDrive.signingIn)
+                        }
                     }
                 }
             }
-
-            StoragePanel(ui, vm)
+            if (ui.savedWorkbooks.isEmpty()) item {
+                Text(
+                    "No workbooks saved yet. Import an .xlsx or .xlsm file and the app keeps its own copy, " +
+                        "so it keeps working when the original file moves.",
+                    color = Palette.Muted, style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (ui.comparison.selection.isNotEmpty()) item {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.large)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("${ui.comparison.selection.size}/2 selected for comparison", color = Palette.Text)
+                    LibraryAction("Compare") { vm.runComparison() }
+                    LibraryAction("Clear", Palette.Muted) { vm.clearComparisonSelection() }
+                }
+            }
+            items(ui.savedWorkbooks, key = { it.id }) { entry ->
+                LibraryRow(
+                    entry = entry,
+                    ui = ui,
+                    vm = vm,
+                    selectedForComparison = ui.comparison.isSelected(entry.id),
+                    onOpen = { vm.openSavedWorkbook(entry.id) },
+                    onCompare = { vm.toggleComparisonSelection(entry.id) },
+                    onRename = { renameId = entry.id; renameText = entry.displayName },
+                    onPin = { vm.setSavedWorkbookPinned(entry.id, !entry.pinned) },
+                    onRemove = { removeId = entry.id },
+                )
+            }
+            item { StoragePanel(ui, vm) }
         }
 
         renameId?.let { id ->
@@ -210,25 +193,17 @@ private fun LibraryRow(
     onPin: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val shape = MaterialTheme.shapes.large
     Column(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Palette.Navy700)
-            .border(
-                1.dp,
-                when {
-                    selectedForComparison -> Palette.Accent
-                    entry.pinned -> Palette.Accent.copy(alpha = 0.6f)
-                    else -> Palette.Line
-                },
-                RoundedCornerShape(10.dp),
-            )
-            .padding(10.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+            .then(if (selectedForComparison || entry.pinned) Modifier.border(1.dp, Palette.Accent, shape) else Modifier)
+            .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                entry.displayName, color = Palette.Text, fontSize = 12.5.sp,
-                fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f),
+                entry.displayName, color = Palette.Text, style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
             )
             if (entry.pinned) {
                 Text("PINNED", color = Palette.Accent, fontSize = 8.5.sp, fontWeight = FontWeight.ExtraBold)
@@ -236,12 +211,12 @@ private fun LibraryRow(
         }
         Text(
             "${entry.originalName} \u00B7 ${entry.format.uppercase()} \u00B7 ${Formatting.fileSize(entry.sizeBytes)}",
-            color = Palette.Muted, fontSize = 9.5.sp, maxLines = 1,
+            color = Palette.Muted, style = MaterialTheme.typography.bodySmall,
         )
         WorkbookSourceInfo(entry, ui, vm)
         Text(
             entry.lastOpenedAt?.let { "Last opened ${stamp(it)}" } ?: "Never opened in this app",
-            color = Palette.Muted, fontSize = 9.sp,
+            color = Palette.Muted, style = MaterialTheme.typography.bodySmall,
         )
         Text(
             if (entry.sheetCount != null) {
@@ -250,34 +225,30 @@ private fun LibraryRow(
             } else {
                 "Counts appear after the first open"
             },
-            color = Palette.Muted, fontSize = 9.sp,
+            color = Palette.Muted, style = MaterialTheme.typography.bodySmall,
         )
-        Row(Modifier.padding(top = 6.dp)) {
-            LibraryAction("Open") { onOpen() }
-            Spacer(Modifier.width(12.dp))
-            LibraryAction(if (selectedForComparison) "Unselect" else "Compare") { onCompare() }
-            Spacer(Modifier.width(12.dp))
-            LibraryAction("Rename") { onRename() }
-            Spacer(Modifier.width(12.dp))
-            LibraryAction(if (entry.pinned) "Unpin" else "Pin") { onPin() }
-            Spacer(Modifier.width(12.dp))
-            LibraryAction("Remove", Palette.Danger) { onRemove() }
+        FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            LibraryAction("Open", onClick = onOpen)
+            LibraryAction(if (selectedForComparison) "Unselect" else "Compare", onClick = onCompare)
+            LibraryAction("Rename", onClick = onRename)
+            LibraryAction(if (entry.pinned) "Unpin" else "Pin", onClick = onPin)
+            LibraryAction("Remove", Palette.Danger, onClick = onRemove)
         }
     }
 }
 
 @Composable
 private fun StoragePanel(ui: UiState, vm: MainViewModel) {
-    Column(Modifier.fillMaxWidth().background(Palette.Navy700).padding(horizontal = 14.dp, vertical = 10.dp)) {
-        Text("Storage", color = Palette.Text, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
-        Text("Saved workbook copies: ${Formatting.fileSize(ui.libraryBytes)}", color = Palette.Muted, fontSize = 9.5.sp)
-        Text("Parsed caches (regenerable): ${Formatting.fileSize(ui.cacheBytes)}", color = Palette.Muted, fontSize = 9.5.sp)
+    Column(Modifier.fillMaxWidth().padding(4.dp)) {
+        Text("Storage", color = Palette.Text, style = MaterialTheme.typography.titleMedium)
+        Text("Saved workbook copies: ${Formatting.fileSize(ui.libraryBytes)}", color = Palette.Muted, style = MaterialTheme.typography.bodySmall)
+        Text("Parsed caches (regenerable): ${Formatting.fileSize(ui.cacheBytes)}", color = Palette.Muted, style = MaterialTheme.typography.bodySmall)
         Row(Modifier.padding(top = 4.dp)) {
             LibraryAction("Clear parsed caches") { vm.clearParseCaches() }
         }
         Text(
             "Clearing caches never deletes a saved workbook; they are rebuilt on the next open.",
-            color = Palette.Muted, fontSize = 8.5.sp,
+            color = Palette.Muted, style = MaterialTheme.typography.bodySmall,
         )
     }
 }
@@ -288,13 +259,9 @@ private fun LibraryAction(
     color: androidx.compose.ui.graphics.Color = Palette.Accent,
     onClick: () -> Unit,
 ) {
-    Text(
-        label,
-        color = color,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.clickable(role = Role.Button, onClick = onClick).padding(vertical = 2.dp),
-    )
+    TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 8.dp)) {
+        Text(label, color = color)
+    }
 }
 
 @Composable

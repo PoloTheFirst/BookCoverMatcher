@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "92e7a5b2e64163d17997a9b65b23968bdb36298da7fcbed3fcbd268a46117675",
+  "fingerprint": "ff908db908aa6f586484b4d4ef947b9a1fc43eadce517ed58ab66e920fad6812",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -2618,8 +2618,8 @@
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",
-      "bytes": 22846,
-      "sha256": "d6867a3919e43244ceb58f9a88efd8c859ff811fc1821a225b2a2fd40f4a8ecc",
+      "bytes": 22926,
+      "sha256": "19f55a67867864126e580643f9bf9461b81119859a45d525699c875424f746a1",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",

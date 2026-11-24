@@ -2,6 +2,7 @@
 
 package com.bookcovermatcher.ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -28,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
@@ -59,7 +59,7 @@ fun ProductResultCard(
     onToggleBookmark: (ProductResultUi) -> Unit,
     onAddToWishlist: (ProductResultUi) -> Unit,
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = MaterialTheme.shapes.large
     var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
     val entrance = remember { Animatable(0f) }
     LaunchedEffect(item.key) {
@@ -75,12 +75,8 @@ fun ProductResultCard(
                 translationY = (1f - entrance.value) * 6.dp.toPx()
             }
             .clip(shape)
-            .background(
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.02f))),
-                shape,
-            )
-            .border(1.dp, Palette.Line, shape)
-            .padding(10.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+            .padding(12.dp)
             .animateContentSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -112,7 +108,7 @@ fun ProductResultCard(
                 Text(
                     item.title,
                     color = Palette.Text,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

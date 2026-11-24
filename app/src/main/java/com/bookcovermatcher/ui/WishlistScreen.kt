@@ -2,6 +2,8 @@
 
 package com.bookcovermatcher.ui
 
+import com.bookcovermatcher.ui.components.ScreenHeading
+import androidx.compose.material3.MaterialTheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
@@ -50,7 +52,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -144,11 +145,11 @@ fun WishlistScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) 
 @Composable
 private fun Header() {
     Column(Modifier.fillMaxWidth()) {
-        Text("Wishlist", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        ScreenHeading("Wishlist")
         Text(
             "Your folders, each holding the sessions you saved. Bookmarks live in their own folder.",
             color = Palette.Muted,
-            fontSize = 10.5.sp,
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }
@@ -236,7 +237,7 @@ private fun FolderCard(folder: FolderUi, vm: MainViewModel, selection: Selection
             .fillMaxWidth()
             .clip(shape)
             .background(
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.02f))),
+                MaterialTheme.colorScheme.surfaceContainer,
                 shape,
             )
             .then(
@@ -385,7 +386,7 @@ private fun SessionCard(
         Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.02f))), shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
             .then(if (selected == true) Modifier.background(Palette.Accent.copy(alpha = 0.12f), shape) else Modifier)
             .border(1.dp, if (selected == true) Palette.Accent.copy(alpha = 0.8f) else Palette.Line, shape)
             .combinedClickable(
@@ -581,7 +582,7 @@ private fun ComparisonRow(item: SavedItemUi) {
         Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.02f))), shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
             .border(1.dp, Palette.Line, shape)
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -821,7 +822,7 @@ private fun SavedItemRow(
         Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.02f))), shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
             .then(if (selected == true) Modifier.background(Palette.Accent.copy(alpha = 0.12f), shape) else Modifier)
             .border(1.dp, if (selected == true) Palette.Accent.copy(alpha = 0.8f) else Palette.Line, shape)
             .combinedClickable(

@@ -2,6 +2,7 @@
 
 package com.bookcovermatcher.ui
 
+import androidx.compose.material3.MaterialTheme
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -209,9 +210,9 @@ fun WorkbookCommentsScreen(ui: UiState, vm: MainViewModel) {
 @Composable
 private fun CommentsHeader(state: WorkbookCommentsUi, onClose: () -> Unit, onRescan: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 8.dp)) {
-        Text("Workbook comments", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        Text("Workbook comments", color = Palette.Muted, style = MaterialTheme.typography.labelLarge)
         Text(state.workbookName + if (state.model?.fromCache == true) " · cached" else "",
-            color = Palette.Muted, fontSize = 10.5.sp)
+            color = Palette.Text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
             GradientButton(onClick = onRescan, colors = Palette.NavyGradient, contentColor = Palette.Text,
                 modifier = Modifier.widthIn(min = 96.dp), minHeight = 48.dp) {

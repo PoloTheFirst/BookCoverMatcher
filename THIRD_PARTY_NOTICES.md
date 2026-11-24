@@ -32,8 +32,8 @@ cannot grant licences for.
 | `chrome-lens-py` | 3.8.2 | MIT | Python wheel inside the APK (Chaquopy) | **Verified** (PyPI metadata: "MIT License") |
 | `protobuf` (Python) | 6.33.6 | BSD-3-Clause | Python wheel inside the APK | **Verified** (PyPI metadata) |
 | Chaquopy (Gradle plugin + runtime) | 17.1.0 | MIT | Build plugin + runtime in the APK | **Unresolved (minor).** The published POM carries no licence block, so MIT rests on Chaquopy's own documentation; confirm against the version you redistribute. |
-| AndroidX: Compose BOM 2024.10.01, activity-compose 1.9.3, lifecycle 2.8.7, CameraX 1.4.2, exifinterface 1.3.7 | as listed | Apache-2.0 | Inside the APK | **Verified** |
-| Kotlin standard library 2.2.10, `kotlinx-coroutines-android` 1.9.0 | as listed | Apache-2.0 | Inside the APK | **Verified** |
+| AndroidX: Compose BOM 2026.09.00, Compose UI and Foundation 1.12.1, Material 3 1.5.0, material-icons-core 1.7.8, activity-compose 1.9.3, lifecycle 2.10.0, CameraX 1.4.2, exifinterface 1.3.7 | as listed | Apache-2.0 | Inside the APK | **Verified** |
+| Kotlin standard library 2.2.20, `kotlinx-coroutines-android` 1.9.0 | as listed | Apache-2.0 | Inside the APK | **Verified** |
 | JUnit 4.13.2 | 4.13.2 | EPL-1.0 | Test classpath only | **Verified**; not in the release APK |
 | `androidx.test:runner` 1.6.2, `androidx.test.ext:junit` 1.2.1 | as listed | Apache-2.0 | Test APK only | **Verified**; the test APK is not distributed |
 
