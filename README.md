@@ -2,13 +2,11 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
-## Standard Android build
+## Local development build
 
-Version **2.7.0 (226)** uses the **Play edition** from the `google_play` branch as the standard GitHub APK. [Download v2.7.0](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0/bookcovermatcher-v2.7.0.apk). It defaults to on-device PaddleOCR and offers Chrome Lens as an explicit OCR choice. It excludes public catalogue discovery, provider shortcuts, SauceNAO and IQDB. The other edition and plugin branches have separate feature sets. See the [v2.7.0 changelog](CHANGELOG.md) and [distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md).
+**3.0.0-dev.1 (227)** introduces the Material 3 Expressive interface for BookCoverMatcher. On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0.
 
-The GitHub release decision applies to distribution on GitHub. Google OAuth review, Google Play submission and the open items in the [AppAuth guide](docs/integrations/APP_AUTH_PROTOTYPE.md) are tracked separately.
-
-On the `google_play` branch, **Plugins → Import plugin** opens the Android file picker for a local `.bcmplugin` descriptor. The v2.7.0 Play debug and release builds register zero plugins. Neither DLsite nor Plugin Marketplace can be imported or restored from an earlier edition. Reverse-image discovery is excluded from the Play APK.
+The current public standard APK is **v2.7.0 (226)** from `google_play`. [Published release](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0) · [Distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md)
 
 ## Find the right documentation
 

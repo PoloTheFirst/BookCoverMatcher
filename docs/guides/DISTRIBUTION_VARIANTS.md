@@ -1,5 +1,12 @@
 # Play and GitHub editions
 
+## Development build 3.0.0-dev.1
+
+On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0. Both distribution flavors use version code 227, the existing application ID and the existing signing configuration. Install the same signing lineage to keep Android app data.
+
+## v2.7.0 distribution checkpoints
+
+
 Validated locally on CachyOS on 18 November 2026 against Android 2.7.0 / code 226, branch `google_play`. These are build variants in one checkout; neither has been published by this task.
 
 ## What each edition contains
