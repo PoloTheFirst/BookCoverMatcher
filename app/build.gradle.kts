@@ -17,6 +17,18 @@ plugins {
 // task below checks the redirect URI against the package name the app is actually installed under.
 val appPackageName = "com.bookcovermatcher"
 
+androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
+    val edition = when (variant.productFlavors.single { it.first == "distribution" }.second) {
+        "play" -> "BCM"
+        "github" -> "BCM-Plus"
+        else -> error("Unknown distribution for ${variant.name}")
+    }
+    variant.outputs.forEach { output ->
+        val suffix = if (output.outputFileName.get().endsWith("-unsigned.apk")) "-unsigned.apk" else ".apk"
+        output.outputFileName.set(output.versionName.map { version -> "$edition-v$version$suffix" })
+    }
+}
+
 // GitHub plugin branches contribute independent source files. Generate a typed registry at build time.
 abstract class GeneratePlatformRegistry : DefaultTask() {
     @get:Input abstract val groupClasses: ListProperty<String>
@@ -149,8 +161,8 @@ android {
         targetSdk = 36
         // 223 is 2.6.0: 222 was 2.6.0-dev.1, 221 the 2.5.0 stable release, 220 dev.5, 219 dev.4,
         // 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
-        versionCode = 230
-        versionName = "3.0.0-dev.4"
+        versionCode = 231
+        versionName = "3.0.0-dev.5"
 
         // The custom-tab redirect is matched by MSAL's BrowserTabActivity intent filter. Its scheme,
         // host and path are taken from the registered Redirect_URL at build time, so no value from

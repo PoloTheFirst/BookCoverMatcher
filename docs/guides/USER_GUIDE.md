@@ -4,7 +4,7 @@ BCM matches captured or selected covers against the pictures in an Excel workboo
 
 ## Display
 
-Open **More → Display** and choose **Follow system**, **Light**, or **Dark**. Follow system is the initial setting and follows Android’s day/night schedule. Choosing Light or Dark overrides the phone and takes effect immediately. BCM remembers the selection on this device. Both appearances use Polo’s Atelier palette, including the scanner controls and the glowing frame around the cover. The camera preview shows the original colors of the cover.
+Open **More → Display** and choose **Follow system**, **Light**, or **Dark**. Follow system is the initial setting and follows Android’s day/night schedule. Choosing Light or Dark overrides the phone and takes effect immediately. BCM remembers the selection on this device. Changing the phone’s wallpaper or accent color leaves the app colors in the Sophie palette. Both appearances use Polo’s Atelier palette, including the scanner controls and the glowing frame around the cover. The camera preview shows the original colors of the cover.
 
 The open-book logo on Home follows the selected appearance. Light uses blush and ivory pages outlined in rose on a cream tile. Dark uses a deep rose tile. Android controls the launcher icon independently. On compatible launchers, enabling **Themed icons** tints the book while preserving the glint on its right page.
 
@@ -726,3 +726,5 @@ Open **Plugins**, the puzzle-piece tab to the right of **More**. In the explicit
 Use **Remove** on a group to remove it. With the marketplace enabled, choose **Restore** to add it again from the APK. If you removed the marketplace itself, import its descriptor from **Documents → BookCoverMatcher → Plugins**. To set up that folder, open **Documents** in Android Files, create **BookCoverMatcher**, open it, and create **Plugins** inside. See the [plugin guide](BUNDLED_PLUGINS.md) for group ordering and standalone builds.
 
 In the Play edition, enable **Use online services**, then choose **Chrome Lens** under **OCR engine** to read cover text through Google. Choose **PaddleOCR** for on-device recognition. Both choices are built in. Reverse Image Discovery is available in the GitHub plugin build.
+
+In expanded Online catalogue results, **Open website ↗** stays together as the actions wrap on small screens. **Wishlisted** shows that the result belongs to a wishlist profile. Tap it to choose a profile again. **Bookmarked** tracks the separate bookmark collection.

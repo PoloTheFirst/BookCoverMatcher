@@ -2,7 +2,9 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
-## Local development build
+## Development prereleases
+
+**v3.0.0-dev.5 (231)** updates the matching button, Online result actions and release APK names. Download either signed edition. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-v3.0.0-dev.5.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-Plus-v3.0.0-dev.5.apk)
 
 **3.0.0-dev.4 (230)** lets you deselect DLsite in **Online** and select it again from the same row. **Plugins → DLsite Fetch** controls whether that row is available. The light mark pairs rose-outlined blush and ivory pages with a cream tile. The dark mark pairs blush and ivory pages with a rose tile. The **BCM Plus** GitHub edition includes **Plugin Marketplace**, **Ordinary Library Fetch**, **DLsite Fetch**, **Doujin Shop Shortcuts**, **Explicit Database Shortcuts**, and **Reverse Image Discovery**. On a fresh installation the six switches are on, including offline. Open **Plugins** to change them. Switching the marketplace off pauses its groups and preserves their choices. Search, upload, cloud sign-in and OCR use their existing controls.
 

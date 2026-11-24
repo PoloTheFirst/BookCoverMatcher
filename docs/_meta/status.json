@@ -145,6 +145,10 @@
     {
       "subject": "DLsite search selection on main",
       "value": "In 3.0.0-dev.4 (230), Online remembers catalogue selections separately from plugin activation. The DLsite row remains available while DLsite Fetch is active."
+    },
+    {
+      "subject": "Dev.5 result actions and APK names",
+      "value": "Dev.5 (231) removes the matching button glow and lets Online result actions wrap while showing wishlist membership. Current standard and Plus APK filenames begin with BCM-v and BCM-Plus-v respectively."
     }
   ],
   "nextSteps": [

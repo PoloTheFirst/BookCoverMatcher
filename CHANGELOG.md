@@ -1,35 +1,37 @@
-## v3.0.0-dev.4 (2026-11-24)
+## v3.0.0-dev.5 (2026-11-25)
 
-# Standard and explicit BCM editions
+# Clearer Online actions and matching controls
 
-Choose **BCM** for the standard app or **BCM Plus** for the edition with bundled catalogue plugins.
+The matching button keeps its gradient with the glow removed. Expanded Online results keep the website arrow beside its label and show wishlist membership on the action itself.
 
 ### Added
 
-- A separately signed explicit-edition download alongside the standard APK.
+- A **Wishlisted** action state for catalogue results saved in a wishlist profile. The action still opens the profile picker.
 
 ### Changed
 
-- Both editions use Android version code 230. The standard edition carries forward the dev.3 feature set.
+- Result actions flow onto additional rows when space is tight. The website label and arrow share one button.
+- Signed release builds produce `BCM-v3.0.0-dev.5.apk` and `BCM-Plus-v3.0.0-dev.5.apk`. The installation guide and release conventions use the renamed standard downloads.
 
 ### Fixed
 
-- In the explicit edition, turning off DLsite in Online skips its searches and leaves the row available to select again. The Plugins switch controls whether the row appears.
+- Saving a result to a wishlist updates the wishlist button independently of its bookmark state.
 
 ### Removed
 
-- Removed the explicit edition’s shortcut from the Online selection control to the plugin disable action.
+- Removed the glow from **Link & Find Top 5**.
 
 ### Tests
 
-- Built the Play and explicit release APKs and ran both editions’ debug JVM suites. Five DLsite instrumentation tests passed on an Android 16 emulator using a local provider fixture.
+- The Play JVM suite passed 1,271 tests with 12 skipped. The GitHub suite passed 1,444 with 16 skipped.
+- An Android 16 emulator rendered and exercised the actual result card at 300 dp wide with 150% system font size. The test checked the website target, arrow position and independent wishlist and bookmark states.
 
 ### Verified
 
-- Verified the application ID and version metadata for both APKs. The standard APK contains zero bundled plugin descriptors and the explicit APK contains six.
+- Both release APKs were signed locally. Checked their filenames, package metadata, release certificate, ZIP alignment, native libraries, offline models and bundled plugin counts.
 
 ### Known limitations
 
-- If a previous build disabled DLsite Fetch, re-enable it once in Plugins to restore the Online row. Android uses the same application ID for both editions and installs one at a time.
+- The layout check used an Android emulator. Provider availability depends on the installed edition.
 
-**Version code/name: 230 / 3.0.0-dev.4.**
+**Version code/name: 231 / 3.0.0-dev.5.**

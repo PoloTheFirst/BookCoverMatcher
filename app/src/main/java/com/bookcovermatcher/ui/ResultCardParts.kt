@@ -157,19 +157,23 @@ internal fun DetailLine(label: String, value: String?) {
 internal fun ResultActionChip(
     label: String,
     color: Color,
-    modifier: Modifier = Modifier,
+    trailingLabel: String? = null,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier
+    Row(
+        Modifier
             .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(9.dp))
             .background(color.copy(alpha = 0.14f))
             .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(9.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center,
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, color = color, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+        if (trailingLabel != null) {
+            Text(trailingLabel, color = color, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }

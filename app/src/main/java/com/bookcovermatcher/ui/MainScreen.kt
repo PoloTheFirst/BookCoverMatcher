@@ -520,7 +520,6 @@ private fun SpreadsheetPanel(ui: UiState, vm: MainViewModel, actions: ScreenActi
                 colors = Palette.AccentGradient,
                 contentColor = Palette.OnAccent2,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                glow = Palette.Accent2.copy(alpha = 0.55f),
             ) {
                 Icon(Icons.Filled.Search, contentDescription = null, tint = Palette.OnAccent2, modifier = Modifier.size(22.dp))
                 ButtonLabel("Link & Find Top 5", Palette.OnAccent2)

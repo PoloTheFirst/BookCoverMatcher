@@ -388,7 +388,7 @@ private fun CandidateCard(
                 onToggleBookmark,
             )
             SmallAction(
-                if (wishlisted) "In wishlist \u2713" else "+ Wishlist",
+                if (wishlisted) "Wishlisted \u2713" else "+ Wishlist",
                 if (wishlisted) Palette.Ok else Palette.Accent2,
                 onAddToWishlist,
             )

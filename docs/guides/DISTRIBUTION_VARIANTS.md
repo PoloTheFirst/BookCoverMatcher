@@ -1,5 +1,11 @@
 # Play and GitHub editions
 
+## Development prerelease v3.0.0-dev.5
+
+[Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.5) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5-plus)
+
+Signed release outputs are `BCM-v3.0.0-dev.5.apk` and `BCM-Plus-v3.0.0-dev.5.apk`. Gradle adds `-unsigned` when release signing is unconfigured.
+
 ## Development build 3.0.0-dev.4
 
 The explicit GitHub build on main includes Plugin Marketplace and all five groups. On a clean installation all six are enabled, including offline. A user can pause each group, remove it, or restore it locally. The standard Play variant has an empty registry. The standard edition displays **BCM** and the explicit edition displays **BCM Plus**. Both use version code 230 and share the existing application ID and signing configuration. Install the same signing lineage to keep Android app data.

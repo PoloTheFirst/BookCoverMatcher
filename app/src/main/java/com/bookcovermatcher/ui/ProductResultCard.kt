@@ -11,6 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -51,6 +53,7 @@ import com.bookcovermatcher.ui.theme.Palette
  * Expansion lives on a dedicated chevron on the header row, so tapping an action can never toggle
  * the card (the same rule the wishlist record card follows).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProductResultCard(
     item: ProductResultUi,
@@ -165,17 +168,20 @@ fun ProductResultCard(
                 source = listOfNotNull(item.provider, item.sourceDomain).joinToString(" \u00B7 "),
                 url = item.detailUrl,
             )
-            Row(
+            FlowRow(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                ResultActionChip("Open website \u2197", Palette.Accent, Modifier.weight(1f)) { onOpen(item.detailUrl) }
+                ResultActionChip("Open website", Palette.Accent, trailingLabel = "↗") { onOpen(item.detailUrl) }
                 ResultActionChip(
                     if (item.bookmarked) "\u2605 Bookmarked" else "\u2605 Bookmark",
                     if (item.bookmarked) Palette.Ok else Palette.Text,
-                    Modifier.weight(1f),
                 ) { onToggleBookmark(item) }
-                ResultActionChip("+ Wishlist", Palette.Accent2, Modifier.weight(1f)) { onAddToWishlist(item) }
+                ResultActionChip(
+                    if (item.wishlisted) "✓ Wishlisted" else "+ Wishlist",
+                    if (item.wishlisted) Palette.Ok else Palette.Accent2,
+                ) { onAddToWishlist(item) }
             }
             Text(
                 "Add to wishlist opens a picker and saves this one result only.",

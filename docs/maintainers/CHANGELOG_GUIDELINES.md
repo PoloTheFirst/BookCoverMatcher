@@ -519,7 +519,7 @@ A changelog is complete only when:
 - `CHANGELOG.md` contains only the current release entry.
 - Historical release records remain preserved elsewhere.
 - The GitHub release body exactly equals the matching CHANGELOG.md text, verified through the API.
-- The published APK uses bookcovermatcher-v<complete-versionName>.apk and its digest matches the intended artifact.
+- The published APK uses BCM-v<complete-versionName>.apk and its digest matches the intended artifact.
 
 
 ## 11. GitHub release log and APK filename
@@ -538,12 +538,12 @@ If the current release's changelog is intentionally corrected, synchronize that 
 
 Use this exact distribution filename:
 
-`bookcovermatcher-v<complete-versionName>.apk`
+`BCM-v<complete-versionName>.apk`
 
 Examples:
 
-- Stable: `bookcovermatcher-v2.7.0.apk`.
-- Development: `bookcovermatcher-v2.7.0-dev.1.apk`.
+- Historical stable: `bookcovermatcher-v2.7.0.apk`.
+- Development: `BCM-v3.0.0-dev.5.apk`.
 
 Do not append `-debug`, `-release`, a version code, date, architecture or any other suffix to the public APK name unless the owner explicitly requests a different multi-artifact convention. Identify the actual build/signing variant honestly in the changelog/report instead of changing the filename. Gradle's internal app-debug.apk/app-release.apk paths may remain unchanged; copy or name the uploaded distribution asset correctly.
 
@@ -553,3 +553,7 @@ After upload or rename, verify the public asset's exact name, size and digest ag
 ### 11.3 GitHub release title
 
 The GitHub release title/name must be exactly the release tag: `v` followed by the complete versionName, including a development suffix. Examples: `v2.7.0` and `v2.7.0-dev.1`. Do not prepend BookCoverMatcher, add a feature description, date, version code or other text. This simple GitHub title is separate from the descriptive release heading required inside CHANGELOG.md; retain that heading in the verbatim release body. Verify the GitHub API `name` exactly equals the intended tag after creation/update.
+
+### Two-edition downloads
+
+The standard edition uses the GitHub label **BCM** and filename `BCM-v<complete-versionName>.apk`. BCM Plus uses **BCM Plus** and `BCM-Plus-v<complete-versionName>.apk`. The published 3.0.0 development assets use these names starting with dev.1. Older release filenames remain historical. Record each edition’s source commit and verify package, version, signature and digest.
