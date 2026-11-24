@@ -82,7 +82,7 @@ Published as Latest from google_play at 261d9da, code 226. Verified the public r
 
 ## Material 3 Expressive development build
 
-The owner approved the UI refresh and allocated 3.0.0-dev.1 / 227 for local development. The published standard baseline is v2.7.0 / 226.
+Local 3.0.0-dev.1 / 227 implements the approved Material 3 Expressive refresh. More → Display offers Follow system, Light and Dark across editions. API 36 checked the Play upgrade and empty plugin host. API 26 checked offline explicit defaults, pause, removals and cross-edition data retention. The development report records exact build results and limitations. The published standard release remains v2.7.0 / 226.
 
 ## Plugin framework plan (18 November 2026)
 

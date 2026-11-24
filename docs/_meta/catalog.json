@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "72fec927c6b64572675e2d270cd8372d51aa7dc9d60d5d712ded4931a0b060c9",
+  "fingerprint": "cfee4e534d444c0acdfb66f74bd7878d6c24d80b8189ea3d11e54e1d7a123df9",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 1256,
-      "sha256": "eea36e5fc8f94830e09d0a2257fe64d9e57b6a2865aca31087b873de0aae0d22",
+      "bytes": 2248,
+      "sha256": "3a1775061f1838c4dbb2dedae6e631734102970aa19e7451f5ee9ee8924c19f6",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 19071,
-      "sha256": "9366fab4b67903f68a62f96083afe46b29310e3cff1f2741d828d5ddf5371258",
+      "bytes": 19351,
+      "sha256": "098989bd263d8cd4717716a4d41f813f53d5f2923a773fff943d2fc34f780493",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2336,14 +2336,14 @@
     },
     {
       "path": "docs/history/android/v3.0.0-dev.1/development/reports/2026-11-24__android-3.0.0-dev.1-code227__development__material3-expressive__report__r01.md",
-      "bytes": 1879,
-      "sha256": "2a5ed57968ed98ec95471558fe08479bab7750b98093e4d6b344f89f32d7bc8d",
+      "bytes": 10232,
+      "sha256": "88d739103be323a30c1a240da344c5d53594e6983d9d68cc7b8b563717cf7bc0",
       "version": "3.0.0-dev.1",
       "category": "development",
       "kind": "record",
       "frozen": false,
       "note": "Maintained documentation/tooling",
-      "phase": "draft document r1",
+      "phase": "final document r1",
       "assignmentBasis": "Validated document metadata and registered path",
       "document": {
         "schema": 1,
@@ -2358,9 +2358,9 @@
         "area": "",
         "topic": "material3-expressive",
         "created_at": "2026-11-24T15:38:42+08:00",
-        "updated_at": "2026-11-24T15:38:42+08:00",
+        "updated_at": "2026-11-24T16:28:44+08:00",
         "revision": 1,
-        "status": "draft",
+        "status": "final",
         "supersedes": null,
         "related_versions": [
           "3.0.0",
