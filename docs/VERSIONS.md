@@ -33,4 +33,6 @@ Codes below are attributed configuration/historical evidence; null remains unkno
 | cross-version | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
 | current-source | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
 | unresolved-qa | unknown / n/a | False | No unambiguous versionCode assigned during documentation migration. Do not guess. |
-| 2.7.0 | 226 | True | Approved stable prompt; owner confirmed code226 not uploaded. Source configured as 2.7.0/226 for local validation on 17 November 2026; not a released or Play-approved artifact. |
+| 2.7.0 | 226 | True | Published 24 November 2026 as GitHub release v2.7.0, code 226, from google_play at 261d9da. See the github-release publication report. |
+| 3.0.0 | unknown / n/a | True | Design proposal for the v3.0.0 series. The owner allocated the first implementation to 3.0.0-dev.1 / 227. |
+| 3.0.0-dev.1 | 227 | True | Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226). |

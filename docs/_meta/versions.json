@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "current": "2.7.0",
+  "current": "3.0.0-dev.1",
   "versions": [
     {
       "id": "2.4.0",
@@ -560,6 +560,39 @@
         "documentation": "documentation"
       },
       "evidence": "Published 24 November 2026 as GitHub release v2.7.0, code 226, from google_play at 261d9da. See the github-release publication report.",
+      "authorable": true
+    },
+    {
+      "id": "3.0.0",
+      "versionName": "3.0.0",
+      "versionCode": null,
+      "root": "docs/history/android/v3.0.0",
+      "documentKey": "android-3.0.0",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development"
+      },
+      "evidence": "Design proposal for the v3.0.0 series. The owner allocated the first implementation to 3.0.0-dev.1 / 227.",
+      "authorable": true
+    },
+    {
+      "id": "3.0.0-dev.1",
+      "versionName": "3.0.0-dev.1",
+      "versionCode": 227,
+      "root": "docs/history/android/v3.0.0-dev.1",
+      "documentKey": "android-3.0.0-dev.1-code227",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226).",
       "authorable": true
     }
   ]

@@ -80,6 +80,10 @@ The owner selected the Play edition on google_play as the standard GitHub APK fo
 
 Published as Latest from google_play at 261d9da, code 226. Verified the public release body, tag and signed APK digest (6b509f5ce337a7d654464da16eebcc38496e9b18c22617384fc7cbe5471f2b4e). Google Play submission is separate.
 
+## Material 3 Expressive development build
+
+The owner approved the UI refresh and allocated 3.0.0-dev.1 / 227 for local development. The published standard baseline is v2.7.0 / 226.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

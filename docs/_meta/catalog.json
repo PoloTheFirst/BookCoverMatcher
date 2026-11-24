@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "ffb23bba4543d24c1d85c80e68e02ed4050389a2512faa554560edae03b1788b",
+  "fingerprint": "661a4471bba6c4d7ba91366408740c56a0f9fe46559aad520a5999b97f718262",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 11230,
-      "sha256": "e38d1037e0d86f2e73dd91edc11d1f38a1dd52625ba0abe70acfe13141d16e32",
+      "bytes": 11458,
+      "sha256": "811ddcc0157022cc927cf03443ff212cce9b0b069402e2b2a241bc6cfe4eb98a",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 19137,
-      "sha256": "5080385632fb8e9babd99fb7e2c6340dca9b2e9a778c03292dbeb0c7207c8440",
+      "bytes": 20266,
+      "sha256": "77bf9a450c177ccf6c6456f0e36398d469d40d1bbc82a11c60de0cd56ba24868",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -1938,6 +1938,75 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Execute the approved stable prompt, verify prior requirements, add App Website, and finalize stable before Play submission preparation."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.1/development/reports/2026-11-24__android-3.0.0-dev.1-code227__development__material3-expressive__report__r01.md",
+      "bytes": 1879,
+      "sha256": "2a5ed57968ed98ec95471558fe08479bab7750b98093e4d6b344f89f32d7bc8d",
+      "version": "3.0.0-dev.1",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "draft document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.1/development//material3-expressive/report/2026-11-24",
+        "title": "Material 3 Expressive development build",
+        "kind": "report",
+        "version_id": "3.0.0-dev.1",
+        "version_name": "3.0.0-dev.1",
+        "version_code": 227,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "material3-expressive",
+        "created_at": "2026-11-24T15:38:42+08:00",
+        "updated_at": "2026-11-24T15:38:42+08:00",
+        "revision": 1,
+        "status": "draft",
+        "supersedes": null,
+        "related_versions": [
+          "3.0.0",
+          "2.7.0"
+        ],
+        "source_request": "Implement the approved Play, plugin and explicit-edition refresh as v3.0.0-dev.1 (227)."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md",
+      "bytes": 11961,
+      "sha256": "3c58f06adcec00a45e27824cbb6bf489d32011be31ec22511b2fba0bab47de9a",
+      "version": "3.0.0",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0/development//material3-expressive/prompt/2026-11-24",
+        "title": "Material 3 Expressive for BookCoverMatcher v3.0.0",
+        "kind": "prompt",
+        "version_id": "3.0.0",
+        "version_name": "3.0.0",
+        "version_code": null,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "material3-expressive",
+        "created_at": "2026-11-24T15:32:22+08:00",
+        "updated_at": "2026-11-24T15:38:42+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [
+          "2.7.0"
+        ],
+        "source_request": "Propose a UI-only refresh across the Play base and plugin branches, composed on main with the marketplace and all five groups preinstalled and enabled on fresh explicit installs."
       }
     },
     {
