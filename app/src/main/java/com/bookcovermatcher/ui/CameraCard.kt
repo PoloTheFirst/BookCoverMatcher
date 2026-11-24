@@ -46,9 +46,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +83,7 @@ import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import com.bookcovermatcher.UiState
 import com.bookcovermatcher.camera.CameraController
 import com.bookcovermatcher.core.Config
@@ -100,6 +103,8 @@ fun CameraCard(
     captureEvents: SharedFlow<Unit>,
     onLive: () -> Unit,
     onError: (String) -> Unit,
+    cameraReady: Boolean,
+    onPreviewStreamChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -107,12 +112,21 @@ fun CameraCard(
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
-    val previewView = remember {
+    val previewView = remember(context, state.cameraRestart) {
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FILL_CENTER
             keepScreenOn = true
         }
+    }
+
+    // A successful CameraX bind can precede the first frame, especially on resume.
+    val notifyStreaming by rememberUpdatedState(onPreviewStreamChanged)
+    DisposableEffect(previewView, lifecycleOwner) {
+        val stream = previewView.previewStreamState
+        val observer = Observer<PreviewView.StreamState> { notifyStreaming(it == PreviewView.StreamState.STREAMING) }
+        stream.observe(lifecycleOwner, observer)
+        onDispose { stream.removeObserver(observer) }
     }
 
     LaunchedEffect(state.cameraWanted, state.cameraRestart) {
@@ -134,7 +148,7 @@ fun CameraCard(
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     val focusAlpha = remember { Animatable(0f) }
 
-    val auto = state.autoScan && state.cameraLive
+    val auto = state.autoScan && cameraReady
     val tick = state.scanTick
     val phase = if (auto) tick?.phase else null
 
@@ -164,9 +178,11 @@ fun CameraCard(
                 Modifier.fillMaxWidth().height(cardHeight).clip(cameraShape)
                     .background(Color.Black),
             ) {
-                AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                key(previewView) {
+                    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                }
 
-                if (!state.cameraLive) {
+                if (!cameraReady) {
                     Column(
                         Modifier.fillMaxSize().background(scheme.surfaceContainerLow)
                             .padding(horizontal = 32.dp),
@@ -250,7 +266,7 @@ fun CameraCard(
                 )
             }
         }
-        if (state.cameraLive) {
+        if (cameraReady) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
