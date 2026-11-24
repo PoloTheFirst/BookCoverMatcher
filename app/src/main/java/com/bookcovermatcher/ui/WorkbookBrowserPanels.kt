@@ -430,6 +430,7 @@ private object StateLabel {
         ImageState.UNRESOLVED -> "Unresolved: ${row.unresolvedDetail ?: "reference not resolvable"}"
     }
 
+    @Composable
     fun colour(row: ImageRow) = when (row.state) {
         ImageState.LINKED -> Palette.Ok
         ImageState.UNREFERENCED -> Palette.Muted

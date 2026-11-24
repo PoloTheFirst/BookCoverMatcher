@@ -135,10 +135,10 @@ fun ToastHost(toast: ToastUi?) {
                     shown.text,
                     modifier = Modifier
                         .clip(shape)
-                        .background(Color(0xF7001E37), shape)
+                        .background(Palette.Navy700, shape)
                         .border(BorderStroke(1.dp, border), shape)
                         .padding(horizontal = 18.dp, vertical = 12.dp),
-                    color = if (shown.kind == ToastKind.ERR) Color(0xFFFFD9D9) else Palette.Text,
+                    color = if (shown.kind == ToastKind.ERR) Palette.Danger else Palette.Text,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
@@ -174,8 +174,8 @@ fun ConfirmDeleteDialog(
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GradientButton(onCancel, Palette.GreyGradient, Color(0xFFEAEEF5), Modifier.weight(1f), minHeight = 46.dp) {
-                    ButtonLabel("Cancel", Color(0xFFEAEEF5))
+                GradientButton(onCancel, Palette.GreyGradient, Palette.Text, Modifier.weight(1f), minHeight = 46.dp) {
+                    ButtonLabel("Cancel", Palette.Text)
                 }
                 GradientButton(onConfirm, Palette.RedGradient, Color.White, Modifier.weight(1f), minHeight = 46.dp) {
                     ButtonLabel("Confirm", Color.White)
@@ -234,8 +234,8 @@ fun RenameDialog(renaming: RenameUi?, onCancel: () -> Unit, onSave: (id: String,
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GradientButton(onCancel, Palette.GreyGradient, Color(0xFFEAEEF5), Modifier.weight(1f), minHeight = 46.dp) {
-                    ButtonLabel("Cancel", Color(0xFFEAEEF5))
+                GradientButton(onCancel, Palette.GreyGradient, Palette.Text, Modifier.weight(1f), minHeight = 46.dp) {
+                    ButtonLabel("Cancel", Palette.Text)
                 }
                 GradientButton(
                     { onSave(target.recordId, value.text) },
@@ -269,8 +269,8 @@ internal fun DialogCard(content: @Composable () -> Unit) {
             .widthIn(max = 360.dp)
             .fillMaxWidth()
             .clip(shape)
-            .background(Color(0xFF1A1F2B), shape)
-            .border(1.dp, Color(0xFF2A3444), shape)
+            .background(Palette.Navy800, shape)
+            .border(1.dp, Palette.Line, shape)
             .padding(18.dp),
     ) { content() }
 }

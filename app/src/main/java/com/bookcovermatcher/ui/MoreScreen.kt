@@ -86,6 +86,9 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
         Text("Settings, storage and app information", color = Palette.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
 
+        DisplayButton()
+        Spacer(Modifier.height(12.dp))
+
         Panel("Online search settings") {
             SettingSwitch(
                 title = "Use online services",
@@ -443,7 +446,7 @@ private fun LanguageField(label: String, value: String, onChange: (String) -> Un
             .fillMaxWidth()
             .padding(top = 4.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color.Black.copy(alpha = 0.22f))
+            .background(Palette.Navy900)
             .border(1.dp, Palette.Line, RoundedCornerShape(10.dp))
             .padding(horizontal = 10.dp, vertical = 10.dp),
         decorationBox = { inner ->

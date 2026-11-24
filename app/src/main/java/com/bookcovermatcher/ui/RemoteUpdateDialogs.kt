@@ -127,14 +127,14 @@ private fun UpdateProgressDialog(download: OneDriveDownloadUi, onCancel: () -> U
                     progress = { fraction },
                     modifier = bar,
                     color = Palette.Accent,
-                    trackColor = Color.White.copy(alpha = 0.09f),
+                    trackColor = Palette.Line,
                 )
             } else {
                 // No size from OneDrive: an indeterminate bar rather than an invented percentage.
                 LinearProgressIndicator(
                     modifier = bar,
                     color = Palette.Accent,
-                    trackColor = Color.White.copy(alpha = 0.09f),
+                    trackColor = Palette.Line,
                 )
             }
             Spacer(Modifier.height(4.dp))

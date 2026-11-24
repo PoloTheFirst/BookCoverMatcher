@@ -168,8 +168,8 @@ fun ProfilePickerDialog(
             }, BookmarkForm.FOLDER_NAME_PLACEHOLDER)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GradientButton(onCancel, Palette.GreyGradient, Color(0xFFEAEEF5), Modifier.weight(1f), minHeight = 46.dp) {
-                    ButtonLabel("Cancel", Color(0xFFEAEEF5))
+                GradientButton(onCancel, Palette.GreyGradient, Palette.Text, Modifier.weight(1f), minHeight = 46.dp) {
+                    ButtonLabel("Cancel", Palette.Text)
                 }
                 GradientButton(
                     onClick = { onConfirm(selectedId, if (creating) newName.trim() else "") },
@@ -295,8 +295,8 @@ fun CustomBookmarkDialog(
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GradientButton(onCancel, Palette.GreyGradient, Color(0xFFEAEEF5), Modifier.weight(1f), minHeight = 46.dp) {
-                    ButtonLabel("Cancel", Color(0xFFEAEEF5))
+                GradientButton(onCancel, Palette.GreyGradient, Palette.Text, Modifier.weight(1f), minHeight = 46.dp) {
+                    ButtonLabel("Cancel", Palette.Text)
                 }
                 GradientButton(
                     onClick = {

@@ -281,18 +281,19 @@ fun BatchTargetDialog(target: BatchTargetUi?, onCancel: () -> Unit, onPick: (Str
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GradientButton(onCancel, Palette.GreyGradient, Color(0xFFEAEEF5), Modifier.weight(1f), minHeight = 46.dp) {
-                    ButtonLabel("Cancel", Color(0xFFEAEEF5))
+                GradientButton(onCancel, Palette.GreyGradient, Palette.Text, Modifier.weight(1f), minHeight = 46.dp) {
+                    ButtonLabel("Cancel", Palette.Text)
                 }
                 val chosen = selectedId
+                val confirmColor = if (chosen == null) Palette.Text else Palette.OnAccent2
                 GradientButton(
                     onClick = { chosen?.let(onPick) },
                     colors = if (chosen == null) Palette.GreyGradient else Palette.AccentGradient,
-                    contentColor = Color.White,
+                    contentColor = confirmColor,
                     modifier = Modifier.weight(1f),
                     minHeight = 46.dp,
                 ) {
-                    ButtonLabel(if (state.action == BatchAction.MOVE) "Move here" else "Copy here", Color.White)
+                    ButtonLabel(if (state.action == BatchAction.MOVE) "Move here" else "Copy here", confirmColor)
                 }
             }
         }
@@ -316,8 +317,8 @@ fun BatchDeleteDialog(pending: BatchDeleteUi?, onCancel: () -> Unit, onConfirm: 
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GradientButton(onCancel, Palette.GreyGradient, Color(0xFFEAEEF5), Modifier.weight(1f), minHeight = 46.dp) {
-                    ButtonLabel("Cancel", Color(0xFFEAEEF5))
+                GradientButton(onCancel, Palette.GreyGradient, Palette.Text, Modifier.weight(1f), minHeight = 46.dp) {
+                    ButtonLabel("Cancel", Palette.Text)
                 }
                 GradientButton(onConfirm, Palette.RedGradient, Color.White, Modifier.weight(1f), minHeight = 46.dp) {
                     ButtonLabel("Delete ${state.count}", Color.White)
