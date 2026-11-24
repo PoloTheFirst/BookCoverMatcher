@@ -86,6 +86,9 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
         Text("Settings, storage and app information", color = Palette.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
 
+        DisplayButton()
+        Spacer(Modifier.height(12.dp))
+
         Panel("Online search settings") {
             SettingSwitch(
                 title = "Use online services",
