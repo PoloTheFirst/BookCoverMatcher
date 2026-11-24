@@ -14,7 +14,7 @@ In this standalone GitHub build, import **marketplace.bcmplugin** from **Documen
 
 ### Fixed
 
-- No separate bug fix is included in this UI development build.
+- Large-text navigation keeps More and Plugins together. The Plugins heading uses the dark theme’s foreground color.
 
 ### Removed
 
@@ -22,11 +22,11 @@ In this standalone GitHub build, import **marketplace.bcmplugin** from **Documen
 
 ### Tests
 
-- The documentation index checks the recorded version against Gradle.
+- The GitHub debug JVM suite passed 1,441 tests and skipped 16.
 
 ### Verified
 
-- The Android configuration uses the full development version name and version code 227.
+- Android package inspection confirmed `com.bookcovermatcher`, version `3.0.0-dev.1` (227), minimum API 26 and target API 36.
 
 ### Known limitations
 
