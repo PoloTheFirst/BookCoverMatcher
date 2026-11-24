@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 
 @Composable
 internal fun EditionHelp() {
-    InfoLine("OCR", "PaddleOCR reads cover text on device. No catalogue search is performed.")
-    InfoLine("Reverse-image search", "SauceNAO uses your API key and selected cover. IQDB opens in your browser; results can be pasted back.")
+    InfoLine("OCR", "PaddleOCR reads cover text on device. Select Chrome Lens to send the cover to Google for OCR.")
     InfoLine("Saved library", "Existing catalogue results are retained in storage but unavailable in this edition. Workbook matches and reverse-image results remain available.")
 }

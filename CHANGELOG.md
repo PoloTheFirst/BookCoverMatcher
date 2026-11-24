@@ -8,7 +8,7 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 
 - The Plugins tab supports manual descriptor import. Play starts with an empty plugin list.
 
-- Separate GitHub and Play build variants: GitHub retains all providers; Play retains SauceNAO/IQDB while excluding public catalogue discovery and shortcuts.
+- Separate GitHub and Play build variants: GitHub retains all providers; Play excludes SauceNAO, IQDB, public catalogue discovery and shortcuts.
 
 - App Website in More > Author, opening the BookCoverMatcher homepage.
 - Offline Privacy Policy and Terms and Conditions, with canonical Markdown packaged in the app.
@@ -17,7 +17,7 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 
 ### Changed
 
-- Play uses neutral bookmark-form examples and on-device OCR, and preserves existing catalogue bookmarks as unavailable entries without deleting their stored data. Both editions retain the same package identity, storage and release-signing setup.
+- Play uses neutral bookmark-form examples and selectable Chrome Lens or on-device PaddleOCR, and preserves existing catalogue bookmarks as unavailable entries without deleting their stored data. Both editions retain the same package identity, storage and release-signing setup.
 
 - Version code/name: 226 / 2.7.0; compile/target API36.
 - Direct Google Drive and OneDrive imports use AppAuth browser sign-in with process-memory sessions.
@@ -56,7 +56,7 @@ This local v2.7.0 build consolidates the dev.2 workbook-source and policy work a
 - This is a local signed build, not a published GitHub release or Play submission. The publication guard remains.
 - Live cloud sign-in, grant revocation and workbook changes were excluded by the owner from this verification. Expiry/refresh, interrupted authorization and live cross-account/changed-content checks remain.
 - Website policy publication is complete per owner handback; fresh plain-URL browser checks returned HTTP200 with privacy .2 and terms .1, effective 17 November 2026. The regenerated signed Android artifact now matches privacy .2; Vivo has not been updated to this regenerated artifact.
-- Discovery-provider distribution review, OAuth restricted-scope approval and remaining release review are not established by build/test success. All providers remain in GitHub; Play retains SauceNAO/IQDB, whose results and external links still require content-policy review.
+- Discovery-provider distribution review, OAuth restricted-scope approval and remaining release review are not established by build/test success. The Play build requires review of Lens data disclosures and saved external links.
 - Physical arm64 camera/OCR/model end-to-end tests are not claimed. Intermittent USB disconnection interrupted the additional Vivo Back/policy-reader check.
 - Google/Microsoft sessions remain memory-only; restart requires sign-in. Cloud write-back and background synchronization are not implemented.
 

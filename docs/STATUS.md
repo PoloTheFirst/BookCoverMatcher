@@ -68,9 +68,13 @@ Owner authorized committing and pushing the reviewed v2.7.0 source checkpoint to
 
 On the google_play branch, Plugins → Import plugin opens the Android file picker for a local .bcmplugin descriptor. The v2.7.0 Play debug and release builds register zero plugins. Neither DLsite nor Plugin Marketplace can be imported or restored from an earlier edition. SauceNAO and IQDB remain available through the existing reverse-image controls. On BCM_API36_CachyOS, playDebug 2.7.0/226 launched after an in-place update. The Plugins tab displayed “Import plugin” and “No imported plugins”, with zero switches and no DLsite or marketplace card.
 
+## OCR and reverse-image distribution (24 November 2026)
+
+Chrome Lens OCR is built into Play as an explicit engine selection alongside on-device PaddleOCR. Play excludes the SauceNAO and IQDB clients, key controls, browser handoff and paste UI. The standalone GitHub Reverse Image Discovery plugin activates these workflows together. Existing workbook and bookmark storage is preserved. API 36 instrumentation verified the Play Lens bridge loads and the standalone plugin exposes both providers only while enabled. Play APK bytecode was checked for the provider clients, key store and provider URLs. The Play debug APK was installed as an update on BCM_API36_CachyOS. Its Plugins tab displayed “Import plugin” and “No imported plugins”, with zero switches. The first-install date was preserved.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
 2. Review the private Play preparation package; confirm account type, app/upload state, countries, pricing and signing setup.
 3. Resolve provider-content/distribution review, reviewer access, Data safety, public URL access and remaining authentication/runtime gates before uploading a final signed AAB. Preserve existing-install compatibility and do not bypass verifyAuthPublicationEligibility.
-4. Review the local distribution split; sign with the existing release key and verify cross-edition updates/data retention on an isolated test installation. Resolve retained reverse-image content and edition-specific declarations/policies before any publication. See docs/guides/DISTRIBUTION_VARIANTS.md.
+4. Review the local distribution split; sign with the existing release key and verify cross-edition updates/data retention on an isolated test installation. Review Chrome Lens data disclosures, saved external links and edition-specific declarations/policies before any publication. See docs/guides/DISTRIBUTION_VARIANTS.md.

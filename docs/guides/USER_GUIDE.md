@@ -723,3 +723,5 @@ In More > Author, choose **App Website** below **Visit GitHub Profile** to open 
 ## Plugins (v2.7.0)
 
 Open **Plugins** to the right of **More**. The Play edition shows **No imported plugins**. **Import plugin** opens the file picker in `Documents/BookCoverMatcher/Plugins` when that folder exists. This version has no registered Play plugins. Selecting an unsupported descriptor displays a message and leaves the list empty.
+
+In the Play edition, enable **Use online services**, then choose **Chrome Lens** under **OCR engine** to read cover text through Google. Choose **PaddleOCR** for on-device recognition. Both choices are built in. Reverse Image Discovery is available in the GitHub plugin build.

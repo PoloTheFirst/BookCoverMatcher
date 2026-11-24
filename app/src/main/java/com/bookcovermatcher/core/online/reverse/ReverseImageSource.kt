@@ -236,9 +236,6 @@ object ReverseImageProviders {
     /** 2 — tried second, even when SauceNAO already answered. */
     const val IQDB_PRIORITY = 2
 
-    val SAUCE_NAO_SEARCH_PAGE = "https://saucenao.com/"
-    val IQDB_SEARCH_PAGE = "https://iqdb.org/"
-
     /** Provider priority order. SauceNAO is first by specification, not by list-order luck. */
     val ORDER: List<String> = listOf(SAUCE_NAO_ID, IQDB_ID)
 

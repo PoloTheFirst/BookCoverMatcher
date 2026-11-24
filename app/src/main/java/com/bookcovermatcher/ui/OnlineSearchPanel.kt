@@ -90,7 +90,7 @@ fun OnlineSearchPanel(
                 Text("Use online services", color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(
                     if (DistributionEdition.catalogueEnabled) "Off by default. The selected OCR engine reads the cover; catalogue searches send the recognised text."
-                    else "Off by default. Reverse-image search sends your selected cover to SauceNAO. IQDB opens in your browser. OCR runs on device.",
+                    else "PaddleOCR reads covers on this device. Choosing Chrome Lens sends covers to Google for text recognition.",
                     color = Palette.Muted,
                     fontSize = 10.5.sp,
                 )
@@ -137,20 +137,19 @@ fun OnlineSearchPanel(
                 onBookmarkAll = onBookmarkAll,
             )
         }
-        if (!DistributionEdition.catalogueEnabled) {
-            ResultLimitPicker(ui.resultLimit, controller::setResultLimit)
+        if (ui.reverse.providers.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            ReverseImageSection(
+                ui = ui,
+                controller = controller,
+                onOpenUrl = onOpenUrl,
+                bookmarkedKeys = bookmarkedKeys,
+                wishlistedKeys = wishlistedKeys,
+                onToggleBookmark = onToggleDiscoveryBookmark,
+                onAddToWishlist = onAddDiscoveryToWishlist,
+                onBookmarkAllDiscovery = onBookmarkAllDiscovery,
+            )
         }
-        Spacer(Modifier.height(14.dp))
-        ReverseImageSection(
-            ui = ui,
-            controller = controller,
-            onOpenUrl = onOpenUrl,
-            bookmarkedKeys = bookmarkedKeys,
-            wishlistedKeys = wishlistedKeys,
-            onToggleBookmark = onToggleDiscoveryBookmark,
-            onAddToWishlist = onAddDiscoveryToWishlist,
-            onBookmarkAllDiscovery = onBookmarkAllDiscovery,
-        )
     }
 }
 
@@ -173,7 +172,7 @@ private fun OcrEngineSection(ui: OnlineSearchUi, controller: OnlineSearchControl
     )
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (choice in if (DistributionEdition.catalogueEnabled) OcrEngineChoice.ALL else listOf(OcrEngineChoice.PADDLE_OCR)) {
+        for (choice in OcrEngineChoice.ALL) {
             EngineChip(
                 choice = choice,
                 selected = choice == selected,
@@ -209,7 +208,7 @@ private fun EngineChip(
         )
         Text(
             when (choice) {
-                OcrEngineChoice.CHROME_LENS -> "Default · online (Google Lens)"
+                OcrEngineChoice.CHROME_LENS -> "Online · sends cover to Google"
                 OcrEngineChoice.PADDLE_OCR -> "PP-OCRv6 Medium · on device"
             },
             color = Palette.Muted,
