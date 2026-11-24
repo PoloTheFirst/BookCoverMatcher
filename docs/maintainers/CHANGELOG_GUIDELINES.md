@@ -553,3 +553,7 @@ After upload or rename, verify the public asset's exact name, size and digest ag
 ### 11.3 GitHub release title
 
 The GitHub release title/name must be exactly the release tag: `v` followed by the complete versionName, including a development suffix. Examples: `v2.7.0` and `v2.7.0-dev.1`. Do not prepend BookCoverMatcher, add a feature description, date, version code or other text. This simple GitHub title is separate from the descriptive release heading required inside CHANGELOG.md; retain that heading in the verbatim release body. Verify the GitHub API `name` exactly equals the intended tag after creation/update.
+
+### Two-edition downloads
+
+Starting with v3.0.0-dev.1, use the GitHub asset labels **BCM** (standard Play edition) and **BCM-plus** (explicit GitHub edition). Preserve the standard filename and its existing URL. Name the explicit APK `BCM-plus-v<complete-versionName>.apk`. Record its corresponding source commit and verify each APK’s package, edition, version, signing certificate and SHA-256.

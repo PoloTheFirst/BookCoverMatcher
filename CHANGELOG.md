@@ -1,37 +1,35 @@
-## v3.0.0-dev.3 (2026-11-24)
+## v3.0.0-dev.4 (2026-11-24)
 
-# BCM’s open-book logo
+# Standard and explicit BCM editions
 
-BCM has a new Material 3 Expressive mark on the Android launcher and Home screen. A glint on the open book’s right page represents a matched cover.
+Choose **BCM** for the standard app or **BCM-plus** for the edition with bundled catalogue plugins.
 
 ### Added
 
-- A dedicated monochrome book with a transparent page crease and glint for Android’s themed icons.
+- A separately signed explicit-edition download alongside the standard APK.
 
 ### Changed
 
-- Light uses a cream tile with blush and ivory pages outlined in rose. Dark uses a deep rose tile with blush and ivory pages. Both draw from Polo’s Atelier.
-- Home follows **More → Display**. The full-color launcher follows Android’s appearance where the launcher supports it.
-- Refreshed the OAuth logo, Play listing icon, full-size master and feature graphic in the repository.
+- Both editions use Android version code 230. The standard edition carries forward the dev.3 feature set.
 
 ### Fixed
 
-- The Home mark uses the app’s selected appearance even when the phone is set to the other mode. Its framing matches the visible center of the adaptive icon.
+- In the explicit edition, turning off DLsite in Online skips its searches and leaves the row available to select again. The Plugins switch controls whether the row appears.
 
 ### Removed
 
-- Replaced the cyan book and navy tile in the current app and branding artwork.
+- Removed the explicit edition’s shortcut from the Online selection control to the plugin disable action.
 
 ### Tests
 
-- The Play debug and release APKs assembled successfully. 1,271 JVM tests passed and 12 were skipped. Lint reported zero errors and 61 warnings.
+- Built the Play and explicit release APKs and ran both editions’ debug JVM suites. Five DLsite instrumentation tests passed on an Android 16 emulator using a local provider fixture.
 
 ### Verified
 
-- Checked the launcher and Home artwork on Android 8 and Android 16 emulators and validated the monochrome cutouts. All four exported PNGs match their recorded sizes and digests. The artwork stays within Android’s adaptive icon safe zone.
+- Verified the application ID and version metadata for both APKs. The standard APK contains zero bundled plugin descriptors and the explicit APK contains six.
 
 ### Known limitations
 
-- Launcher shape and themed tint depend on the device. On the Android 16 emulator, Pixel Launcher kept its previous full-color shortcut after a system appearance change until the app package refreshed. BCM Home switched immediately.
+- If a previous build disabled DLsite Fetch, re-enable it once in Plugins to restore the Online row. Android uses the same application ID for both editions and installs one at a time.
 
-**Version code/name: 229 / 3.0.0-dev.3.**
+**Version code/name: 230 / 3.0.0-dev.4.**
