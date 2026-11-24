@@ -1,22 +1,22 @@
 [
   {
     "path": "branding/bookcovermatcher-feature-1024x500.png",
-    "bytes": 28080,
-    "sha256": "406829e9576415b2ef6aca8b09b082a19f23a823fc6e794130d3d8f443e450b3"
+    "bytes": 26028,
+    "sha256": "2db898a44c2076989e8e0cf0a3c693502d76a9e3e6cd2e7495b3d14cb5880438"
   },
   {
     "path": "branding/bookcovermatcher-logo-120.png",
-    "bytes": 2540,
-    "sha256": "9f07d291ec9f46d3c97de8f846ca429cb6569e12e7f5ac628e7e1ff9ffc1944b"
+    "bytes": 2546,
+    "sha256": "dd7ac9e83d7fc16e4a1b188b4b0359f351555260ed90a5e1aed55c489d00f142"
   },
   {
     "path": "branding/bookcovermatcher-play-icon-512.png",
-    "bytes": 15772,
-    "sha256": "893066bb696b339ce8339d59c63c360f3449380f6d909f38128ca589ffe1d54d"
+    "bytes": 15673,
+    "sha256": "717bb1efdca89ee95449df2846d7850ff135db7df6f0de31f01f3aac722a16e4"
   },
   {
     "path": "branding/source/bookcovermatcher-logo-master.png",
-    "bytes": 45179,
-    "sha256": "664ac6f002efc06dac309cd3f6d430f862276973a86982354a44afa19cebd37f"
+    "bytes": 44971,
+    "sha256": "8db1d9c2d971c4e2691eab1458068f99dd191a89801f4fc58b4d11a9b5a87558"
   }
 ]
