@@ -2,17 +2,13 @@
 
 Use Kotlin `.kt` files to implement a plugin. Give users a small `.bcmplugin` descriptor to import in **Plugins → Import plugin**. Adding new Kotlin code requires a new app build. Importing or switching an implementation already bundled with BCM takes effect in the running app.
 
-## Use the GitHub marketplace
+## Use the explicit edition
 
-The small `marketplace.bcmplugin` setup file identifies the marketplace bundled in the GitHub build from `plugin/plugin-marketplace`. Importing it once adds the **Plugin Marketplace** switch.
+On a fresh install, open **Plugins**. The marketplace and all five group switches are on from the first launch, including offline. Disable a group to hide its actions. Disabling the marketplace pauses its children while retaining each switch position. Re-enabling the marketplace resumes the groups you selected. Use **Remove** to remove a group. With the marketplace on, choose **Restore** to restore it from the APK and choose whether to enable it.
 
-1. Save [marketplace.bcmplugin](../../plugins/manifests/marketplace.bcmplugin) to **Internal storage → Documents → BookCoverMatcher → Plugins** on the phone. In Documents, create a folder named **BookCoverMatcher** and open it. Inside **BookCoverMatcher**, create a folder named **Plugins**. If a folder already exists, open the existing one. If the browser uses Downloads, move the file with Android’s Files app. On GitHub, use **Download raw file**. Return to BCM and tap **Plugins** (puzzle piece next to **More** in the bottom bar). Tap **Import plugin** at the top, then select **marketplace.bcmplugin** from the Plugins folder in the Android file picker.
-2. Turn on **Plugin Marketplace**. BCM fetches missing group descriptors from pinned GitHub commits, validates their format and IDs, and places each group’s switch under the marketplace. GitHub receives the file requests and normal connection information. BCM sends no workbook, search query or provider credential in these requests.
-3. Turn on the groups you want. **DLsite Fetch** includes the DLsite books search. If your old build had a DLsite switch, BCM uses the same saved choice here. New groups start off unless an explicit legacy selection exists.
-4. Turn off the marketplace to pause its providers. Downloaded cards are dimmed and marked **Inactive · Marketplace is off**. Their switches retain their positions. Turning the marketplace on restores selected providers immediately, including offline.
-5. Use **Remove** under a group to drop it and clear its switch. BCM remembers the removal across restarts. With the marketplace on, tap **Download** to add it again, initially off. If a download fails, use **Retry download**. Removing the marketplace pauses its groups and keeps their choices for a later marketplace import.
+If you remove the marketplace, import its [descriptor](../../plugins/manifests/marketplace.bcmplugin) under **Plugins → Import plugin** to bring the marketplace back. Android can store descriptors under **Documents → BookCoverMatcher → Plugins**. Previously removed groups stay removed until you restore them.
 
-For a published GitHub edition that includes Plugin Marketplace, attach `plugins/manifests/marketplace.bcmplugin` to the GitHub Release alongside the APK. Link the setup file in the release notes. The recommended device path is `Documents/BookCoverMatcher/Plugins/marketplace.bcmplugin` in shared internal storage. The setup file can be retained for re-import alongside custom descriptors. BCM manages marketplace-fetched providers through their switches.
+The standalone `plugin/plugin-marketplace` branch uses manual setup. Import its marketplace descriptor, enable the marketplace and choose which downloaded groups to activate. The Play edition on `google_play` has an empty registry.
 
 ## Platform groups in the GitHub edition
 

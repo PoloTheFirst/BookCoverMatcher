@@ -1,5 +1,12 @@
 # Play and GitHub editions
 
+## Development build 3.0.0-dev.1
+
+The explicit GitHub build on main includes Plugin Marketplace and all five groups. On a clean installation all six are enabled, including offline. A user can pause each group, remove it, or restore it locally. The standard Play variant has an empty registry. Both distribution flavors use version code 227, the existing application ID and the existing signing configuration. Install the same signing lineage to keep Android app data.
+
+## v2.7.0 distribution checkpoints
+
+
 Validated locally on CachyOS on 18 November 2026 against Android 2.7.0 / code 226, branch `google_play`. These are build variants in one checkout; neither has been published by this task.
 
 ## What each edition contains
