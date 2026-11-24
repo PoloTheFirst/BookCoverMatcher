@@ -2,6 +2,11 @@
 
 package com.bookcovermatcher.online
 
+import android.content.Context
+import android.content.ContextWrapper
+import com.bookcovermatcher.plugins.ActivePlatforms
+import com.bookcovermatcher.plugins.editionGroups
+import java.util.UUID
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
@@ -49,8 +54,18 @@ class OcrDeviceTest {
      */
     @Test
     fun onlineControllerSearchesAndPublishesResults() {
+        val library = editionGroups.firstOrNull { group -> group.entries.any { it.id == "ol" } }
+        org.junit.Assume.assumeNotNull(library)
+        val activeLibrary = requireNotNull(library).let { ActivePlatforms(it, it.createSources()) }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val prefs = com.bookcovermatcher.data.OnlineSearchPrefs(context)
+        val fixture = "bcm-catalogue-test-" + UUID.randomUUID()
+        val preferencesContext = object : ContextWrapper(context) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int) = context.getSharedPreferences(fixture, mode)
+        }
+        val prefs = com.bookcovermatcher.data.OnlineSearchPrefs(preferencesContext)
+        prefs.secondarySources = true
+        prefs.selectedProviders = setOf("ol", "gb")
         val bridge = object : OcrTextSource {
             override fun availability(): OcrAvailability = OcrAvailability.Unavailable(
                 OcrFailure.LIBRARY_MISSING, "stubbed in the catalogue test",
@@ -69,6 +84,7 @@ class OcrDeviceTest {
             ),
             prefs = prefs,
             bridge = bridge,
+            activeGroups = { listOf(activeLibrary) },
         )
         try {
             controller.setEnabled(true)
@@ -90,7 +106,7 @@ class OcrDeviceTest {
             throw AssertionError("online search did not finish in 30 s")
         } finally {
             controller.shutdown()
-            prefs.enabled = false
+            context.deleteSharedPreferences(fixture)
         }
     }
 
