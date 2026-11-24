@@ -446,7 +446,7 @@ private fun LanguageField(label: String, value: String, onChange: (String) -> Un
             .fillMaxWidth()
             .padding(top = 4.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color.Black.copy(alpha = 0.22f))
+            .background(Palette.Navy900)
             .border(1.dp, Palette.Line, RoundedCornerShape(10.dp))
             .padding(horizontal = 10.dp, vertical = 10.dp),
         decorationBox = { inner ->
