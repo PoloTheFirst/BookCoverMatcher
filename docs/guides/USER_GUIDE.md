@@ -6,6 +6,8 @@ BCM matches captured or selected covers against the pictures in an Excel workboo
 
 Open **More → Display** and choose **Follow system**, **Light**, or **Dark**. Follow system is the initial setting and follows Android’s day/night schedule. Choosing Light or Dark overrides the phone and takes effect immediately. BCM remembers the selection on this device. Both appearances use Polo’s Atelier palette, including the scanner controls and the glowing frame around the cover. The camera preview shows the original colors of the cover.
 
+The open-book logo on Home follows the selected appearance. Light uses blush and ivory pages outlined in rose on a cream tile. Dark uses a deep rose tile. Android controls the launcher icon independently. On compatible launchers, enabling **Themed icons** tints the book while preserving the glint on its right page.
+
 ## Home
 
 1. **Choose file** (`.xlsx` or `.xlsm`) and enter the cell range that contains the cover pictures.

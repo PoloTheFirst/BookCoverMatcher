@@ -92,6 +92,10 @@ Local 3.0.0-dev.2 / 228 displays BCM and uses Sophie-themed Material 3 Expressiv
 
 Published v3.0.0-dev.1 (227, f777cd2) and v3.0.0-dev.2 (228, 98c0e11) from google_play with the existing release certificate. Both public titles, tagged changelogs, filenames, sizes and SHA-256 digests were verified. The publication reports record each release and its direct download URL. GitHub Latest remains v2.7.0 (226).
 
+## BCM open-book logo
+
+Version 3.0.0-dev.3 / 229 introduces the Material 3 Expressive book mark with a cream daytime tile, deep rose nighttime tile and opt-in launcher monochrome. The Android name and package remain BCM and com.bookcovermatcher. See the dev.3 development report for verification.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

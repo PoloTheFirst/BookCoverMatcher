@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "46d761d00d6c4fba5528d31761e4d3fd3047be8799977ec46dafc703041a04d8",
+  "fingerprint": "d934a8aca104b0bd786903eeffddb214c09a84c1a8d06e25b3edf02465f41a6b",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -464,8 +464,8 @@
     },
     {
       "path": "branding/README.md",
-      "bytes": 1663,
-      "sha256": "7f5082ed82b0b81fde80d507e20ebbfcb10dd9b2e101326d41ef3e85922c196f",
+      "bytes": 1727,
+      "sha256": "f684f1242389fb963ebf4df4e4ba1c78ac82dcac286f8a5db24f550950487450",
       "version": "current-source",
       "category": "module-context",
       "kind": "guide",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 1873,
-      "sha256": "d6dadb55d122aa4560f97470263537e783ff6db8d961a440ec602c13e3cb78d2",
+      "bytes": 1698,
+      "sha256": "24d0308995fef88342866561f38c0f2ef1c0f8537ac97c0c33d95db6cfee1cd0",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 12534,
-      "sha256": "51b4c19fa7da74e2f322f0dfa9962ba245e159d639d289465861102a61f56533",
+      "bytes": 12877,
+      "sha256": "bb996b640331e09f51d0d8cf799e4b002c874b7827595e6fada4fee35a71d8bd",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 21209,
-      "sha256": "cd2572693ef8895f888c6d27a78ef8f80b71d29a0fe1feea774b4fe4b8887fbe",
+      "bytes": 21905,
+      "sha256": "87e60ac9ee09d852a467119db0657f947b3c582376371af27b08be69939c3afa",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -538,7 +538,7 @@
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
       "bytes": 9097,
-      "sha256": "a54e037ae9293847c8d6ee9cfa0a7684c63aab3e78f98867ebe78af71f9c1a39",
+      "sha256": "a59796adeb762902cd64af1b6781f0b2eb3a4b1455a83c29771e7b9755fe4820",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5512,
-      "sha256": "2f1cd0f7ee016b0966f474f4f5c831918fa00a687d771092ad519baff4502fd4",
+      "bytes": 5567,
+      "sha256": "e7b6e77e71e22c0262f086e03c3f3236d11ad8bb062ea4bc82f3ca690d62ae70",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -558,8 +558,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 53431,
-      "sha256": "d5ca6fb22761441d32c821759da57a3fa5088db3a472f330cf07482dc87bb6d6",
+      "bytes": 53749,
+      "sha256": "c23e40c2c2f6c893f4004eadd530ec49743990e1e4e91d8e00d1b67f1ac12ef2",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2074,6 +2074,40 @@
       }
     },
     {
+      "path": "docs/history/android/v3.0.0-dev.3/development/reports/2026-11-24__android-3.0.0-dev.3-code229__development__expressive-logo__report__r01.md",
+      "bytes": 5321,
+      "sha256": "ea9740522d7857ba2ca5b1d9b1a0e5a89eae6429b64737028552d7dd8cfc42d4",
+      "version": "3.0.0-dev.3",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.3/development//expressive-logo/report/2026-11-24",
+        "title": "The BCM open-book logo",
+        "kind": "report",
+        "version_id": "3.0.0-dev.3",
+        "version_name": "3.0.0-dev.3",
+        "version_code": 229,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "expressive-logo",
+        "created_at": "2026-11-24T17:18:28+08:00",
+        "updated_at": "2026-11-24T17:30:29+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [
+          "3.0.0-dev.2"
+        ],
+        "source_request": "Refresh the BCM logo using the website palette. Use option A for light mode: pale blush and ivory pages with a thin rose outline on a cream tile. Use the earlier rose design for dark mode."
+      }
+    },
+    {
       "path": "docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md",
       "bytes": 11961,
       "sha256": "3c58f06adcec00a45e27824cbb6bf489d32011be31ec22511b2fba0bab47de9a",
@@ -2401,8 +2435,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4064,
-      "sha256": "e0cbbff2beb2a5043c063b31c29f1422b600eec5ed52568dbdf8f91bb592b790",
+      "bytes": 4069,
+      "sha256": "60d01f815718ba870f802c996dfecdb5b884d5010ec8d8084427d9d9abdf2d8d",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",

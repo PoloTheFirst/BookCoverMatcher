@@ -1,8 +1,8 @@
 # Play and GitHub editions
 
-## Development build 3.0.0-dev.2
+## Development build 3.0.0-dev.3
 
-On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0. Both flavors display **BCM**, use version code 228 and share the existing application ID and signing configuration. Install the same signing lineage to keep Android app data.
+On the standard Play build, **Plugins** opens an empty host showing **Import plugin** and **No imported plugins**. The built-in OCR choices are on-device PaddleOCR and opt-in Chrome Lens. Workbooks, wishlist entries and bookmarks use the same storage as v2.7.0. Both flavors display **BCM**, use version code 229 and share the existing application ID and signing configuration. Install the same signing lineage to keep Android app data.
 
 ## v2.7.0 distribution checkpoints
 

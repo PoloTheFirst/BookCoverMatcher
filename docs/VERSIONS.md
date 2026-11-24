@@ -37,3 +37,4 @@ Codes below are attributed configuration/historical evidence; null remains unkno
 | 3.0.0 | unknown / n/a | True | Design proposal for the v3.0.0 series. The owner allocated the first implementation to 3.0.0-dev.1 / 227. |
 | 3.0.0-dev.1 | 227 | True | Owner allocation for local Material 3 Expressive development builds following v2.7.0 (226). Published as a standard Play-edition GitHub prerelease at f777cd2. See the github-prerelease publication report. |
 | 3.0.0-dev.2 | 228 | True | Owner requested the BCM display name and the Sophie-themed Material 3 Expressive scanner for dev.2 following dev.1 / 227. Published as a standard Play-edition GitHub prerelease at 98c0e11. See the github-prerelease publication report. |
+| 3.0.0-dev.3 | 229 | True | Owner requested a Material 3 Expressive app logo in the website palette for dev.3 after dev.2 / 228. |
