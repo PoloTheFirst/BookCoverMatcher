@@ -53,7 +53,7 @@ internal class BcmPalette(val scheme: ColorScheme, val Ok: Color, val Warn: Colo
     )
 }
 
-// The Atelier site's Sophie semantic roles. The book icon retains BCM's artwork colors.
+// The Atelier site's Sophie semantic roles.
 private val LightPalette = BcmPalette(
     scheme = lightColorScheme(
         primary = Color(0xFF80435C),

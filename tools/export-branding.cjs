@@ -2,20 +2,36 @@
 // node tools/export-branding.cjs [absolute path to an installed sharp module]
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const {createHash} = require('node:crypto');
+const {execFileSync} = require('node:child_process');
 const sharp = require(process.argv[2] || 'sharp');
 const root = path.resolve(__dirname, '..');
+const branding = path.join(root, 'branding');
+
 async function main() {
-  const source = path.join(root, 'branding/source/bookcovermatcher-logo.svg');
-  for (const [size, file] of [[1024, 'source/bookcovermatcher-logo-master.png'], [120, 'bookcovermatcher-logo-120.png'], [512, 'bookcovermatcher-play-icon-512.png']]) {
-    await sharp(source, {density: 768}).resize(size,size).ensureAlpha().png().toFile(path.join(root,'branding',file));
+  execFileSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(__dirname, 'export-logo-vectors.py')]);
+  const source = path.join(branding, 'source/bookcovermatcher-logo.svg');
+  const files = [
+    ['bookcovermatcher-logo-120.png', 120],
+    ['bookcovermatcher-play-icon-512.png', 512],
+    ['source/bookcovermatcher-logo-master.png', 1024],
+  ];
+  for (const [name, size] of files) {
+    await sharp(source, {density: 384}).resize(size, size).ensureAlpha().png().toFile(path.join(branding, name));
   }
-  const feature = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500"><rect width="1024" height="500" fill="#001F3F"/><text x="370" y="228" fill="#FFFFFF" font-family="sans-serif" font-size="46" font-weight="bold">BookCoverMatcher</text><text x="370" y="286" fill="#22E0C8" font-family="sans-serif" font-size="24">Match covers to your collection</text></svg>`;
-  await fs.writeFile(path.join(root,'branding/source/feature-graphic.svg'),feature);
-  const logo=await sharp(source,{density:768}).resize(300,300).png().toBuffer();
-  await sharp(Buffer.from(feature)).composite([{input:logo,left:40,top:100}]).removeAlpha().png().toFile(path.join(root,'branding/bookcovermatcher-feature-1024x500.png'));
-  for (const file of ['bookcovermatcher-logo-120.png','bookcovermatcher-play-icon-512.png','bookcovermatcher-feature-1024x500.png','source/bookcovermatcher-logo-master.png']) {
-    const p=path.join(root,'branding',file); const m=await sharp(p).metadata(); const s=await fs.stat(p);
-    console.log(JSON.stringify({file,format:m.format,width:m.width,height:m.height,bytes:s.size}));
+
+  const tileMask = Buffer.from('<svg width="256" height="256"><rect width="256" height="256" rx="58" fill="white"/></svg>');
+  const tile = await sharp(source, {density: 384}).resize(256, 256)
+    .composite([{input: tileMask, blend: 'dest-in'}]).png().toBuffer();
+  const feature = 'bookcovermatcher-feature-1024x500.png';
+  await sharp(path.join(branding, 'source/feature-graphic.svg'))
+    .composite([{input: tile, left: 88, top: 122}]).removeAlpha().png().toFile(path.join(branding, feature));
+
+  const manifest = [];
+  for (const name of [feature, ...files.map(([name]) => name)]) {
+    const bytes = await fs.readFile(path.join(branding, name));
+    manifest.push({path: 'branding/' + name, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex')});
   }
+  await fs.writeFile(path.join(branding, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 }
-main().catch(e=>{console.error(e.message);process.exitCode=1;});
+main().catch(error => {console.error(error.message); process.exitCode = 1;});

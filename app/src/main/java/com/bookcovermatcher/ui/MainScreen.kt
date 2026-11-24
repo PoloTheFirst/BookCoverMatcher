@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -105,7 +106,9 @@ import com.bookcovermatcher.ui.components.SegmentedTab
 import com.bookcovermatcher.ui.components.SegmentedTabRow
 import com.bookcovermatcher.ui.components.TargetGlyph
 import com.bookcovermatcher.ui.components.dashedBorder
+import com.bookcovermatcher.ui.theme.LocalDisplaySettings
 import com.bookcovermatcher.ui.theme.Palette
+import com.bookcovermatcher.ui.theme.isDark
 
 /** What the buttons do that needs Android (permission prompts, document pickers, browser links). */
 class ScreenActions(
@@ -388,12 +391,16 @@ private fun BookmarksResultsTab(
 private fun AppHeader() {
     Column(Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Mirror the website's app mark while keeping its original launcher colors.
-            Image(
-                painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
-                modifier = Modifier.size(48.dp).background(colorResource(R.color.ic_launcher_background),
-                    MaterialTheme.shapes.medium),
-            )
+            val dark = LocalDisplaySettings.current.mode.isDark()
+            val tile = if (dark) R.color.bcm_logo_tile_dark else R.color.bcm_logo_tile_light
+            val mark = if (dark) R.drawable.bcm_logo_foreground_dark else R.drawable.ic_launcher_foreground
+            Box(
+                modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.medium).background(colorResource(tile)),
+                contentAlignment = Alignment.Center,
+            ) {
+                // Android shows the center 72dp of a 108dp adaptive layer. Use the same framing here.
+                Image(painterResource(mark), contentDescription = null, modifier = Modifier.requiredSize(72.dp))
+            }
             Text(
                 stringResource(R.string.app_name),
                 modifier = Modifier.weight(1f).semantics { heading() },

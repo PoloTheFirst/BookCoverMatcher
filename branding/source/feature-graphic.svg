@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500"><rect width="1024" height="500" fill="#001F3F"/><text x="370" y="228" fill="#FFFFFF" font-family="sans-serif" font-size="46" font-weight="bold">BookCoverMatcher</text><text x="370" y="286" fill="#22E0C8" font-family="sans-serif" font-size="24">Match covers to your collection</text></svg>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <rect width="1024" height="500" fill="#FAF5EF"/>
+  <text x="388" y="252" fill="#563545" font-family="serif" font-size="108" font-weight="bold">BCM</text>
+  <text x="392" y="308" fill="#6A535D" font-family="sans-serif" font-size="30">Match covers to your collection</text>
+</svg>
