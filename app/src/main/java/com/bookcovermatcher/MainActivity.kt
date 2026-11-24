@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                     else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
-            BookCoverTheme(darkTheme = darkTheme) {
+            BookCoverTheme(darkTheme = darkTheme, colors = display.palette) {
                 CompositionLocalProvider(LocalDisplaySettings provides display) {
                     AppScreen(viewModel, lifecycleOwner = this)
                 }

@@ -4,11 +4,13 @@ An Android app for matching book covers against images in an Excel workbook, kee
 
 ## Development prereleases
 
+**v3.0.0-dev.6 (232)** adds phone colors and a custom accent hue in both editions. Open **More → Display** to try them. The default is the Sophie palette from Polo’s Atelier. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-v3.0.0-dev.6.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-Plus-v3.0.0-dev.6.apk)
+
 **v3.0.0-dev.5 (231)** updates the matching button, Online result actions and release APK names. Download either signed edition. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-v3.0.0-dev.5.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-Plus-v3.0.0-dev.5.apk)
 
 **3.0.0-dev.4 (230)** lets you deselect DLsite in **Online** and select it again from the same row. **Plugins → DLsite Fetch** controls whether that row is available. The light mark pairs rose-outlined blush and ivory pages with a cream tile. The dark mark pairs blush and ivory pages with a rose tile. The **BCM Plus** GitHub edition includes **Plugin Marketplace**, **Ordinary Library Fetch**, **DLsite Fetch**, **Doujin Shop Shortcuts**, **Explicit Database Shortcuts**, and **Reverse Image Discovery**. On a fresh installation the six switches are on, including offline. Open **Plugins** to change them. Switching the marketplace off pauses its groups and preserves their choices. Search, upload, cloud sign-in and OCR use their existing controls.
 
-Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. Both modes use the same Sophie color scheme as the scanner.
+Open **More → Display** to follow the phone’s light/dark setting or choose Light or Dark. The app and scanner controls share your selected palette in either mode.
 
 The current public standard APK is **v2.7.0 (226)** from `google_play`. [Published release](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0) · [Distribution guide](docs/guides/DISTRIBUTION_VARIANTS.md)
 

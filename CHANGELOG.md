@@ -1,37 +1,38 @@
-## v3.0.0-dev.5 (2026-11-25)
+## v3.0.0-dev.6 (2026-11-25)
 
-# Clearer Online actions and matching controls
+# Choose your colors in More → Display
 
-The matching button keeps its gradient with the glow removed. Expanded Online results keep the website arrow beside its label and show wishlist membership on the action itself.
+BCM and BCM Plus open with the Sophie palette from Polo’s Atelier. You can now use your phone’s colors or build a custom palette while choosing light or dark appearance separately.
 
 ### Added
 
-- A **Wishlisted** action state for catalogue results saved in a wishlist profile. The action still opens the profile picker.
+- **Use phone colors** applies the Android system palette on Android 12 and newer. Turning it off restores your previous manual palette.
+- **Custom palette** lets you select an accent hue with a slider or take the hue from a six-digit hex color. The app generates matching surfaces, controls and text for light and dark appearances.
 
 ### Changed
 
-- Result actions flow onto additional rows when space is tight. The website label and arrow share one button.
-- Signed release builds produce `BCM-v3.0.0-dev.5.apk` and `BCM-Plus-v3.0.0-dev.5.apk`. The installation guide and release conventions use the renamed standard downloads.
+- **More → Display** shows both the appearance and the active palette. Palette changes apply immediately, including to the scanner controls, and persist when the app reopens.
 
 ### Fixed
 
-- Saving a result to a wishlist updates the wishlist button independently of its bookmark state.
+- None.
 
 ### Removed
 
-- Removed the glow from **Link & Find Top 5**.
+- None.
 
 ### Tests
 
-- The Play JVM suite passed 1,271 tests with 12 skipped. The GitHub suite passed 1,444 with 16 skipped.
-- An Android 16 emulator rendered and exercised the actual result card at 300 dp wide with 150% system font size. The test checked the website target, arrow position and independent wishlist and bookmark states.
+- JVM tests passed in both editions. BCM passed 1,271 with 12 skipped. BCM Plus passed 1,444 with 16 skipped. Android lint completed for both editions.
+- Three instrumented tests passed for each edition on both Android 8 and Android 16. They exercised the Display controls, slider and hex input, appearance overrides, restoration of manual colors and palette persistence after activity recreation. Contrast checks covered 25 hue positions in both appearances.
 
 ### Verified
 
-- Both release APKs were signed locally. Checked their filenames, package metadata, release certificate, ZIP alignment, native libraries, offline models and bundled plugin counts.
+- On Android 16, BCM’s phone-palette primary color matched Android’s light and dark schemes. On Android 8, manual palettes worked and the phone-colors switch was disabled.
+- Verified both signed APKs use the existing release certificate, application ID and version code 232. Checked ZIP alignment, offline models, native libraries and the edition-specific plugin counts.
 
 ### Known limitations
 
-- The layout check used an Android emulator. Provider availability depends on the installed edition.
+- Phone colors require Android 12 or newer. Device checks used emulators.
 
-**Version code/name: 231 / 3.0.0-dev.5.**
+**Version code/name: 232 / 3.0.0-dev.6.**

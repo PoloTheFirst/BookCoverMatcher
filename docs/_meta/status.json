@@ -1,5 +1,5 @@
 {
-  "reviewedOn": "2026-11-24",
+  "reviewedOn": "2026-11-25",
   "timeZone": "Asia/Hong_Kong",
   "facts": [
     {
@@ -149,6 +149,10 @@
     {
       "subject": "Dev.5 result actions and APK names",
       "value": "Dev.5 (231) removes the matching button glow and lets Online result actions wrap while showing wishlist membership. Current standard and Plus APK filenames begin with BCM-v and BCM-Plus-v respectively."
+    },
+    {
+      "subject": "Display colors in v3.0.0-dev.6 (232)",
+      "value": "BCM and BCM Plus default to the Sophie website palette. More → Display supports Android 12+ system colors and a custom accent hue. Follow system, Light and Dark work with each palette. Turning off phone colors restores the previous manual selection."
     }
   ],
   "nextSteps": [

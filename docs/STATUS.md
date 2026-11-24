@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-24 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-25 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
@@ -151,6 +151,10 @@ In 3.0.0-dev.4 (230), Online remembers catalogue selections separately from plug
 ## Dev.5 result actions and APK names
 
 Dev.5 (231) removes the matching button glow and lets Online result actions wrap while showing wishlist membership. Current standard and Plus APK filenames begin with BCM-v and BCM-Plus-v respectively.
+
+## Display colors in v3.0.0-dev.6 (232)
+
+BCM and BCM Plus default to the Sophie website palette. More → Display supports Android 12+ system colors and a custom accent hue. Follow system, Light and Dark work with each palette. Turning off phone colors restores the previous manual selection.
 
 ## Next steps
 
