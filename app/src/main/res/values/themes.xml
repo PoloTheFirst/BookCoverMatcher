@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
-<resources>
-    <!-- Plain platform theme: the whole UI is Compose. The window colour avoids a white flash while starting. -->
-    <style name="Theme.BookCoverMatcher" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/navy_900</item>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- The OS selects the starting window before Compose reads the saved appearance. -->
+    <style name="BcmPlatformTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FAF5EF</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+    </style>
+
+    <style name="Theme.BookCoverMatcher" parent="BcmPlatformTheme">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

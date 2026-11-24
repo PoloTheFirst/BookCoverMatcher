@@ -11,8 +11,13 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import com.bookcovermatcher.ui.AppScreen
 import com.bookcovermatcher.ui.theme.BookCoverTheme
+import com.bookcovermatcher.ui.theme.LocalDisplaySettings
+import com.bookcovermatcher.ui.theme.isDark
+import com.bookcovermatcher.ui.theme.rememberDisplaySettings
 
 class MainActivity : ComponentActivity() {
 
@@ -35,13 +40,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-        )
         setContent {
-            BookCoverTheme {
-                AppScreen(viewModel, lifecycleOwner = this)
+            val display = rememberDisplaySettings()
+            val darkTheme = display.mode.isDark()
+            SideEffect {
+                val style = if (darkTheme) SystemBarStyle.dark(Color.TRANSPARENT)
+                    else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            BookCoverTheme(darkTheme = darkTheme) {
+                CompositionLocalProvider(LocalDisplaySettings provides display) {
+                    AppScreen(viewModel, lifecycleOwner = this)
+                }
             }
         }
     }
