@@ -50,6 +50,8 @@ This development source checkpoint adds offline policy readers and original-deri
 
 ### Verified
 
+- The public APK declares 2.7.0-dev.2, code 225. Its embedded VCS information identifies the archived source checkpoint. The signed APK and the earlier unsigned release-bundle check below refer to different artifacts.
+
 - Workbook-source UI checkpoint: Google and Microsoft browser sign-in/profile lookup succeeded live on the API 37 emulator, and both import buttons displayed the account labels. Use it now fixture tests and viewer screenshots passed at normal/150% fonts; Rescan/Back clipping was corrected. The activity remains portrait-locked.
 - The new debug APK packages privacy revision 2026-11-14.1 and unchanged terms byte-for-byte from the canonical files. It remains an unpublished local dev.2 build.
 
@@ -68,6 +70,6 @@ This development source checkpoint adds offline policy readers and original-deri
 - Direct GIS/MSAL dependencies have been removed in favour of AppAuth. Final dependency/licence review, token expiry/revocation and process-lifecycle verification, production signing and restricted Drive scope verification remain outstanding. No Google approval or OAuth production transition is claimed.
 - Public policy/support routes await separate website synchronization and deployment. A local policy reader does not prove those links are live.
 - No new physical-device cloud test was performed at closeout. Earlier live emulator authorization results are recorded above; prior dev.1 Vivo resolution remains owner-reported. Existing My Drive-only scope and unsupported Drive operations are unchanged.
-- This is a source/documentation checkpoint on online_improvement, not a GitHub binary release or Google Play submission. Stable v2.7.0 follows prompt review, verification and necessary fixes, before Play submission preparation.
+- This GitHub development prerelease distributes the signed APK. Google Play publication and OAuth production status were separate processes.
 
 **Version code/name: 225 / 2.7.0-dev.2.**
