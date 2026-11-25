@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "1601d27e7f89b0bd9bc023f7897d0fe4902dfe7eb895ecdc67c4b709b532c2ca",
+  "fingerprint": "9c0e3eca96d455cddfc1ad8195491afb45cdebd2100eac816ad3d46d1144a30e",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 1873,
-      "sha256": "d6dadb55d122aa4560f97470263537e783ff6db8d961a440ec602c13e3cb78d2",
+      "bytes": 2161,
+      "sha256": "12740e84a05c1ff9fc9c07ca6e67c026aaccea3434f3e5d8a2b033d161eac3f5",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
