@@ -3,7 +3,7 @@
 # Development Checkpoint: OneDrive Folder Access, Sign-In Repair and Rescan Version Check
 
 This is the v2.6.0 development checkpoint, not a stable release: the build identifies itself as `2.6.0-dev.1`
-(version code `222`) and no stable `v2.6.0` tag exists. It adds OneDrive workbook import and an on-demand "is
+(version code `222`) before the stable `v2.6.0` tag was published. It adds OneDrive workbook import and an on-demand "is
 there a newer version?" check when a workbook is rescanned, and it repairs Microsoft sign-in end to end: the
 browser handoff, and then the silent token request that had been preventing any OneDrive folder from ever being
 listed. Everything the offline app already does — scanning, matching, comments, saved workbooks — is unchanged,
@@ -184,6 +184,8 @@ no upload or write-back, and losing the network can never make a saved workbook 
 
 ### Verified
 
+- The public development APK declares 2.6.0-dev.1, code 222. Its signing certificate SHA-256 begins with `db662c95857a`. The emulator and local build signatures described below identify the earlier test artifacts.
+
 - **Real Microsoft account, real Graph, on the emulator** — the first time OneDrive folder access has been
   observed working. With a dedicated test account signed in through MSAL's own browser flow: the root children
   request answered **200** (two folders rendered), a folder opened (`/items/{id}/children` **200**, the file
@@ -286,4 +288,3 @@ no upload or write-back, and losing the network can never make a saved workbook 
   multi-hundred-megabyte import has not been exercised.
 
 **Version code/name: 222 / 2.6.0-dev.1.**
-
