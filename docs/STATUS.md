@@ -132,6 +132,10 @@ Dev.8 (234) moves the active workbook viewer to Home, explains Chrome Lens sourc
 
 Published v3.0.0-dev.8 (234) with signed BCM and BCM Plus APKs. The dev.8 publication report records the source tags, commits and verified public download hashes.
 
+## Historical GitHub release repair
+
+Verified 35 release bodies against 43 tagged changelogs. All 35 releases now have APKs. Three archival rebuilds and one recovered original are identified in the historical publication report and installation guide.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

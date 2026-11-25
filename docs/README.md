@@ -79,6 +79,7 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 - [docs/history/android/v3.0.0-dev.6/publication/reports/2026-11-25__android-3.0.0-dev.6-code232__publication__github-editions__report__r01.md](history/android/v3.0.0-dev.6/publication/reports/2026-11-25__android-3.0.0-dev.6-code232__publication__github-editions__report__r01.md)
 - [docs/history/android/v3.0.0-dev.7/publication/reports/2026-11-26__android-3.0.0-dev.7-code233__publication__github-editions__report__r01.md](history/android/v3.0.0-dev.7/publication/reports/2026-11-26__android-3.0.0-dev.7-code233__publication__github-editions__report__r01.md)
 - [docs/history/android/v3.0.0-dev.8/publication/reports/2026-11-26__android-3.0.0-dev.8-code234__publication__github-editions__report__r01.md](history/android/v3.0.0-dev.8/publication/reports/2026-11-26__android-3.0.0-dev.8-code234__publication__github-editions__report__r01.md)
+- [docs/history/android/v3.0.0-dev.8/publication/reports/2026-11-26__android-3.0.0-dev.8-code234__publication__historical-archive__report__r01.md](history/android/v3.0.0-dev.8/publication/reports/2026-11-26__android-3.0.0-dev.8-code234__publication__historical-archive__report__r01.md)
 
 ## qa
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "9d6b184504962d5548f7520a94ecf3a6023f7a44dfec2e2f196ffb3b690c0d77",
+  "fingerprint": "3c0e699a66c042abfe591a28cf5ef475edd04bf44f3fe9ecc800c00a55aab200",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 15481,
-      "sha256": "d47f26c90f532f51b8681413eccb620443a84f5573094c9725f3d4d7156bbe5e",
+      "bytes": 15779,
+      "sha256": "40bec326bbd0e2a3b9ebfc08927a1bf5e1de23745d4fef4e8e9ffc095a3b098d",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5621,
-      "sha256": "0677002d7eb4cb33e25df28f36357b2a8bda052c4b2795c5db4d52adf2e7b655",
+      "bytes": 6367,
+      "sha256": "aa2cdbf24fe4d8bf413e37e5ff88d6e5e04e3bf5826474029a71237a9d717e2a",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2329,6 +2329,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Commit and push dev.8 to google_play and main and publish both signed APKs as a GitHub prerelease."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.8/publication/reports/2026-11-26__android-3.0.0-dev.8-code234__publication__historical-archive__report__r01.md",
+      "bytes": 3071,
+      "sha256": "7aaeae8eef99909cf376f068c8e2c600a8c69cb2bdcf15653cb86f1647d37504",
+      "version": "3.0.0-dev.8",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.8/publication//historical-archive/report/2026-11-26",
+        "title": "Historical GitHub release archive repair",
+        "kind": "report",
+        "version_id": "3.0.0-dev.8",
+        "version_name": "3.0.0-dev.8",
+        "version_code": 234,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "historical-archive",
+        "created_at": "2026-11-26T05:38:17+08:00",
+        "updated_at": "2026-11-26T05:38:17+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Reconcile historical release notes, source tags and missing or misplaced APK attachments."
       }
     },
     {

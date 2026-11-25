@@ -4,6 +4,13 @@
 
 The current development prerelease is **v3.0.0-dev.8 (234)**. Choose your signed APK. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-v3.0.0-dev.8.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-Plus-v3.0.0-dev.8.apk)
 
+### Historical downloads
+
+The v2.1.0, v2.2.0 and v2.4.0 release pages label their APKs as archival rebuilds from the historical source. These packages use the current BCM publisher certificate. Android requires a compatible signing certificate for an in-place update. A device that installed the former v2.4.0 attachment actually has version code 218, which is higher than the corrected stable APK’s 215. Keep the installed copy and its data if Android declines the update. The v2.5.0-dev.3 page offers the recovered original signed APK.
+
+The historical v1.1.0 and v2.0.0-dev.1 release names both differ from the version embedded in the preserved APKs. Consult those release notes for the application ID and actual version before installing.
+
+
 The stable standard release is [v2.7.0 (226)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0). Both editions share the Android application ID `com.bookcovermatcher`.
 
 Use the [distribution build and signing guide](DISTRIBUTION_VARIANTS.md) for the new `play` and `github` APK paths. Both editions use the same package ID and require a matching release certificate to update an existing installation. Release builds no longer fall back to a debug signing key. Preserve app data: stop on signing incompatibility; do not uninstall or clear data.
