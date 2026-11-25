@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "29db75e59bc5bbb2e8fbf89c5857ef67d3da4daa89f745de37a545f9cdade3b6",
+  "fingerprint": "4924009a3e082ef565d5e8348f31708bd9fb67dfe8ec84cd9346acdf576ec2a9",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 14570,
-      "sha256": "bebe27e46ceaebee15e667d8a5ef0c13ccb85ea054f4579081e1f13a27dc9ec4",
+      "bytes": 14808,
+      "sha256": "0622c1103f7ab55e377ef561fa7bca6fb2fd6fff4e41a0065c4dc087f0b8bdde",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2233,6 +2233,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Commit and push dev.6 and publish both signed APKs on GitHub."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.7/publication/reports/2026-11-26__android-3.0.0-dev.7-code233__publication__github-editions__report__r01.md",
+      "bytes": 3117,
+      "sha256": "d628ca23a31787ae3414fe62000b1b29574f3fb1e002cf3372e8b4833fded66d",
+      "version": "3.0.0-dev.7",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.7/publication//github-editions/report/2026-11-26",
+        "title": "BCM and BCM Plus dev.7 publication",
+        "kind": "report",
+        "version_id": "3.0.0-dev.7",
+        "version_name": "3.0.0-dev.7",
+        "version_code": 233,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-editions",
+        "created_at": "2026-11-26T03:46:32+08:00",
+        "updated_at": "2026-11-26T03:46:32+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Commit and push dev.7 to google_play and main and publish both signed APKs as a GitHub prerelease."
       }
     },
     {

@@ -117,6 +117,10 @@
     {
       "subject": "Launcher appearance in dev.7",
       "value": "v3.0.0-dev.7 (233) includes light and dark adaptive icons for BCM and BCM Plus. A process start or system night-mode change asks the launcher to reload the existing MainActivity icon. More → Display still controls the in-app appearance."
+    },
+    {
+      "subject": "GitHub dev.7 publication",
+      "value": "Published v3.0.0-dev.7 (233) with signed BCM and BCM Plus APKs. The dev.7 publication report records the source tags, commits and verified public download hashes."
     }
   ],
   "nextSteps": [

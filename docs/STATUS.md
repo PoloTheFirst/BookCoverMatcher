@@ -120,6 +120,10 @@ The v3.0.0-dev.6 (232) GitHub prerelease offers signed BCM and BCM Plus APKs. Se
 
 v3.0.0-dev.7 (233) includes light and dark adaptive icons for BCM and BCM Plus. A process start or system night-mode change asks the launcher to reload the existing MainActivity icon. More → Display still controls the in-app appearance.
 
+## GitHub dev.7 publication
+
+Published v3.0.0-dev.7 (233) with signed BCM and BCM Plus APKs. The dev.7 publication report records the source tags, commits and verified public download hashes.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
