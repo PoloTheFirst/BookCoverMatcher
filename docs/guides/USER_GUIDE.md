@@ -256,16 +256,15 @@ Manual check on a device (no emulator was available for this build):
 
 ## More
 
-* Online switch, auto-search, OCR language and translation language.
-* A plain description of offline matching, OCR, catalogue search, visual search (not implemented),
-  the browser-only providers and prices/stock (not supplied).
-* The **Workbook comments & images** entry (legacy note text and pictures, offline).
+* **Use online services** controls online access. In BCM Plus, **Search after reading the cover** controls whether a catalogue search starts automatically after OCR.
+* In **Chrome Lens languages**, **Language printed on the cover** is the source language. For a Japanese cover, enter `ja`, or leave it blank so Lens detects it. **Translate into** is the requested output language. Enter `en` for English, or leave it blank to keep the text in its original language. The settings apply to Chrome Lens. On-device PaddleOCR reads the cover without these hints or translation.
+* The Author profile README starts expanded. Tap **Collapse** for a shorter preview and **Expand** to restore it.
+* **What runs where** lists which features run on your device and which providers are available in your edition.
 * Storage counts and **Clear online session cache**.
 
-### Workbook comments & images
+## Workbook comments & images
 
-**More → Open workbook comments** reads the legacy Excel notes of the workbook you chose on Home. It
-works completely offline and never changes the workbook.
+On **Home**, choose a local or saved workbook. Tap the **Workbook comments & images** row below **Spreadsheet & range** to browse notes, worksheets and embedded pictures or export original image files. Reading the saved copy is local. Opening a linked cloud workbook can also check its source availability.
 
 * **Comments** lists each commented cell. The marker says what it holds: **T** text only, **▣** one or
   more images, **!** an image reference that could not be resolved. The sheet chips narrow the list; tap
@@ -430,7 +429,7 @@ column `D`), so a first run could find nothing. It now starts at `A1:Z5000`, and
 yourself is kept. If a scan still finds no images, the message names the range it used and reminds you
 that covers usually sit in the title column.
 
-**Dates and percentages in the Catalogue table.** In *More → Workbook comments → Catalogue → Table*, a cell
+**Dates and percentages in the Catalogue table.** In *Home → Workbook comments & images → Catalogue → Table*, a cell
 that Excel formats as a date is shown as a date (`2018-12-31`, or `2018-12-31 14:30` when it also carries a
 time) instead of the serial number behind it (`43465`), and a cell formatted as a percentage is shown rounded
 to two decimals (`12.35%`) instead of its stored fraction (`0.123456`). A price, a page count, a rating or a

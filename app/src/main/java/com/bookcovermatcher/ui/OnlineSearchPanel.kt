@@ -533,7 +533,6 @@ private fun CatalogueSection(
             contentColor = Palette.OnAccent2,
             modifier = Modifier.fillMaxWidth(),
             minHeight = 46.dp,
-            glow = Palette.Accent2.copy(alpha = 0.5f),
         ) { ButtonLabel("Search selected platforms", Palette.OnAccent2, 13.5f) }
     }
 }

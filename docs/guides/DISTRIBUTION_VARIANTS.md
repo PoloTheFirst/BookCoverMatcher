@@ -1,5 +1,9 @@
 # Play and GitHub editions
 
+## Development prerelease v3.0.0-dev.8
+
+BCM and BCM Plus include the Home workbook shortcut and updated Chrome Lens settings and use version code 234. [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8-plus)
+
 ## Development prerelease v3.0.0-dev.7
 
 BCM and BCM Plus include the launcher icon fix and use version code 233. [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.7) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7-plus)
@@ -30,6 +34,7 @@ Each release tag identifies the standard BCM source. The companion commits build
 
 | GitHub prerelease | BCM Plus source |
 | --- | --- |
+| [v3.0.0-dev.8](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) | [dev.8 Plus](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8-plus) |
 | [v3.0.0-dev.7](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.7) | [dev.7 Plus](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7-plus) |
 | [v3.0.0-dev.6](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.6) | [dev.6 Plus](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.6-plus) |
 | [v3.0.0-dev.5](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.5) | [dev.5 Plus](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.5-plus) |

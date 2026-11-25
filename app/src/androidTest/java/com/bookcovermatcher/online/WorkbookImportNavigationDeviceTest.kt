@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.bookcovermatcher.online
 
+import android.os.SystemClock
+import androidx.compose.ui.node.RootForTest
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.core.view.allViews
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -64,6 +71,79 @@ class WorkbookImportNavigationDeviceTest {
                 }
             }
             clicked
+        }
+    }
+
+    private fun SemanticsNode.withLabel(label: String): SemanticsNode? {
+        if (config.getOrNull(SemanticsProperties.Text)?.any { it.text == label } == true) return this
+        return children.firstNotNullOfOrNull { it.withLabel(label) }
+    }
+
+    private fun ActivityScenario<MainActivity>.onLabel(label: String, action: (SemanticsNode) -> Unit) {
+        val deadline = SystemClock.uptimeMillis() + 10_000
+        do {
+            var found = false
+            onActivity { activity ->
+                val node = activity.window.decorView.allViews.filterIsInstance<RootForTest>()
+                    .firstNotNullOfOrNull { it.semanticsOwner.unmergedRootSemanticsNode.withLabel(label) }
+                if (node != null) {
+                    action(node)
+                    found = true
+                }
+            }
+            if (found) return
+            SystemClock.sleep(100)
+        } while (SystemClock.uptimeMillis() < deadline)
+        fail("Missing label: $label")
+    }
+
+    private fun clickControl(label: SemanticsNode) {
+        val button = generateSequence(label) { it.parent }.first { SemanticsActions.OnClick in it.config }
+        assertFalse(SemanticsProperties.Disabled in button.config)
+        assertTrue(button.config[SemanticsActions.OnClick].action!!.invoke())
+    }
+
+    @Test fun homeOpensTheSelectedWorkbookAndReturnsToHome() {
+        val library = WorkbookLibrary(File(context.filesDir, "workbooks"))
+        val imported = library.import(workbook().inputStream(), "home-navigation.xlsx")
+        val entry = when (imported) {
+            is ImportResult.Added -> imported.workbook
+            is ImportResult.AlreadySaved -> imported.workbook
+            is ImportResult.Rejected -> error(imported.message)
+        }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { screen ->
+                lateinit var vm: MainViewModel
+                screen.onActivity {
+                    vm = ViewModelProvider(it)[MainViewModel::class.java]
+                    vm.selectTab(AppTab.HOME)
+                }
+                waitUntil { vm.ui.value.model is ModelUi.Ready }
+                screen.onLabel("Choose a workbook above to browse its contents.") { label ->
+                    assertTrue(generateSequence(label) { it.parent }.any { SemanticsProperties.Disabled in it.config })
+                }
+                screen.onActivity { vm.useSavedWorkbook(entry.id) }
+                waitUntil { vm.ui.value.workbook != null && !vm.ui.value.workbookLoading }
+                screen.onLabel("Workbook comments & images", ::clickControl)
+                waitUntil { findText("Workbook comments") != null }
+                assertEquals(entry.id, vm.ui.value.openWorkbookId)
+                assertEquals(entry.displayName, vm.ui.value.comments.workbookName)
+                screen.onActivity { vm.closeWorkbookComments() }
+                screen.onLabel("Workbook comments & images") { assertEquals(AppTab.HOME, vm.ui.value.tab) }
+            }
+        } finally {
+            if (imported is ImportResult.Added) library.remove(entry.id)
+        }
+    }
+
+    @Test fun moreShowsBothLanguageHintsAndStartsWithExpandedAuthor() {
+        ActivityScenario.launch(MainActivity::class.java).use { screen ->
+            screen.onActivity { ViewModelProvider(it)[MainViewModel::class.java].selectTab(AppTab.MORE) }
+            screen.onLabel("Leave blank for Lens to detect it, or enter a two-letter code such as ja for Japanese.") {}
+            screen.onLabel("Leave blank to keep the original text, or enter a two-letter code such as en for English.") {}
+            screen.onLabel("Collapse", ::clickControl)
+            screen.onLabel("Expand", ::clickControl)
+            screen.onLabel("Collapse") {}
         }
     }
 

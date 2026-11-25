@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "4924009a3e082ef565d5e8348f31708bd9fb67dfe8ec84cd9346acdf576ec2a9",
+  "fingerprint": "25946b51cf14626a2822a452db62e86bfd1ecc20238481b2f23fc4c9eda04743",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2094,
-      "sha256": "f014248ae1f8b8f2c723c0a258c21987ab7f1e5361c9c8a33eeeb28c994be682",
+      "bytes": 2017,
+      "sha256": "3dc86b1b25132387a725bd0445eca0e40e83501fce43c3886d4e93faa742b581",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 14808,
-      "sha256": "0622c1103f7ab55e377ef561fa7bca6fb2fd6fff4e41a0065c4dc087f0b8bdde",
+      "bytes": 15243,
+      "sha256": "135193c727e091afda3e6e454db49526ba94a206160289eba455c6856a711f0b",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 24820,
-      "sha256": "fbd1e12d22a916d8fd452b3546cbbc35d13ef0977fa0262451bb235726b83673",
+      "bytes": 25548,
+      "sha256": "f11e3fc61e7f26e8064fbfdaf891c56cc9b52fad15929f0af0df8bf09b37d20e",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -537,8 +537,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 12470,
-      "sha256": "3d3f1b8b6e6ccacd5cc738554c022530fb368004397690364b825ec6c1997936",
+      "bytes": 13075,
+      "sha256": "03a2f1ff931fb8ff8393a64b5501cba4c6c973e39912887c1794d3fe00ae7471",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -548,7 +548,7 @@
     {
       "path": "docs/guides/INSTALL.md",
       "bytes": 5621,
-      "sha256": "37c94b297a1c9cd4fc14b4edbc42bf19bb71d9e2c9da31892766e3593f7da7cf",
+      "sha256": "0677002d7eb4cb33e25df28f36357b2a8bda052c4b2795c5db4d52adf2e7b655",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -558,8 +558,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 54715,
-      "sha256": "14a4b2a09790e17d630514a047fdebd8879b6f2244b98c06612fb932da91f78d",
+      "bytes": 55355,
+      "sha256": "2d6bbc5afea55b5bf8aa5f4946a22eb46094d91230259ae31bee956a7095c383",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2268,6 +2268,38 @@
       }
     },
     {
+      "path": "docs/history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md",
+      "bytes": 4877,
+      "sha256": "a3109814ad67a17f30348485409a8cb1d083be71ed85f1c72d6a9b8eab9a1581",
+      "version": "3.0.0-dev.8",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.8/development//workbook-workflow/report/2026-11-26",
+        "title": "Dev.8 workbook and search workflow",
+        "kind": "report",
+        "version_id": "3.0.0-dev.8",
+        "version_name": "3.0.0-dev.8",
+        "version_code": 234,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "workbook-workflow",
+        "created_at": "2026-11-26T04:48:10+08:00",
+        "updated_at": "2026-11-26T04:50:39+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Prepare BCM and BCM Plus dev.8 with a compact Home workbook entry, clearer language settings, two search glow removals, an expanded Author page and a policy review."
+      }
+    },
+    {
       "path": "docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md",
       "bytes": 11961,
       "sha256": "3c58f06adcec00a45e27824cbb6bf489d32011be31ec22511b2fba0bab47de9a",
@@ -2584,8 +2616,8 @@
     },
     {
       "path": "PRIVACY_POLICY.md",
-      "bytes": 14892,
-      "sha256": "051515ad0cabafc0f4f94334de0c554875f28f58f2e1f2f71806783f50056149",
+      "bytes": 20223,
+      "sha256": "9032d45f2703ca1c713fcd73fd31515b986eeb7392adf450712bcb87b0b35871",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -2595,8 +2627,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5669,
-      "sha256": "067fbf5e4d9401a0b7f00866340c1708afd46fa3cd668067a8212cf154303f31",
+      "bytes": 6044,
+      "sha256": "4b42ff27236c89ea09056d8c19dce3a185f6162d23c9f09d5b7dee8e3d3f3353",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2606,8 +2638,8 @@
     },
     {
       "path": "TERMS_AND_CONDITIONS.md",
-      "bytes": 5326,
-      "sha256": "5556e6033a3086cdbf9fd98e78bca6b28dd25325ec0042e629494023558ac585",
+      "bytes": 5997,
+      "sha256": "9496dee2a7c1d47d5347b0930d89f8c4bed3de13a454cec29a1fbbd2bd94c81f",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",

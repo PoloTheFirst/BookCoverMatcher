@@ -124,6 +124,10 @@ v3.0.0-dev.7 (233) includes light and dark adaptive icons for BCM and BCM Plus. 
 
 Published v3.0.0-dev.7 (233) with signed BCM and BCM Plus APKs. The dev.7 publication report records the source tags, commits and verified public download hashes.
 
+## Dev.8 workbook and search workflow
+
+Dev.8 (234) moves the active workbook viewer to Home, explains Chrome Lens source and translation codes, expands the Author README on entry and removes the two search-button glows. Bundled privacy and terms revision 2026-11-26.2 carries forward the website source’s dev.7 edition review. The UI changes add no new data transfer or user obligation.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.

@@ -169,7 +169,10 @@ fun AppScreen(vm: MainViewModel, lifecycleOwner: LifecycleOwner) {
                         when (ui.tab) {
                             AppTab.HOME -> ScreenScroll {
                                 if (ready) HomeScreen(ui, vm, lifecycleOwner, actions)
-                                else SetupScreen(ui.model, onImport = { pickModel.launch(arrayOf("*/*")) })
+                                else {
+                                    SetupScreen(ui.model, onImport = { pickModel.launch(arrayOf("*/*")) })
+                                    if (ui.workbook != null) WorkbookCommentsCard(ui, vm::openWorkbookComments)
+                                }
                             }
                             AppTab.SEARCH -> ScreenScroll {
                                 if (ready) SearchScreen(ui, vm, actions)
