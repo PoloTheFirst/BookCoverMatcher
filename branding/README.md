@@ -1,6 +1,6 @@
 # BCM branding assets
 
-BCM’s mark is an open book with a four-point glint on the right page. The full-color launcher uses Polo’s Atelier’s Sophie palette, with pale blush and ivory pages outlined in rose on a cream tile in daytime. At night it uses a deep rose tile with blush and ivory pages. The Home header follows **More → Display**. On Android launchers that offer themed icons, Android supplies the colors for a separate silhouette with a transparent page crease and glint.
+BCM’s mark is an open book with a four-point glint on the right page. The full-color launcher uses Polo’s Atelier’s Sophie palette, with pale blush and ivory pages outlined in rose on a cream tile in daytime. At night it uses a deep rose tile with blush and ivory pages. The launcher has separate day and night adaptive-icon resources. On startup and when Android delivers a night-mode change, BCM asks the launcher to refresh the icon for the existing activity. The Home header follows **More → Display**. On Android launchers that offer themed icons, Android supplies the colors for a separate silhouette with a transparent page crease and glint.
 
 ## Artwork and exports
 

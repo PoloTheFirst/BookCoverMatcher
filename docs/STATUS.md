@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-25 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-26 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
@@ -155,6 +155,10 @@ Dev.5 (231) removes the matching button glow and lets Online result actions wrap
 ## Display colors in v3.0.0-dev.6 (232)
 
 BCM and BCM Plus default to the Sophie website palette. More → Display supports Android 12+ system colors and a custom accent hue. Follow system, Light and Dark work with each palette. Turning off phone colors restores the previous manual selection.
+
+## Launcher appearance in dev.7
+
+v3.0.0-dev.7 (233) includes light and dark adaptive icons for BCM and BCM Plus. A process start or system night-mode change asks the launcher to reload the existing MainActivity icon. More → Display still controls the in-app appearance.
 
 ## Next steps
 

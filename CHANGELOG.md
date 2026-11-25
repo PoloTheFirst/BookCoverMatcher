@@ -1,21 +1,20 @@
-## v3.0.0-dev.6 (2026-11-25)
+## v3.0.0-dev.7 (2026-11-26)
 
-# Choose your colors in More → Display
+# The launcher book follows the phone’s light and dark modes
 
-BCM and BCM Plus open with the Sophie palette from Polo’s Atelier. You can now use your phone’s colors or build a custom palette while choosing light or dark appearance separately.
+BCM and BCM Plus now refresh their full-color launcher icon when Android delivers a light/dark change and when the app starts. The book uses the cream tile in light mode and the rose tile in dark mode.
 
 ### Added
 
-- **Use phone colors** applies the Android system palette on Android 12 and newer. Turning it off restores your previous manual palette.
-- **Custom palette** lets you select an accent hue with a slider or take the hue from a six-digit hex color. The app generates matching surfaces, controls and text for light and dark appearances.
+- None.
 
 ### Changed
 
-- **More → Display** shows both the appearance and the active palette. Palette changes apply immediately, including to the scanner controls, and persist when the app reopens.
+- The adaptive launcher icon has separate light and dark resources. Both include the book silhouette for launchers that support themed icons.
 
 ### Fixed
 
-- None.
+- A launcher could keep displaying the previous book colors after a system appearance change. BCM now requests a refresh of the existing launcher entry, preserving its component name and home-screen shortcut.
 
 ### Removed
 
@@ -23,16 +22,18 @@ BCM and BCM Plus open with the Sophie palette from Polo’s Atelier. You can now
 
 ### Tests
 
-- JVM tests passed in both editions. BCM passed 1,271 with 12 skipped. BCM Plus passed 1,444 with 16 skipped. Android lint completed for both editions.
-- Three instrumented tests passed for each edition on both Android 8 and Android 16. They exercised the Display controls, slider and hex input, appearance overrides, restoration of manual colors and palette persistence after activity recreation. Contrast checks covered 25 hue positions in both appearances.
+- BCM passed 1,271 JVM tests with 12 skipped. BCM Plus passed 1,444 with 16 skipped. Lint reported zero errors in both editions.
+- Four Android 16 instrumented tests passed in each edition. They covered both launcher colorways, the single original launcher entry, and the independent in-app Display settings.
 
 ### Verified
 
-- On Android 16, BCM’s phone-palette primary color matched Android’s light and dark schemes. On Android 8, manual palettes worked and the phone-colors switch was disabled.
-- Verified both signed APKs use the existing release certificate, application ID and version code 232. Checked ZIP alignment, offline models, native libraries and the edition-specific plugin counts.
+- Reproduced the stale cream icon on dev.6. On the Android 16 Pixel Launcher, inspected the rendered app-drawer icons after switching to dark and back to light in both dev.7 editions. A pinned BCM Plus shortcut changed colors in its original home-screen position.
+- Force-stopped BCM Plus, changed the system appearance, then opened the app through its existing icon. Returning to the launcher showed the new colors.
+- Both signed APKs use version code 233, the existing application ID and the dev.6 release certificate. On Android 8, the signed upgrade from dev.6 BCM to dev.7 BCM and then BCM Plus preserved the first-install timestamp. Both dev.7 editions launched through the original component in both system modes.
 
 ### Known limitations
 
-- Phone colors require Android 12 or newer. Device checks used emulators.
+- A launcher can retain its cached icon while the app is stopped. Opening BCM once after the mode change requests a refresh. Launcher themes and icon packs may supply their own colors.
+- The reported Vivo X100 Pro was unavailable for direct verification.
 
-**Version code/name: 232 / 3.0.0-dev.6.**
+**Version code/name: 233 / 3.0.0-dev.7.**

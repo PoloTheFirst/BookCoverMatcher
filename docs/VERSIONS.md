@@ -41,3 +41,4 @@ Codes below are attributed configuration/historical evidence; null remains unkno
 | 3.0.0-dev.4 | 230 | True | Owner requested that Online DLsite selection be independent of plugin activation on main. |
 | 3.0.0-dev.5 | 231 | True | Dev.5 updates release APK naming, the matching button and online result actions. |
 | 3.0.0-dev.6 | 232 | True | Dev.6 adds independent palette selection in More → Display for BCM and BCM Plus. |
+| 3.0.0-dev.7 | 233 | True | The owner requested a launcher logo fix for light/dark system changes after observing stale artwork on a Vivo X100 Pro. |

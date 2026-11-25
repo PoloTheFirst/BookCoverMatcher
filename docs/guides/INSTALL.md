@@ -2,7 +2,7 @@
 
 ## Development and published builds
 
-The current development prerelease is **v3.0.0-dev.6 (232)**. Choose your signed APK. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-v3.0.0-dev.6.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-Plus-v3.0.0-dev.6.apk)
+The current development prerelease is **v3.0.0-dev.7 (233)**. Choose your signed APK. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-v3.0.0-dev.7.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-Plus-v3.0.0-dev.7.apk)
 
 The stable standard release is [v2.7.0 (226)](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v2.7.0). Both editions share the Android application ID `com.bookcovermatcher`.
 

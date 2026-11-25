@@ -1,5 +1,9 @@
 # Play and GitHub editions
 
+## Development prerelease v3.0.0-dev.7
+
+BCM and BCM Plus include the launcher icon fix and use version code 233. [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.7) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7-plus)
+
 ## Development prerelease v3.0.0-dev.6
 
 [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.6) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.6) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.6-plus)
