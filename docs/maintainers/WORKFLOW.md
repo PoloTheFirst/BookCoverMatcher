@@ -25,6 +25,6 @@ Write one concise progress/draft report for a long task, updating it in place wh
 
 Update the relevant maintained guides and semantic status, then run the documentation refresh/check commands. Run Android checks only where relevant to actual code/build changes. Record checks not performed. A passing documentation check proves structure and consistency, not device behavior, legal compatibility or release approval.
 
-For an authorized stable/dev publication, follow VERSIONING.md and CHANGELOG_GUIDELINES.md: release name equals tag, release body equals the matching complete changelog, and the APK uses the canonical versioned filename. Observe existing release blockers and distinguish signing/building from uploading. RCs remain internal. Do not invent another release or crash-fix round after completing the task.
+For an authorized stable/dev publication, follow VERSIONING.md and CHANGELOG_GUIDELINES.md: release name equals tag, release body equals the matching complete changelog, and the APK uses the canonical versioned filename. Observe existing release blockers and distinguish signing/building from uploading. New builds accept stable and dev versions. Historical RCs remain in the archive. Do not invent another release or crash-fix round after completing the task.
 
 The final response identifies the canonical output, actual changes, relevant checks, remaining work and any unapplied step. A new chat should be able to continue from current status, the report and its evidence without reading the entire conversation.

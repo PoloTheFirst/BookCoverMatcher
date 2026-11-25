@@ -1,0 +1,197 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index bb62f3b..1f88afa 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -218,0 +219,38 @@ val preparePaddleOcrAssets = tasks.register("preparePaddleOcrAssets") {
++// ---------------------------------------------------------------------------------------------
++// Licence assets: the root LICENSE and THIRD_PARTY_NOTICES.md travel inside the APK.
++//
++// A GPLv3 binary distribution has to carry the licence text and the third-party statements. Copying
++// the two root documents into assets at build time means the APK cannot drift from the source tree,
++// and the app never ships a second, edited copy of either document.
++// ---------------------------------------------------------------------------------------------
++
++val licenseAssetDir = layout.projectDirectory.dir("src/main/assets/licenses").asFile
++
++val syncLicenseAssets = tasks.register("syncLicenseAssets") {
++    group = "build"
++    description = "Copies LICENSE and THIRD_PARTY_NOTICES.md into the APK assets."
++    val root = rootProject.projectDir
++    val sources = listOf(
++        root.resolve("LICENSE") to "GPL-3.0.txt",
++        root.resolve("THIRD_PARTY_NOTICES.md") to "THIRD_PARTY_NOTICES.md",
++    )
++    inputs.files(sources.map { it.first })
++    outputs.dir(licenseAssetDir)
++    doLast {
++        licenseAssetDir.mkdirs()
++        val missing = sources.map { it.first }.filterNot { it.isFile }
++        if (missing.isNotEmpty()) {
++            throw GradleException(
++                "the licensing documents are missing, so the APK would ship without them: " +
++                    missing.joinToString(", ") { it.path },
++            )
++        }
++        sources.forEach { (from, name) ->
++            from.copyTo(File(licenseAssetDir, name), overwrite = true)
++        }
++        logger.lifecycle("licence assets: " + sources.joinToString(", ") { it.second })
++    }
++}
++
++tasks.named("preBuild") { dependsOn(syncLicenseAssets) }
++
+diff --git a/app/src/main/java/com/bookcovermatcher/core/licensing/LicenseDocuments.kt b/app/src/main/java/com/bookcovermatcher/core/licensing/LicenseDocuments.kt
+new file mode 100644
+index 0000000..8c9ea35
+--- /dev/null
++++ b/app/src/main/java/com/bookcovermatcher/core/licensing/LicenseDocuments.kt
+@@ -0,0 +1,42 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++package com.bookcovermatcher.core.licensing
++
++/**
++ * The licence documents the app ships and shows.
++ *
++ * Two documents, both copied into `assets/licenses/` from the repository root at build time
++ * (`syncLicenseAssets` in `app/build.gradle.kts`), so the APK can never disagree with the source tree:
++ *
++ * * [GPL] — the canonical GNU GPLv3 text, the licence of all project-owned code;
++ * * [THIRD_PARTY] — the third-party inventory, which states that those components keep their own
++ *   terms (PaddleOCR Apache-2.0, ONNX Runtime MIT, and the OpenCLIP weights whose terms are unresolved).
++ *
++ * Keeping this list in plain Kotlin lets a JVM test check it without an Android runtime.
++ */
++enum class LicenseDocuments(
++    val assetPath: String,
++    val title: String,
++    val subtitle: String,
++    val shortLabel: String,
++) {
++
++    GPL(
++        assetPath = "licenses/GPL-3.0.txt",
++        title = "GNU General Public License v3.0 or later",
++        subtitle = "The licence of this app's own code",
++        shortLabel = "GPLv3",
++    ),
++
++    THIRD_PARTY(
++        assetPath = "licenses/THIRD_PARTY_NOTICES.md",
++        title = "Third-party notices",
++        subtitle = "Components that keep their own licences",
++        shortLabel = "Third party",
++    );
++
++    companion object {
++        /** The order the dialog shows. */
++        val ordered: List<LicenseDocuments> = listOf(GPL, THIRD_PARTY)
++    }
++}
+diff --git a/app/src/main/java/com/bookcovermatcher/ui/MoreScreen.kt b/app/src/main/java/com/bookcovermatcher/ui/MoreScreen.kt
+index 7b14c1e..355c2ac 100644
+--- a/app/src/main/java/com/bookcovermatcher/ui/MoreScreen.kt
++++ b/app/src/main/java/com/bookcovermatcher/ui/MoreScreen.kt
+@@ -6,0 +7,2 @@ import androidx.compose.foundation.border
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
+@@ -21,0 +24,5 @@ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.produceState
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
+@@ -26,0 +34 @@ import androidx.compose.ui.graphics.SolidColor
++import androidx.compose.ui.platform.LocalContext
+@@ -30,0 +39 @@ import androidx.compose.ui.unit.sp
++import androidx.compose.ui.window.Dialog
+@@ -34,0 +44 @@ import com.bookcovermatcher.core.format.Formatting
++import com.bookcovermatcher.core.licensing.LicenseDocuments
+@@ -39,0 +50,2 @@ import com.bookcovermatcher.ui.theme.Palette
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
+@@ -151,0 +164,83 @@ fun MoreScreen(ui: UiState, vm: MainViewModel) {
++
++        Spacer(Modifier.height(14.dp))
++        PanelsLicence()
++    }
++}
++
++/**
++ * The licence section of the More tab.
++ *
++ * A GPLv3 binary has to carry the licence and the third-party statements, so both travel in the APK
++ * (`assets/licenses/`, copied from the repository root at build time) and are readable here without a
++ * network connection. The panel also states plainly what is *not* covered: the bundled models and the
++ * test assets keep their own terms.
++ */
++@Composable
++private fun PanelsLicence() {
++    var open by remember { mutableStateOf<LicenseDocuments?>(null) }
++    Panel("Licences") {
++        InfoLine("This app", "GNU GPL v3.0 or later \u2014 your option")
++        InfoLine("Your rights", "Redistribute and/or modify under GPLv3, or any later version published by the FSF.")
++        InfoLine("Third-party", "PaddleOCR models Apache-2.0; ONNX Runtime MIT; OpenCLIP weights unresolved.")
++        GradientButton(
++            onClick = { open = LicenseDocuments.GPL },
++            colors = Palette.NavyGradient,
++            contentColor = Palette.Text,
++            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
++            minHeight = 42.dp,
++        ) { ButtonLabel("Open-source licences", Palette.Text, 12.5f) }
++    }
++    open?.let { document -> LicenseDialog(document) { open = null } }
++}
++
++/** Shows one licence document, read from the APK's own assets. */
++@Composable
++private fun LicenseDialog(start: LicenseDocuments, onClose: () -> Unit) {
++    val context = LocalContext.current
++    var current by remember { mutableStateOf(start) }
++    val text by produceState(initialValue = "Reading ${current.title}\u2026", current) {
++        value = withContext(Dispatchers.IO) {
++            runCatching {
++                context.assets.open(current.assetPath).bufferedReader().use { it.readText() }
++            }.getOrElse { "This document could not be read from the APK: ${it.message}" }
++        }
++    }
++    Dialog(onDismissRequest = onClose) {
++        Column(
++            Modifier
++                .fillMaxWidth()
++                .clip(RoundedCornerShape(14.dp))
++                .background(Palette.Navy900)
++                .border(1.dp, Palette.Line, RoundedCornerShape(14.dp))
++                .padding(14.dp),
++        ) {
++            Text(current.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
++            Text(current.subtitle, color = Palette.Muted, fontSize = 10.sp)
++            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                LicenseDocuments.ordered.forEach { document ->
++                    GradientButton(
++                        onClick = { current = document },
++                        colors = if (document == current) Palette.AccentGradient else Palette.NavyGradient,
++                        contentColor = Palette.Text,
++                        modifier = Modifier.weight(1f),
++                        minHeight = 34.dp,
++                    ) { ButtonLabel(document.shortLabel, Palette.Text, 10.5f) }
++                }
++            }
++            Text(
++                text,
++                color = Palette.Text,
++                fontSize = 9.5.sp,
++                modifier = Modifier
++                    .padding(top = 8.dp)
++                    .heightIn(max = 360.dp)
++                    .verticalScroll(rememberScrollState()),
++            )
++            GradientButton(
++                onClick = onClose,
++                colors = Palette.GreyGradient,
++                contentColor = Color(0xFFEAEEF5),
++                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
++                minHeight = 38.dp,
++            ) { ButtonLabel("Close", Color(0xFFEAEEF5), 12f) }
++        }

@@ -151,6 +151,27 @@ val googleRedirectScheme = if (googleNativeClient.isEmpty()) "com.bookcovermatch
     else "com.googleusercontent.apps." + googleNativeClient.removeSuffix(".apps.googleusercontent.com")
 fun configString(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+// Use the same host interpreter as Chaquopy when one is configured.
+val buildPythonPath: String? =
+    Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.isFile) f.inputStream().use { load(it) }
+    }.getProperty("chaquopy.buildPython")
+        ?: providers.gradleProperty("chaquopyBuildPython").orNull
+val versionPython = buildPythonPath?.let { listOf(it) }
+    ?: if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+        listOf("py", "-3")
+    } else {
+        listOf("python3")
+    }
+val configuredAndroidVersion = providers.fileContents(
+    rootProject.layout.projectDirectory.file("gradle/android-version.txt"),
+).asText.get().trimEnd('\r', '\n')
+val (releaseVersionName, releaseVersionCode) = providers.exec {
+    val calculator = rootProject.file("tools/android_version.py")
+    commandLine(versionPython + listOf(calculator.absolutePath, configuredAndroidVersion))
+}.standardOutput.asText.get().trim().split(' ')
+
 android {
     namespace = "com.bookcovermatcher"
     compileSdk = 37
@@ -159,10 +180,8 @@ android {
         applicationId = appPackageName
         minSdk = 26
         targetSdk = 36
-        // 223 is 2.6.0: 222 was 2.6.0-dev.1, 221 the 2.5.0 stable release, 220 dev.5, 219 dev.4,
-        // 218 dev.3, 217 2.5.0-dev.2, 216 dev.1, 215 the 2.4.0 stable release.
-        versionCode = 234
-        versionName = "3.0.0-dev.8"
+        versionName = releaseVersionName
+        versionCode = releaseVersionCode.toInt()
 
         // The custom-tab redirect is matched by MSAL's BrowserTabActivity intent filter. Its scheme,
         // host and path are taken from the registered Redirect_URL at build time, so no value from
@@ -257,13 +276,6 @@ android {
 //
 // or with -PchaquopyBuildPython=<path>. Without either, Chaquopy looks for `py -3.12` on PATH.
 // ---------------------------------------------------------------------------------------------
-val buildPythonPath: String? =
-    Properties().apply {
-        val f = rootProject.file("local.properties")
-        if (f.isFile) f.inputStream().use { load(it) }
-    }.getProperty("chaquopy.buildPython")
-        ?: providers.gradleProperty("chaquopyBuildPython").orNull
-
 chaquopy {
     defaultConfig {
         version = "3.12"

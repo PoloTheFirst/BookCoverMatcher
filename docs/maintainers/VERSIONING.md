@@ -1,18 +1,18 @@
 # Version and revision identity
 
-## Android releases and internal rounds
+## Android release codes
 
-The owner chooses a new target release/version, or explicitly authorizes a derivation such as incrementing the preceding dev suffix. Routine documentation work uses the inspected current baseline; it does not require a new release allocation. Never guess a versionCode from a filename. Inspect app/build.gradle.kts, current branch/history and, when built, packaged artifact metadata.
+Set the owner-approved Android version name in [gradle/android-version.txt](../../gradle/android-version.txt). Gradle and the documentation checker use the same [version calculator](../../tools/android_version.py). Run `python3 tools/android_version.py` to print the configured manifest name and code. Run `python3 -m unittest discover -s tools/tests` to verify the boundaries.
 
-Preserved owner rules:
+Use `M.m.p` for a stable build and `M.m.p-dev.N` for development. Use canonical decimal segments with no leading zeros. Major ranges from 0 to 2099, minor and patch from 0 to 98, and the dev suffix from 1 to 99. Zero version 0.0.0 is unsupported. Codes must be positive and at most 2,100,000,000.
 
-- Standard releases normally increment the preceding code once if no RC has reserved the target's code.
-- The first internal RC for a stable target reserves the next code; later RCs for that same target and its final stable release reuse it. Finalizing that stable version must not increment the code again.
-- RCs are internal testing, never public release tags, GitHub Releases or public prereleases. Do not push RC-only test work into public release branches; any approved private testing branch is a separate scope.
-- Every published development version, including each dev.N, consumes the next code. Use dotted `-dev.N` and `-rc.N` forms unless the owner explicitly names another task filename.
-- `crash-fix-N` describes focused work against a parent, not a new Android release. Retain parent versionName/code unless the owner explicitly changes them.
+A stable code is `major × 1,000,000 + minor × 10,000 + patch × 100`. A dev build uses its target stable code minus 100 plus N. For example, 3.0.0-dev.8 is 2999908, 3.0.0 is 3000000, and 3.0.1-dev.1 is 3000001. One integer calculation handles borrowing across patch, minor and major versions. Decimal width varies with the version.
 
-Examples are independent sequences, not allocations for the current task: from 223 / 2.6.0, two dev releases consume 224 and 225, so a subsequent stable version with no reserved RC would use 226. Alternatively, a first RC could reserve 224, and later RCs and its final stable reuse 224. An RC after dev.1/code224 would reserve 225. Inspect actual intervening allocations before applying any example.
+Both editions share the Android version name and code. Resolve a release tag or the matching BCM Plus source tag using `python3 tools/android_version.py --source-tag v3.0.0-dev.8-plus`. The manifest name for this tag is `3.0.0-dev.8`. Keep original signed downloads at their existing names. Append `-code<versionCode>` before `.apk` on the separately published historical rebuild so each URL identifies one artifact. Before uploading a new Play bundle, verify the package, signer and code, and check all previously uploaded versions. Plan backports against the installed version codes because Android treats lower codes as downgrades.
+
+New builds support stable and development versions. Historical RC tags and records remain readable through the normal Git and documentation indexes. Existing code values in archived records describe those specific artifacts. Prior releases used a sequential allocation, including internal RC reservations and reuse at stable release. A crash-fix suffix identifies work against a parent version and does not allocate an Android build identity.
+
+Use the [historical rebuild instructions](../reference/ARCHIVE_REBUILDS.md) to reconstruct an individual archived APK and verify its inputs.
 
 ## Registry and historical evidence
 

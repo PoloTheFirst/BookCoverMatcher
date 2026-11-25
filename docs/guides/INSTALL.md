@@ -2,7 +2,7 @@
 
 ## Development and published builds
 
-The current development prerelease is **v3.0.0-dev.8 (234)**. Choose your signed APK. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-v3.0.0-dev.8.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-Plus-v3.0.0-dev.8.apk)
+For **v3.0.0-dev.8**, choose BCM or BCM Plus. The renumbered APK carries Android code **2999908**. The original signed APK carries **234**. The [release page](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) lists both editions. Use the file ending in `-code2999908.apk` for the renumbered build. The [release index](../reference/RELEASE_INDEX.md) lists original and rebuilt codes across the archive.
 
 ### Historical downloads
 

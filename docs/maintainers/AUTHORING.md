@@ -28,7 +28,7 @@ The private BookCoverMatcher-private archive is a separate workspace for account
 
 ## Version and category decisions
 
-Use the source/build being discussed, not the latest-looking filename. Match a registered version from docs/_meta/versions.json. Current app metadata is validated against app/build.gradle.kts; APK metadata needs a separate artifact check. Historical codes are attributed claims; a null code remains unknown until evidence resolves it. Do not allocate a new app release to file a documentation change.
+Use the source/build being discussed, not the latest-looking filename. Match a registered version from docs/_meta/versions.json. Current app metadata is checked against the version name in gradle/android-version.txt and the same code calculation Gradle uses. Verify packaged APK metadata separately. Historical codes are attributed claims; a null code remains unknown until evidence resolves it. Do not allocate a new app release to file a documentation change.
 
 For multiple versions, choose the deliverable's primary version and list other registered IDs in related_versions; label evidence per version and link rather than duplicate. Distinguish app version, build checkpoint/hash, website release, policy revision and document revision. A report against 2.7.0-dev.2 may describe unreleased work; the folder does not claim it shipped.
 

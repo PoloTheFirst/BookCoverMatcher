@@ -6,6 +6,8 @@ from urllib.parse import quote,unquote,urlsplit
 sys.dont_write_bytecode=True
 import documentation
 ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT/'tools'))
+import android_version
 META=ROOT/'docs/_meta'
 GENERATED={'docs/README.md','docs/STATUS.md','docs/VERSIONS.md','docs/FILE_INDEX.md','docs/_meta/catalog.json'}
 SKIP={'.git','.gradle','.idea','.kotlin','.venv','__pycache__','build','node_modules','.documentation-backups'}
@@ -72,9 +74,12 @@ def collect():
  # New root Markdown must be explicitly pinned rather than accumulating again.
  errors+=['Unexpected root documentation: '+p.name for p in ROOT.glob('*.md') if p.name not in {'README.md','AGENTS.md','CHANGELOG.md','PRIVACY_POLICY.md','TERMS_AND_CONDITIONS.md','THIRD_PARTY_NOTICES.md'}]
  versions_meta=read(META/'versions.json');active=next((v for v in versions if v['id']==versions_meta['current']),None)
- build=(ROOT/'app/build.gradle.kts').read_text(encoding='utf-8-sig')
- code=re.search(r'\bversionCode\s*=\s*(\d+)',build);name=re.search(r'\bversionName\s*=\s*"([^"]+)"',build)
- if not active or not code or not name or active['versionCode']!=int(code[1]) or active['versionName']!=name[1]:errors.append('Registry current version differs from app/build.gradle.kts; reconcile from evidence')
+ try:
+  name,code=android_version.resolve_version(android_version.VERSION_FILE.read_text(encoding='utf-8').rstrip('\r\n'))
+ except (OSError,ValueError) as exc:
+  errors.append('Invalid configured Android version: '+str(exc))
+ else:
+  if not active or active['versionCode']!=code or active['versionName']!=name:errors.append('Registry current version differs from the configured Android release identity')
  baseline=read(META/'legacy-links.json') if (META/'legacy-links.json').exists() else []
  known={(x['path'],x['href']) for x in baseline};broken=[]
  for e in entries:

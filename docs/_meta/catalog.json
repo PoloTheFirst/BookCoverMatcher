@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "c5e1f2c1234bb71bc60f2309cc499915342275adc15753c169ce64721da939c9",
+  "fingerprint": "f5d1397e921a895546c40eea2481c85c57ace2d07d32a27a47aa73ef97847f51",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -14,8 +14,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 4670,
-      "sha256": "3f0064c44c5dceb8a6e3c36f2261dbfaf0cc29eef83031860d4bf530aa343713",
+      "bytes": 4728,
+      "sha256": "803b3da0ee5e5f3246384de17ee6c3b11bf22e59f045f7cccecf6017e0d00a3d",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2017,
-      "sha256": "3dc86b1b25132387a725bd0445eca0e40e83501fce43c3886d4e93faa742b581",
+      "bytes": 2171,
+      "sha256": "e5d4c5715e46ff2bb919faeb05654209d484895027a3a8069c98109653f97ab0",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 21702,
-      "sha256": "0c62f1576b708be39b8815bf184b6fa25daeb876f1c44bce5471caf936edfff9",
+      "bytes": 22382,
+      "sha256": "0ca49924bcc8253c97aa896edede7e810608aadbf7aae1f877826a80ba89f81b",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 25161,
-      "sha256": "593a765e9d283a031b9c7aeb00486165d0fc316fff04bbbf42526fa2570bf49a",
+      "bytes": 25926,
+      "sha256": "b4ee03a3fb72fb1e9560a4f49265d4dbfd578550093b6b32437711e7ee54dee4",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 11427,
-      "sha256": "468561aba0ded514cc556fdb0b1a4fb7602da297edea96ab45ce9b5fb2ccc0e5",
+      "bytes": 11655,
+      "sha256": "44c8d48645ad7de10573da254bbea89fab84d53e0d70763743e2879994666fbe",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -557,8 +557,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 6367,
-      "sha256": "aa2cdbf24fe4d8bf413e37e5ff88d6e5e04e3bf5826474029a71237a9d717e2a",
+      "bytes": 6480,
+      "sha256": "7de2e7a4cbb4317a53bbd5f43fff4ca9c8c6fb92fc744c3329db5cde331e2930",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2470,6 +2470,74 @@
       }
     },
     {
+      "path": "docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md",
+      "bytes": 4451,
+      "sha256": "e4bc254d0c66e3132e26ea61dfce828b509df25bd622a68316928ba9f8bccf20",
+      "version": "3.0.0-dev.8-code2999908",
+      "category": "release",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.8-code2999908/release//version-code-migration/report/2026-11-26",
+        "title": "Android archive version-code migration validation",
+        "kind": "report",
+        "version_id": "3.0.0-dev.8-code2999908",
+        "version_name": "3.0.0-dev.8",
+        "version_code": 2999908,
+        "track": "android",
+        "category": "release",
+        "area": "",
+        "topic": "version-code-migration",
+        "created_at": "2026-11-26T07:01:08+08:00",
+        "updated_at": "2026-11-26T07:04:19+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [
+          "3.0.0-dev.8"
+        ],
+        "source_request": "Apply the deterministic Android version codes across all releases and preserve original downloads."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r02.md",
+      "bytes": 3926,
+      "sha256": "70839564d101c6036b1c32c7b5533f732af9907a941cab3fd3edc5e8ab25978a",
+      "version": "3.0.0-dev.8-code2999908",
+      "category": "release",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r2",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.8-code2999908/release//version-code-migration/report/2026-11-26",
+        "title": "Android archive validation and v2.5.0 license reader recovery",
+        "kind": "report",
+        "version_id": "3.0.0-dev.8-code2999908",
+        "version_name": "3.0.0-dev.8",
+        "version_code": 2999908,
+        "track": "android",
+        "category": "release",
+        "area": "",
+        "topic": "version-code-migration",
+        "created_at": "2026-11-26T07:01:08+08:00",
+        "updated_at": "2026-11-26T07:08:23+08:00",
+        "revision": 2,
+        "status": "final",
+        "supersedes": "docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md",
+        "related_versions": [
+          "3.0.0-dev.8"
+        ],
+        "source_request": "Complete archive source and binary fidelity checks and recover the original v2.5.0 license UI."
+      }
+    },
+    {
       "path": "docs/history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md",
       "bytes": 4870,
       "sha256": "173e49eb3b47954d455e899a54a93fde3bcbf70c2ed86d14dfc4f132166358cc",
@@ -2669,8 +2737,8 @@
     },
     {
       "path": "docs/maintainers/AUTHORING.md",
-      "bytes": 10693,
-      "sha256": "2b699bbf5c1a5eaef1cfd55c2afb9d7bcc6c97c3ddfac274bede5f7853f8fb40",
+      "bytes": 10754,
+      "sha256": "3889799f04be9c235d5a3e100a4d2c41a4269cf5c58031d0366a90419f904a09",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2679,8 +2747,8 @@
     },
     {
       "path": "docs/maintainers/CHANGELOG_GUIDELINES.md",
-      "bytes": 22742,
-      "sha256": "57f21ea4079def0cc1bfe2901c81077c97caa43dcc7f731aa6233d769b82253c",
+      "bytes": 23058,
+      "sha256": "058e22268acbfe2978aca89b1622d2f2dffd9ae21ab62f1d542769a4f16b5416",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2752,8 +2820,8 @@
     },
     {
       "path": "docs/maintainers/VERSIONING.md",
-      "bytes": 3736,
-      "sha256": "4077e4a331b2decf73c43cdf83f92d0ae372a2a10f57387b1c2cdf1d406b7beb",
+      "bytes": 4288,
+      "sha256": "745d2b22c84b9c58e56a2a85b0d2c9237216d89b1b4cd5b4f68d156a8cdf4dbe",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2763,8 +2831,8 @@
     },
     {
       "path": "docs/maintainers/WORKFLOW.md",
-      "bytes": 3865,
-      "sha256": "21c60bd0198288ea658a30d6ff342627ee8205f6855b2898a54d208139052bb3",
+      "bytes": 3925,
+      "sha256": "4da1ddc8917cb6914361cc44668e874fdc59c46cc0e010096e23b8839b74f24b",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2782,6 +2850,16 @@
       "frozen": false,
       "note": "Maintained documentation; inspect source when making runtime claims.",
       "originalPath": "ARCHITECTURE.md"
+    },
+    {
+      "path": "docs/reference/ARCHIVE_REBUILDS.md",
+      "bytes": 5193,
+      "sha256": "50a1e46e20cf5029171afb1fb8fd3a27f5d6de56ea2f8ac99eff7c593f1f3556",
+      "version": "current-source",
+      "category": "reference",
+      "kind": "guide",
+      "frozen": false,
+      "note": "Maintained documentation/tooling"
     },
     {
       "path": "docs/reference/NATIVE_OCR_ANDROID.md",
@@ -2804,6 +2882,16 @@
       "frozen": false,
       "note": "Maintained documentation; inspect source when making runtime claims.",
       "originalPath": "ONLINE_SEARCH.md"
+    },
+    {
+      "path": "docs/reference/RELEASE_INDEX.md",
+      "bytes": 5623,
+      "sha256": "677d3af6686f269fbf905599b9107012515f2214f33f36d7789fedf021c035a9",
+      "version": "current-source",
+      "category": "reference",
+      "kind": "guide",
+      "frozen": false,
+      "note": "Maintained documentation/tooling"
     },
     {
       "path": "native/ocr/README.md",
@@ -2829,8 +2917,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5708,
-      "sha256": "5cdb264c2a0713218dd1dd1641c426b5fd7cb8810af7720ae53cda09c7bc1e2f",
+      "bytes": 6130,
+      "sha256": "f19b4989b92c6e62b42d5d5092f6fc3ee69d7e978cfc04a1e3f98454b23c4946",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2872,8 +2960,8 @@
     },
     {
       "path": "tools/docs/manage.py",
-      "bytes": 10605,
-      "sha256": "2fdce8d7a8c0ae3f02e6813bfb78684a2ec096058f869e7af189bda0b8751b27",
+      "bytes": 10682,
+      "sha256": "b9495d94a344d0b46da9e2b6a9ecd150ae2395fff92a475e07356ab57396809d",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",

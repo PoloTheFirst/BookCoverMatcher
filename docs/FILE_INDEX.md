@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-206 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
+210 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
 
 | File | Version/group | Category | Kind |
 |---|---|---|---|
@@ -175,6 +175,8 @@ Generated navigation; edit the relevant sources, then run tools/docs/manage.py r
 | [docs/history/android/v3.0.0-dev.2/development/reports/2026-11-24__android-3.0.0-dev.2-code228__development__bcm-scanner__report__r01.md](history/android/v3.0.0-dev.2/development/reports/2026-11-24__android-3.0.0-dev.2-code228__development__bcm-scanner__report__r01.md) | 3.0.0-dev.2 | development | record |
 | [docs/history/android/v3.0.0-dev.3/development/reports/2026-11-24__android-3.0.0-dev.3-code229__development__expressive-logo__report__r01.md](history/android/v3.0.0-dev.3/development/reports/2026-11-24__android-3.0.0-dev.3-code229__development__expressive-logo__report__r01.md) | 3.0.0-dev.3 | development | record |
 | [docs/history/android/v3.0.0-dev.4/bugfix/reports/2026-11-24__android-3.0.0-dev.4-code230__bugfix__dlsite-search-selection__report__r01.md](history/android/v3.0.0-dev.4/bugfix/reports/2026-11-24__android-3.0.0-dev.4-code230__bugfix__dlsite-search-selection__report__r01.md) | 3.0.0-dev.4 | bugfix | record |
+| [docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md](history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md) | 3.0.0-dev.8-code2999908 | release | record |
+| [docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r02.md](history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r02.md) | 3.0.0-dev.8-code2999908 | release | record |
 | [docs/history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md](history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md) | 3.0.0-dev.8 | development | record |
 | [docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md](history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md) | 3.0.0 | development | record |
 | [docs/history/cross-version/legacy/prompts/CODING_AGENT_PROMPT.md](history/cross-version/legacy/prompts/CODING_AGENT_PROMPT.md) | cross-version | legacy | prompt |
@@ -200,8 +202,10 @@ Generated navigation; edit the relevant sources, then run tools/docs/manage.py r
 | [docs/maintainers/VERSIONING.md](maintainers/VERSIONING.md) | current-source | governance | guide |
 | [docs/maintainers/WORKFLOW.md](maintainers/WORKFLOW.md) | current-source | governance | guide |
 | [docs/reference/ARCHITECTURE.md](reference/ARCHITECTURE.md) | current-source | reference | guide |
+| [docs/reference/ARCHIVE_REBUILDS.md](reference/ARCHIVE_REBUILDS.md) | current-source | reference | guide |
 | [docs/reference/NATIVE_OCR_ANDROID.md](reference/NATIVE_OCR_ANDROID.md) | current-source | reference | guide |
 | [docs/reference/ONLINE_SEARCH.md](reference/ONLINE_SEARCH.md) | current-source | reference | guide |
+| [docs/reference/RELEASE_INDEX.md](reference/RELEASE_INDEX.md) | current-source | reference | guide |
 | [native/ocr/README.md](../native/ocr/README.md) | current-source | module-context | guide |
 | [PRIVACY_POLICY.md](../PRIVACY_POLICY.md) | current-source | policy-and-release | guide |
 | [README.md](../README.md) | current-source | reference | guide |

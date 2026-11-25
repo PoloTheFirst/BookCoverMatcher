@@ -36,4 +36,6 @@ BCM and BCM Plus put the workbook viewer next to workbook selection. The online 
 - The language hints apply to Chrome Lens. On-device PaddleOCR reads the cover in its original language.
 - Verification used an emulator. Live provider searches, translation results and physical-device appearance were outside this test run.
 
-**Version code/name: 234 / 3.0.0-dev.8.**
+The version-code rebuild packages the same app version under code 2999908. The signed-release checks above refer to the original code 234 artifacts.
+
+**Version code/name: 2999908 / 3.0.0-dev.8.**

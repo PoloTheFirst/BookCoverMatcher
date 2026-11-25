@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+gradle.beforeProject { project ->
+    project.pluginManager.withPlugin("com.chaquo.python") {
+        def constraints = new File(project.rootDir, ".archive-rebuild/constraints.txt")
+        project.extensions.getByName("chaquopy").defaultConfig.pip.options("--constraint", constraints.absolutePath)
+    }
+}
