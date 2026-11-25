@@ -76,8 +76,7 @@ Rules:
 - A stable release has no suffix, so it reads `## vX.Y.Z (YYYY-MM-DD)` and `**Version code/name: XXX / X.Y.Z.**`.
 - The two must never disagree. A heading of `v2.6.0-dev.1` beside a final line of `2.5.0` means one of them is
   wrong, and the entry cannot be published until they agree.
-- Never invent a version code for a development build. Raise `versionCode` in the build configuration, rebuild, and
-  report the value the artifact actually carries.
+- Set the approved development version name in `gradle/android-version.txt`, rebuild, and verify the code the artifact carries. The examples using sequential codes describe historical releases.
 
 All headings and sections are required, even when a section has no applicable content.
 
@@ -414,13 +413,13 @@ suffix: a build whose `versionName` is `2.6.0-dev.1` and `versionCode` is `222` 
 `**Version code/name: 222 / 2.6.0-dev.1.**`. Do not shorten the suffix away, and do not print a stable-looking
 `2.6.0` for a development build.
 
-Verify both values against the actual Android build configuration and release artifact.
+Verify both values against the actual Android build configuration and release artifact. The changelog at each historical source tag and its GitHub release body describe the original publication. The [historical release index](../reference/RELEASE_INDEX.md) distinguishes later renumbered APKs attached to those releases.
 
 Remember:
 
 - `versionCode` is an integer.
 - `versionName` is a string.
-- The version code must not be guessed from the version name.
+- Use the configured version calculator for new builds. Confirm an archived APK’s version code from that artifact.
 - Development releases must report their actual version code and version name.
 - Do not copy metadata from an earlier release without verification.
 

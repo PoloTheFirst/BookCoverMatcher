@@ -2,7 +2,7 @@
 
 ## Development prerelease v3.0.0-dev.8
 
-BCM and BCM Plus include the Home workbook shortcut and updated Chrome Lens settings and use version code 234. [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8-plus)
+BCM and BCM Plus include the Home workbook shortcut and updated Chrome Lens settings. Both editions use code **2999908** in the renumbered APK and **234** in the original signed APK. The codes in the historical edition entries below describe the original builds. The [release index](../reference/RELEASE_INDEX.md) lists the rebuilt codes. [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8-plus)
 
 ## Development prerelease v3.0.0-dev.7
 

@@ -2,6 +2,8 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
+The configured dev.8 rebuild uses Android version code **2999908**. Original signed dev.8 downloads carry code **234**. Both editions follow the same [Android version rules](docs/maintainers/VERSIONING.md). The [release index](docs/reference/RELEASE_INDEX.md) lists original releases and their rebuild codes. The dev.8 rebuild carries the same policy revision and uses the same data practices as the original dev.8 APKs.
+
 ## Development prereleases
 
 **v3.0.0-dev.8 (234)** puts workbook comments and images on Home, clarifies Chrome Lens language settings, and opens the Author README expanded. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-v3.0.0-dev.8.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-Plus-v3.0.0-dev.8.apk)

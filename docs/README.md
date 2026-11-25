@@ -94,8 +94,10 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 - [docs/integrations/GOOGLE_DRIVE_SETUP.md](integrations/GOOGLE_DRIVE_SETUP.md)
 - [docs/integrations/ONEDRIVE_SETUP.md](integrations/ONEDRIVE_SETUP.md)
 - [docs/reference/ARCHITECTURE.md](reference/ARCHITECTURE.md)
+- [docs/reference/ARCHIVE_REBUILDS.md](reference/ARCHIVE_REBUILDS.md)
 - [docs/reference/NATIVE_OCR_ANDROID.md](reference/NATIVE_OCR_ANDROID.md)
 - [docs/reference/ONLINE_SEARCH.md](reference/ONLINE_SEARCH.md)
+- [docs/reference/RELEASE_INDEX.md](reference/RELEASE_INDEX.md)
 - [README.md](../README.md)
 
 ## release
@@ -103,6 +105,8 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 - [docs/history/android/v2.7.0-dev.2/release/reports/2026-11-17__android-2.7.0-dev.2-code225__release__dev2-closeout__report__r01.md](history/android/v2.7.0-dev.2/release/reports/2026-11-17__android-2.7.0-dev.2-code225__release__dev2-closeout__report__r01.md)
 - [docs/history/android/v2.7.0/release/prompts/2026-11-17__android-2.7.0-code226__release__stable-finalization__prompt__r01.md](history/android/v2.7.0/release/prompts/2026-11-17__android-2.7.0-code226__release__stable-finalization__prompt__r01.md)
 - [docs/history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md](history/android/v2.7.0/release/reports/2026-11-17__android-2.7.0-code226__release__stable-finalization__report__r01.md)
+- [docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md](history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md)
+- [docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r02.md](history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r02.md)
 
 ## usage
 

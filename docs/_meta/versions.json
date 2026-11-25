@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "current": "3.0.0-dev.8",
+  "current": "3.0.0-dev.8-code2999908",
   "versions": [
     {
       "id": "2.4.0",
@@ -733,6 +733,26 @@
         "documentation": "documentation"
       },
       "evidence": "Dev.8 updates Home workbook navigation, search buttons, Chrome Lens language guidance, the Author page default and bundled policies.",
+      "authorable": true
+    },
+    {
+      "id": "3.0.0-dev.8-code2999908",
+      "versionName": "3.0.0-dev.8",
+      "versionCode": 2999908,
+      "root": "docs/history/android/v3.0.0-dev.8-code2999908",
+      "documentKey": "android-3.0.0-dev.8-code2999908",
+      "documentTrack": "android",
+      "documentCategories": {
+        "development": "development",
+        "authentication": "authentication",
+        "policies": "policies",
+        "qa": "qa",
+        "bugfix": "bugfix",
+        "release": "release",
+        "publication": "publication",
+        "documentation": "documentation"
+      },
+      "evidence": "Source configured for the deterministic rebuild. The original signed dev.8 artifacts and their frozen records carry code 234.",
       "authorable": true
     }
   ]
