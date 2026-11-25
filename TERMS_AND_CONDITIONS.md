@@ -1,16 +1,18 @@
 # Terms and Conditions
 
-Document revision: 2026-11-17.1. Applies to app version 2.7.0.
+Document revision: 2026-11-26.2. Applies to BCM and BCM Plus 3.0.0-dev.8 (234).
 
 ## The app and its developer
 
-BookCoverMatcher is an Android application by **PoloTheFirst**. Contact **[polo1st2023@gmail.com](mailto:polo1st2023@gmail.com)** for support or questions about these terms. These terms describe use of the app and accompanying website; the software licence below governs rights to the software.
+BCM and BCM Plus are Android applications by **PoloTheFirst**. Contact **[polo1st2023@gmail.com](mailto:polo1st2023@gmail.com)** for support or questions about these terms. These terms describe use of the app and accompanying website; the software licence below governs rights to the software.
+
+These terms cover the **3.0.0-dev.8** standard and Plus editions described in the [Privacy Policy](https://blog.p2nd.online/apps/bookcover-matcher/privacy/). BCM is the standard edition intended for Google Play; BCM Plus is the GitHub community test edition with optional bundled plugins. Both v3 downloads are development previews. [Historical v2.7.0 terms](https://github.com/PoloTheFirst/BookCoverMatcher/blob/v2.7.0/TERMS_AND_CONDITIONS.md) remain available for that release.
 
 ## Your files, accounts and choices
 
 Use workbooks, images and accounts that you own or are authorized to access and process. You retain your rights in your own material. Importing a workbook or photo does not transfer its ownership to the developer or grant rights in someone else's content.
 
-Choose online features only when you are willing and authorized to send the relevant image, query or account request to the selected service. Cloud import authorization does not grant permission to use other people's files without their consent. Follow applicable law and the rules of the services you access.
+Choose online features only when you are willing and authorized to send the relevant image, query or account request to the selected service. This includes text copied or images exported from a Drive-imported workbook. Online services and automatic OCR-to-catalogue search can act on that material; review the edition-specific privacy instructions first. Cloud import authorization does not grant permission to use other people's files without their consent. Follow applicable law and the rules of the services you access.
 
 ## Results, experimental features and backups
 
@@ -26,11 +28,11 @@ Google Drive, OneDrive, OCR/discovery services, catalogue providers, result host
 
 Some catalogue destinations can contain adult material and apply their own access requirements. Respect those requirements and applicable law. These terms do not introduce an app-wide age eligibility rule or represent a store content-rating decision.
 
-The [Privacy Policy](https://blog.p2nd.online/apps/bookcover-matcher/privacy/) explains the data flows and controls. You can use local workbook matching without signing in to a cloud provider; third-party login is not a BookCoverMatcher account.
+The [Privacy Policy](https://blog.p2nd.online/apps/bookcover-matcher/privacy/) explains the data flows and controls. You can use local workbook matching without signing in to a cloud provider; third-party login is not a BCM account.
 
 ## Free software licence and notices
 
-Project-owned BookCoverMatcher software is licensed under the **GNU General Public License, version 3 or (at your option) any later version — GPL-3.0-or-later**. Obtain the source, licence and notices from the [BookCoverMatcher repository](https://github.com/PoloTheFirst/BookCoverMatcher).
+Project-owned BCM software is licensed under the **GNU General Public License, version 3 or (at your option) any later version — GPL-3.0-or-later**. Obtain the source, licence and notices from the [BCM repository](https://github.com/PoloTheFirst/BookCoverMatcher).
 
 The GPL grants rights to run, study, modify and redistribute the covered software, including for commercial purposes, subject to its conditions. These terms do not prohibit modification, redistribution or commercial use, and do not replace or narrow those licence rights. If you distribute covered software, comply with the applicable licence requirements, including preservation of required notices and provision of Corresponding Source as required by the GPL. Read the [actual licence](https://github.com/PoloTheFirst/BookCoverMatcher/blob/main/LICENSE) for the controlling terms.
 

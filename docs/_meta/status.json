@@ -157,6 +157,10 @@
     {
       "subject": "Launcher appearance in dev.7",
       "value": "v3.0.0-dev.7 (233) includes light and dark adaptive icons for BCM and BCM Plus. A process start or system night-mode change asks the launcher to reload the existing MainActivity icon. More → Display still controls the in-app appearance."
+    },
+    {
+      "subject": "Dev.8 workbook and search workflow",
+      "value": "Dev.8 (234) moves the active workbook viewer to Home, explains Chrome Lens source and translation codes, expands the Author README on entry and removes the two search-button glows. Bundled privacy and terms revision 2026-11-26.2 carries forward the website source’s dev.7 edition review. The UI changes add no new data transfer or user obligation."
     }
   ],
   "nextSteps": [

@@ -33,6 +33,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -43,6 +44,8 @@ import androidx.compose.material3.FilledTonalToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
@@ -120,6 +123,23 @@ class ScreenActions(
     val onOpenUrl: (String) -> Unit,
 )
 
+@Composable
+internal fun WorkbookCommentsCard(ui: UiState, onOpen: () -> Unit) {
+    val canBrowse = ui.workbook != null && !ui.workbookLoading
+    ListItem(
+        headlineContent = { Text("Workbook comments & images") },
+        supportingContent = {
+            Text(if (canBrowse) "Browse notes and images, or export an original image."
+                else if (ui.workbookLoading) "Opening workbook…"
+                else "Choose a workbook above to browse its contents.")
+        },
+        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large)
+            .clickable(enabled = canBrowse, role = Role.Button, onClick = onOpen),
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    )
+}
+
 /** Home: the existing capture + workbook workflow. Results are presented on the Search tab. */
 @Composable
 fun HomeScreen(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, actions: ScreenActions) {
@@ -144,6 +164,9 @@ fun HomeScreen(ui: UiState, vm: MainViewModel, lifecycleOwner: LifecycleOwner, a
 
         Spacer(Modifier.height(14.dp))
         SpreadsheetPanel(ui, vm, actions)
+
+        Spacer(Modifier.height(8.dp))
+        WorkbookCommentsCard(ui, vm::openWorkbookComments)
 
         Spacer(Modifier.height(14.dp))
         Panel("Results") {

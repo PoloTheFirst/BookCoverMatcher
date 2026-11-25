@@ -110,7 +110,6 @@ fun ReverseImageSection(
                 contentColor = Palette.OnAccent2,
                 modifier = Modifier.weight(1f),
                 minHeight = 42.dp,
-                glow = Palette.Accent2.copy(alpha = 0.4f),
             ) { ButtonLabel("Search by this cover", Palette.OnAccent2, 12.5f) }
         }
     }

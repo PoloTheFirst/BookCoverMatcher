@@ -25,8 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import com.bookcovermatcher.ocr.OcrEngineChoice
@@ -40,13 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,7 +58,6 @@ import com.bookcovermatcher.core.licensing.LicenseDocuments
 import com.bookcovermatcher.core.markdown.Markdown
 import com.bookcovermatcher.core.markdown.MdBlock
 import com.bookcovermatcher.ui.components.ButtonLabel
-import com.bookcovermatcher.ui.components.FieldLabel
 import com.bookcovermatcher.ui.components.GradientButton
 import com.bookcovermatcher.ui.components.Panel
 import com.bookcovermatcher.ui.markdown.MarkdownDocument
@@ -105,14 +100,22 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
             )
             }
             Spacer(Modifier.height(8.dp))
+            Text("Chrome Lens languages", style = MaterialTheme.typography.titleSmall)
+            if (ui.online.ocrEngine != OcrEngineChoice.CHROME_LENS.id) {
+                Text(
+                    "PaddleOCR reads text on this device. These settings apply when you use Chrome Lens.",
+                    color = Palette.Muted, style = MaterialTheme.typography.bodySmall,
+                )
+            }
             LanguageField(
-                label = "OCR language (two letters, empty = detect)",
+                label = "Language printed on the cover",
+                help = "Leave blank for Lens to detect it, or enter a two-letter code such as ja for Japanese.",
                 value = ui.online.ocrLanguage,
                 onChange = vm.online::setOcrLanguage,
             )
-            Spacer(Modifier.height(8.dp))
-            if (DistributionEdition.catalogueEnabled || ui.online.ocrEngine == OcrEngineChoice.CHROME_LENS.id) LanguageField(
-                label = "Translate cover text to (optional)",
+            LanguageField(
+                label = "Translate into",
+                help = "Leave blank to keep the original text, or enter a two-letter code such as en for English.",
                 value = ui.online.targetLanguage,
                 onChange = vm.online::setTargetLanguage,
             )
@@ -136,20 +139,6 @@ fun MoreScreen(ui: UiState, vm: MainViewModel, onOpenUrl: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 minHeight = 42.dp,
             ) { ButtonLabel("Open saved workbooks", Palette.Text, 12.5f) }
-        }
-
-        Spacer(Modifier.height(14.dp))
-        Panel("Workbook comments & images") {
-            InfoLine("Legacy notes", "Note text, author and the pictures stored with each note, read offline from the chosen workbook.")
-            InfoLine("All images", "Every file under xl/media, with the cell it belongs to when that can be determined.")
-            InfoLine("Export", "Copies the image's original bytes to a location you pick. The workbook is never modified.")
-            GradientButton(
-                onClick = vm::openWorkbookComments,
-                colors = Palette.NavyGradient,
-                contentColor = Palette.Text,
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                minHeight = 42.dp,
-            ) { ButtonLabel("Open workbook comments", Palette.Text, 12.5f) }
         }
 
         Spacer(Modifier.height(14.dp))
@@ -243,7 +232,7 @@ private fun PanelsLicence(onOpenUrl: (String) -> Unit) {
 @Composable
 private fun PanelsAuthor(ui: UiState, onOpenUrl: (String) -> Unit) {
     val context = LocalContext.current
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(true) }
 
     val avatar by produceState<ImageBitmap?>(null) {
         value = withContext(Dispatchers.IO) {
@@ -434,27 +423,14 @@ private fun SettingSwitch(title: String, subtitle: String, checked: Boolean, onC
 }
 
 @Composable
-private fun LanguageField(label: String, value: String, onChange: (String) -> Unit) {
-    FieldLabel(label)
-    BasicTextField(
+private fun LanguageField(label: String, help: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
         value = value,
         onValueChange = onChange,
+        label = { Text(label) },
+        supportingText = { Text(help) },
         singleLine = true,
-        textStyle = TextStyle(color = Palette.Text, fontSize = 13.sp),
-        cursorBrush = SolidColor(Palette.Accent),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Palette.Navy900)
-            .border(1.dp, Palette.Line, RoundedCornerShape(10.dp))
-            .padding(horizontal = 10.dp, vertical = 10.dp),
-        decorationBox = { inner ->
-            Box {
-                if (value.isEmpty()) Text("e.g. en, ja, fr", color = Palette.Muted, fontSize = 12.sp)
-                inner()
-            }
-        },
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
     )
 }
 
