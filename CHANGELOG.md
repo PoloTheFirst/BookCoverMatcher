@@ -1,103 +1,36 @@
-# Changelog
+## v2.2.0 (2026-10-22)
 
-All notable changes are recorded here. Versions follow the project's user-visible feature notes.
+# Catalogue search, folders and saved scan sessions
 
-## 2.2.0 — 2026-10-22
-
-Corrective release. Supersedes the unreleased 2.3.0 working-tree iteration; nothing under that label
-was published, and its "folder containing five items" model was removed.
-
-### Fixed
-
-* **Online search could never be used.** The online controller's `StateFlow` was not mirrored into
-  `UiState.online`, so the panel always rendered the default off state and returned early. The
-  controller is now collected into `UiState`; the persisted switch and the UI agree.
-* **Offline saves had the wrong data shape.** A saved scan used to become a new folder containing
-  five independently removable workbook rows. It now becomes one **session** inside a folder the
-  user chooses. Scans never create folders, folders can hold many sessions/results, and workbook
-  rows are read-only comparison output.
-* **Bookmarks could not be ordered inside a session** because there were no sessions. Bookmarked
-  results are now shown first inside their session; bookmark membership and folder membership stay
-  independent.
-* **OCR geometry could be misaligned**: a Lens block containing an internal newline shifted
-  `block_heights` relative to lines. `lens_bridge.py` now emits one line per block, and
-  `OcrQueryExtractor` pairs each height with its source line before filtering.
-* **Instrumentation contexts with a null `applicationContext`** made the embedded Python runtime
-  report `RUNTIME_MISSING`; `PythonRuntime` now falls back to the supplied context.
-* **Catalogue result count** is the merged, unique, displayable list; failures and placeholders are
-  not counted.
+Open Library and Google Books return structured catalogue results. Saving a scan places its comparison results in a session inside a folder the reader chooses.
 
 ### Added
 
-* Bottom navigation with **Home**, **Search**, **Wishlist**, **More**.
-* Persistent folder → session → results model (`records.json` **v3**) with:
-  * idempotent reserved `Bookmarks` folder;
-  * `sessions`, `entries` and direct `memberships`;
-  * migrations from v1 records (unfiled sessions, no invented folder) and v2 collections (workbook
-    rows repaired into sessions; bookmarks preserved; legacy payload retained).
-* Session screen with comparison-only offline rows and bookmarks-first ordering.
-* Google Books as a second real catalogue, merged with Open Library. Per-catalogue failures are
-  reported (`CatalogueUi.Found.note`), and a total failure is `CatalogueUi.Failed`.
-* **Search Results tabs** as the workflow image draws them: `Workbook (n) / Online (n) /
-  Bookmarks (n)` with live counts, `Found n workbook match(es)` above the comparison, the bulk
-  `Add entire result profile to wishlist` on the Workbook tab, and `Bookmark all results` plus a
-  collection shortcut on the Bookmarks tab. Built on a shared `SegmentedTabRow` / `SegmentedTab`
-  component that the Wishlist sections reuse.
-* Folder picker for both individual adds and session saves; explicit "create new folder" remains a
-  user action.
-* `Bookmark all results`, `Add entire result profile to wishlist`, and per-card bookmark/wishlist
-  actions with real counts and undo.
-* Opt-in live catalogue tests (`-DonlineCheck=1`) and three on-device tests (OCR, catalogues,
-  controller).
+- Run the two catalogue providers and report their results separately. Surface workbook, online and bookmarked results in their own areas.
 
 ### Changed
 
-* `WishlistRepository` is now folder/session based; the v1 `add/rename/delete` record API was
-  removed (its migration path is retained).
-* `WishlistOverlay` was replaced by the Wishlist destination; the header star button was removed.
-* Online panel copy and settings say "catalogues" and name both providers; the "visual match" claim
-  is explicitly absent.
-* Version code/name: **202 / 2.2.0**.
+- Group offline saves by session and show bookmarked results first inside the session. Keep bookmark and folder membership independent.
+
+### Fixed
+
+- Connect the online controller state to the screen so the persisted switch actually enables the feature. Correct OCR block-height alignment for multiline text and handle instrumentation contexts without an application context.
+
+### Removed
+
+- None recorded.
+
+### Tests
+
+- The historical report recorded 165 JVM tests, zero failures, and three passing emulator tests. The archival rebuild passed 163 JVM tests and skipped two.
 
 ### Verified
 
-* JVM: **165 tests**, 0 failures (`testDebugUnitTest`, and with `-DonlineCheck=1`).
-* Python bridge contract: `tools/lens_bridge_check.py` passes.
-* On-device (emulator `Medium_Phone_API_37.0`, x86_64): **3/3** instrumented tests pass, including a
-  real Lens OCR read of the bundled Hobbit cover and a real Open Library query through the
-  controller.
-* Debug APK builds; manual smoke test covered navigation, folder creation, bookmark creation,
-  bookmark-to-folder, and persistence across restart.
+- The newly rebuilt APK uses the historical Android identity 2.2.0, code 202.
 
 ### Known limitations
 
-* Visual image-similarity search is not implemented; OCR + catalogue text search is not a visual
-  match.
-* Google Books can return HTTP 429 without a key; the app reports `RATE_LIMITED` (Open Library still
-  works). No API key is shipped.
-* Camera capture and a full workbook match were not exercised on the available emulator.
-* The supplied workflow image is kept outside this repository
-  (`.../Downloads/workflow_image.png`). Its Search screen - result tabs, `Bookmark all results`,
-  bulk add, bookmarked-first ordering - is implemented; its profile cards are user-named folders with
-  no built-in genre taxonomy, and the `Visual match`, price, availability and marketplace chips stay
-  honest empty states because no provider in this build supplies them.
-* Screenshots/interaction timings in the image (a back arrow inside the results screen, cover art
-  inside profile cards) are approximated by the app's own components; the information structure, not
-  the pixels, is what was matched.
+- The original release has no recoverable original APK. The archival build uses the current owner signing key, which can prevent an in-place update of an installation signed with an older key.
+- Seven historical ELF libraries fail 16 KB native alignment even though ZIP alignment passes. Catalogue results depend on provider coverage and availability.
 
-## 2.1.0 — 2026-10-21
-
-* Native Android rewrite with OpenCLIP offline matching, Excel picture extraction, CameraX and
-  Auto Scan.
-* Optional online panel: chrome-lens-py OCR + Open Library catalogue lookup, switched off by
-  default.
-* Wishlist records (a saved scan plus its five matches), thumbnails, shared `MiniJson` codec.
-* 110 JVM tests at the time; OCR on a device remained unverified.
-
-## 2.0.0 — 2026-10-20
-
-* First native Kotlin/Compose rewrite of the v1 web prototype.
-
-## 1.1.0 / 1.0.0
-
-* Original web prototype releases (see the repository history).
+**Version code/name: 202 / 2.2.0.**
