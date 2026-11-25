@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "25946b51cf14626a2822a452db62e86bfd1ecc20238481b2f23fc4c9eda04743",
+  "fingerprint": "9d6b184504962d5548f7520a94ecf3a6023f7a44dfec2e2f196ffb3b690c0d77",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 15243,
-      "sha256": "135193c727e091afda3e6e454db49526ba94a206160289eba455c6856a711f0b",
+      "bytes": 15481,
+      "sha256": "d47f26c90f532f51b8681413eccb620443a84f5573094c9725f3d4d7156bbe5e",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2297,6 +2297,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Prepare BCM and BCM Plus dev.8 with a compact Home workbook entry, clearer language settings, two search glow removals, an expanded Author page and a policy review."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.8/publication/reports/2026-11-26__android-3.0.0-dev.8-code234__publication__github-editions__report__r01.md",
+      "bytes": 3697,
+      "sha256": "3d577185ec6f9c85b238d4479fe00a11cfbfb973c2241380ca857aa002bab4a0",
+      "version": "3.0.0-dev.8",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.8/publication//github-editions/report/2026-11-26",
+        "title": "BCM and BCM Plus dev.8 publication",
+        "kind": "report",
+        "version_id": "3.0.0-dev.8",
+        "version_name": "3.0.0-dev.8",
+        "version_code": 234,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-editions",
+        "created_at": "2026-11-26T05:10:37+08:00",
+        "updated_at": "2026-11-26T05:10:37+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Commit and push dev.8 to google_play and main and publish both signed APKs as a GitHub prerelease."
       }
     },
     {
