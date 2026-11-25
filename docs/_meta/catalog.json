@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "33fa87f2f4f1e38487fe2b1a7a2bcb97bcca9d610bdedf6db60005f88acd0246",
+  "fingerprint": "c5e1f2c1234bb71bc60f2309cc499915342275adc15753c169ce64721da939c9",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -557,8 +557,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 5621,
-      "sha256": "0677002d7eb4cb33e25df28f36357b2a8bda052c4b2795c5db4d52adf2e7b655",
+      "bytes": 6367,
+      "sha256": "aa2cdbf24fe4d8bf413e37e5ff88d6e5e04e3bf5826474029a71237a9d717e2a",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
