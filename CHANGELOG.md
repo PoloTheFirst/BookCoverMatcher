@@ -2,7 +2,7 @@
 
 # BCM’s open-book logo
 
-BCM has a new Material 3 Expressive mark on the Android launcher and Home screen. A glint on the open book’s right page represents a matched cover.
+BCM and BCM Plus have a new Material 3 Expressive mark on the Android launcher and Home screen. A glint on the open book’s right page represents a matched cover.
 
 ### Added
 
@@ -25,6 +25,7 @@ BCM has a new Material 3 Expressive mark on the Android launcher and Home screen
 ### Tests
 
 - The Play debug and release APKs assembled successfully. 1,271 JVM tests passed and 12 were skipped. Lint reported zero errors and 61 warnings.
+- The BCM Plus debug and release APKs assembled successfully. 1,444 JVM tests passed and 16 were skipped. Lint reported zero errors and 63 warnings.
 
 ### Verified
 
