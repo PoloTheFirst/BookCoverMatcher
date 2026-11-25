@@ -52,13 +52,16 @@ def main():
     colors = ET.Element("resources")
     ET.SubElement(colors, "color", name="bcm_logo_tile_light").text = tile.attrib["fill"]
     ET.SubElement(colors, "color", name="bcm_logo_tile_dark").text = tile.attrib["data-night"]
-    ET.SubElement(colors, "color", name="ic_launcher_background").text = "@color/bcm_logo_tile_light"
-    ET.SubElement(colors, "item", type="drawable", name="bcm_launcher_art").text = "@drawable/ic_launcher_foreground"
     write_xml(colors, RES / "values/bcm_logo.xml")
-    night = ET.Element("resources")
-    ET.SubElement(night, "color", name="ic_launcher_background").text = "@color/bcm_logo_tile_dark"
-    ET.SubElement(night, "item", type="drawable", name="bcm_launcher_art").text = "@drawable/bcm_logo_foreground_dark"
-    write_xml(night, RES / "values-night/bcm_logo.xml")
+    for folder, tile_name, art in (
+        ("mipmap-anydpi-v26", "bcm_logo_tile_light", "ic_launcher_foreground"),
+        ("mipmap-night-anydpi-v26", "bcm_logo_tile_dark", "bcm_logo_foreground_dark"),
+    ):
+        icon = ET.Element("adaptive-icon")
+        ET.SubElement(icon, "background", {ANDROID + "drawable": "@color/" + tile_name})
+        ET.SubElement(icon, "foreground", {ANDROID + "drawable": "@drawable/" + art})
+        ET.SubElement(icon, "monochrome", {ANDROID + "drawable": "@drawable/ic_launcher_monochrome"})
+        write_xml(icon, RES / folder / "ic_launcher.xml")
 
 
 if __name__ == "__main__":

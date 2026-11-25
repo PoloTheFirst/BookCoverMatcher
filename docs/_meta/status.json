@@ -1,5 +1,5 @@
 {
-  "reviewedOn": "2026-11-25",
+  "reviewedOn": "2026-11-26",
   "timeZone": "Asia/Hong_Kong",
   "facts": [
     {
@@ -113,6 +113,10 @@
     {
       "subject": "GitHub dev.6 publication",
       "value": "The v3.0.0-dev.6 (232) GitHub prerelease offers signed BCM and BCM Plus APKs. See the dev.6 publication report for sources, asset sizes and verified hashes."
+    },
+    {
+      "subject": "Launcher appearance in dev.7",
+      "value": "v3.0.0-dev.7 (233) includes light and dark adaptive icons for BCM and BCM Plus. A process start or system night-mode change asks the launcher to reload the existing MainActivity icon. More → Display still controls the in-app appearance."
     }
   ],
   "nextSteps": [

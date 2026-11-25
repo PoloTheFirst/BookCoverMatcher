@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-Facts reviewed: 2026-11-25 (Asia/Hong_Kong).
+Facts reviewed: 2026-11-26 (Asia/Hong_Kong).
 
 ## Configured Android baseline
 
@@ -115,6 +115,10 @@ BCM and BCM Plus default to the Sophie website palette. More → Display support
 ## GitHub dev.6 publication
 
 The v3.0.0-dev.6 (232) GitHub prerelease offers signed BCM and BCM Plus APKs. See the dev.6 publication report for sources, asset sizes and verified hashes.
+
+## Launcher appearance in dev.7
+
+v3.0.0-dev.7 (233) includes light and dark adaptive icons for BCM and BCM Plus. A process start or system night-mode change asks the launcher to reload the existing MainActivity icon. More → Display still controls the in-app appearance.
 
 ## Next steps
 

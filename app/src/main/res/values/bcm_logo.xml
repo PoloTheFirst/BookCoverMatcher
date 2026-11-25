@@ -3,6 +3,4 @@
 <resources>
     <color name="bcm_logo_tile_light">#FAF5EF</color>
     <color name="bcm_logo_tile_dark">#80435C</color>
-    <color name="ic_launcher_background">@color/bcm_logo_tile_light</color>
-    <item type="drawable" name="bcm_launcher_art">@drawable/ic_launcher_foreground</item>
 </resources>

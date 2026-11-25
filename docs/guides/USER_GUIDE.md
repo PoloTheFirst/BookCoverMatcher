@@ -12,7 +12,7 @@ Open **More → Display** in BCM or BCM Plus. Under **Appearance**, choose **Fol
 
 Changes take effect immediately and are remembered on this device. The scanner controls use the selected palette. The live camera image keeps its original colors.
 
-The open-book logo on Home follows the selected appearance. Light uses blush and ivory pages outlined in rose on a cream tile. Dark uses a deep rose tile. Android controls the launcher icon independently. On compatible launchers, enabling **Themed icons** tints the book while preserving the glint on its right page.
+The open-book logo on Home follows the selected appearance. Light uses blush and ivory pages outlined in rose on a cream tile. Dark uses a deep rose tile. The full-color icon on your phone’s home screen follows the phone’s light or dark setting. If the phone has suspended or stopped BCM during a change, open BCM once and return to the home screen to let the launcher refresh the icon. On compatible launchers, enabling **Themed icons** tints the book while preserving the glint on its right page.
 
 ## Home
 

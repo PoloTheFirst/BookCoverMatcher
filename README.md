@@ -4,6 +4,8 @@ An Android app for matching book covers against images in an Excel workbook, kee
 
 ## Development prereleases
 
+**v3.0.0-dev.7 (233)** fixes a stale full-color launcher icon after the phone switches between light and dark. The home-screen shortcut keeps its original launch target in both editions. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-v3.0.0-dev.7.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-Plus-v3.0.0-dev.7.apk)
+
 **v3.0.0-dev.6 (232)** adds phone colors and a custom accent hue in both editions. Open **More → Display** to try them. The default is the Sophie palette from Polo’s Atelier. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-v3.0.0-dev.6.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-Plus-v3.0.0-dev.6.apk)
 
 **v3.0.0-dev.5 (231)** updates the matching button, Online result actions and release APK names. Download either signed edition. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-v3.0.0-dev.5.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-Plus-v3.0.0-dev.5.apk)
