@@ -32,4 +32,10 @@ The native Android migration starts with a Jetpack Compose home screen, navigati
 
 - The home screen is a placeholder. Camera capture, matching and wishlist workflows had yet to be ported. The old release text proposed code 20001. It was never the value in this APK.
 
-**Version code/name: 2 / 1.1.0-dev.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [2](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.0.0-dev.1/bookcovermatcher-v2.0.0-dev.1.apk) | [1999901](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.0.0-dev.1/bookcovermatcher-v2.0.0-dev.1-code1999901.apk) |
+
+**Version code/name: 1999901 / 1.1.0-dev.1.**
