@@ -35,4 +35,10 @@ The first public BookCover Matcher lets a reader photograph a cover, compare it 
 - Floating pictures are scanned on the first worksheet. Legacy comment images use cell addresses without disambiguating worksheets.
 - Rotation, perspective, blur and extreme lighting can affect perceptual matching. Clearing app data clears the WebView wishlist.
 
-**Version code/name: 2 / 1.0.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [2](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v1.0.0/bookcovermatcher-v1.0.0.apk) | [1000000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v1.0.0/bookcovermatcher-v1.0.0-code1000000.apk) |
+
+**Version code/name: 1000000 / 1.0.0.**
