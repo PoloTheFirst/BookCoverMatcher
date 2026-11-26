@@ -25,9 +25,16 @@ def sha256(path):
 
 def export_source(record, target):
     reference = "refs/tags/" + record["sourceTag"] + "^{commit}"
-    commit = subprocess.check_output(["git", "-C", ROOT, "rev-parse", reference], text=True).strip()
-    if commit != record["sourceCommit"]:
-        raise ValueError("Local source tag differs from the recorded public commit. Check git fetch --tags.")
+    git = ["git", "-C", ROOT]
+    tag_commit = subprocess.check_output([*git, "rev-parse", reference], text=True).strip()
+    commit = record["sourceCommit"]
+    if tag_commit != commit:
+        parents = subprocess.check_output([*git, "show", "-s", "--format=%P", tag_commit], text=True).split()
+        changes = subprocess.check_output([
+            *git, "diff-tree", "--no-commit-id", "--no-renames", "-r", "--name-status", "-z", commit, tag_commit,
+        ])
+        if parents != [commit] or changes != b"M\0CHANGELOG.md\0":
+            raise ValueError("Expected the pinned source commit or its direct CHANGELOG.md-only correction.")
     if record.get("keepTaggedCommit"):
         # The modern build embedded the checked-out revision in AGP's VCS metadata.
         subprocess.run(["git", "-C", target, "init", "--quiet"], check=True)

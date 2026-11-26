@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "f5d1397e921a895546c40eea2481c85c57ace2d07d32a27a47aa73ef97847f51",
+  "fingerprint": "5f7bcb67817b2356589710d9a4e5788a60a967a1070fd69b09355d1e6a8e8092",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2171,
-      "sha256": "e5d4c5715e46ff2bb919faeb05654209d484895027a3a8069c98109653f97ab0",
+      "bytes": 2621,
+      "sha256": "22197161f00002a649cb2ad43720403ff7207a7a7ebc83bb83033a230800241d",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -2853,8 +2853,8 @@
     },
     {
       "path": "docs/reference/ARCHIVE_REBUILDS.md",
-      "bytes": 5193,
-      "sha256": "50a1e46e20cf5029171afb1fb8fd3a27f5d6de56ea2f8ac99eff7c593f1f3556",
+      "bytes": 5400,
+      "sha256": "39573cfacf1a52bb0f8f7e3f24dac16a6f0ce8369ed85a09ab4510c8a2dbfb27",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
