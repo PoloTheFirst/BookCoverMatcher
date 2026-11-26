@@ -32,4 +32,10 @@ SauceNAO and IQDB results can be dismissed, bookmarked or added to a wishlist. P
 
 - A result can lack an accessible image or the image provider can rate-limit requests. Dismissal applies to the current list. A new search can show the same result again.
 
-**Version code/name: 219 / 2.5.0-dev.4.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [219](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.4/bookcovermatcher-v2.5.0-dev.4.apk) | [2049904](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.4/bookcovermatcher-v2.5.0-dev.4-code2049904.apk) |
+
+**Version code/name: 2049904 / 2.5.0-dev.4.**
