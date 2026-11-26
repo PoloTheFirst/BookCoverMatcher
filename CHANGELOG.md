@@ -33,4 +33,10 @@ The provider selector now distinguishes catalogues that return results inside th
 
 - Melonbooks and Suruga-ya require the browser. DLsite integration covers the first page of its books search.
 
-**Version code/name: 203 / 2.2.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [203](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.1/bookcovermatcher-v2.2.1.apk) | [2020100](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.1/bookcovermatcher-v2.2.1-code2020100.apk) |
+
+**Version code/name: 2020100 / 2.2.1.**
