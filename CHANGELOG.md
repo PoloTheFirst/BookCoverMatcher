@@ -41,4 +41,11 @@ The standard Play edition refreshes workbook, camera, search, wishlist, More and
 
 - The initial local release-variant builds were unsigned. Emulator upgrade checks used matching debug certificates. Physical-device release-key upgrades and live cloud sign-in were outside this development run.
 
-**Version code/name: 227 / 3.0.0-dev.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| BCM | [227](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.1/BCM-v3.0.0-dev.1.apk) | [2999901](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.1/BCM-v3.0.0-dev.1-code2999901.apk) |
+| BCM Plus | [227](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.1/BCM-Plus-v3.0.0-dev.1.apk) | [2999901](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.1/BCM-Plus-v3.0.0-dev.1-code2999901.apk) |
+
+**Version code/name: 2999901 / 3.0.0-dev.1.**
