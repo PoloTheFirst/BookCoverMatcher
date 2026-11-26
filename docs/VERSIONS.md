@@ -44,3 +44,4 @@ Codes below are attributed configuration/historical evidence; null remains unkno
 | 3.0.0-dev.7 | 233 | True | The owner requested a launcher logo fix for light/dark system changes after observing stale artwork on a Vivo X100 Pro. |
 | 3.0.0-dev.8 | 234 | True | Dev.8 updates Home workbook navigation, search buttons, Chrome Lens language guidance, the Author page default and bundled policies. |
 | 3.0.0-dev.8-code2999908 | 2999908 | True | Source configured for the deterministic rebuild. The original signed dev.8 artifacts and their frozen records carry code 234. |
+| 3.0.0-dev.9 | 2999909 | True | The owner requested a full-color app icon that follows the selected custom accent hue in BCM and BCM Plus. |

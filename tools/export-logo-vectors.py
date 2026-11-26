@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Convert the day, night and monochrome paths of BCM's editable SVG into its native icon layers."""
+import argparse
+import csv
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -21,28 +23,94 @@ def write_xml(root, target):
     )
 
 
-def vector(name, layers):
+def native_vector(layers):
     # The store SVG crops the center 72 units; Android animates these larger 108dp layers.
     root = ET.Element("vector", {ANDROID + "width": "108dp", ANDROID + "height": "108dp",
         ANDROID + "viewportWidth": "108", ANDROID + "viewportHeight": "108"})
     for layer in layers:
         ET.SubElement(root, "path", {ANDROID + key: value for key, value in layer.items()})
-    write_xml(root, RES / "drawable" / (name + ".xml"))
+    return root
+
+
+def vector(name, layers):
+    write_xml(native_vector(layers), RES / "drawable" / (name + ".xml"))
+
+
+def logo_layers(paths, night):
+    layers = {}
+    for name, path in paths.items():
+        layer = {"fillColor": path.attrib["data-night" if night else "fill"],
+                 "fillType": "evenOdd", "pathData": path.attrib["d"]}
+        if not night and "stroke" in path.attrib:
+            layer.update(strokeColor=path.attrib["stroke"], strokeWidth=path.attrib["stroke-width"],
+                         strokeLineJoin=path.attrib["stroke-linejoin"])
+        layers[name] = layer
+    return layers
+
+
+def launcher_alias(application, name, icon, enabled):
+    alias = ET.SubElement(application, "activity-alias", {
+        ANDROID + "name": ".launcher." + name,
+        ANDROID + "targetActivity": ".MainActivity",
+        ANDROID + "exported": "true",
+        ANDROID + "enabled": "true" if enabled else "false",
+        ANDROID + "icon": "@mipmap/" + icon,
+    })
+    intent = ET.SubElement(alias, "intent-filter")
+    ET.SubElement(intent, "action", {ANDROID + "name": "android.intent.action.MAIN"})
+    ET.SubElement(intent, "category", {ANDROID + "name": "android.intent.category.LAUNCHER"})
+
+
+def generate_hue_launchers(paths, res, manifest_file):
+    with (ROOT / "branding/source/launcher-hct.csv").open(encoding="utf-8", newline="") as f:
+        swatches = list(csv.DictReader(f))
+    if [row["hue"] for row in swatches] != [str(h) for h in range(360)]:
+        raise ValueError("Expected one HCT swatch for every integer hue from 0 through 359")
+
+    manifest = ET.Element("manifest")
+    app = ET.SubElement(manifest, "application")
+    # The target must precede its aliases after manifest merging.
+    ET.SubElement(app, "activity", {ANDROID + "name": ".MainActivity"})
+    launcher_alias(app, "Sophie", "ic_launcher", True)
+    for row in swatches:
+        launcher_alias(app, "Hue" + row["hue"], "ic_launcher_hue_" + row["hue"], False)
+    write_xml(manifest, manifest_file)
+
+    for night in (False, True):
+        qualifier = "-night" if night else ""
+        tiles = ET.Element("resources")
+        for row in swatches:
+            name = "ic_launcher_hue_" + row["hue"]
+            layers = logo_layers(paths, night)
+            layers["binding"]["fillColor"] = row["tone20" if night else "tone40"]
+            layers["left-page"]["fillColor"] = row["tone80"]
+            layers["match"]["fillColor"] = row["tone40"]
+            for layer in layers.values():
+                if "strokeColor" in layer:
+                    layer["strokeColor"] = row["tone40"]
+
+            tile = name + "_tile"
+            ET.SubElement(tiles, "color", name=tile).text = row["tone30" if night else "tone90"]
+            icon = ET.Element("adaptive-icon")
+            ET.SubElement(icon, "background", {ANDROID + "drawable": "@color/" + tile})
+            ET.SubElement(icon, "foreground").append(native_vector(layers.values()))
+            ET.SubElement(icon, "monochrome", {ANDROID + "drawable": "@drawable/ic_launcher_monochrome"})
+            write_xml(icon, res / ("mipmap" + qualifier + "-anydpi-v26") / (name + ".xml"))
+        write_xml(tiles, res / ("values" + qualifier) / "launcher_hue_tiles.xml")
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--hue-launchers", type=Path, nargs=2, metavar=("RES", "MANIFEST"))
+    args = parser.parse_args()
     svg = ET.parse(ROOT / "branding/source/bookcovermatcher-logo.svg").getroot()
     paths = {p.attrib["id"]: p for p in svg.findall(SVG + "path")}
+    if args.hue_launchers:
+        generate_hue_launchers(paths, *args.hue_launchers)
+        return
     tile = svg.find(SVG + "rect")
-    for color_key, name in (("fill", "ic_launcher_foreground"), ("data-night", "bcm_logo_foreground_dark")):
-        layers = []
-        for path in paths.values():
-            layer = {"fillColor": path.attrib[color_key], "fillType": "evenOdd", "pathData": path.attrib["d"]}
-            if color_key == "fill" and "stroke" in path.attrib:
-                layer.update(strokeColor=path.attrib["stroke"], strokeWidth=path.attrib["stroke-width"],
-                             strokeLineJoin=path.attrib["stroke-linejoin"])
-            layers.append(layer)
-        vector(name, layers)
+    for night, name in ((False, "ic_launcher_foreground"), (True, "bcm_logo_foreground_dark")):
+        vector(name, logo_layers(paths, night).values())
     # The transparent page crease and cut-out glint survive the launcher's single-color tint.
     vector("ic_launcher_monochrome", [
         {"fillColor": "#FFFFFF", "fillType": "evenOdd", "pathData": paths["left-page"].attrib["d"]},

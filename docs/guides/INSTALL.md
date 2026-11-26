@@ -2,9 +2,11 @@
 
 ## Development and published builds
 
-For **v3.0.0-dev.8**, choose BCM or BCM Plus. The renumbered APK carries Android code **2999908**. The original signed APK carries **234**. The [release page](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) lists both editions. Use the file ending in `-code2999908.apk` for the renumbered build. The [release index](../reference/RELEASE_INDEX.md) lists original and rebuilt codes across the archive.
+For **v3.0.0-dev.9 (2999909)**, choose `BCM-v3.0.0-dev.9.apk` for the standard edition or `BCM-Plus-v3.0.0-dev.9.apk` for BCM Plus. Code **2999909** updates either dev.8 code when signed with the same release key.
 
 ### Historical downloads
+
+For **v3.0.0-dev.8**, choose BCM or BCM Plus. The renumbered APK carries Android code **2999908**. The original signed APK carries **234**. The [release page](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) lists both editions. Use the file ending in `-code2999908.apk` for the renumbered build. The [release index](../reference/RELEASE_INDEX.md) lists original and rebuilt codes across the archive.
 
 The v2.1.0, v2.2.0 and v2.4.0 release pages label their APKs as archival rebuilds from the historical source. These packages use the current BCM publisher certificate. Android requires a compatible signing certificate for an in-place update. A device that installed the former v2.4.0 attachment actually has version code 218, which is higher than the corrected stable APK’s 215. Keep the installed copy and its data if Android declines the update. The v2.5.0-dev.3 page offers the recovered original signed APK.
 

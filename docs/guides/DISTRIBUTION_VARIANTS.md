@@ -1,5 +1,9 @@
 # Play and GitHub editions
 
+## Development build v3.0.0-dev.9
+
+BCM and BCM Plus both use Android version code **2999909**. Their APK filenames are `BCM-v3.0.0-dev.9.apk` and `BCM-Plus-v3.0.0-dev.9.apk`. The custom accent setting applies to the open-book icon in both editions. [Display settings](USER_GUIDE.md#display)
+
 ## Development prerelease v3.0.0-dev.8
 
 BCM and BCM Plus include the Home workbook shortcut and updated Chrome Lens settings. Both editions use code **2999908** in the renumbered APK and **234** in the original signed APK. The codes in the historical edition entries below describe the original builds. The [release index](../reference/RELEASE_INDEX.md) lists the rebuilt codes. [Release notes](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8) · [BCM source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8) · [BCM Plus source](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.8-plus)

@@ -1,12 +1,12 @@
 # Terms and Conditions
 
-Document revision: 2026-11-26.2. Applies to BCM and BCM Plus 3.0.0-dev.8 (234).
+Document revision: 2026-11-26.3. Applies to BCM and BCM Plus 3.0.0-dev.9 (2999909).
 
 ## The app and its developer
 
 BCM and BCM Plus are Android applications by **PoloTheFirst**. Contact **[polo1st2023@gmail.com](mailto:polo1st2023@gmail.com)** for support or questions about these terms. These terms describe use of the app and accompanying website; the software licence below governs rights to the software.
 
-These terms cover the **3.0.0-dev.8** standard and Plus editions described in the [Privacy Policy](https://blog.p2nd.online/apps/bookcover-matcher/privacy/). BCM is the standard edition intended for Google Play; BCM Plus is the GitHub community test edition with optional bundled plugins. Both v3 downloads are development previews. [Historical v2.7.0 terms](https://github.com/PoloTheFirst/BookCoverMatcher/blob/v2.7.0/TERMS_AND_CONDITIONS.md) remain available for that release.
+These terms cover the **3.0.0-dev.9** standard and Plus editions described in the [Privacy Policy](https://blog.p2nd.online/apps/bookcover-matcher/privacy/). BCM is the standard edition intended for Google Play; BCM Plus is the GitHub community test edition with optional bundled plugins. Both v3 downloads are development previews. [Historical v2.7.0 terms](https://github.com/PoloTheFirst/BookCoverMatcher/blob/v2.7.0/TERMS_AND_CONDITIONS.md) remain available for that release.
 
 ## Your files, accounts and choices
 

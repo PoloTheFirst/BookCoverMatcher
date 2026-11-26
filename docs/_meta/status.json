@@ -137,6 +137,10 @@
     {
       "subject": "Android version-code migration",
       "value": "Verified 44 owner-signed version-code rebuilds across 35 archived releases and 43 source tags, including the full and lite v2.0.0 builds and all eight paired v3 prereleases. BCM and BCM Plus dev.8 use code 2999908. Original dev.8 downloads retain code 234. The release index and historical rebuild guide record the source commits, dependencies and signed artifact identities. The owner confirms the Play draft has no APK or AAB uploads. The final v2.5.0 rebuild restores the original license reader absent from its tag. Its 16,462 DEX class names and two license assets match the original download."
+    },
+    {
+      "subject": "Custom accent icon in dev.9",
+      "value": "BCM and BCM Plus dev.9 (2999909) use the saved custom hue on Home and on their full-color launcher icons. Both local APKs passed release-signature and in-place upgrade checks. The development report records Android 8 and Android 16 emulator coverage and physical-device limits."
     }
   ],
   "nextSteps": [

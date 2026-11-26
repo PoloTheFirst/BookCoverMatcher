@@ -1,14 +1,14 @@
 # Privacy Policy
 
-Document revision: 2026-11-26.2. Applies to BCM and BCM Plus 3.0.0-dev.8 (234).
+Document revision: 2026-11-26.3. Applies to BCM and BCM Plus 3.0.0-dev.9 (2999909).
 
 ## About this policy
 
 BCM and BCM Plus are Android applications developed by **PoloTheFirst**. For privacy questions or requests, contact **[polo1st2023@gmail.com](mailto:polo1st2023@gmail.com)**.
 
-This policy covers BCM and BCM Plus 3.0.0-dev.8. It carries forward the data practices reviewed for the [standard dev.7 edition](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7) and [dev.7 Plus edition](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7-plus). The previous v2.7.0 policy is retained as a historical document. Its [versioned text](https://github.com/PoloTheFirst/BookCoverMatcher/blob/v2.7.0/PRIVACY_POLICY.md) remains available.
+This policy covers BCM and BCM Plus 3.0.0-dev.9. It carries forward the data practices reviewed for the [standard dev.7 edition](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7) and [dev.7 Plus edition](https://github.com/PoloTheFirst/BookCoverMatcher/tree/v3.0.0-dev.7-plus). The previous v2.7.0 policy is retained as a historical document. Its [versioned text](https://github.com/PoloTheFirst/BookCoverMatcher/blob/v2.7.0/PRIVACY_POLICY.md) remains available.
 
-**BCM** is the standard edition intended for Google Play. **BCM Plus** is the GitHub community test edition with bundled optional plugins. Dev.8 is a development version. This review does not cover future releases or independently modified builds.
+**BCM** is the standard edition intended for Google Play. **BCM Plus** is the GitHub community test edition with bundled optional plugins. Dev.9 is a development version. This review does not cover future releases or independently modified builds.
 
 The app matches cover images against your Excel collection on your device. Optional online features contact other organisations directly. There is no BCM account registration or developer-operated account service in these versions. A Google or Microsoft sign-in connects that provider; it does not create a BCM account.
 
@@ -16,7 +16,7 @@ The app matches cover images against your Excel collection on your device. Optio
 
 - **Photos and matching:** camera captures or images you select are decoded for cover matching. The app derives thumbnails, image fingerprints and embeddings, and generates ranked results. Saved result profiles may retain a re-encoded copy of the selected image, thumbnails and result metadata. A re-encoded image is not an untouched original photograph.
 - **Workbooks:** selected `.xlsx` and `.xlsm` files are copied to app-managed storage when imported into Saved Workbooks. The app reads workbook metadata, worksheets, cells, comments and embedded images. Local parsed caches, image caches and matching indexes help it reopen and search files. Macros are not executed.
-- **Saved collections:** folders, sessions, result profiles, bookmarks, wishlist items, workbook mappings and preferences are stored locally. Saving a result is separate from the temporary online session cache.
+- **Saved collections:** folders, sessions, result profiles, bookmarks, wishlist items, workbook mappings and preferences are stored locally. The custom icon uses the accent hue saved on your device. Saving a result is separate from the temporary online session cache.
 - **Credentials and preferences:** online-service settings and, in BCM Plus, a SauceNAO API key you enter are stored by the app. The SauceNAO key is encrypted using Android Keystore-backed key material, separately from ordinary preferences. Google and Microsoft authorization handling is described below. This is not a promise of additional encryption for every file or preference.
 - **Exports:** files you export or share are placed in the destination you choose. They are separate copies and can outlive the app or the corresponding saved item.
 
