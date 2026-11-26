@@ -32,4 +32,11 @@ Choose **BCM** for the standard app or **BCM Plus** for the edition with bundled
 
 - If a previous build disabled DLsite Fetch, re-enable it once in Plugins to restore the Online row. Android uses the same application ID for both editions and installs one at a time.
 
-**Version code/name: 230 / 3.0.0-dev.4.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| BCM | [230](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.4/BCM-v3.0.0-dev.4.apk) | [2999904](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.4/BCM-v3.0.0-dev.4-code2999904.apk) |
+| BCM Plus | [230](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.4/BCM-Plus-v3.0.0-dev.4.apk) | [2999904](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.4/BCM-Plus-v3.0.0-dev.4-code2999904.apk) |
+
+**Version code/name: 2999904 / 3.0.0-dev.4.**
