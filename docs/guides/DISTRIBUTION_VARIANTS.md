@@ -1,8 +1,8 @@
 # Play and GitHub editions
 
-## Development build v3.0.0-dev.9
+## Development prerelease v3.0.0-dev.9
 
-BCM and BCM Plus both use Android version code **2999909**. Their APK filenames are `BCM-v3.0.0-dev.9.apk` and `BCM-Plus-v3.0.0-dev.9.apk`. The custom accent setting applies to the open-book icon in both editions. [Display settings](USER_GUIDE.md#display)
+BCM and BCM Plus both use Android version code **2999909**. Their APK filenames are `BCM-v3.0.0-dev.9.apk` and `BCM-Plus-v3.0.0-dev.9.apk`. The custom accent setting applies to the open-book icon in both editions. [Display settings](USER_GUIDE.md#display) · [Release downloads](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.9)
 
 ## Development prerelease v3.0.0-dev.8
 

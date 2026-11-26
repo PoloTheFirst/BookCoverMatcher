@@ -144,6 +144,10 @@ Verified 44 owner-signed version-code rebuilds across 35 archived releases and 4
 
 BCM and BCM Plus dev.9 (2999909) use the saved custom hue on Home and on their full-color launcher icons. Both local APKs passed release-signature and in-place upgrade checks. The development report records Android 8 and Android 16 emulator coverage and physical-device limits.
 
+## GitHub dev.9 publication
+
+Published v3.0.0-dev.9 (2999909) with the verified signed BCM and BCM Plus APKs. See the dev.9 GitHub editions publication report for the source commits, download hashes and website sync.
+
 ## Next steps
 
 1. Monitor the OAuth review correspondence; owner-reported status is under review, not approved.
