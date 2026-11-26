@@ -72,4 +72,10 @@ This development source checkpoint adds offline policy readers and original-deri
 - No new physical-device cloud test was performed at closeout. Earlier live emulator authorization results are recorded above; prior dev.1 Vivo resolution remains owner-reported. Existing My Drive-only scope and unsupported Drive operations are unchanged.
 - This GitHub development prerelease distributes the signed APK. Google Play publication and OAuth production status were separate processes.
 
-**Version code/name: 225 / 2.7.0-dev.2.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [225](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0-dev.2/bookcovermatcher-v2.7.0-dev.2.apk) | [2069902](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0-dev.2/bookcovermatcher-v2.7.0-dev.2-code2069902.apk) |
+
+**Version code/name: 2069902 / 2.7.0-dev.2.**
