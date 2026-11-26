@@ -34,4 +34,12 @@ Online search is optional. The cover-reading step sends a selected image to Chro
 - An original distributed APK could not be recovered. The rebuilt APK uses the current owner signing key. Android requires a compatible signing identity to update an existing installation.
 - Seven historical ELF libraries fail 16 KB native alignment even though the APK passes ZIP alignment. The original testing did not verify a complete live workflow on a device.
 
-**Version code/name: 201 / 2.1.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [201](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.1.0/bookcovermatcher-v2.1.0.apk) | [2010000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.1.0/bookcovermatcher-v2.1.0-code2010000.apk) |
+
+The original-code download is the earlier source rebuild described above.
+
+**Version code/name: 2010000 / 2.1.0.**
