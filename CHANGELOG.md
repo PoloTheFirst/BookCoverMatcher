@@ -34,4 +34,11 @@ The native edition uses CameraX and an on-device OpenCLIP image encoder to rank 
 
 - The original testing did not measure accuracy on real covers using the final model weights. Similar volumes can receive similar scores. Devices need Android 8 or later and a supported ABI.
 
-**Version code/name: 200 / 2.0.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Full | [200](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.0.0/bookcovermatcher-full-v2.0.0.apk) | [2000000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.0.0/bookcovermatcher-full-v2.0.0-code2000000.apk) |
+| Lite | [200](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.0.0/bookcovermatcher-lite-v2.0.0.apk) | [2000000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.0.0/bookcovermatcher-lite-v2.0.0-code2000000.apk) |
+
+**Version code/name: 2000000 / 2.0.0.**
