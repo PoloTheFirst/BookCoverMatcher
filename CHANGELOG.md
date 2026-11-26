@@ -33,4 +33,12 @@ Open Library and Google Books return structured catalogue results. Saving a scan
 - The original release has no recoverable original APK. The archival build uses the current owner signing key, which can prevent an in-place update of an installation signed with an older key.
 - Seven historical ELF libraries fail 16 KB native alignment even though ZIP alignment passes. Catalogue results depend on provider coverage and availability.
 
-**Version code/name: 202 / 2.2.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [202](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.0/bookcovermatcher-v2.2.0.apk) | [2020000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.0/bookcovermatcher-v2.2.0-code2020000.apk) |
+
+The original-code download is the earlier source rebuild described above.
+
+**Version code/name: 2020000 / 2.2.0.**
