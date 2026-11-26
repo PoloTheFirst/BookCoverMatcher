@@ -33,4 +33,10 @@ This development checkpoint introduces the query and matching logic for online d
 
 - The unified search screen, side-by-side covers, collection controls and confirmation actions were still pending at this checkpoint.
 
-**Version code/name: 216 / 2.5.0-dev.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [216](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.1/bookcovermatcher-v2.5.0-dev.1.apk) | [2049901](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.1/bookcovermatcher-v2.5.0-dev.1-code2049901.apk) |
+
+**Version code/name: 2049901 / 2.5.0-dev.1.**
