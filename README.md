@@ -2,11 +2,11 @@
 
 An Android app for matching book covers against images in an Excel workbook, keeping comparison sessions and bookmarks, and using optional online discovery and cloud-workbook imports.
 
-The configured dev.8 rebuild uses Android version code **2999908**. Original signed dev.8 downloads carry code **234**. Both editions follow the same [Android version rules](docs/maintainers/VERSIONING.md). The [release index](docs/reference/RELEASE_INDEX.md) lists original releases and their rebuild codes. The dev.8 rebuild carries the same policy revision and uses the same data practices as the original dev.8 APKs.
+The current development build is **v3.0.0-dev.9 (2999909)** for both BCM and BCM Plus. Choose **More → Display → Custom palette** to use your accent hue for the open-book icon on your phone and in BCM. [Display settings](docs/guides/USER_GUIDE.md#display)
 
 ## Development prereleases
 
-**v3.0.0-dev.8 (234)** puts workbook comments and images on Home, clarifies Chrome Lens language settings, and opens the Author README expanded. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-v3.0.0-dev.8.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-Plus-v3.0.0-dev.8.apk)
+**v3.0.0-dev.8** puts workbook comments and images on Home, clarifies Chrome Lens language settings, and opens the Author README expanded. Its original APKs carry code **234** and its historical rebuilds carry **2999908**. [Release notes and downloads](https://github.com/PoloTheFirst/BookCoverMatcher/releases/tag/v3.0.0-dev.8)
 
 **v3.0.0-dev.7 (233)** fixes a stale full-color launcher icon after the phone switches between light and dark. The home-screen shortcut keeps its original launch target in both editions. [BCM](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-v3.0.0-dev.7.apk) · [BCM Plus](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-Plus-v3.0.0-dev.7.apk)
 

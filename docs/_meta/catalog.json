@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "5f7bcb67817b2356589710d9a4e5788a60a967a1070fd69b09355d1e6a8e8092",
+  "fingerprint": "d3f48b2aa6bfd2ee6c744b71f99b115a8dbe92852c45864c124ac3ada4ad12b6",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -464,8 +464,8 @@
     },
     {
       "path": "branding/README.md",
-      "bytes": 1919,
-      "sha256": "abdb09e5d4beb7c5a796920d331529b2dfc508b1ae2d0aa21f75399cd7713dff",
+      "bytes": 2516,
+      "sha256": "300dfdb7330a9a778e4adba129459e27cca1513f830c61b199523b2d1e57963e",
       "version": "current-source",
       "category": "module-context",
       "kind": "guide",
@@ -475,8 +475,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2621,
-      "sha256": "22197161f00002a649cb2ad43720403ff7207a7a7ebc83bb83033a230800241d",
+      "bytes": 2062,
+      "sha256": "f893a199a07d5a38110996b987dd9561a731af3387d4197ebc0dbb75d2a99958",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 22382,
-      "sha256": "0ca49924bcc8253c97aa896edede7e810608aadbf7aae1f877826a80ba89f81b",
+      "bytes": 22738,
+      "sha256": "f9b9d6edc6755554a89e8d83776280bebf812af689785ef322fb7f98563b14b2",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -516,8 +516,8 @@
     },
     {
       "path": "docs/_meta/versions.json",
-      "bytes": 25926,
-      "sha256": "b4ee03a3fb72fb1e9560a4f49265d4dbfd578550093b6b32437711e7ee54dee4",
+      "bytes": 26624,
+      "sha256": "720d30749919617803d0c7cfc52dbcbf87701098dc596089fab91371f409c9b9",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 11655,
-      "sha256": "44c8d48645ad7de10573da254bbea89fab84d53e0d70763743e2879994666fbe",
+      "bytes": 11947,
+      "sha256": "b37773d6cddc4fae003eeef47cce7cb68e7602409cf1b4cff12b3ebeef681298",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -557,8 +557,8 @@
     },
     {
       "path": "docs/guides/INSTALL.md",
-      "bytes": 6480,
-      "sha256": "7de2e7a4cbb4317a53bbd5f43fff4ca9c8c6fb92fc744c3329db5cde331e2930",
+      "bytes": 6695,
+      "sha256": "5d4e2880c6318b2ec98ed3408e5c4c78cc48baf4a2b4ea866804dc4ef06c569d",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -568,8 +568,8 @@
     },
     {
       "path": "docs/guides/USER_GUIDE.md",
-      "bytes": 56342,
-      "sha256": "b51fd4b4b03f680ed9c4043f3be2230cab4aec3dd12e1b747ff3380ab13975d1",
+      "bytes": 56410,
+      "sha256": "04fb0183784796c1c160fa2537ca74afb5701dcfd4c7654f68dbeedcdea555e0",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2570,6 +2570,38 @@
       }
     },
     {
+      "path": "docs/history/android/v3.0.0-dev.9/development/reports/2026-11-26__android-3.0.0-dev.9-code2999909__development__custom-accent-icon__report__r01.md",
+      "bytes": 4662,
+      "sha256": "5cb9fad5d3c6eed6c0d6ca7ef2648a13c509d79f4b510a1d76598ca01cb0e992",
+      "version": "3.0.0-dev.9",
+      "category": "development",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.9/development//custom-accent-icon/report/2026-11-26",
+        "title": "Custom accent launcher icon",
+        "kind": "report",
+        "version_id": "3.0.0-dev.9",
+        "version_name": "3.0.0-dev.9",
+        "version_code": 2999909,
+        "track": "android",
+        "category": "development",
+        "area": "",
+        "topic": "custom-accent-icon",
+        "created_at": "2026-11-26T09:22:25+08:00",
+        "updated_at": "2026-11-26T09:27:08+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Use the chosen custom accent hue for the app icon in both editions. Record dev.9 as a fresh release with one Android version code."
+      }
+    },
+    {
       "path": "docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md",
       "bytes": 11961,
       "sha256": "3c58f06adcec00a45e27824cbb6bf489d32011be31ec22511b2fba0bab47de9a",
@@ -2747,8 +2779,8 @@
     },
     {
       "path": "docs/maintainers/CHANGELOG_GUIDELINES.md",
-      "bytes": 23058,
-      "sha256": "058e22268acbfe2978aca89b1622d2f2dffd9ae21ab62f1d542769a4f16b5416",
+      "bytes": 23187,
+      "sha256": "343ed45f996381c20bba288bdd3593cfcbebd0d279d39e87e626c65a2f49ea1a",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2820,8 +2852,8 @@
     },
     {
       "path": "docs/maintainers/VERSIONING.md",
-      "bytes": 4288,
-      "sha256": "745d2b22c84b9c58e56a2a85b0d2c9237216d89b1b4cd5b4f68d156a8cdf4dbe",
+      "bytes": 4405,
+      "sha256": "f84adb4d394e175fdc67e0172b3ea73e81cf61cef124a1fc92f9cba32480ecd1",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -2906,8 +2938,8 @@
     },
     {
       "path": "PRIVACY_POLICY.md",
-      "bytes": 20223,
-      "sha256": "9032d45f2703ca1c713fcd73fd31515b986eeb7392adf450712bcb87b0b35871",
+      "bytes": 20285,
+      "sha256": "c2f9d306b865b86c06b0cff8d1e8c242f8d2ab5daf7516197e3f83672d5480ec",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",
@@ -2917,8 +2949,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 6130,
-      "sha256": "f19b4989b92c6e62b42d5d5092f6fc3ee69d7e978cfc04a1e3f98454b23c4946",
+      "bytes": 5924,
+      "sha256": "4548660089525f36b3b7f90c66251db39537df2654c25ac9e7c4353ee1c269c8",
       "version": "current-source",
       "category": "reference",
       "kind": "guide",
@@ -2928,8 +2960,8 @@
     },
     {
       "path": "TERMS_AND_CONDITIONS.md",
-      "bytes": 5997,
-      "sha256": "9496dee2a7c1d47d5347b0930d89f8c4bed3de13a454cec29a1fbbd2bd94c81f",
+      "bytes": 6001,
+      "sha256": "022b79898b57b4405714b1ff2dae4c8b75e6b60ec55a66a8f16b6d8787e13016",
       "version": "current-source",
       "category": "policy-and-release",
       "kind": "guide",

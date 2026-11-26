@@ -164,6 +164,37 @@ val versionPython = buildPythonPath?.let { listOf(it) }
     } else {
         listOf("python3")
     }
+// Launcher apps resolve manifest resources in their own process. Generate a full-color
+// adaptive icon and selectable alias for each integer hue offered by Display.
+abstract class GenerateHueLaunchers : DefaultTask() {
+    @get:Input abstract val python: ListProperty<String>
+    @get:InputFile @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val generator: RegularFileProperty
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val artwork: ConfigurableFileCollection
+    @get:OutputDirectory abstract val icons: DirectoryProperty
+    @get:OutputFile abstract val manifest: RegularFileProperty
+    @get:javax.inject.Inject abstract val exec: org.gradle.process.ExecOperations
+
+    @TaskAction fun generate() {
+        exec.exec {
+            commandLine(python.get() + listOf(generator.get().asFile.absolutePath,
+                "--hue-launchers", icons.get().asFile.absolutePath, manifest.get().asFile.absolutePath))
+        }
+    }
+}
+
+androidComponents.onVariants { variant ->
+    val generate = tasks.register<GenerateHueLaunchers>("generate${variant.name.replaceFirstChar { it.uppercase() }}HueLaunchers") {
+        python.set(versionPython)
+        generator.set(rootProject.layout.projectDirectory.file("tools/export-logo-vectors.py"))
+        artwork.from(rootProject.file("branding/source/bookcovermatcher-logo.svg"),
+            rootProject.file("branding/source/launcher-hct.csv"))
+    }
+    variant.sources.res?.addGeneratedSourceDirectory(generate, GenerateHueLaunchers::icons)
+    variant.sources.manifests.addGeneratedManifestFile(generate, GenerateHueLaunchers::manifest)
+}
+
 val configuredAndroidVersion = providers.fileContents(
     rootProject.layout.projectDirectory.file("gradle/android-version.txt"),
 ).asText.get().trimEnd('\r', '\n')

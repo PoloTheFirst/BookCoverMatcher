@@ -1,46 +1,38 @@
-## v3.0.0-dev.8 (2026-11-26)
+## v3.0.0-dev.9 (2026-11-26)
 
-# Open the workbook viewer from Home
+# Match the book icon to your accent
 
-BCM and BCM Plus put the workbook viewer next to workbook selection. The online search settings now explain how Chrome Lens reads and translates a cover.
+Choose **More → Display → Custom palette** to give the open-book icon your accent color. Both BCM and BCM Plus use the hue you save with the slider or the hex color field.
 
 ### Added
 
-- Each Chrome Lens language field has a persistent hint with a two-letter example. For a Japanese cover, use `ja` as the printed language and `en` to request English. Leave the first field blank for automatic detection and the second blank to keep the original text.
+- Each selectable hue has light and dark launcher artwork. The phone’s light or dark setting selects the launcher artwork, and BCM’s Appearance setting selects the artwork on Home.
 
 ### Changed
 
-- On Home, tap **Workbook comments & images** below **Spreadsheet & range**. One compact row opens the existing viewer for comments, pictures, catalogue tables, insights and original-image export.
-- The Author profile README opens expanded in More. Tap **Collapse** to use the shorter preview.
-- The bundled Privacy Policy and Terms and Conditions now cover both dev.8 editions. Revision `2026-11-26.2` incorporates the website source’s edition-specific disclosures and clarifies when the Author profile refreshes.
+- Switching back to **Sophie palette** restores the original cream and rose icon. On Android 12 and newer, **Use phone colors** also restores the Sophie full-color artwork and remembers the last manual hue.
+- The bundled Privacy Policy and Terms and Conditions cover both dev.9 editions at revision `2026-11-26.3`. The icon reads the accent already saved on the device.
 
 ### Fixed
 
-- None.
+- The launcher and Home previously kept the Sophie colors when a custom accent was active. An existing custom accent now takes effect on the first launch after updating.
 
 ### Removed
 
-- Removed the outer glow from **Search selected platforms** and **Search by this cover** where those features are available.
+- None.
 
 ### Tests
 
-- BCM passed 1,271 JVM tests with 12 skipped. BCM Plus passed 1,444 with 16 skipped. Lint reported zero errors in both editions.
-- Four Android 16 instrumented tests passed per edition, including opening the selected workbook from Home, reading both language hints, and collapsing and expanding the Author README.
+- BCM passed 1,271 JVM tests with 12 skipped. BCM Plus passed 1,444 with 16 skipped. Android lint completed with zero errors for both editions.
+- Five instrumented launcher and Display tests passed per edition. They covered slider and hex input, palette switching, hue wraparound, light and dark resources, and a single active launcher entry.
 
 ### Verified
 
-- Both signed APKs use the existing application ID, code 234 and the dev.7 release certificate. The packaged privacy and terms files match the canonical Markdown byte for byte.
+- Pixel Launcher showed the selected accent in light and dark mode on Android 16 (BCM, 181°) and Android 8 (BCM Plus, 52°). The book on Home matched the dark accent in both editions.
+- Both signed APKs passed signature and ZIP alignment checks. In-place updates from dev.8 codes `234` and `2999908` retained the first-install timestamp.
 
 ### Known limitations
 
-- The language hints apply to Chrome Lens. On-device PaddleOCR reads the cover in its original language.
-- Verification used an emulator. Live provider searches, translation results and physical-device appearance were outside this test run.
+- A launcher with themed icons enabled applies its own colors to the book silhouette. Home-screen shortcut placement and refresh timing depend on the launcher. Physical-device appearance, including on the Vivo X100 Pro, was outside this emulator check.
 
-### APK version codes
-
-| Edition | Original APK code | Rebuilt APK code |
-| --- | ---: | ---: |
-| BCM | [234](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-v3.0.0-dev.8.apk) | [2999908](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-v3.0.0-dev.8-code2999908.apk) |
-| BCM Plus | [234](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-Plus-v3.0.0-dev.8.apk) | [2999908](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.8/BCM-Plus-v3.0.0-dev.8-code2999908.apk) |
-
-**Version code/name: 2999908 / 3.0.0-dev.8.**
+**Version code/name: 2999909 / 3.0.0-dev.9.**

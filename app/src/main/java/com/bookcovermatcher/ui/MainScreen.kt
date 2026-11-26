@@ -2,12 +2,15 @@
 
 package com.bookcovermatcher.ui
 
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.drawable.AdaptiveIconDrawable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -64,11 +66,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.shadow.Shadow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -98,6 +101,7 @@ import com.bookcovermatcher.UiState
 import com.bookcovermatcher.WishlistSection
 import com.bookcovermatcher.core.format.Formatting
 import com.bookcovermatcher.core.search.MatchLevel
+import com.bookcovermatcher.launcherComponent
 import com.bookcovermatcher.ui.components.ButtonLabel
 import com.bookcovermatcher.ui.components.CameraGlyph
 import com.bookcovermatcher.ui.components.FieldLabel
@@ -412,19 +416,38 @@ private fun BookmarksResultsTab(
 // ---------------------------------------------------------------------------------------------
 
 @Composable
+private fun HeaderBookIcon() {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val display = LocalDisplaySettings.current
+    val dark = display.mode.isDark()
+    val component = launcherComponent(context, display.palette)
+    val icon = remember(context, configuration, dark, component) {
+        val mode = if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+        val override = Configuration(configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or mode
+        }
+        val resources = context.createConfigurationContext(override)
+        val entry = context.packageManager.getActivityInfo(component, PackageManager.MATCH_DISABLED_COMPONENTS)
+        resources.getDrawable(entry.iconResource) as AdaptiveIconDrawable
+    }
+    Canvas(Modifier.size(48.dp).clip(MaterialTheme.shapes.medium)) {
+        val side = size.minDimension.toInt()
+        // Match the launcher's 72dp safe area inside the 108dp adaptive foreground.
+        val inset = side / 4
+        val canvas = drawContext.canvas.nativeCanvas
+        icon.background.setBounds(0, 0, side, side)
+        icon.background.draw(canvas)
+        icon.foreground.setBounds(-inset, -inset, side + inset, side + inset)
+        icon.foreground.draw(canvas)
+    }
+}
+
+@Composable
 private fun AppHeader() {
     Column(Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            val dark = LocalDisplaySettings.current.mode.isDark()
-            val tile = if (dark) R.color.bcm_logo_tile_dark else R.color.bcm_logo_tile_light
-            val mark = if (dark) R.drawable.bcm_logo_foreground_dark else R.drawable.ic_launcher_foreground
-            Box(
-                modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.medium).background(colorResource(tile)),
-                contentAlignment = Alignment.Center,
-            ) {
-                // Android shows the center 72dp of a 108dp adaptive layer. Use the same framing here.
-                Image(painterResource(mark), contentDescription = null, modifier = Modifier.requiredSize(72.dp))
-            }
+            HeaderBookIcon()
             Text(
                 stringResource(R.string.app_name),
                 modifier = Modifier.weight(1f).semantics { heading() },

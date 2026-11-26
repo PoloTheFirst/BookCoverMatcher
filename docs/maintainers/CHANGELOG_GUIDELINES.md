@@ -413,7 +413,7 @@ suffix: a build whose `versionName` is `2.6.0-dev.1` and `versionCode` is `222` 
 `**Version code/name: 222 / 2.6.0-dev.1.**`. Do not shorten the suffix away, and do not print a stable-looking
 `2.6.0` for a development build.
 
-Verify both values against the actual Android build configuration and release artifact. The changelog at each historical source tag and its GitHub release body describe the original publication. The [historical release index](../reference/RELEASE_INDEX.md) distinguishes later renumbered APKs attached to those releases.
+Verify both values against the Android build configuration and the APK. A fresh release from v3.0.0-dev.9 onward uses one calculated version code across both editions. Report that code once in the closing version line. For releases in the historical migration, the tagged changelog and GitHub release notes also list each edition’s original and rebuilt APK codes with their download links. [Historical release index](../reference/RELEASE_INDEX.md)
 
 Remember:
 

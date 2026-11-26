@@ -2,7 +2,7 @@
 
 Generated navigation; edit the relevant sources, then run tools/docs/manage.py refresh. Indexing does not establish a new factual review.
 
-210 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
+211 documentation and management sources. Legacy original paths/hashes and known conflicts are retained in the machine-readable catalog/inventory.
 
 | File | Version/group | Category | Kind |
 |---|---|---|---|
@@ -178,6 +178,7 @@ Generated navigation; edit the relevant sources, then run tools/docs/manage.py r
 | [docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md](history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r01.md) | 3.0.0-dev.8-code2999908 | release | record |
 | [docs/history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r02.md](history/android/v3.0.0-dev.8-code2999908/release/reports/2026-11-26__android-3.0.0-dev.8-code2999908__release__version-code-migration__report__r02.md) | 3.0.0-dev.8-code2999908 | release | record |
 | [docs/history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md](history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md) | 3.0.0-dev.8 | development | record |
+| [docs/history/android/v3.0.0-dev.9/development/reports/2026-11-26__android-3.0.0-dev.9-code2999909__development__custom-accent-icon__report__r01.md](history/android/v3.0.0-dev.9/development/reports/2026-11-26__android-3.0.0-dev.9-code2999909__development__custom-accent-icon__report__r01.md) | 3.0.0-dev.9 | development | record |
 | [docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md](history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md) | 3.0.0 | development | record |
 | [docs/history/cross-version/legacy/prompts/CODING_AGENT_PROMPT.md](history/cross-version/legacy/prompts/CODING_AGENT_PROMPT.md) | cross-version | legacy | prompt |
 | [docs/history/cross-version/legacy/references/README-before-doc-reorganization.md](history/cross-version/legacy/references/README-before-doc-reorganization.md) | cross-version | legacy | reference |

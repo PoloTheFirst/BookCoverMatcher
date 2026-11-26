@@ -37,6 +37,7 @@ Use `python tools/docs/manage.py locate NAME` for former root/guidelines/histori
 - [docs/history/android/v3.0.0-dev.2/development/reports/2026-11-24__android-3.0.0-dev.2-code228__development__bcm-scanner__report__r01.md](history/android/v3.0.0-dev.2/development/reports/2026-11-24__android-3.0.0-dev.2-code228__development__bcm-scanner__report__r01.md)
 - [docs/history/android/v3.0.0-dev.3/development/reports/2026-11-24__android-3.0.0-dev.3-code229__development__expressive-logo__report__r01.md](history/android/v3.0.0-dev.3/development/reports/2026-11-24__android-3.0.0-dev.3-code229__development__expressive-logo__report__r01.md)
 - [docs/history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md](history/android/v3.0.0-dev.8/development/reports/2026-11-26__android-3.0.0-dev.8-code234__development__workbook-workflow__report__r01.md)
+- [docs/history/android/v3.0.0-dev.9/development/reports/2026-11-26__android-3.0.0-dev.9-code2999909__development__custom-accent-icon__report__r01.md](history/android/v3.0.0-dev.9/development/reports/2026-11-26__android-3.0.0-dev.9-code2999909__development__custom-accent-icon__report__r01.md)
 - [docs/history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md](history/android/v3.0.0/development/prompts/2026-11-24__android-3.0.0__development__material3-expressive__prompt__r01.md)
 
 ## governance
