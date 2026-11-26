@@ -35,4 +35,11 @@ BCM and BCM Plus open with the Sophie palette from Polo’s Atelier. You can now
 
 - Phone colors require Android 12 or newer. Device checks used emulators.
 
-**Version code/name: 232 / 3.0.0-dev.6.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| BCM | [232](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-v3.0.0-dev.6.apk) | [2999906](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-v3.0.0-dev.6-code2999906.apk) |
+| BCM Plus | [232](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-Plus-v3.0.0-dev.6.apk) | [2999906](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.6/BCM-Plus-v3.0.0-dev.6-code2999906.apk) |
+
+**Version code/name: 2999906 / 3.0.0-dev.6.**
