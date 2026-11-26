@@ -33,4 +33,10 @@ The Insights area turns the parsed workbook catalogue into reports and a browsab
 
 - Reports depend on what can be parsed or mapped from the selected workbook. Missing or ambiguous data can remain unresolved.
 
-**Version code/name: 210 / 2.4.0-dev.2.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [210](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.2/bookcovermatcher-v2.4.0-dev.2.apk) | [2039902](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.2/bookcovermatcher-v2.4.0-dev.2-code2039902.apk) |
+
+**Version code/name: 2039902 / 2.4.0-dev.2.**
