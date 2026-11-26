@@ -33,4 +33,10 @@ Users can configure a SauceNAO key and replace it without deleting a working one
 
 - The original asset attached under this release was an internal release candidate for a different version. The recovered original is the development build. The second live call after replacing the key was not repeated. IQDB remains manual.
 
-**Version code/name: 218 / 2.5.0-dev.3.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [218](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.3/bookcovermatcher-v2.5.0-dev.3.apk) | [2049903](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.3/bookcovermatcher-v2.5.0-dev.3-code2049903.apk) |
+
+**Version code/name: 2049903 / 2.5.0-dev.3.**
