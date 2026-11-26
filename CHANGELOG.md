@@ -36,4 +36,11 @@ BCM and BCM Plus now refresh their full-color launcher icon when Android deliver
 - A launcher can retain its cached icon while the app is stopped. Opening BCM once after the mode change requests a refresh. Launcher themes and icon packs may supply their own colors.
 - The reported Vivo X100 Pro was unavailable for direct verification.
 
-**Version code/name: 233 / 3.0.0-dev.7.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| BCM | [233](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-v3.0.0-dev.7.apk) | [2999907](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-v3.0.0-dev.7-code2999907.apk) |
+| BCM Plus | [233](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-Plus-v3.0.0-dev.7.apk) | [2999907](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.7/BCM-Plus-v3.0.0-dev.7-code2999907.apk) |
+
+**Version code/name: 2999907 / 3.0.0-dev.7.**
