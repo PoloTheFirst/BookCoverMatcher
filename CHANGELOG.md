@@ -287,4 +287,10 @@ no upload or write-back, and losing the network can never make a saved workbook 
 - **A very large workbook** is bounded only by free storage; there is no application-level size limit, and a
   multi-hundred-megabyte import has not been exercised.
 
-**Version code/name: 222 / 2.6.0-dev.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [222](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.6.0-dev.1/bookcovermatcher-v2.6.0-dev.1.apk) | [2059901](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.6.0-dev.1/bookcovermatcher-v2.6.0-dev.1-code2059901.apk) |
+
+**Version code/name: 2059901 / 2.6.0-dev.1.**
