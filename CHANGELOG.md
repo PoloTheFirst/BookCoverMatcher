@@ -35,4 +35,11 @@ The standard launcher and Home screen now show **BCM**. The published Plus launc
 
 - Camera behavior was checked with a simulated feed. Physical-device focus and exposure remain unverified. The initial local release builds were unsigned. Both public APKs are signed.
 
-**Version code/name: 228 / 3.0.0-dev.2.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| BCM | [228](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.2/BCM-v3.0.0-dev.2.apk) | [2999902](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.2/BCM-v3.0.0-dev.2-code2999902.apk) |
+| BCM Plus | [228](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.2/BCM-Plus-v3.0.0-dev.2.apk) | [2999902](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.2/BCM-Plus-v3.0.0-dev.2-code2999902.apk) |
+
+**Version code/name: 2999902 / 3.0.0-dev.2.**
