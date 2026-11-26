@@ -34,4 +34,11 @@ The matching button keeps its gradient with the glow removed. Expanded Online re
 
 - The layout check used an Android emulator. Provider availability depends on the installed edition.
 
-**Version code/name: 231 / 3.0.0-dev.5.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| BCM | [231](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-v3.0.0-dev.5.apk) | [2999905](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-v3.0.0-dev.5-code2999905.apk) |
+| BCM Plus | [231](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-Plus-v3.0.0-dev.5.apk) | [2999905](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.5/BCM-Plus-v3.0.0-dev.5-code2999905.apk) |
+
+**Version code/name: 2999905 / 3.0.0-dev.5.**
