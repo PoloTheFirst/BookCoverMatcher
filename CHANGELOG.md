@@ -32,4 +32,10 @@ Select worksheets for Health and Analytics, then inspect the recalculated counts
 
 - Unmapped or unreadable dates cannot contribute to date-filtered results.
 
-**Version code/name: 212 / 2.4.0-dev.4.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [212](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.4/bookcovermatcher-v2.4.0-dev.4.apk) | [2039904](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.4/bookcovermatcher-v2.4.0-dev.4-code2039904.apk) |
+
+**Version code/name: 2039904 / 2.4.0-dev.4.**
