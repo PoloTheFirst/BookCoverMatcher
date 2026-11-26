@@ -32,4 +32,10 @@ The workbook viewer can open an image or record at the worksheet cell that the w
 
 - Images without a verified worksheet relationship cannot open at a cell. Workbook access remains read-only.
 
-**Version code/name: 209 / 2.4.0-dev.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [209](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.1/bookcovermatcher-v2.4.0-dev.1.apk) | [2039901](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.1/bookcovermatcher-v2.4.0-dev.1-code2039901.apk) |
+
+**Version code/name: 2039901 / 2.4.0-dev.1.**
