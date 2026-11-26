@@ -34,4 +34,10 @@ BookCover Matcher opens the selected spreadsheet as a read-only ZIP package and 
 
 - Only legacy notes are displayed. Threaded comments can be detected but are not rendered. Encrypted workbooks are unsupported. The media list and individual image size are bounded. A two-workbook comparison overview was deferred.
 
-**Version code/name: 207 / 2.3.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [207](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.3.0/bookcovermatcher-v2.3.0.apk) | [2030000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.3.0/bookcovermatcher-v2.3.0-code2030000.apk) |
+
+**Version code/name: 2030000 / 2.3.0.**
