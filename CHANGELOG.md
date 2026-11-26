@@ -35,4 +35,11 @@ BCM and BCM Plus have a new Material 3 Expressive mark on the Android launcher a
 
 - Launcher shape and themed tint depend on the device. On the Android 16 emulator, Pixel Launcher kept its previous full-color shortcut after a system appearance change until the app package refreshed. BCM Home switched immediately.
 
-**Version code/name: 229 / 3.0.0-dev.3.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| BCM | [229](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.3/BCM-v3.0.0-dev.3.apk) | [2999903](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.3/BCM-v3.0.0-dev.3-code2999903.apk) |
+| BCM Plus | [229](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.3/BCM-Plus-v3.0.0-dev.3.apk) | [2999903](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v3.0.0-dev.3/BCM-Plus-v3.0.0-dev.3-code2999903.apk) |
+
+**Version code/name: 2999903 / 3.0.0-dev.3.**
