@@ -672,5 +672,11 @@ local debug key, and `com.microsoft.device.display:display-mask:0.3.0` is still 
 
 
 
-**Version code/name: 223 / 2.6.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [223](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.6.0/bookcovermatcher-v2.6.0.apk) | [2060000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.6.0/bookcovermatcher-v2.6.0-code2060000.apk) |
+
+**Version code/name: 2060000 / 2.6.0.**
 
