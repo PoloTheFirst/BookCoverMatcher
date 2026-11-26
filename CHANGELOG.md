@@ -33,4 +33,10 @@ The online workflow now combines a structured catalogue query, optional SauceNAO
 
 - IQDB requires manual browser interaction. Live SauceNAO was not verified in this release’s original test run. A subsequent development release fixed persistence of the key.
 
-**Version code/name: 217 / 2.5.0-dev.2.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [217](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.2/bookcovermatcher-v2.5.0-dev.2.apk) | [2049902](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0-dev.2/bookcovermatcher-v2.5.0-dev.2-code2049902.apk) |
+
+**Version code/name: 2049902 / 2.5.0-dev.2.**
