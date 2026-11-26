@@ -44,4 +44,10 @@ The standard v2.7.0 APK uses the Play edition from the `google_play` branch. It 
 - The latest verification did not exercise live cloud sign-in, revocation, cross-account changes or a signed upgrade on a physical phone.
 - Google OAuth restricted-scope review and Google Play submission are separate from GitHub distribution. The repository records outstanding authentication lifecycle and licensing reviews, including redistribution terms for the bundled OpenCLIP weights.
 
-**Version code/name: 226 / 2.7.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [226](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0/bookcovermatcher-v2.7.0.apk) | [2070000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0/bookcovermatcher-v2.7.0-code2070000.apk) |
+
+**Version code/name: 2070000 / 2.7.0.**
