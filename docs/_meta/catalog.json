@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "fingerprint": "d3f48b2aa6bfd2ee6c744b71f99b115a8dbe92852c45864c124ac3ada4ad12b6",
+  "fingerprint": "259a3e8f9d8f7d49ef6cc1464619a56990d04472064b5e43fd3bb0457a4a65eb",
   "files": [
     {
       "path": ".cursor/rules/documentation.mdc",
@@ -506,8 +506,8 @@
     },
     {
       "path": "docs/_meta/status.json",
-      "bytes": 22738,
-      "sha256": "f9b9d6edc6755554a89e8d83776280bebf812af689785ef322fb7f98563b14b2",
+      "bytes": 23001,
+      "sha256": "cdd71f152755d411b13ca2f885b0179c8ecb202388738cf78e3567cc483805a2",
       "version": "current-source",
       "category": "governance",
       "kind": "guide",
@@ -547,8 +547,8 @@
     },
     {
       "path": "docs/guides/DISTRIBUTION_VARIANTS.md",
-      "bytes": 11947,
-      "sha256": "b37773d6cddc4fae003eeef47cce7cb68e7602409cf1b4cff12b3ebeef681298",
+      "bytes": 12051,
+      "sha256": "42aaef349999dcdd0aa84abc479a08857413bc2313ec28a97f3396cf3e8fa79d",
       "version": "current-source",
       "category": "usage",
       "kind": "guide",
@@ -2599,6 +2599,38 @@
         "supersedes": null,
         "related_versions": [],
         "source_request": "Use the chosen custom accent hue for the app icon in both editions. Record dev.9 as a fresh release with one Android version code."
+      }
+    },
+    {
+      "path": "docs/history/android/v3.0.0-dev.9/publication/reports/2026-11-26__android-3.0.0-dev.9-code2999909__publication__github-editions__report__r01.md",
+      "bytes": 2761,
+      "sha256": "a7ba88c4985c4b11d6d7bfe3992bc4e7a6088baa76bc326ee956dd34edf51e7b",
+      "version": "3.0.0-dev.9",
+      "category": "publication",
+      "kind": "record",
+      "frozen": false,
+      "note": "Maintained documentation/tooling",
+      "phase": "final document r1",
+      "assignmentBasis": "Validated document metadata and registered path",
+      "document": {
+        "schema": 1,
+        "document_id": "3.0.0-dev.9/publication//github-editions/report/2026-11-26",
+        "title": "GitHub publication of BCM and BCM Plus dev.9",
+        "kind": "report",
+        "version_id": "3.0.0-dev.9",
+        "version_name": "3.0.0-dev.9",
+        "version_code": 2999909,
+        "track": "android",
+        "category": "publication",
+        "area": "",
+        "topic": "github-editions",
+        "created_at": "2026-11-26T09:36:17+08:00",
+        "updated_at": "2026-11-26T09:36:17+08:00",
+        "revision": 1,
+        "status": "final",
+        "supersedes": null,
+        "related_versions": [],
+        "source_request": "Publish dev.9 with both signed APKs after synchronizing website policy source."
       }
     },
     {
