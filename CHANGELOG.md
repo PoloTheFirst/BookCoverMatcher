@@ -33,4 +33,10 @@ BookCover Matcher adds an online-results panel beneath the five local matches. T
 
 - The links are demonstration data. The public GitHub tag is v1.1.0, while the historical Android package reports 1.1.0-dev.1 and reuses code 2.
 
-**Version code/name: 2 / 1.1.0-dev.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [2](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v1.1.0/bookcovermatcher-v1.1.0.apk) | [1010000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v1.1.0/bookcovermatcher-v1.1.0-code1010000.apk) |
+
+**Version code/name: 1010000 / 1.1.0-dev.1.**
