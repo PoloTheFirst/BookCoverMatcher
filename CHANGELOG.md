@@ -32,4 +32,10 @@ Choose the recognition engine for each cover. The stable release also preserves 
 
 - A saved original is a re-encoded image rather than the original camera file. Existing profiles that only have a thumbnail cannot restore the larger image retroactively.
 
-**Version code/name: 221 / 2.5.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [221](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0/bookcovermatcher-v2.5.0.apk) | [2050000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.5.0/bookcovermatcher-v2.5.0-code2050000.apk) |
+
+**Version code/name: 2050000 / 2.5.0.**
