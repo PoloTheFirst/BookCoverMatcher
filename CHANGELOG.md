@@ -56,4 +56,10 @@ This development checkpoint adds Google Drive to Saved Workbooks alongside OneDr
 - The pre-existing fixed-width Back label clips at 150% font scale; both cloud import labels fit.
 - This is a GitHub development prerelease. Publishing it does not change Google OAuth production/verification status. The attached APK is the matching debug-signed build; the user-exported release APK uses a different key and is not this artifact.
 
-**Version code/name: 224 / 2.7.0-dev.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [224](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0-dev.1/bookcovermatcher-v2.7.0-dev.1.apk) | [2069901](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.7.0-dev.1/bookcovermatcher-v2.7.0-dev.1-code2069901.apk) |
+
+**Version code/name: 2069901 / 2.7.0-dev.1.**
