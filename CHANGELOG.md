@@ -35,4 +35,12 @@ The stable 2.4 release brings workbook source navigation, catalogue tables and I
 - The original signed stable 2.4.0 APK could not be recovered. The archive rebuild uses the current owner signing key, which can prevent in-place updates of older installations. Seven historical ELF libraries fail 16 KB native alignment even though the APK passes ZIP alignment.
 - The rebuilt test suite still has the 17 failures recorded above. Worksheet source and image links require a relationship the workbook actually supplies.
 
-**Version code/name: 215 / 2.4.0.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [215](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0/bookcovermatcher-v2.4.0.apk) | [2040000](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0/bookcovermatcher-v2.4.0-code2040000.apk) |
+
+The original-code download is the earlier source rebuild described above.
+
+**Version code/name: 2040000 / 2.4.0.**
