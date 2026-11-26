@@ -33,4 +33,10 @@ This patch fixes the DLsite search encoding and restores two actions on saved pr
 
 - DLsite may change its handling of requests. The historical test proves the behavior observed for this release.
 
-**Version code/name: 205 / 2.2.3.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [205](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.3/bookcovermatcher-v2.2.3.apk) | [2020300](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.3/bookcovermatcher-v2.2.3-code2020300.apk) |
+
+**Version code/name: 2020300 / 2.2.3.**
