@@ -32,4 +32,10 @@ Wishlist bookmarks now use the Search results card presentation and keep their l
 
 - The original report had no device or emulator for checking the drawer animation and card layout.
 
-**Version code/name: 208 / 2.3.1.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [208](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.3.1/bookcovermatcher-v2.3.1.apk) | [2030100](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.3.1/bookcovermatcher-v2.3.1-code2030100.apk) |
+
+**Version code/name: 2030100 / 2.3.1.**
