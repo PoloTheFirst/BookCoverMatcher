@@ -32,4 +32,10 @@ Catalogue can now switch between cards and a worksheet table. The reader chooses
 
 - A timeline requires a configured column and usable dates. The app does not infer that a column is a date solely from its header.
 
-**Version code/name: 211 / 2.4.0-dev.3.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [211](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.3/bookcovermatcher-v2.4.0-dev.3.apk) | [2039903](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.4.0-dev.3/bookcovermatcher-v2.4.0-dev.3-code2039903.apk) |
+
+**Version code/name: 2039903 / 2.4.0-dev.3.**
