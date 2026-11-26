@@ -33,4 +33,10 @@ Choose the platforms used for an online search, open each platform with the curr
 
 - Provider support differs between in-app lookup and browser links. Visual reverse-image search was not available. The original release did not exercise the final batch UI on a device.
 
-**Version code/name: 204 / 2.2.2.**
+### APK version codes
+
+| Edition | Original APK code | Rebuilt APK code |
+| --- | ---: | ---: |
+| Standard | [204](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.2/bookcovermatcher-v2.2.2.apk) | [2020200](https://github.com/PoloTheFirst/BookCoverMatcher/releases/download/v2.2.2/bookcovermatcher-v2.2.2-code2020200.apk) |
+
+**Version code/name: 2020200 / 2.2.2.**
